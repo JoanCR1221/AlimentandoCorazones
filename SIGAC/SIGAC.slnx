@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="SIGAC.Application/SIGAC.Application.csproj" />
+  <Project Path="SIGAC.Domain/SIGAC.Domain.csproj" />
+  <Project Path="SIGAC.Infrastructure/SIGAC.Infrastructure.csproj" />
+  <Project Path="SIGAC/SIGAC.csproj" />
+</Solution>
