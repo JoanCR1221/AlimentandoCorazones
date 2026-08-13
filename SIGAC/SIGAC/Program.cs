@@ -1,3 +1,6 @@
+using SIGAC.Application.Interfaces;
+using SIGAC.Application.Services;
+using SIGAC.Infrastructure.Repositories;
 using SIGAC.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -5,6 +8,14 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+// Servicios del módulo de Beneficiarios y Asistencia
+builder.Services.AddScoped<IBeneficiariosService, BeneficiariosService>();
+builder.Services.AddScoped<IAsistenciaService, AsistenciaService>();
+
+// Repositorios TEMPORALES en memoria (reemplazar por EF Core cuando conectes la BD real)
+builder.Services.AddSingleton<IBeneficiariosRepository, BeneficiariosRepositoryEnMemoria>();
+builder.Services.AddSingleton<IAsistenciaRepository, AsistenciaRepositoryEnMemoria>();
 
 var app = builder.Build();
 

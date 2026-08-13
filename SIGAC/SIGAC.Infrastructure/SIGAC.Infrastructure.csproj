@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SIGAC.Application\SIGAC.Application.csproj" />
     <ProjectReference Include="..\SIGAC.Domain\SIGAC.Domain.csproj" />
   </ItemGroup>
 
