@@ -12,4 +12,8 @@
     <ProjectReference Include="..\SIGAC.Infrastructure\SIGAC.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="MudBlazor" Version="9.8.0" />
+  </ItemGroup>
+
 </Project>

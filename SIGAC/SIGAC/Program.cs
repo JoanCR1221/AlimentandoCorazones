@@ -1,3 +1,4 @@
+using MudBlazor.Services;
 using SIGAC.Application.Interfaces;
 using SIGAC.Application.Services;
 using SIGAC.Infrastructure.Repositories;
@@ -8,6 +9,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddMudServices();
 
 // Servicios del módulo de Beneficiarios y Asistencia
 builder.Services.AddScoped<IBeneficiariosService, BeneficiariosService>();
