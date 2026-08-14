@@ -40,8 +40,15 @@
 
     private async Task Guardar()
     {
-        await BeneficiariosService.RegistrarBeneficiarioAsync(modelo);
-        Snackbar.Add("Beneficiario registrado correctamente.", Severity.Success);
-        modelo = new();
+        try
+        {
+            await BeneficiariosService.RegistrarBeneficiarioAsync(modelo);
+            Snackbar.Add("Beneficiario registrado correctamente.", Severity.Success);
+            modelo = new();
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo registrar el beneficiario. Intentá de nuevo.", Severity.Error);
+        }
     }
 }
