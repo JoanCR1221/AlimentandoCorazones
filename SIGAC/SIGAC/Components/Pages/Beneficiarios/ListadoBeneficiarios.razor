@@ -7,14 +7,15 @@
 
 <MudCard Class="pa-4">
     <MudCardContent>
-        <MudTextField @bind-Value="filtroNombre" Label="Buscar por nombre" Variant="Variant.Outlined" Class="mb-4" />
-        <MudSelect T="string" @bind-Value="filtroCategoria" Label="Categoría" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
+        <MudTextField T="string" Value="filtroNombre" ValueChanged="OnFiltroNombreCambiado" Immediate="true" DebounceInterval="300"
+                      Label="Buscar por nombre" Variant="Variant.Outlined" Class="mb-4" />
+        <MudSelect T="string" Value="filtroCategoria" ValueChanged="OnFiltroCategoriaCambiado" Label="Categoría" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
             <MudSelectItem T="string" Value="@("Niño")">Niño</MudSelectItem>
             <MudSelectItem T="string" Value="@("Adulto mayor")">Adulto mayor</MudSelectItem>
             <MudSelectItem T="string" Value="@("Familia")">Familia</MudSelectItem>
             <MudSelectItem T="string" Value="@("Jefa de hogar")">Jefa de hogar</MudSelectItem>
         </MudSelect>
-        <MudSelect T="bool?" @bind-Value="filtroEstado" Label="Estado" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
+        <MudSelect T="bool?" Value="filtroEstado" ValueChanged="OnFiltroEstadoCambiado" Label="Estado" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
             <MudSelectItem T="bool?" Value="true">Activo</MudSelectItem>
             <MudSelectItem T="bool?" Value="false">Inactivo</MudSelectItem>
         </MudSelect>
@@ -45,6 +46,34 @@
 
     protected override async Task OnInitializedAsync()
     {
-        beneficiarios = await BeneficiariosService.ObtenerBeneficiariosAsync(new FiltrosBeneficiarioDto());
+        await CargarAsync();
+    }
+
+    private async Task OnFiltroNombreCambiado(string? valor)
+    {
+        filtroNombre = valor;
+        await CargarAsync();
+    }
+
+    private async Task OnFiltroCategoriaCambiado(string? valor)
+    {
+        filtroCategoria = valor;
+        await CargarAsync();
+    }
+
+    private async Task OnFiltroEstadoCambiado(bool? valor)
+    {
+        filtroEstado = valor;
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        beneficiarios = await BeneficiariosService.ObtenerBeneficiariosAsync(new FiltrosBeneficiarioDto
+        {
+            Nombre = filtroNombre,
+            Categoria = filtroCategoria,
+            Estado = filtroEstado
+        });
     }
 }
