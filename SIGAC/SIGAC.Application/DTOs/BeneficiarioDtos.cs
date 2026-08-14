@@ -1,11 +1,19 @@
-﻿namespace SIGAC.Application.DTOs.Beneficiarios
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace SIGAC.Application.DTOs.Beneficiarios
 {
     public class BeneficiarioCrearDto
     {
         public int Id { get; set; }
+
+        [Required(ErrorMessage = "El nombre es obligatorio.")]
         public string Nombre { get; set; } = string.Empty;
+
         public DateTime FechaNacimiento { get; set; }
+
+        [Required(ErrorMessage = "La categoría es obligatoria.")]
         public string Categoria { get; set; } = string.Empty;
+
         public string? Telefono { get; set; }
         public string? Direccion { get; set; }
         public bool Estado { get; set; }
