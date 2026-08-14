@@ -1,4 +1,5 @@
 @page "/beneficiarios"
+@using SIGAC.Application.DTOs.Beneficiarios
 @using SIGAC.Application.Interfaces
 @inject IBeneficiariosService BeneficiariosService
 
@@ -6,6 +7,30 @@
 
 <MudCard Class="pa-4">
     <MudCardContent>
-
+        <MudDataGrid T="BeneficiarioListaDto" Items="@beneficiarios">
+            <Columns>
+                <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
+                <PropertyColumn Property="x => x.FechaNacimiento" Title="Fecha de nacimiento" Format="dd/MM/yyyy" />
+                <PropertyColumn Property="x => x.Categoria" Title="Categoría" />
+                <PropertyColumn Property="x => x.Telefono" Title="Teléfono" />
+                <TemplateColumn Title="Estado">
+                    <CellTemplate>
+                        @(context.Item.Estado ? "Activo" : "Inactivo")
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+            <NoRecordsContent>
+                <MudText>Todavía no hay beneficiarios registrados.</MudText>
+            </NoRecordsContent>
+        </MudDataGrid>
     </MudCardContent>
 </MudCard>
+
+@code {
+    private IEnumerable<BeneficiarioListaDto> beneficiarios = new List<BeneficiarioListaDto>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        beneficiarios = await BeneficiariosService.ObtenerBeneficiariosAsync(new FiltrosBeneficiarioDto());
+    }
+}
