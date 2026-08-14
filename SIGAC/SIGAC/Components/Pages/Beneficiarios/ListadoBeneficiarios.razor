@@ -33,6 +33,7 @@
                 </TemplateColumn>
                 <TemplateColumn Title="Acciones">
                     <CellTemplate>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/beneficiarios/editar/{context.Item.Id}")">Editar</MudButton>
                         @if (context.Item.Estado)
                         {
                             <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@(() => CambiarEstadoAsync(context.Item.Id, false))">Desactivar</MudButton>
