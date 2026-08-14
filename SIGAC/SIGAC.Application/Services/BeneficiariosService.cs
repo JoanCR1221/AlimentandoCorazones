@@ -43,6 +43,29 @@ namespace SIGAC.Application.Services
             }
         }
 
+        public async Task<BeneficiarioEditarDto?> ObtenerParaEditarAsync(int id)
+        {
+            try
+            {
+                var beneficiario = await _repository.ObtenerPorIdAsync(id);
+                if (beneficiario is null)
+                    return null;
+
+                return new BeneficiarioEditarDto
+                {
+                    Nombre = beneficiario.Nombre,
+                    FechaNacimiento = beneficiario.FechaNacimiento,
+                    Categoria = beneficiario.Categoria,
+                    Telefono = beneficiario.Telefono,
+                    Direccion = beneficiario.Direccion
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al consultar el beneficiario.", ex);
+            }
+        }
+
         public async Task ActualizarBeneficiarioAsync(int id, BeneficiarioEditarDto dto)
         {
             try

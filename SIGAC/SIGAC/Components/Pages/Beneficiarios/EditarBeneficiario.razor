@@ -2,6 +2,7 @@
 @using SIGAC.Application.DTOs.Beneficiarios
 @using SIGAC.Application.Interfaces
 @inject IBeneficiariosService BeneficiariosService
+@inject NavigationManager NavigationManager
 
 <MudText Typo="Typo.h4" Class="mb-4">Editar beneficiario</MudText>
 
@@ -16,4 +17,16 @@
     public int Id { get; set; }
 
     private BeneficiarioEditarDto modelo = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var datos = await BeneficiariosService.ObtenerParaEditarAsync(Id);
+        if (datos is null)
+        {
+            NavigationManager.NavigateTo("/beneficiarios");
+            return;
+        }
+
+        modelo = datos;
+    }
 }
