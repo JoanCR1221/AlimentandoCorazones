@@ -2,6 +2,7 @@
 @using SIGAC.Application.DTOs.Beneficiarios
 @using SIGAC.Application.Interfaces
 @inject IBeneficiariosService BeneficiariosService
+@inject ISnackbar Snackbar
 
 <MudText Typo="Typo.h4" Class="mb-4">Registrar beneficiario</MudText>
 
@@ -40,5 +41,7 @@
     private async Task Guardar()
     {
         await BeneficiariosService.RegistrarBeneficiarioAsync(modelo);
+        Snackbar.Add("Beneficiario registrado correctamente.", Severity.Success);
+        modelo = new();
     }
 }
