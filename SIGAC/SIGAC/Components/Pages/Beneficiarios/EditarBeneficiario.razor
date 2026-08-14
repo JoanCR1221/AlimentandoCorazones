@@ -1,0 +1,17 @@
+@page "/beneficiarios/editar/{Id:int}"
+@using SIGAC.Application.DTOs.Beneficiarios
+
+<MudText Typo="Typo.h4" Class="mb-4">Editar beneficiario</MudText>
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private BeneficiarioEditarDto modelo = new();
+}
