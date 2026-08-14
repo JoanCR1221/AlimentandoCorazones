@@ -56,8 +56,15 @@
 
     private async Task Guardar()
     {
-        await BeneficiariosService.ActualizarBeneficiarioAsync(Id, modelo);
-        Snackbar.Add("Beneficiario actualizado correctamente.", Severity.Success);
-        NavigationManager.NavigateTo("/beneficiarios");
+        try
+        {
+            await BeneficiariosService.ActualizarBeneficiarioAsync(Id, modelo);
+            Snackbar.Add("Beneficiario actualizado correctamente.", Severity.Success);
+            NavigationManager.NavigateTo("/beneficiarios");
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo actualizar el beneficiario. Intentá de nuevo.", Severity.Error);
+        }
     }
 }
