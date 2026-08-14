@@ -7,6 +7,12 @@
     <MudCardContent>
         <MudTextField @bind-Value="modelo.Nombre" Label="Nombre" Variant="Variant.Outlined" />
         <MudDatePicker @bind-Date="fechaNacimiento" Label="Fecha de nacimiento" Variant="Variant.Outlined" Class="mt-4" />
+        <MudSelect T="string" @bind-Value="modelo.Categoria" Label="Categoría" Variant="Variant.Outlined" Class="mt-4">
+            <MudSelectItem T="string" Value="@("Niño")">Niño</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Adulto mayor")">Adulto mayor</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Familia")">Familia</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Jefa de hogar")">Jefa de hogar</MudSelectItem>
+        </MudSelect>
     </MudCardContent>
 </MudCard>
 
