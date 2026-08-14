@@ -6,9 +6,16 @@
 <MudCard Class="pa-4">
     <MudCardContent>
         <MudTextField @bind-Value="modelo.Nombre" Label="Nombre" Variant="Variant.Outlined" />
+        <MudDatePicker @bind-Date="fechaNacimiento" Label="Fecha de nacimiento" Variant="Variant.Outlined" Class="mt-4" />
     </MudCardContent>
 </MudCard>
 
 @code {
     private BeneficiarioCrearDto modelo = new();
+
+    private DateTime? fechaNacimiento
+    {
+        get => modelo.FechaNacimiento == default ? null : modelo.FechaNacimiento;
+        set => modelo.FechaNacimiento = value ?? default;
+    }
 }
