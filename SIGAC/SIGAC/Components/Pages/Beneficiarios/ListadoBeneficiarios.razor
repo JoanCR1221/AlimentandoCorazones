@@ -14,6 +14,10 @@
             <MudSelectItem T="string" Value="@("Familia")">Familia</MudSelectItem>
             <MudSelectItem T="string" Value="@("Jefa de hogar")">Jefa de hogar</MudSelectItem>
         </MudSelect>
+        <MudSelect T="bool?" @bind-Value="filtroEstado" Label="Estado" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
+            <MudSelectItem T="bool?" Value="true">Activo</MudSelectItem>
+            <MudSelectItem T="bool?" Value="false">Inactivo</MudSelectItem>
+        </MudSelect>
         <MudDataGrid T="BeneficiarioListaDto" Items="@beneficiarios">
             <Columns>
                 <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
@@ -37,6 +41,7 @@
     private IEnumerable<BeneficiarioListaDto> beneficiarios = new List<BeneficiarioListaDto>();
     private string? filtroNombre;
     private string? filtroCategoria;
+    private bool? filtroEstado;
 
     protected override async Task OnInitializedAsync()
     {
