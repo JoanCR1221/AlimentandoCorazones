@@ -3,6 +3,7 @@
 @using SIGAC.Application.Interfaces
 @inject IBeneficiariosService BeneficiariosService
 @inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
 
 <MudText Typo="Typo.h4" Class="mb-4">Editar beneficiario</MudText>
 
@@ -56,5 +57,7 @@
     private async Task Guardar()
     {
         await BeneficiariosService.ActualizarBeneficiarioAsync(Id, modelo);
+        Snackbar.Add("Beneficiario actualizado correctamente.", Severity.Success);
+        NavigationManager.NavigateTo("/beneficiarios");
     }
 }
