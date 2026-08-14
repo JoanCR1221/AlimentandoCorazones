@@ -2,6 +2,7 @@
 @using SIGAC.Application.DTOs.Beneficiarios
 @using SIGAC.Application.Interfaces
 @inject IBeneficiariosService BeneficiariosService
+@inject ISnackbar Snackbar
 
 <MudText Typo="Typo.h4" Class="mb-4">Beneficiarios registrados</MudText>
 
@@ -28,6 +29,18 @@
                 <TemplateColumn Title="Estado">
                     <CellTemplate>
                         @(context.Item.Estado ? "Activo" : "Inactivo")
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Acciones">
+                    <CellTemplate>
+                        @if (context.Item.Estado)
+                        {
+                            <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@(() => CambiarEstadoAsync(context.Item.Id, false))">Desactivar</MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Text" Color="Color.Success" OnClick="@(() => CambiarEstadoAsync(context.Item.Id, true))">Activar</MudButton>
+                        }
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
@@ -75,5 +88,23 @@
             Categoria = filtroCategoria,
             Estado = filtroEstado
         });
+    }
+
+    private async Task CambiarEstadoAsync(int id, bool activar)
+    {
+        try
+        {
+            if (activar)
+                await BeneficiariosService.ActivarBeneficiarioAsync(id);
+            else
+                await BeneficiariosService.DesactivarBeneficiarioAsync(id);
+
+            Snackbar.Add(activar ? "Beneficiario activado." : "Beneficiario desactivado.", Severity.Success);
+            await CargarAsync();
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo actualizar el estado del beneficiario. Intentá de nuevo.", Severity.Error);
+        }
     }
 }
