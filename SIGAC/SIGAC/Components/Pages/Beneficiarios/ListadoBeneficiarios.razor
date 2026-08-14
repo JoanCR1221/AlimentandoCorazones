@@ -8,6 +8,12 @@
 <MudCard Class="pa-4">
     <MudCardContent>
         <MudTextField @bind-Value="filtroNombre" Label="Buscar por nombre" Variant="Variant.Outlined" Class="mb-4" />
+        <MudSelect T="string" @bind-Value="filtroCategoria" Label="Categoría" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
+            <MudSelectItem T="string" Value="@("Niño")">Niño</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Adulto mayor")">Adulto mayor</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Familia")">Familia</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Jefa de hogar")">Jefa de hogar</MudSelectItem>
+        </MudSelect>
         <MudDataGrid T="BeneficiarioListaDto" Items="@beneficiarios">
             <Columns>
                 <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
@@ -30,6 +36,7 @@
 @code {
     private IEnumerable<BeneficiarioListaDto> beneficiarios = new List<BeneficiarioListaDto>();
     private string? filtroNombre;
+    private string? filtroCategoria;
 
     protected override async Task OnInitializedAsync()
     {
