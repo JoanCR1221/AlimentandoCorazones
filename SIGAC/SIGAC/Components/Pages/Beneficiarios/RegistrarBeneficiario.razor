@@ -5,7 +5,7 @@
 
 <MudText Typo="Typo.h4" Class="mb-4">Registrar beneficiario</MudText>
 
-<EditForm Model="modelo">
+<EditForm Model="modelo" OnValidSubmit="Guardar">
     <DataAnnotationsValidator />
     <ValidationSummary />
 
@@ -35,5 +35,10 @@
     {
         get => modelo.FechaNacimiento == default ? null : modelo.FechaNacimiento;
         set => modelo.FechaNacimiento = value ?? default;
+    }
+
+    private async Task Guardar()
+    {
+        await BeneficiariosService.RegistrarBeneficiarioAsync(modelo);
     }
 }
