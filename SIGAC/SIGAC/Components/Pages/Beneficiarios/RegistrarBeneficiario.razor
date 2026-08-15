@@ -22,6 +22,21 @@
             </MudSelect>
             <MudTextField @bind-Value="modelo.Telefono" Label="Teléfono" Variant="Variant.Outlined" Class="mt-4" />
             <MudTextField @bind-Value="modelo.Direccion" Label="Dirección" Variant="Variant.Outlined" Class="mt-4" />
+            <MudSelect T="string" @bind-Value="modelo.TipoDocumento" Label="Tipo de documento" Variant="Variant.Outlined" Class="mt-4">
+                <MudSelectItem T="string" Value="@("Cédula")">Cédula</MudSelectItem>
+                <MudSelectItem T="string" Value="@("DIMEX")">DIMEX</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Pasaporte")">Pasaporte</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Cédula de residencia")">Cédula de residencia</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Sin documento")">Sin documento</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Otro")">Otro</MudSelectItem>
+            </MudSelect>
+
+            @if (modelo.TipoDocumento == "Otro")
+            {
+                <MudTextField @bind-Value="modelo.TipoDocumentoOtro" Label="Especifique el tipo de documento" Variant="Variant.Outlined" Class="mt-4" />
+            }
+
+            <MudTextField @bind-Value="modelo.NumIdentidad" Label="Número de identidad" Variant="Variant.Outlined" Class="mt-4" />
         </MudCardContent>
         <MudCardActions>
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>

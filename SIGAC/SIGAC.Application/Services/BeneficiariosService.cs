@@ -32,7 +32,10 @@ namespace SIGAC.Application.Services
                     Telefono = dto.Telefono,
                     Direccion = dto.Direccion,
                     Estado = true,
-                    FechaRegistro = DateTime.Now
+                    FechaRegistro = DateTime.Now,
+                    TipoDocumento = dto.TipoDocumento,
+                    NumIdentidad = dto.NumIdentidad,
+                    TipoDocumentoOtro = dto.TipoDocumentoOtro
                 };
 
                 await _repository.AgregarAsync(beneficiario);
@@ -103,7 +106,10 @@ namespace SIGAC.Application.Services
                     FechaNacimiento = b.FechaNacimiento,
                     Categoria = b.Categoria,
                     Telefono = b.Telefono,
-                    Estado = b.Estado
+                    Estado = b.Estado,
+                    TipoDocumento = b.TipoDocumento,
+                    NumIdentidad = b.NumIdentidad
+                    
                 });
             }
             catch (Exception ex)

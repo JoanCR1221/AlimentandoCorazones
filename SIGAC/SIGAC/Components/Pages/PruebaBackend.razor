@@ -22,7 +22,7 @@
 
 <table class="table">
     <thead>
-        <tr><th>Id</th><th>Nombre</th><th>Categoría</th><th>Estado</th></tr>
+        <tr><th>Id</th><th>Nombre</th><th>Categoría</th><th>Tipo Documento</th><th>Número de Identidad</th><th>Estado</th></tr>
     </thead>
     <tbody>
         @foreach (var b in beneficiarios)
@@ -31,6 +31,8 @@
                 <td>@b.Id</td>
                 <td>@b.Nombre</td>
                 <td>@b.Categoria</td>
+                <td>@b.TipoDocumento</td>
+                <td>@b.NumIdentidad</td>
                 <td>@(b.Estado ? "Activo" : "Inactivo")</td>
             </tr>
         }
@@ -46,7 +48,6 @@
     {
         await Cargar();
     }
-
     private async Task RegistrarPrueba()
     {
         mensaje = null;
@@ -59,7 +60,10 @@
                 FechaNacimiento = new DateTime(2000, 1, 1),
                 Categoria = "General",
                 Telefono = "8888-0000",
-                Direccion = "Sin dirección"
+                Direccion = "Sin dirección",
+                TipoDocumento = "DIMEX",
+                NumIdentidad = "123456789"
+               
             });
             mensaje = "Beneficiario registrado correctamente.";
             await Cargar();

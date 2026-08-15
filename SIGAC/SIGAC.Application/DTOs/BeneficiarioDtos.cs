@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using SIGAC.Domain;
+using System.ComponentModel.DataAnnotations;
 
 namespace SIGAC.Application.DTOs.Beneficiarios
 {
@@ -18,6 +19,11 @@ namespace SIGAC.Application.DTOs.Beneficiarios
         public string? Direccion { get; set; }
         public bool Estado { get; set; }
         public DateTime FechaRegistro { get; set; }
+
+        public string? TipoDocumento { get; set; }
+        public string? NumIdentidad { get; set; }
+        public string? TipoDocumentoOtro { get; set; }
+
     }
 
     public class BeneficiarioEditarDto
@@ -42,6 +48,11 @@ namespace SIGAC.Application.DTOs.Beneficiarios
         public string Categoria { get; set; } = string.Empty;
         public string? Telefono { get; set; }
         public bool Estado { get; set; }
+        public string? TipoDocumento { get; set; }
+        public string? NumIdentidad { get; set; }
+        public string? TipoDocumentoOtro { get; set; }
+
+
     }
 
     public class FiltrosBeneficiarioDto
