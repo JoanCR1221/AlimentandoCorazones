@@ -1,6 +1,8 @@
+using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 using SIGAC.Application.Interfaces;
 using SIGAC.Application.Services;
+using SIGAC.Infrastructure.Data;
 using SIGAC.Infrastructure.Repositories;
 using SIGAC.Components;
 
@@ -12,12 +14,18 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddMudServices();
 
+// DbContext de EF Core contra SQL Server Express local
+builder.Services.AddDbContext<SigacDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("SigacDb")));
+
 // Servicios del módulo de Beneficiarios y Asistencia
 builder.Services.AddScoped<IBeneficiariosService, BeneficiariosService>();
 builder.Services.AddScoped<IAsistenciaService, AsistenciaService>();
 
-// Repositorios TEMPORALES en memoria (reemplazar por EF Core cuando conectes la BD real)
-builder.Services.AddSingleton<IBeneficiariosRepository, BeneficiariosRepositoryEnMemoria>();
+// Repositorio de Beneficiarios con EF Core (reemplaza la versión temporal en memoria)
+builder.Services.AddScoped<IBeneficiariosRepository, BeneficiariosRepositoryEfCore>();
+
+// Repositorio de Asistencia TEMPORAL en memoria (aún sin migrar a EF Core)
 builder.Services.AddSingleton<IAsistenciaRepository, AsistenciaRepositoryEnMemoria>();
 
 var app = builder.Build();
