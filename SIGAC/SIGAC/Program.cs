@@ -21,12 +21,16 @@ builder.Services.AddDbContext<SigacDbContext>(options =>
 // Servicios del módulo de Beneficiarios y Asistencia
 builder.Services.AddScoped<IBeneficiariosService, BeneficiariosService>();
 builder.Services.AddScoped<IAsistenciaService, AsistenciaService>();
+builder.Services.AddScoped<IInventarioService, InventarioService>();
 
 // Repositorio de Beneficiarios con EF Core (reemplaza la versión temporal en memoria)
 builder.Services.AddScoped<IBeneficiariosRepository, BeneficiariosRepositoryEfCore>();
 
 // Repositorio de Asistencia TEMPORAL en memoria (aún sin migrar a EF Core)
 builder.Services.AddSingleton<IAsistenciaRepository, AsistenciaRepositoryEnMemoria>();
+
+// Repositorio de Inventario con EF Core
+//builder.Services.AddScoped<IInventarioRepository, InventarioRepository>();
 
 var app = builder.Build();
 
