@@ -73,7 +73,10 @@ namespace SIGAC.Application.Services
                     FechaNacimiento = beneficiario.FechaNacimiento,
                     Categoria = beneficiario.Categoria,
                     Telefono = beneficiario.Telefono,
-                    Direccion = beneficiario.Direccion
+                    Direccion = beneficiario.Direccion,
+                    TipoDocumento = beneficiario.TipoDocumento,
+                    NumIdentidad = beneficiario.NumIdentidad,
+                    TipoDocumentoOtro = beneficiario.TipoDocumentoOtro
                 };
             }
             catch (Exception ex)
@@ -98,11 +101,19 @@ namespace SIGAC.Application.Services
                 if (dto.FechaNacimiento.Date > DateTime.Today)
                     throw new ValidationException("La fecha de nacimiento no puede ser futura.");
 
+                var esOtroDocumento = dto.TipoDocumento == "Otro";
+                if (esOtroDocumento && string.IsNullOrWhiteSpace(dto.TipoDocumentoOtro))
+                    throw new ValidationException("Debe especificar el tipo de documento cuando selecciona 'Otro'.");
+
                 beneficiario.Nombre = dto.Nombre.Trim();
                 beneficiario.FechaNacimiento = dto.FechaNacimiento;
                 beneficiario.Categoria = dto.Categoria;
                 beneficiario.Telefono = dto.Telefono;
                 beneficiario.Direccion = dto.Direccion;
+                beneficiario.TipoDocumento = dto.TipoDocumento;
+                beneficiario.NumIdentidad = dto.NumIdentidad;
+                // Solo se conserva la especificación cuando el tipo es "Otro".
+                beneficiario.TipoDocumentoOtro = esOtroDocumento ? dto.TipoDocumentoOtro!.Trim() : null;
 
                 await _repository.ActualizarAsync(beneficiario);
             }

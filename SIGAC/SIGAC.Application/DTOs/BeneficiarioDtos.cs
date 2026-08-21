@@ -38,6 +38,10 @@ namespace SIGAC.Application.DTOs.Beneficiarios
 
         public string? Telefono { get; set; }
         public string? Direccion { get; set; }
+
+        public string? TipoDocumento { get; set; }
+        public string? NumIdentidad { get; set; }
+        public string? TipoDocumentoOtro { get; set; }
     }
 
     public class BeneficiarioListaDto
