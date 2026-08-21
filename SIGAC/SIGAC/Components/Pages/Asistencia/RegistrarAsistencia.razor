@@ -17,14 +17,14 @@
         <MudCardContent>
             <MudAutocomplete T="BeneficiarioListaDto" Label="Beneficiario" Variant="Variant.Outlined"
                               Value="beneficiarioSeleccionado" ValueChanged="OnBeneficiarioSeleccionadoAsync"
-                              SearchFunc="BuscarBeneficiariosActivosAsync" ToStringFunc="@(b => b?.Nombre)" />
+                              SearchFunc="BuscarBeneficiariosActivosAsync" ToStringFunc="@(b => b?.NombreCompleto)" />
             <MudDatePicker @bind-Date="fecha" @bind-Date:after="VerificarDuplicadoAsync" Label="Fecha" Variant="Variant.Outlined" Class="mt-4"
                            MaxDate="DateTime.Today" />
             <MudSelect T="string" @bind-Value="modelo.TiempoComida" @bind-Value:after="VerificarDuplicadoAsync" For="@(() => modelo.TiempoComida)"
                        Label="Tiempo de comida" Variant="Variant.Outlined" Class="mt-4">
                 <MudSelectItem T="string" Value="@("Desayuno")">Desayuno</MudSelectItem>
                 <MudSelectItem T="string" Value="@("Almuerzo")">Almuerzo</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Cena")">Cena</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Merienda")">Merienda</MudSelectItem>
             </MudSelect>
 
             @if (asistenciaDuplicada)

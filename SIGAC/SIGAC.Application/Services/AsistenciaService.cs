@@ -7,7 +7,7 @@ namespace SIGAC.Application.Services
 {
     public class AsistenciaService : IAsistenciaService
     {
-        private static readonly string[] TiemposComidaValidos = { "Desayuno", "Almuerzo", "Cena" };
+        private static readonly string[] TiemposComidaValidos = { "Desayuno", "Almuerzo", "Merienda" };
 
         private readonly IAsistenciaRepository _asistenciaRepository;
         private readonly IBeneficiariosRepository _beneficiariosRepository;
@@ -32,7 +32,7 @@ namespace SIGAC.Application.Services
 
                 if (string.IsNullOrWhiteSpace(dto.TiempoComida) ||
                     !TiemposComidaValidos.Contains(dto.TiempoComida))
-                    throw new ValidationException("El tiempo de comida debe ser Desayuno, Almuerzo o Cena.");
+                    throw new ValidationException("El tiempo de comida debe ser Desayuno, Almuerzo o Merienda.");
 
                 var beneficiario = await _beneficiariosRepository.ObtenerPorIdAsync(dto.BeneficiarioId)
                     ?? throw new NotFoundException("El beneficiario no existe.");
@@ -75,7 +75,7 @@ namespace SIGAC.Application.Services
                     .Select(a => new HistorialAsistenciaDto
                     {
                         Id = a.Id,
-                        NombreBeneficiario = a.Beneficiario?.Nombre ?? string.Empty,
+                        NombreBeneficiario = a.Beneficiario?.NombreCompleto ?? string.Empty,
                         Fecha = a.Fecha,
                         TiempoComida = a.TiempoComida
                     })

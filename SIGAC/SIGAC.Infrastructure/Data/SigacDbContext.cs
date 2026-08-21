@@ -1,4 +1,5 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
+using SIGAC.Domain;
 using SIGAC.Domain.Entities;
 
 namespace SIGAC.Infrastructure.Data
@@ -28,7 +29,22 @@ namespace SIGAC.Infrastructure.Data
                 entity.Property(b => b.Nombre)
                     .IsRequired()
                     .IsUnicode(false)
-                    .HasMaxLength(150);
+                    .HasMaxLength(ReglasBeneficiario.LongitudMaximaNombre);
+
+                entity.Property(b => b.PrimerApellido)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(ReglasBeneficiario.LongitudMaximaApellido);
+
+                // Obligatoria a nivel de columna aunque sea opcional para el usuario:
+                // se guarda como cadena vacía para que el índice único funcione.
+                entity.Property(b => b.SegundoApellido)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(ReglasBeneficiario.LongitudMaximaApellido);
+
+                // Propiedad de solo lectura para listados: no es una columna.
+                entity.Ignore(b => b.NombreCompleto);
 
                 entity.Property(b => b.FechaNacimiento)
                     .IsRequired();
@@ -64,8 +80,16 @@ namespace SIGAC.Infrastructure.Data
                     .IsUnicode(false)
                     .HasMaxLength(100);
 
-                // Índices en los campos de búsqueda frecuente.
-                entity.HasIndex(b => b.Nombre);
+                // Unicidad: no puede haber dos beneficiarios con el mismo nombre,
+                // los mismos apellidos y la misma fecha de nacimiento. Respalda en
+                // la BD la validación del servicio y cierra la condición de carrera
+                // entre el SELECT previo y el INSERT.
+                entity.HasIndex(b => new { b.Nombre, b.PrimerApellido, b.SegundoApellido, b.FechaNacimiento })
+                    .IsUnique()
+                    .HasDatabaseName("UX_Beneficiarios_Nombre_Apellidos_FechaNacimiento");
+
+                // Índices en los campos de filtro frecuente. El índice único anterior
+                // ya cubre las búsquedas que empiezan por Nombre.
                 entity.HasIndex(b => b.Categoria);
                 entity.HasIndex(b => b.Estado);
             });
@@ -77,7 +101,7 @@ namespace SIGAC.Infrastructure.Data
                 entity.ToTable("AsistenciasComedor", t =>
                     t.HasCheckConstraint(
                         "CK_AsistenciasComedor_TiempoComida",
-                        "[TiempoComida] IN ('Desayuno', 'Almuerzo', 'Cena')"));
+                        "[TiempoComida] IN ('Desayuno', 'Almuerzo', 'Merienda')"));
 
                 entity.HasKey(a => a.Id);
 

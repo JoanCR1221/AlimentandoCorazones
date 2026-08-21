@@ -1,7 +1,8 @@
-@page "/beneficiarios/editar/{Id:int}"
+﻿@page "/beneficiarios/editar/{Id:int}"
 @using SIGAC.Application.DTOs.Beneficiarios
 @using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces
+@using SIGAC.Domain
 @inject IBeneficiariosService BeneficiariosService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
@@ -15,13 +16,18 @@
     <MudCard Class="pa-4">
         <MudCardContent>
             <MudTextField @bind-Value="modelo.Nombre" For="@(() => modelo.Nombre)" Label="Nombre" Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="modelo.PrimerApellido" For="@(() => modelo.PrimerApellido)" Label="Primer apellido" Variant="Variant.Outlined" Class="mt-4" />
+            <MudTextField @bind-Value="modelo.SegundoApellido" Label="Segundo apellido (opcional)" Variant="Variant.Outlined" Class="mt-4" />
             <MudDatePicker @bind-Date="fechaNacimiento" Label="Fecha de nacimiento" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
-            <MudSelect T="string" @bind-Value="modelo.Categoria" For="@(() => modelo.Categoria)" Label="Categoría" Variant="Variant.Outlined" Class="mt-4">
-                <MudSelectItem T="string" Value="@("Niño")">Niño</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Adulto mayor")">Adulto mayor</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Familia")">Familia</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Jefa de hogar")">Jefa de hogar</MudSelectItem>
-            </MudSelect>
+
+            @* La categoría ya no se elige: se deriva de la fecha de nacimiento. *@
+            @if (modelo.FechaNacimiento != default)
+            {
+                <MudText Typo="Typo.body2" Class="mt-2">
+                    Categoría: @CategoriasBeneficiario.DerivarDesdeFechaNacimiento(modelo.FechaNacimiento)
+                </MudText>
+            }
+
             <MudTextField @bind-Value="modelo.Telefono" Label="Teléfono" Variant="Variant.Outlined" Class="mt-4" />
             <MudTextField @bind-Value="modelo.Direccion" Label="Dirección" Variant="Variant.Outlined" Class="mt-4" />
             <MudSelect T="string" @bind-Value="modelo.TipoDocumento" Label="Tipo de documento" Variant="Variant.Outlined" Class="mt-4">
@@ -79,6 +85,10 @@
             NavigationManager.NavigateTo("/beneficiarios");
         }
         catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (DuplicateException ex)
         {
             Snackbar.Add(ex.Message, Severity.Warning);
         }

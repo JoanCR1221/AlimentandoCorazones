@@ -1,6 +1,7 @@
 ﻿using SIGAC.Application.DTOs.Beneficiarios;
 using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
+using SIGAC.Domain;
 using SIGAC.Domain.Entities;
 
 namespace SIGAC.Application.Services
@@ -18,29 +19,26 @@ namespace SIGAC.Application.Services
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(dto.Nombre) || string.IsNullOrWhiteSpace(dto.Categoria))
-                    throw new ValidationException("Nombre y Categoría son obligatorios.");
-
-                if (dto.FechaNacimiento == default)
-                    throw new ValidationException("La fecha de nacimiento es obligatoria.");
-
-                if (dto.FechaNacimiento.Date > DateTime.Today)
-                    throw new ValidationException("La fecha de nacimiento no puede ser futura.");
+                var nombre = ValidarNombre(dto.Nombre, "El nombre", ReglasBeneficiario.LongitudMaximaNombre);
+                var primerApellido = ValidarNombre(dto.PrimerApellido, "El primer apellido", ReglasBeneficiario.LongitudMaximaApellido);
+                var segundoApellido = ValidarSegundoApellido(dto.SegundoApellido);
+                var fechaNacimiento = ValidarFechaNacimiento(dto.FechaNacimiento);
 
                 var esOtroDocumento = dto.TipoDocumento == "Otro";
                 if (esOtroDocumento && string.IsNullOrWhiteSpace(dto.TipoDocumentoOtro))
                     throw new ValidationException("Debe especificar el tipo de documento cuando selecciona 'Otro'.");
 
-                var nombre = dto.Nombre.Trim();
-
-                if (await _repository.ExisteAsync(nombre, dto.FechaNacimiento))
-                    throw new DuplicateException("Ya existe un beneficiario con ese nombre y fecha de nacimiento.");
+                if (await _repository.ExisteAsync(nombre, primerApellido, segundoApellido, fechaNacimiento))
+                    throw new DuplicateException("Ya existe un beneficiario con ese nombre, apellidos y fecha de nacimiento.");
 
                 var beneficiario = new Beneficiario
                 {
                     Nombre = nombre,
-                    FechaNacimiento = dto.FechaNacimiento,
-                    Categoria = dto.Categoria,
+                    PrimerApellido = primerApellido,
+                    SegundoApellido = segundoApellido,
+                    FechaNacimiento = fechaNacimiento,
+                    // La categoría se almacena, pero nunca se elige a mano.
+                    Categoria = CategoriasBeneficiario.DerivarDesdeFechaNacimiento(fechaNacimiento),
                     Telefono = dto.Telefono,
                     Direccion = dto.Direccion,
                     Estado = true,
@@ -70,8 +68,9 @@ namespace SIGAC.Application.Services
                 return new BeneficiarioEditarDto
                 {
                     Nombre = beneficiario.Nombre,
+                    PrimerApellido = beneficiario.PrimerApellido,
+                    SegundoApellido = beneficiario.SegundoApellido,
                     FechaNacimiento = beneficiario.FechaNacimiento,
-                    Categoria = beneficiario.Categoria,
                     Telefono = beneficiario.Telefono,
                     Direccion = beneficiario.Direccion,
                     TipoDocumento = beneficiario.TipoDocumento,
@@ -92,22 +91,25 @@ namespace SIGAC.Application.Services
                 var beneficiario = await _repository.ObtenerPorIdAsync(id)
                     ?? throw new NotFoundException("El beneficiario no existe.");
 
-                if (string.IsNullOrWhiteSpace(dto.Nombre) || string.IsNullOrWhiteSpace(dto.Categoria))
-                    throw new ValidationException("Nombre y Categoría son obligatorios.");
-
-                if (dto.FechaNacimiento == default)
-                    throw new ValidationException("La fecha de nacimiento es obligatoria.");
-
-                if (dto.FechaNacimiento.Date > DateTime.Today)
-                    throw new ValidationException("La fecha de nacimiento no puede ser futura.");
+                var nombre = ValidarNombre(dto.Nombre, "El nombre", ReglasBeneficiario.LongitudMaximaNombre);
+                var primerApellido = ValidarNombre(dto.PrimerApellido, "El primer apellido", ReglasBeneficiario.LongitudMaximaApellido);
+                var segundoApellido = ValidarSegundoApellido(dto.SegundoApellido);
+                var fechaNacimiento = ValidarFechaNacimiento(dto.FechaNacimiento);
 
                 var esOtroDocumento = dto.TipoDocumento == "Otro";
                 if (esOtroDocumento && string.IsNullOrWhiteSpace(dto.TipoDocumentoOtro))
                     throw new ValidationException("Debe especificar el tipo de documento cuando selecciona 'Otro'.");
 
-                beneficiario.Nombre = dto.Nombre.Trim();
-                beneficiario.FechaNacimiento = dto.FechaNacimiento;
-                beneficiario.Categoria = dto.Categoria;
+                // Editar el nombre o la fecha puede chocar con otro beneficiario ya
+                // registrado; se excluye el propio para no detectarse a sí mismo.
+                if (await _repository.ExisteAsync(nombre, primerApellido, segundoApellido, fechaNacimiento, id))
+                    throw new DuplicateException("Ya existe otro beneficiario con ese nombre, apellidos y fecha de nacimiento.");
+
+                beneficiario.Nombre = nombre;
+                beneficiario.PrimerApellido = primerApellido;
+                beneficiario.SegundoApellido = segundoApellido;
+                beneficiario.FechaNacimiento = fechaNacimiento;
+                beneficiario.Categoria = CategoriasBeneficiario.DerivarDesdeFechaNacimiento(fechaNacimiento);
                 beneficiario.Telefono = dto.Telefono;
                 beneficiario.Direccion = dto.Direccion;
                 beneficiario.TipoDocumento = dto.TipoDocumento;
@@ -117,7 +119,7 @@ namespace SIGAC.Application.Services
 
                 await _repository.ActualizarAsync(beneficiario);
             }
-            catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
+            catch (Exception ex) when (ex is not ValidationException and not NotFoundException and not DuplicateException)
             {
                 throw new Exception("Error al actualizar el beneficiario.", ex);
             }
@@ -133,13 +135,15 @@ namespace SIGAC.Application.Services
                 {
                     Id = b.Id,
                     Nombre = b.Nombre,
+                    PrimerApellido = b.PrimerApellido,
+                    SegundoApellido = b.SegundoApellido,
                     FechaNacimiento = b.FechaNacimiento,
                     Categoria = b.Categoria,
                     Telefono = b.Telefono,
                     Estado = b.Estado,
                     TipoDocumento = b.TipoDocumento,
                     NumIdentidad = b.NumIdentidad
-                    
+
                 });
             }
             catch (Exception ex)
@@ -165,6 +169,54 @@ namespace SIGAC.Application.Services
             {
                 throw new Exception("Error al cambiar el estado del beneficiario.", ex);
             }
+        }
+
+        // Devuelve el valor ya normalizado (recortado y sin espacios internos
+        // repetidos), que es la forma en que se guarda.
+        private static string ValidarNombre(string? valor, string etiqueta, int longitudMaxima)
+        {
+            var normalizado = TextoNormalizador.CompactarEspacios(valor);
+
+            if (normalizado.Length == 0)
+                throw new ValidationException($"{etiqueta} es obligatorio.");
+
+            if (normalizado.Length < ReglasBeneficiario.LongitudMinimaNombre)
+                throw new ValidationException($"{etiqueta} debe tener al menos {ReglasBeneficiario.LongitudMinimaNombre} caracteres.");
+
+            if (normalizado.Length > longitudMaxima)
+                throw new ValidationException($"{etiqueta} no puede superar los {longitudMaxima} caracteres.");
+
+            if (!ReglasBeneficiario.TieneFormatoValido(normalizado))
+                throw new ValidationException($"{etiqueta} solo puede contener letras, apóstrofes y guiones.");
+
+            return normalizado;
+        }
+
+        private static string ValidarSegundoApellido(string? valor)
+        {
+            var normalizado = TextoNormalizador.CompactarEspacios(valor);
+
+            // Opcional: cuando no se ingresa se guarda como cadena vacía, no como NULL.
+            if (normalizado.Length == 0)
+                return string.Empty;
+
+            return ValidarNombre(normalizado, "El segundo apellido", ReglasBeneficiario.LongitudMaximaApellido);
+        }
+
+        private static DateTime ValidarFechaNacimiento(DateTime fechaNacimiento)
+        {
+            if (fechaNacimiento == default)
+                throw new ValidationException("La fecha de nacimiento es obligatoria.");
+
+            var fecha = fechaNacimiento.Date;
+
+            if (fecha > DateTime.Today)
+                throw new ValidationException("La fecha de nacimiento no puede ser futura.");
+
+            if (CategoriasBeneficiario.CalcularEdad(fecha) > ReglasBeneficiario.EdadMaximaAnios)
+                throw new ValidationException($"La fecha de nacimiento no es válida: supera los {ReglasBeneficiario.EdadMaximaAnios} años.");
+
+            return fecha;
         }
     }
 }

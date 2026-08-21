@@ -8,7 +8,9 @@ namespace SIGAC.Application.Interfaces
         Task AgregarAsync(Beneficiario beneficiario);
         Task ActualizarAsync(Beneficiario beneficiario);
         Task<Beneficiario?> ObtenerPorIdAsync(int id);
-        Task<bool> ExisteAsync(string nombre, DateTime fechaNacimiento);
+        // La comparación es normalizada (sin tildes, sin mayúsculas y sin espacios
+        // sobrantes). idExcluir permite editar un beneficiario sin chocar consigo mismo.
+        Task<bool> ExisteAsync(string nombre, string primerApellido, string segundoApellido, DateTime fechaNacimiento, int? idExcluir = null);
         Task<IEnumerable<Beneficiario>> ObtenerTodosAsync(FiltrosBeneficiarioDto filtros);
         Task CambiarEstadoAsync(int id, bool estado);
     }
