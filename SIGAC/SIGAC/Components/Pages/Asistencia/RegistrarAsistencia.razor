@@ -13,18 +13,26 @@
                           Value="beneficiarioSeleccionado" ValueChanged="OnBeneficiarioSeleccionadoAsync"
                           SearchFunc="BuscarBeneficiariosActivosAsync" ToStringFunc="@(b => b?.Nombre)"
                           Required="true" RequiredError="Debe seleccionar un beneficiario." />
-        <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
-        <MudSelect T="string" @bind-Value="modelo.TiempoComida" Label="Tiempo de comida" Variant="Variant.Outlined" Class="mt-4">
+        <MudDatePicker @bind-Date="fecha" @bind-Date:after="VerificarDuplicadoAsync" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
+        <MudSelect T="string" @bind-Value="modelo.TiempoComida" @bind-Value:after="VerificarDuplicadoAsync" Label="Tiempo de comida" Variant="Variant.Outlined" Class="mt-4">
             <MudSelectItem T="string" Value="@("Desayuno")">Desayuno</MudSelectItem>
             <MudSelectItem T="string" Value="@("Almuerzo")">Almuerzo</MudSelectItem>
             <MudSelectItem T="string" Value="@("Cena")">Cena</MudSelectItem>
         </MudSelect>
+
+        @if (asistenciaDuplicada)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mt-4">
+                Este beneficiario ya tiene una asistencia registrada para ese tiempo de comida en esta fecha.
+            </MudAlert>
+        }
     </MudCardContent>
 </MudCard>
 
 @code {
     private AsistenciaCrearDto modelo = new();
     private BeneficiarioListaDto? beneficiarioSeleccionado;
+    private bool asistenciaDuplicada;
 
     private DateTime? fecha
     {
@@ -43,9 +51,28 @@
         return beneficiarios;
     }
 
-    private void OnBeneficiarioSeleccionadoAsync(BeneficiarioListaDto? valor)
+    private async Task OnBeneficiarioSeleccionadoAsync(BeneficiarioListaDto? valor)
     {
         beneficiarioSeleccionado = valor;
         modelo.BeneficiarioId = valor?.Id ?? 0;
+        await VerificarDuplicadoAsync();
+    }
+
+    private async Task VerificarDuplicadoAsync()
+    {
+        asistenciaDuplicada = false;
+
+        if (modelo.BeneficiarioId == 0 || modelo.Fecha == default || string.IsNullOrWhiteSpace(modelo.TiempoComida))
+            return;
+
+        var resultado = await AsistenciaService.ObtenerHistorialAsistenciaAsync(new FiltrosAsistenciaDto
+        {
+            BeneficiarioId = modelo.BeneficiarioId,
+            FechaDesde = modelo.Fecha,
+            FechaHasta = modelo.Fecha,
+            TiempoComida = modelo.TiempoComida
+        });
+
+        asistenciaDuplicada = resultado.Registros.Count > 0;
     }
 }
