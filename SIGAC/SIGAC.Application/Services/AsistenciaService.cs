@@ -7,6 +7,8 @@ namespace SIGAC.Application.Services
 {
     public class AsistenciaService : IAsistenciaService
     {
+        private static readonly string[] TiemposComidaValidos = { "Desayuno", "Almuerzo", "Cena" };
+
         private readonly IAsistenciaRepository _asistenciaRepository;
         private readonly IBeneficiariosRepository _beneficiariosRepository;
 
@@ -22,6 +24,16 @@ namespace SIGAC.Application.Services
         {
             try
             {
+                if (dto.Fecha == default)
+                    throw new ValidationException("La fecha de asistencia es obligatoria.");
+
+                if (dto.Fecha.Date > DateTime.Today)
+                    throw new ValidationException("La fecha de asistencia no puede ser futura.");
+
+                if (string.IsNullOrWhiteSpace(dto.TiempoComida) ||
+                    !TiemposComidaValidos.Contains(dto.TiempoComida))
+                    throw new ValidationException("El tiempo de comida debe ser Desayuno, Almuerzo o Cena.");
+
                 var beneficiario = await _beneficiariosRepository.ObtenerPorIdAsync(dto.BeneficiarioId)
                     ?? throw new NotFoundException("El beneficiario no existe.");
 
