@@ -1,5 +1,9 @@
 @page "/asistencia/historial"
 @using SIGAC.Application.DTOs.Asistencia
+@using SIGAC.Application.DTOs.Beneficiarios
+@using SIGAC.Application.Interfaces
+@inject IAsistenciaService AsistenciaService
+@inject IBeneficiariosService BeneficiariosService
 
 <MudText Typo="Typo.h4" Class="mb-4">Historial de asistencia</MudText>
 
