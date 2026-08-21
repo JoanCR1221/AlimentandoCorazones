@@ -1,5 +1,6 @@
 @page "/beneficiarios/registrar"
 @using SIGAC.Application.DTOs.Beneficiarios
+@using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces
 @inject IBeneficiariosService BeneficiariosService
 @inject ISnackbar Snackbar
@@ -13,7 +14,7 @@
     <MudCard Class="pa-4">
         <MudCardContent>
             <MudTextField @bind-Value="modelo.Nombre" For="@(() => modelo.Nombre)" Label="Nombre" Variant="Variant.Outlined" />
-            <MudDatePicker @bind-Date="fechaNacimiento" Label="Fecha de nacimiento" Variant="Variant.Outlined" Class="mt-4" />
+            <MudDatePicker @bind-Date="fechaNacimiento" Label="Fecha de nacimiento" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
             <MudSelect T="string" @bind-Value="modelo.Categoria" For="@(() => modelo.Categoria)" Label="Categoría" Variant="Variant.Outlined" Class="mt-4">
                 <MudSelectItem T="string" Value="@("Niño")">Niño</MudSelectItem>
                 <MudSelectItem T="string" Value="@("Adulto mayor")">Adulto mayor</MudSelectItem>
@@ -60,6 +61,14 @@
             await BeneficiariosService.RegistrarBeneficiarioAsync(modelo);
             Snackbar.Add("Beneficiario registrado correctamente.", Severity.Success);
             modelo = new();
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (DuplicateException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
         }
         catch (Exception)
         {
