@@ -77,7 +77,7 @@ namespace SIGAC.Infrastructure.Data
                 entity.ToTable("AsistenciasComedor", t =>
                     t.HasCheckConstraint(
                         "CK_AsistenciasComedor_TiempoComida",
-                        "[TiempoComida] IN ('Desayuno', 'Almuerzo', 'Cena')"));
+                        "[TiempoComida] IN ('Desayuno', 'Almuerzo', 'Merienda')"));
 
                 entity.HasKey(a => a.Id);
 
