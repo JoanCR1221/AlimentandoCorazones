@@ -9,6 +9,10 @@
 
 <MudCard Class="pa-4">
     <MudCardContent>
+        <MudAutocomplete T="BeneficiarioListaDto" Value="beneficiarioSeleccionado" ValueChanged="OnBeneficiarioCambiadoAsync"
+                          SearchFunc="BuscarBeneficiariosAsync" ToStringFunc="@(b => b?.NombreCompleto)"
+                          Label="Beneficiario" Variant="Variant.Outlined" Class="mb-4" Clearable="true" />
+
         <MudDataGrid T="HistorialAsistenciaDto" Items="@resultado.Registros">
             <Columns>
                 <PropertyColumn Property="x => x.NombreBeneficiario" Title="Beneficiario" />
@@ -24,8 +28,24 @@
 
 @code {
     private HistorialAsistenciaResultadoDto resultado = new();
+    private BeneficiarioListaDto? beneficiarioSeleccionado;
 
     protected override async Task OnInitializedAsync()
+    {
+        await CargarAsync();
+    }
+
+    private async Task<IEnumerable<BeneficiarioListaDto>> BuscarBeneficiariosAsync(string valor, CancellationToken cancellationToken)
+    {
+        return await BeneficiariosService.ObtenerBeneficiariosAsync(new FiltrosBeneficiarioDto { Nombre = valor });
+    }
+
+    private void OnBeneficiarioCambiadoAsync(BeneficiarioListaDto? valor)
+    {
+        beneficiarioSeleccionado = valor;
+    }
+
+    private async Task CargarAsync()
     {
         resultado = await AsistenciaService.ObtenerHistorialAsistenciaAsync(new FiltrosAsistenciaDto());
     }
