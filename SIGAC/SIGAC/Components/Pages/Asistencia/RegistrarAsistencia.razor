@@ -12,12 +12,19 @@
                           Value="beneficiarioSeleccionado" ValueChanged="OnBeneficiarioSeleccionadoAsync"
                           SearchFunc="BuscarBeneficiariosActivosAsync" ToStringFunc="@(b => b?.Nombre)"
                           Required="true" RequiredError="Debe seleccionar un beneficiario." />
+        <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
     </MudCardContent>
 </MudCard>
 
 @code {
     private AsistenciaCrearDto modelo = new();
     private BeneficiarioListaDto? beneficiarioSeleccionado;
+
+    private DateTime? fecha
+    {
+        get => modelo.Fecha == default ? null : modelo.Fecha;
+        set => modelo.Fecha = value ?? default;
+    }
 
     private async Task<IEnumerable<BeneficiarioListaDto>> BuscarBeneficiariosActivosAsync(string valor, CancellationToken cancellationToken)
     {
