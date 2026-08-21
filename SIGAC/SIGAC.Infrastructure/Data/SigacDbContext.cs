@@ -11,7 +11,7 @@ namespace SIGAC.Infrastructure.Data
         }
 
         public DbSet<Beneficiario> Beneficiarios { get; set; }
-        // public DbSet<AsistenciaComedor> AsistenciasComedor { get; set; }
+        public DbSet<AsistenciaComedor> AsistenciasComedor { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -68,6 +68,41 @@ namespace SIGAC.Infrastructure.Data
                 entity.HasIndex(b => b.Nombre);
                 entity.HasIndex(b => b.Categoria);
                 entity.HasIndex(b => b.Estado);
+            });
+
+            modelBuilder.Entity<AsistenciaComedor>(entity =>
+            {
+                entity.ToTable("AsistenciasComedor");
+
+                entity.HasKey(a => a.Id);
+
+                entity.Property(a => a.Fecha)
+                    .IsRequired()
+                    .HasColumnType("date");
+
+
+                entity.Property(a => a.TiempoComida)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(20);
+
+                // Relación FK con Beneficiario. Restrict evita borrar en duro un
+                // beneficiario que tenga asistencias registradas (se conservan al desactivar).
+                entity.HasOne(a => a.Beneficiario)
+                    .WithMany()
+                    .HasForeignKey(a => a.BeneficiarioId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Unicidad: un beneficiario NO puede registrarse dos veces en el
+                // mismo tiempo de comida el mismo día.
+                entity.HasIndex(a => new { a.BeneficiarioId, a.Fecha, a.TiempoComida })
+                    .IsUnique()
+                    .HasDatabaseName("UX_AsistenciasComedor_Beneficiario_Fecha_TiempoComida");
+
+                // Índices en los campos de filtro frecuente. El índice único anterior
+                // ya cubre las búsquedas que empiezan por BeneficiarioId.
+                entity.HasIndex(a => a.Fecha);
+                entity.HasIndex(a => a.TiempoComida);
             });
         }
     }
