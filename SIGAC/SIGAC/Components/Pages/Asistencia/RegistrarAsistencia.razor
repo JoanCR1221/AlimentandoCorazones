@@ -1,14 +1,38 @@
 @page "/asistencia/registrar"
 @using SIGAC.Application.DTOs.Asistencia
+@using SIGAC.Application.DTOs.Beneficiarios
+@using SIGAC.Application.Interfaces
+@inject IBeneficiariosService BeneficiariosService
 
 <MudText Typo="Typo.h4" Class="mb-4">Registrar asistencia</MudText>
 
 <MudCard Class="pa-4">
     <MudCardContent>
-
+        <MudAutocomplete T="BeneficiarioListaDto" Label="Beneficiario" Variant="Variant.Outlined"
+                          Value="beneficiarioSeleccionado" ValueChanged="OnBeneficiarioSeleccionadoAsync"
+                          SearchFunc="BuscarBeneficiariosActivosAsync" ToStringFunc="@(b => b?.Nombre)"
+                          Required="true" RequiredError="Debe seleccionar un beneficiario." />
     </MudCardContent>
 </MudCard>
 
 @code {
     private AsistenciaCrearDto modelo = new();
+    private BeneficiarioListaDto? beneficiarioSeleccionado;
+
+    private async Task<IEnumerable<BeneficiarioListaDto>> BuscarBeneficiariosActivosAsync(string valor, CancellationToken cancellationToken)
+    {
+        var beneficiarios = await BeneficiariosService.ObtenerBeneficiariosAsync(new FiltrosBeneficiarioDto
+        {
+            Nombre = valor,
+            Estado = true
+        });
+
+        return beneficiarios;
+    }
+
+    private void OnBeneficiarioSeleccionadoAsync(BeneficiarioListaDto? valor)
+    {
+        beneficiarioSeleccionado = valor;
+        modelo.BeneficiarioId = valor?.Id ?? 0;
+    }
 }
