@@ -7,7 +7,7 @@
 
 <MudText Typo="Typo.h4" Class="mb-4">Registrar asistencia</MudText>
 
-<EditForm Model="modelo">
+<EditForm Model="modelo" OnValidSubmit="Guardar">
     <DataAnnotationsValidator />
     <ValidationSummary />
 
@@ -83,5 +83,10 @@
         });
 
         asistenciaDuplicada = resultado.Registros.Count > 0;
+    }
+
+    private async Task Guardar()
+    {
+        await AsistenciaService.RegistrarAsistenciaAsync(modelo);
     }
 }
