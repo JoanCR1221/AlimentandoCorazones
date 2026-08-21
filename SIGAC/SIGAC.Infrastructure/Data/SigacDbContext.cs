@@ -72,7 +72,12 @@ namespace SIGAC.Infrastructure.Data
 
             modelBuilder.Entity<AsistenciaComedor>(entity =>
             {
-                entity.ToTable("AsistenciasComedor");
+                // CHECK a nivel de BD: TiempoComida es un dominio cerrado. Refuerza
+                // la validación de la capa de aplicación ante inserciones externas.
+                entity.ToTable("AsistenciasComedor", t =>
+                    t.HasCheckConstraint(
+                        "CK_AsistenciasComedor_TiempoComida",
+                        "[TiempoComida] IN ('Desayuno', 'Almuerzo', 'Cena')"));
 
                 entity.HasKey(a => a.Id);
 
