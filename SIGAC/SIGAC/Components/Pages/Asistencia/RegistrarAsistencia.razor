@@ -13,6 +13,11 @@
                           SearchFunc="BuscarBeneficiariosActivosAsync" ToStringFunc="@(b => b?.Nombre)"
                           Required="true" RequiredError="Debe seleccionar un beneficiario." />
         <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
+        <MudSelect T="string" @bind-Value="modelo.TiempoComida" Label="Tiempo de comida" Variant="Variant.Outlined" Class="mt-4">
+            <MudSelectItem T="string" Value="@("Desayuno")">Desayuno</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Almuerzo")">Almuerzo</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Cena")">Cena</MudSelectItem>
+        </MudSelect>
     </MudCardContent>
 </MudCard>
 
