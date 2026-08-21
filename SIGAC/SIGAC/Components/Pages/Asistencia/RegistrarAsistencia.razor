@@ -1,9 +1,11 @@
 @page "/asistencia/registrar"
 @using SIGAC.Application.DTOs.Asistencia
 @using SIGAC.Application.DTOs.Beneficiarios
+@using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces
 @inject IBeneficiariosService BeneficiariosService
 @inject IAsistenciaService AsistenciaService
+@inject ISnackbar Snackbar
 
 <MudText Typo="Typo.h4" Class="mb-4">Registrar asistencia</MudText>
 
@@ -87,6 +89,30 @@
 
     private async Task Guardar()
     {
-        await AsistenciaService.RegistrarAsistenciaAsync(modelo);
+        try
+        {
+            await AsistenciaService.RegistrarAsistenciaAsync(modelo);
+            Snackbar.Add("Asistencia registrada correctamente.", Severity.Success);
+
+            modelo = new();
+            beneficiarioSeleccionado = null;
+            asistenciaDuplicada = false;
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (DuplicateException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (NotFoundException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo registrar la asistencia. Intentá de nuevo.", Severity.Error);
+        }
     }
 }
