@@ -9,10 +9,24 @@
 
 <MudCard Class="pa-4">
     <MudCardContent>
-
+        <MudDataGrid T="HistorialAsistenciaDto" Items="@resultado.Registros">
+            <Columns>
+                <PropertyColumn Property="x => x.NombreBeneficiario" Title="Beneficiario" />
+                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
+                <PropertyColumn Property="x => x.TiempoComida" Title="Tiempo de comida" />
+            </Columns>
+            <NoRecordsContent>
+                <MudText>No hay asistencias registradas para los filtros seleccionados.</MudText>
+            </NoRecordsContent>
+        </MudDataGrid>
     </MudCardContent>
 </MudCard>
 
 @code {
     private HistorialAsistenciaResultadoDto resultado = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        resultado = await AsistenciaService.ObtenerHistorialAsistenciaAsync(new FiltrosAsistenciaDto());
+    }
 }
