@@ -6,8 +6,7 @@ namespace SIGAC.Infrastructure.Data
 {
     public class SigacDbContext : DbContext
     {
-        public SigacDbContext(DbContextOptions<SigacDbContext> options)
-            : base(options)
+        public SigacDbContext(DbContextOptions<SigacDbContext> options) : base(options)
         {
         }
 
