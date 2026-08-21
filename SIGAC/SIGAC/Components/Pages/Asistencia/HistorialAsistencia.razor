@@ -19,6 +19,14 @@
         </MudSelect>
         <MudDateRangePicker @bind-DateRange="rangoFechas" Label="Rango de fechas" Variant="Variant.Outlined" Class="mb-4" />
 
+        <MudText Typo="Typo.subtitle1" Class="mb-1">Total de asistencias del período: @resultado.Registros.Count</MudText>
+        @if (resultado.TotalesPorTiempoComida.Count > 0)
+        {
+            <MudText Typo="Typo.body2" Class="mb-4">
+                @string.Join(" · ", resultado.TotalesPorTiempoComida.Select(kv => $"{kv.Key}: {kv.Value}"))
+            </MudText>
+        }
+
         <MudDataGrid T="HistorialAsistenciaDto" Items="@resultado.Registros">
             <Columns>
                 <PropertyColumn Property="x => x.NombreBeneficiario" Title="Beneficiario" />
