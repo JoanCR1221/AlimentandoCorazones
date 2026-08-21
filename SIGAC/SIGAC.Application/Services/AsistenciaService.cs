@@ -75,7 +75,7 @@ namespace SIGAC.Application.Services
                     .Select(a => new HistorialAsistenciaDto
                     {
                         Id = a.Id,
-                        NombreBeneficiario = a.Beneficiario?.Nombre ?? string.Empty,
+                        NombreBeneficiario = a.Beneficiario?.NombreCompleto ?? string.Empty,
                         Fecha = a.Fecha,
                         TiempoComida = a.TiempoComida
                     })

@@ -1,6 +1,7 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SIGAC.Application.DTOs.Beneficiarios;
 using SIGAC.Application.Interfaces;
+using SIGAC.Domain;
 using SIGAC.Domain.Entities;
 using SIGAC.Infrastructure.Data;
 
@@ -38,11 +39,23 @@ namespace SIGAC.Infrastructure.Repositories
                 .FirstOrDefaultAsync(b => b.Id == id);
         }
 
-        public async Task<bool> ExisteAsync(string nombre, DateTime fechaNacimiento)
+        public async Task<bool> ExisteAsync(string nombre, string primerApellido, string segundoApellido, DateTime fechaNacimiento, int? idExcluir = null)
         {
-            return await _context.Beneficiarios
+            var fecha = fechaNacimiento.Date;
+
+            // La fecha de nacimiento se filtra en SQL (son pocos candidatos) y los
+            // nombres se comparan en memoria: la normalización sin tildes no tiene
+            // traducción a SQL y no hay collation que la garantice en la columna.
+            var candidatos = await _context.Beneficiarios
                 .AsNoTracking()
-                .AnyAsync(b => b.Nombre == nombre && b.FechaNacimiento == fechaNacimiento);
+                .Where(b => b.FechaNacimiento == fecha && (idExcluir == null || b.Id != idExcluir))
+                .Select(b => new { b.Nombre, b.PrimerApellido, b.SegundoApellido })
+                .ToListAsync();
+
+            return candidatos.Any(c =>
+                TextoNormalizador.SonEquivalentes(c.Nombre, nombre) &&
+                TextoNormalizador.SonEquivalentes(c.PrimerApellido, primerApellido) &&
+                TextoNormalizador.SonEquivalentes(c.SegundoApellido, segundoApellido));
         }
 
         public async Task<IEnumerable<Beneficiario>> ObtenerTodosAsync(FiltrosBeneficiarioDto filtros)
@@ -50,7 +63,13 @@ namespace SIGAC.Infrastructure.Repositories
             var query = _context.Beneficiarios.AsNoTracking().AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(filtros.Nombre))
-                query = query.Where(b => b.Nombre.Contains(filtros.Nombre));
+            {
+                var busqueda = filtros.Nombre.Trim();
+                query = query.Where(b =>
+                    b.Nombre.Contains(busqueda) ||
+                    b.PrimerApellido.Contains(busqueda) ||
+                    b.SegundoApellido.Contains(busqueda));
+            }
 
             if (!string.IsNullOrWhiteSpace(filtros.Categoria))
                 query = query.Where(b => b.Categoria == filtros.Categoria);
