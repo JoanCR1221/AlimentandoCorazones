@@ -68,14 +68,24 @@ namespace SIGAC.Application.Services
         {
             try
             {
-                var asistencias = await _asistenciaRepository.ObtenerHistorialAsync(filtros);
+                var asistencias = (await _asistenciaRepository.ObtenerHistorialAsync(filtros)).ToList();
+
+                // AsistenciaRepositoryEnMemoria no arma la relación con Beneficiario
+                // (no usa EF Core todavía), así que a.Beneficiario siempre llega null.
+                // Se resuelve el nombre completo por Id en su lugar.
+                var nombresPorBeneficiarioId = new Dictionary<int, string>();
+                foreach (var beneficiarioId in asistencias.Select(a => a.BeneficiarioId).Distinct())
+                {
+                    var beneficiario = await _beneficiariosRepository.ObtenerPorIdAsync(beneficiarioId);
+                    nombresPorBeneficiarioId[beneficiarioId] = beneficiario?.NombreCompleto ?? string.Empty;
+                }
 
                 var registros = asistencias
                     .OrderByDescending(a => a.Fecha)
                     .Select(a => new HistorialAsistenciaDto
                     {
                         Id = a.Id,
-                        NombreBeneficiario = a.Beneficiario?.NombreCompleto ?? string.Empty,
+                        NombreBeneficiario = nombresPorBeneficiarioId.GetValueOrDefault(a.BeneficiarioId, string.Empty),
                         Fecha = a.Fecha,
                         TiempoComida = a.TiempoComida
                     })
