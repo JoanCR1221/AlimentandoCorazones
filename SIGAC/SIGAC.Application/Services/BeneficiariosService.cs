@@ -21,12 +21,24 @@ namespace SIGAC.Application.Services
                 if (string.IsNullOrWhiteSpace(dto.Nombre) || string.IsNullOrWhiteSpace(dto.Categoria))
                     throw new ValidationException("Nombre y Categoría son obligatorios.");
 
-                if (await _repository.ExisteAsync(dto.Nombre, dto.FechaNacimiento))
+                if (dto.FechaNacimiento == default)
+                    throw new ValidationException("La fecha de nacimiento es obligatoria.");
+
+                if (dto.FechaNacimiento.Date > DateTime.Today)
+                    throw new ValidationException("La fecha de nacimiento no puede ser futura.");
+
+                var esOtroDocumento = dto.TipoDocumento == "Otro";
+                if (esOtroDocumento && string.IsNullOrWhiteSpace(dto.TipoDocumentoOtro))
+                    throw new ValidationException("Debe especificar el tipo de documento cuando selecciona 'Otro'.");
+
+                var nombre = dto.Nombre.Trim();
+
+                if (await _repository.ExisteAsync(nombre, dto.FechaNacimiento))
                     throw new DuplicateException("Ya existe un beneficiario con ese nombre y fecha de nacimiento.");
 
                 var beneficiario = new Beneficiario
                 {
-                    Nombre = dto.Nombre,
+                    Nombre = nombre,
                     FechaNacimiento = dto.FechaNacimiento,
                     Categoria = dto.Categoria,
                     Telefono = dto.Telefono,
@@ -35,7 +47,8 @@ namespace SIGAC.Application.Services
                     FechaRegistro = DateTime.Now,
                     TipoDocumento = dto.TipoDocumento,
                     NumIdentidad = dto.NumIdentidad,
-                    TipoDocumentoOtro = dto.TipoDocumentoOtro
+                    // Solo se conserva la especificación cuando el tipo es "Otro".
+                    TipoDocumentoOtro = esOtroDocumento ? dto.TipoDocumentoOtro!.Trim() : null
                 };
 
                 await _repository.AgregarAsync(beneficiario);
@@ -79,7 +92,13 @@ namespace SIGAC.Application.Services
                 if (string.IsNullOrWhiteSpace(dto.Nombre) || string.IsNullOrWhiteSpace(dto.Categoria))
                     throw new ValidationException("Nombre y Categoría son obligatorios.");
 
-                beneficiario.Nombre = dto.Nombre;
+                if (dto.FechaNacimiento == default)
+                    throw new ValidationException("La fecha de nacimiento es obligatoria.");
+
+                if (dto.FechaNacimiento.Date > DateTime.Today)
+                    throw new ValidationException("La fecha de nacimiento no puede ser futura.");
+
+                beneficiario.Nombre = dto.Nombre.Trim();
                 beneficiario.FechaNacimiento = dto.FechaNacimiento;
                 beneficiario.Categoria = dto.Categoria;
                 beneficiario.Telefono = dto.Telefono;
