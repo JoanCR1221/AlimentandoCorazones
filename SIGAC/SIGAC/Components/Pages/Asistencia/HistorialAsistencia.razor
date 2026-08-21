@@ -17,6 +17,7 @@
             <MudSelectItem T="string" Value="@("Almuerzo")">Almuerzo</MudSelectItem>
             <MudSelectItem T="string" Value="@("Merienda")">Merienda</MudSelectItem>
         </MudSelect>
+        <MudDateRangePicker @bind-DateRange="rangoFechas" Label="Rango de fechas" Variant="Variant.Outlined" Class="mb-4" />
 
         <MudDataGrid T="HistorialAsistenciaDto" Items="@resultado.Registros">
             <Columns>
@@ -35,6 +36,7 @@
     private HistorialAsistenciaResultadoDto resultado = new();
     private BeneficiarioListaDto? beneficiarioSeleccionado;
     private string? filtroTiempoComida;
+    private DateRange? rangoFechas;
 
     protected override async Task OnInitializedAsync()
     {
