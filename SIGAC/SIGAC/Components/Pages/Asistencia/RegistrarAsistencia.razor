@@ -7,27 +7,36 @@
 
 <MudText Typo="Typo.h4" Class="mb-4">Registrar asistencia</MudText>
 
-<MudCard Class="pa-4">
-    <MudCardContent>
-        <MudAutocomplete T="BeneficiarioListaDto" Label="Beneficiario" Variant="Variant.Outlined"
-                          Value="beneficiarioSeleccionado" ValueChanged="OnBeneficiarioSeleccionadoAsync"
-                          SearchFunc="BuscarBeneficiariosActivosAsync" ToStringFunc="@(b => b?.Nombre)"
-                          Required="true" RequiredError="Debe seleccionar un beneficiario." />
-        <MudDatePicker @bind-Date="fecha" @bind-Date:after="VerificarDuplicadoAsync" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
-        <MudSelect T="string" @bind-Value="modelo.TiempoComida" @bind-Value:after="VerificarDuplicadoAsync" Label="Tiempo de comida" Variant="Variant.Outlined" Class="mt-4">
-            <MudSelectItem T="string" Value="@("Desayuno")">Desayuno</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Almuerzo")">Almuerzo</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Cena")">Cena</MudSelectItem>
-        </MudSelect>
+<EditForm Model="modelo">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
 
-        @if (asistenciaDuplicada)
-        {
-            <MudAlert Severity="Severity.Warning" Class="mt-4">
-                Este beneficiario ya tiene una asistencia registrada para ese tiempo de comida en esta fecha.
-            </MudAlert>
-        }
-    </MudCardContent>
-</MudCard>
+    <MudCard Class="pa-4">
+        <MudCardContent>
+            <MudAutocomplete T="BeneficiarioListaDto" Label="Beneficiario" Variant="Variant.Outlined"
+                              Value="beneficiarioSeleccionado" ValueChanged="OnBeneficiarioSeleccionadoAsync"
+                              SearchFunc="BuscarBeneficiariosActivosAsync" ToStringFunc="@(b => b?.Nombre)" />
+            <MudDatePicker @bind-Date="fecha" @bind-Date:after="VerificarDuplicadoAsync" Label="Fecha" Variant="Variant.Outlined" Class="mt-4"
+                           MaxDate="DateTime.Today" />
+            <MudSelect T="string" @bind-Value="modelo.TiempoComida" @bind-Value:after="VerificarDuplicadoAsync" For="@(() => modelo.TiempoComida)"
+                       Label="Tiempo de comida" Variant="Variant.Outlined" Class="mt-4">
+                <MudSelectItem T="string" Value="@("Desayuno")">Desayuno</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Almuerzo")">Almuerzo</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Cena")">Cena</MudSelectItem>
+            </MudSelect>
+
+            @if (asistenciaDuplicada)
+            {
+                <MudAlert Severity="Severity.Warning" Class="mt-4">
+                    Este beneficiario ya tiene una asistencia registrada para ese tiempo de comida en esta fecha.
+                </MudAlert>
+            }
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+        </MudCardActions>
+    </MudCard>
+</EditForm>
 
 @code {
     private AsistenciaCrearDto modelo = new();
