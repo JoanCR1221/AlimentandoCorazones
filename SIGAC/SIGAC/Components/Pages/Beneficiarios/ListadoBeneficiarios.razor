@@ -3,6 +3,7 @@
 @using SIGAC.Application.Interfaces
 @inject IBeneficiariosService BeneficiariosService
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <MudText Typo="Typo.h4" Class="mb-4">Beneficiarios registrados</MudText>
 
@@ -36,11 +37,11 @@
                         <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/beneficiarios/editar/{context.Item.Id}")">Editar</MudButton>
                         @if (context.Item.Estado)
                         {
-                            <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@(() => CambiarEstadoAsync(context.Item.Id, false))">Desactivar</MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.Nombre, false))">Desactivar</MudButton>
                         }
                         else
                         {
-                            <MudButton Variant="Variant.Text" Color="Color.Success" OnClick="@(() => CambiarEstadoAsync(context.Item.Id, true))">Activar</MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Success" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.Nombre, true))">Activar</MudButton>
                         }
                     </CellTemplate>
                 </TemplateColumn>
@@ -89,6 +90,21 @@
             Categoria = filtroCategoria,
             Estado = filtroEstado
         });
+    }
+
+    private async Task ConfirmarCambioEstadoAsync(int id, string nombre, bool activar)
+    {
+        var accion = activar ? "activar" : "desactivar";
+        var confirmado = await DialogService.ShowMessageBoxAsync(
+            "Confirmar",
+            $"¿Seguro que querés {accion} a {nombre}?",
+            yesText: "Confirmar",
+            cancelText: "Cancelar");
+
+        if (confirmado == true)
+        {
+            await CambiarEstadoAsync(id, activar);
+        }
     }
 
     private async Task CambiarEstadoAsync(int id, bool activar)
