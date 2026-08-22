@@ -25,7 +25,15 @@ namespace SIGAC.Infrastructure.Data
 
                 // Convención del proyecto: VARCHAR en lugar de NVARCHAR (IsUnicode(false)).
 
-                entity.Property(b => b.Nombre)
+                entity.Property(b => b.PrimerNombre)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(ReglasBeneficiario.LongitudMaximaNombre);
+
+                // Obligatorias a nivel de columna aunque sean opcionales para el
+                // usuario: se guardan como cadena vacía para que el índice único
+                // funcione (en SQL Server dos NULL no se consideran iguales).
+                entity.Property(b => b.SegundoNombre)
                     .IsRequired()
                     .IsUnicode(false)
                     .HasMaxLength(ReglasBeneficiario.LongitudMaximaNombre);
@@ -35,8 +43,6 @@ namespace SIGAC.Infrastructure.Data
                     .IsUnicode(false)
                     .HasMaxLength(ReglasBeneficiario.LongitudMaximaApellido);
 
-                // Obligatoria a nivel de columna aunque sea opcional para el usuario:
-                // se guarda como cadena vacía para que el índice único funcione.
                 entity.Property(b => b.SegundoApellido)
                     .IsRequired()
                     .IsUnicode(false)
@@ -53,13 +59,14 @@ namespace SIGAC.Infrastructure.Data
                     .IsUnicode(false)
                     .HasMaxLength(50);
 
+                // Teléfono de Costa Rica: 8 dígitos exactos, sin guiones ni espacios.
                 entity.Property(b => b.Telefono)
                     .IsUnicode(false)
-                    .HasMaxLength(20);
+                    .HasMaxLength(ReglasBeneficiario.DigitosTelefono);
 
                 entity.Property(b => b.Direccion)
                     .IsUnicode(false)
-                    .HasMaxLength(200);
+                    .HasMaxLength(ReglasBeneficiario.LongitudMaximaDireccion);
 
                 entity.Property(b => b.Estado)
                     .IsRequired();
@@ -73,22 +80,22 @@ namespace SIGAC.Infrastructure.Data
 
                 entity.Property(b => b.NumIdentidad)
                     .IsUnicode(false)
-                    .HasMaxLength(30);
+                    .HasMaxLength(ReglasBeneficiario.LongitudMaximaNumIdentidad);
 
                 entity.Property(b => b.TipoDocumentoOtro)
                     .IsUnicode(false)
-                    .HasMaxLength(100);
+                    .HasMaxLength(ReglasBeneficiario.LongitudMaximaTipoDocumentoOtro);
 
-                // Unicidad: no puede haber dos beneficiarios con el mismo nombre,
+                // Unicidad: no puede haber dos beneficiarios con los mismos nombres,
                 // los mismos apellidos y la misma fecha de nacimiento. Respalda en
                 // la BD la validación del servicio y cierra la condición de carrera
                 // entre el SELECT previo y el INSERT.
-                entity.HasIndex(b => new { b.Nombre, b.PrimerApellido, b.SegundoApellido, b.FechaNacimiento })
+                entity.HasIndex(b => new { b.PrimerNombre, b.SegundoNombre, b.PrimerApellido, b.SegundoApellido, b.FechaNacimiento })
                     .IsUnique()
-                    .HasDatabaseName("UX_Beneficiarios_Nombre_Apellidos_FechaNacimiento");
+                    .HasDatabaseName("UX_Beneficiarios_Nombres_Apellidos_FechaNacimiento");
 
                 // Índices en los campos de filtro frecuente. El índice único anterior
-                // ya cubre las búsquedas que empiezan por Nombre.
+                // ya cubre las búsquedas que empiezan por PrimerNombre.
                 entity.HasIndex(b => b.Categoria);
                 entity.HasIndex(b => b.Estado);
             });

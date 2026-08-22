@@ -1,11 +1,15 @@
-﻿using SIGAC.Application.DTOs.Beneficiarios;
+﻿using SIGAC.Application.DTOs;
+using SIGAC.Application.DTOs.Beneficiarios;
 using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
+using SIGAC.Application.Validators;
 using SIGAC.Domain;
 using SIGAC.Domain.Entities;
 
 namespace SIGAC.Application.Services
 {
+    // Orquesta el alta y la edición: valida con BeneficiarioValidator, arma la
+    // entidad y delega en el repositorio. Las reglas de validación no viven acá.
     public class BeneficiariosService : IBeneficiariosService
     {
         private readonly IBeneficiariosRepository _repository;
@@ -19,34 +23,32 @@ namespace SIGAC.Application.Services
         {
             try
             {
-                var nombre = ValidarNombre(dto.Nombre, "El nombre", ReglasBeneficiario.LongitudMaximaNombre);
-                var primerApellido = ValidarNombre(dto.PrimerApellido, "El primer apellido", ReglasBeneficiario.LongitudMaximaApellido);
-                var segundoApellido = ValidarSegundoApellido(dto.SegundoApellido);
-                var fechaNacimiento = ValidarFechaNacimiento(dto.FechaNacimiento);
+                var datos = BeneficiarioValidator.Validar(dto);
 
-                var esOtroDocumento = dto.TipoDocumento == "Otro";
-                if (esOtroDocumento && string.IsNullOrWhiteSpace(dto.TipoDocumentoOtro))
-                    throw new ValidationException("Debe especificar el tipo de documento cuando selecciona 'Otro'.");
-
-                if (await _repository.ExisteAsync(nombre, primerApellido, segundoApellido, fechaNacimiento))
-                    throw new DuplicateException("Ya existe un beneficiario con ese nombre, apellidos y fecha de nacimiento.");
+                if (await _repository.ExisteAsync(
+                        datos.PrimerNombre, datos.SegundoNombre,
+                        datos.PrimerApellido, datos.SegundoApellido,
+                        datos.FechaNacimiento))
+                {
+                    throw new DuplicateException("Ya existe un beneficiario con esos nombres, apellidos y fecha de nacimiento.");
+                }
 
                 var beneficiario = new Beneficiario
                 {
-                    Nombre = nombre,
-                    PrimerApellido = primerApellido,
-                    SegundoApellido = segundoApellido,
-                    FechaNacimiento = fechaNacimiento,
+                    PrimerNombre = datos.PrimerNombre,
+                    SegundoNombre = datos.SegundoNombre,
+                    PrimerApellido = datos.PrimerApellido,
+                    SegundoApellido = datos.SegundoApellido,
+                    FechaNacimiento = datos.FechaNacimiento,
                     // La categoría se almacena, pero nunca se elige a mano.
-                    Categoria = CategoriasBeneficiario.DerivarDesdeFechaNacimiento(fechaNacimiento),
-                    Telefono = dto.Telefono,
-                    Direccion = dto.Direccion,
+                    Categoria = CategoriasBeneficiario.DerivarDesdeFechaNacimiento(datos.FechaNacimiento),
+                    Telefono = datos.Telefono,
+                    Direccion = datos.Direccion,
                     Estado = true,
                     FechaRegistro = DateTime.Now,
-                    TipoDocumento = dto.TipoDocumento,
-                    NumIdentidad = dto.NumIdentidad,
-                    // Solo se conserva la especificación cuando el tipo es "Otro".
-                    TipoDocumentoOtro = esOtroDocumento ? dto.TipoDocumentoOtro!.Trim() : null
+                    TipoDocumento = datos.TipoDocumento,
+                    NumIdentidad = datos.NumIdentidad,
+                    TipoDocumentoOtro = datos.TipoDocumentoOtro
                 };
 
                 await _repository.AgregarAsync(beneficiario);
@@ -67,7 +69,8 @@ namespace SIGAC.Application.Services
 
                 return new BeneficiarioEditarDto
                 {
-                    Nombre = beneficiario.Nombre,
+                    PrimerNombre = beneficiario.PrimerNombre,
+                    SegundoNombre = beneficiario.SegundoNombre,
                     PrimerApellido = beneficiario.PrimerApellido,
                     SegundoApellido = beneficiario.SegundoApellido,
                     FechaNacimiento = beneficiario.FechaNacimiento,
@@ -91,31 +94,31 @@ namespace SIGAC.Application.Services
                 var beneficiario = await _repository.ObtenerPorIdAsync(id)
                     ?? throw new NotFoundException("El beneficiario no existe.");
 
-                var nombre = ValidarNombre(dto.Nombre, "El nombre", ReglasBeneficiario.LongitudMaximaNombre);
-                var primerApellido = ValidarNombre(dto.PrimerApellido, "El primer apellido", ReglasBeneficiario.LongitudMaximaApellido);
-                var segundoApellido = ValidarSegundoApellido(dto.SegundoApellido);
-                var fechaNacimiento = ValidarFechaNacimiento(dto.FechaNacimiento);
+                var datos = BeneficiarioValidator.Validar(dto);
 
-                var esOtroDocumento = dto.TipoDocumento == "Otro";
-                if (esOtroDocumento && string.IsNullOrWhiteSpace(dto.TipoDocumentoOtro))
-                    throw new ValidationException("Debe especificar el tipo de documento cuando selecciona 'Otro'.");
-
-                // Editar el nombre o la fecha puede chocar con otro beneficiario ya
+                // Editar los nombres o la fecha puede chocar con otro beneficiario ya
                 // registrado; se excluye el propio para no detectarse a sí mismo.
-                if (await _repository.ExisteAsync(nombre, primerApellido, segundoApellido, fechaNacimiento, id))
-                    throw new DuplicateException("Ya existe otro beneficiario con ese nombre, apellidos y fecha de nacimiento.");
+                if (await _repository.ExisteAsync(
+                        datos.PrimerNombre, datos.SegundoNombre,
+                        datos.PrimerApellido, datos.SegundoApellido,
+                        datos.FechaNacimiento, id))
+                {
+                    throw new DuplicateException("Ya existe otro beneficiario con esos nombres, apellidos y fecha de nacimiento.");
+                }
 
-                beneficiario.Nombre = nombre;
-                beneficiario.PrimerApellido = primerApellido;
-                beneficiario.SegundoApellido = segundoApellido;
-                beneficiario.FechaNacimiento = fechaNacimiento;
-                beneficiario.Categoria = CategoriasBeneficiario.DerivarDesdeFechaNacimiento(fechaNacimiento);
-                beneficiario.Telefono = dto.Telefono;
-                beneficiario.Direccion = dto.Direccion;
-                beneficiario.TipoDocumento = dto.TipoDocumento;
-                beneficiario.NumIdentidad = dto.NumIdentidad;
-                // Solo se conserva la especificación cuando el tipo es "Otro".
-                beneficiario.TipoDocumentoOtro = esOtroDocumento ? dto.TipoDocumentoOtro!.Trim() : null;
+                beneficiario.PrimerNombre = datos.PrimerNombre;
+                beneficiario.SegundoNombre = datos.SegundoNombre;
+                beneficiario.PrimerApellido = datos.PrimerApellido;
+                beneficiario.SegundoApellido = datos.SegundoApellido;
+                beneficiario.FechaNacimiento = datos.FechaNacimiento;
+                beneficiario.Categoria = CategoriasBeneficiario.DerivarDesdeFechaNacimiento(datos.FechaNacimiento);
+                beneficiario.Telefono = datos.Telefono;
+                beneficiario.Direccion = datos.Direccion;
+                beneficiario.TipoDocumento = datos.TipoDocumento;
+                // Con "Sin documento" el validador ya devolvió null: al cambiar el tipo
+                // el número anterior se borra en lugar de quedar huérfano.
+                beneficiario.NumIdentidad = datos.NumIdentidad;
+                beneficiario.TipoDocumentoOtro = datos.TipoDocumentoOtro;
 
                 await _repository.ActualizarAsync(beneficiario);
             }
@@ -125,16 +128,19 @@ namespace SIGAC.Application.Services
             }
         }
 
-        public async Task<IEnumerable<BeneficiarioListaDto>> ObtenerBeneficiariosAsync(FiltrosBeneficiarioDto filtros)
+        public async Task<ResultadoPaginado<BeneficiarioListaDto>> ObtenerBeneficiariosAsync(FiltrosBeneficiarioDto filtros)
         {
             try
             {
-                var beneficiarios = await _repository.ObtenerTodosAsync(filtros);
+                // El repositorio filtra, ordena y pagina en SQL: acá solo llegan los
+                // registros de la página pedida, más el total para el paginador.
+                var pagina = await _repository.ObtenerPaginaAsync(filtros);
 
-                return beneficiarios.Select(b => new BeneficiarioListaDto
+                var elementos = pagina.Elementos.Select(b => new BeneficiarioListaDto
                 {
                     Id = b.Id,
-                    Nombre = b.Nombre,
+                    PrimerNombre = b.PrimerNombre,
+                    SegundoNombre = b.SegundoNombre,
                     PrimerApellido = b.PrimerApellido,
                     SegundoApellido = b.SegundoApellido,
                     FechaNacimiento = b.FechaNacimiento,
@@ -142,9 +148,12 @@ namespace SIGAC.Application.Services
                     Telefono = b.Telefono,
                     Estado = b.Estado,
                     TipoDocumento = b.TipoDocumento,
-                    NumIdentidad = b.NumIdentidad
+                    NumIdentidad = b.NumIdentidad,
+                    TipoDocumentoOtro = b.TipoDocumentoOtro
 
-                });
+                }).ToList();
+
+                return new ResultadoPaginado<BeneficiarioListaDto>(elementos, pagina.TotalRegistros);
             }
             catch (Exception ex)
             {
@@ -169,54 +178,6 @@ namespace SIGAC.Application.Services
             {
                 throw new Exception("Error al cambiar el estado del beneficiario.", ex);
             }
-        }
-
-        // Devuelve el valor ya normalizado (recortado y sin espacios internos
-        // repetidos), que es la forma en que se guarda.
-        private static string ValidarNombre(string? valor, string etiqueta, int longitudMaxima)
-        {
-            var normalizado = TextoNormalizador.CompactarEspacios(valor);
-
-            if (normalizado.Length == 0)
-                throw new ValidationException($"{etiqueta} es obligatorio.");
-
-            if (normalizado.Length < ReglasBeneficiario.LongitudMinimaNombre)
-                throw new ValidationException($"{etiqueta} debe tener al menos {ReglasBeneficiario.LongitudMinimaNombre} caracteres.");
-
-            if (normalizado.Length > longitudMaxima)
-                throw new ValidationException($"{etiqueta} no puede superar los {longitudMaxima} caracteres.");
-
-            if (!ReglasBeneficiario.TieneFormatoValido(normalizado))
-                throw new ValidationException($"{etiqueta} solo puede contener letras, apóstrofes y guiones.");
-
-            return normalizado;
-        }
-
-        private static string ValidarSegundoApellido(string? valor)
-        {
-            var normalizado = TextoNormalizador.CompactarEspacios(valor);
-
-            // Opcional: cuando no se ingresa se guarda como cadena vacía, no como NULL.
-            if (normalizado.Length == 0)
-                return string.Empty;
-
-            return ValidarNombre(normalizado, "El segundo apellido", ReglasBeneficiario.LongitudMaximaApellido);
-        }
-
-        private static DateTime ValidarFechaNacimiento(DateTime fechaNacimiento)
-        {
-            if (fechaNacimiento == default)
-                throw new ValidationException("La fecha de nacimiento es obligatoria.");
-
-            var fecha = fechaNacimiento.Date;
-
-            if (fecha > DateTime.Today)
-                throw new ValidationException("La fecha de nacimiento no puede ser futura.");
-
-            if (CategoriasBeneficiario.CalcularEdad(fecha) > ReglasBeneficiario.EdadMaximaAnios)
-                throw new ValidationException($"La fecha de nacimiento no es válida: supera los {ReglasBeneficiario.EdadMaximaAnios} años.");
-
-            return fecha;
         }
     }
 }

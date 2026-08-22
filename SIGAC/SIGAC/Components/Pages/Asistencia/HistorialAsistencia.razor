@@ -1,4 +1,4 @@
-@page "/asistencia/historial"
+﻿@page "/asistencia/historial"
 @using SIGAC.Application.DTOs.Asistencia
 @using SIGAC.Application.DTOs.Beneficiarios
 @using SIGAC.Application.Interfaces
@@ -55,7 +55,10 @@
 
     private async Task<IEnumerable<BeneficiarioListaDto>> BuscarBeneficiariosAsync(string valor, CancellationToken cancellationToken)
     {
-        return await BeneficiariosService.ObtenerBeneficiariosAsync(new FiltrosBeneficiarioDto { Nombre = valor });
+        // El servicio pagina: al autocompletar alcanza con la primera página.
+        var resultado = await BeneficiariosService.ObtenerBeneficiariosAsync(new FiltrosBeneficiarioDto { Nombre = valor });
+
+        return resultado.Elementos;
     }
 
     private async Task OnBeneficiarioCambiadoAsync(BeneficiarioListaDto? valor)

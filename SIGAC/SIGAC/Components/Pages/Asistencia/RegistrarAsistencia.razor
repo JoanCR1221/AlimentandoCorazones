@@ -1,4 +1,4 @@
-@page "/asistencia/registrar"
+﻿@page "/asistencia/registrar"
 @using SIGAC.Application.DTOs.Asistencia
 @using SIGAC.Application.DTOs.Beneficiarios
 @using SIGAC.Application.Exceptions
@@ -53,13 +53,15 @@
 
     private async Task<IEnumerable<BeneficiarioListaDto>> BuscarBeneficiariosActivosAsync(string valor, CancellationToken cancellationToken)
     {
-        var beneficiarios = await BeneficiariosService.ObtenerBeneficiariosAsync(new FiltrosBeneficiarioDto
+        // El servicio pagina: al autocompletar alcanza con la primera página, que
+        // además evita traer cientos de coincidencias para un texto corto.
+        var resultado = await BeneficiariosService.ObtenerBeneficiariosAsync(new FiltrosBeneficiarioDto
         {
             Nombre = valor,
             Estado = true
         });
 
-        return beneficiarios;
+        return resultado.Elementos;
     }
 
     private async Task OnBeneficiarioSeleccionadoAsync(BeneficiarioListaDto? valor)

@@ -15,7 +15,8 @@
 
     <MudCard Class="pa-4">
         <MudCardContent>
-            <MudTextField @bind-Value="modelo.Nombre" For="@(() => modelo.Nombre)" Label="Nombre" Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="modelo.PrimerNombre" For="@(() => modelo.PrimerNombre)" Label="Primer nombre" Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="modelo.SegundoNombre" Label="Segundo nombre (opcional)" Variant="Variant.Outlined" Class="mt-4" />
             <MudTextField @bind-Value="modelo.PrimerApellido" For="@(() => modelo.PrimerApellido)" Label="Primer apellido" Variant="Variant.Outlined" Class="mt-4" />
             <MudTextField @bind-Value="modelo.SegundoApellido" Label="Segundo apellido (opcional)" Variant="Variant.Outlined" Class="mt-4" />
             <MudDatePicker @bind-Date="fechaNacimiento" Label="Fecha de nacimiento" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
@@ -28,23 +29,35 @@
                 </MudText>
             }
 
-            <MudTextField @bind-Value="modelo.Telefono" Label="Teléfono" Variant="Variant.Outlined" Class="mt-4" />
-            <MudTextField @bind-Value="modelo.Direccion" Label="Dirección" Variant="Variant.Outlined" Class="mt-4" />
-            <MudSelect T="string" @bind-Value="modelo.TipoDocumento" Label="Tipo de documento" Variant="Variant.Outlined" Class="mt-4">
-                <MudSelectItem T="string" Value="@("Cédula")">Cédula</MudSelectItem>
-                <MudSelectItem T="string" Value="@("DIMEX")">DIMEX</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Pasaporte")">Pasaporte</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Cédula de residencia")">Cédula de residencia</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Sin documento")">Sin documento</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Otro")">Otro</MudSelectItem>
+            <MudTextField @bind-Value="modelo.Telefono" Label="Teléfono (opcional)" Variant="Variant.Outlined" Class="mt-4"
+                          MaxLength="ReglasBeneficiario.DigitosTelefono"
+                          HelperText="@($"{ReglasBeneficiario.DigitosTelefono} dígitos, sin guiones ni espacios.")" />
+            <MudTextField @bind-Value="modelo.Direccion" Label="Dirección (opcional)" Variant="Variant.Outlined" Class="mt-4"
+                          MaxLength="ReglasBeneficiario.LongitudMaximaDireccion" Lines="2"
+                          HelperText="@($"Máximo {ReglasBeneficiario.LongitudMaximaDireccion} caracteres. Ej: Del parque 150 metros suroeste, casa verde.")" />
+
+            @* Lista cerrada: la fuente es SIGAC.Domain.TiposDocumento, no la pantalla. *@
+            <MudSelect T="string" Value="modelo.TipoDocumento" ValueChanged="OnTipoDocumentoCambiado" Label="Tipo de documento" Variant="Variant.Outlined" Class="mt-4">
+                @foreach (var tipo in TiposDocumento.Todos)
+                {
+                    <MudSelectItem T="string" Value="@tipo">@tipo</MudSelectItem>
+                }
             </MudSelect>
 
-            @if (modelo.TipoDocumento == "Otro")
+            @* "Otro" pide además cómo se llama el documento. *@
+            @if (TiposDocumento.RequiereNombreDelDocumento(modelo.TipoDocumento))
             {
-                <MudTextField @bind-Value="modelo.TipoDocumentoOtro" Label="Especifique el tipo de documento" Variant="Variant.Outlined" Class="mt-4" />
+                <MudTextField @bind-Value="modelo.TipoDocumentoOtro" Label="¿Cómo se llama el documento?" Variant="Variant.Outlined" Class="mt-4"
+                              MaxLength="ReglasBeneficiario.LongitudMaximaTipoDocumentoOtro" />
             }
 
-            <MudTextField @bind-Value="modelo.NumIdentidad" Label="Número de identidad" Variant="Variant.Outlined" Class="mt-4" />
+            @* "Sin documento" no pide número: el campo se oculta. *@
+            @if (TiposDocumento.RequiereNumIdentidad(modelo.TipoDocumento))
+            {
+                <MudTextField @bind-Value="modelo.NumIdentidad" Label="Número de identidad" Variant="Variant.Outlined" Class="mt-4"
+                              MaxLength="ReglasBeneficiario.LongitudMaximaNumIdentidad"
+                              HelperText="@AyudaNumIdentidad" />
+            }
         </MudCardContent>
         <MudCardActions>
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
@@ -62,6 +75,28 @@
     {
         get => modelo.FechaNacimiento == default ? null : modelo.FechaNacimiento;
         set => modelo.FechaNacimiento = value ?? default;
+    }
+
+    private string? AyudaNumIdentidad => modelo.TipoDocumento switch
+    {
+        TiposDocumento.CedulaNacional => $"{ReglasBeneficiario.DigitosCedulaNacional} dígitos, sin guiones ni espacios.",
+        TiposDocumento.Dimex => $"{ReglasBeneficiario.DigitosMinimosDimex} o {ReglasBeneficiario.DigitosMaximosDimex} dígitos, sin guiones ni espacios.",
+        TiposDocumento.Pasaporte => "Alfanumérico, de longitud variable según el país emisor.",
+        TiposDocumento.Otro => "Solo números y letras.",
+        _ => null
+    };
+
+    private void OnTipoDocumentoCambiado(string? valor)
+    {
+        modelo.TipoDocumento = valor;
+
+        // Al pasar a "Sin documento" el número guardado se borra en lugar de quedar
+        // huérfano: la pantalla ya no lo muestra y el servicio lo persiste como null.
+        if (!TiposDocumento.RequiereNumIdentidad(valor))
+            modelo.NumIdentidad = null;
+
+        if (!TiposDocumento.RequiereNombreDelDocumento(valor))
+            modelo.TipoDocumentoOtro = null;
     }
 
     protected override async Task OnInitializedAsync()
