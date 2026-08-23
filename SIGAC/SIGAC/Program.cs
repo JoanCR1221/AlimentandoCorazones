@@ -1,16 +1,19 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 using SIGAC.Application.Interfaces;
 using SIGAC.Application.Services;
 using SIGAC.Infrastructure.Data;
 using SIGAC.Infrastructure.Repositories;
 using SIGAC.Components;
+using SIGAC.Services;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddScoped<AparienciaService>();
 
 builder.Services.AddMudServices();
 
@@ -21,14 +24,16 @@ builder.Services.AddDbContext<SigacDbContext>(options =>
 // Servicios del módulo de Beneficiarios y Asistencia
 builder.Services.AddScoped<IBeneficiariosService, BeneficiariosService>();
 builder.Services.AddScoped<IAsistenciaService, AsistenciaService>();
+builder.Services.AddScoped<IInventarioService, InventarioService>();
 
 // Repositorio de Beneficiarios con EF Core (reemplaza la versión temporal en memoria)
 builder.Services.AddScoped<IBeneficiariosRepository, BeneficiariosRepositoryEfCore>();
 
-// Repositorio de Asistencia con EF Core (reemplaza la versión temporal en memoria)
-// Scoped y no Singleton: un Singleton capturaría el SigacDbContext, que es Scoped
-// (captive dependency), y quedaría usando un contexto ya descartado.
+// Repositorio de Asistencia TEMPORAL en memoria (aún sin migrar a EF Core)
 builder.Services.AddScoped<IAsistenciaRepository, AsistenciaRepositoryEfCore>();
+
+// Repositorio de Inventario con EF Core
+//builder.Services.AddScoped<IInventarioRepository, InventarioRepository>();
 
 var app = builder.Build();
 

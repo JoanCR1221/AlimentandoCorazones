@@ -1,5 +1,40 @@
+html {
+    font-size: 100%;
+}
+
+html[data-escala="pequena"] {
+    font-size: 87.5%;
+}
+
+html[data-escala="grande"] {
+    font-size: 125%;
+}
+
 html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+html[data-alto-contraste="true"] .mud-input-outlined .mud-input-outlined-border {
+    border-width: 2px !important;
+}
+
+html[data-alto-contraste="true"] .mud-button-root,
+html[data-alto-contraste="true"] .mud-icon-button {
+    font-weight: 600;
+}
+
+html[data-alto-contraste="true"] .mud-table-cell,
+html[data-alto-contraste="true"] .mud-table-head .mud-table-cell {
+    border-bottom-width: 2px;
+}
+
+html[data-alto-contraste="true"] :focus-visible {
+    outline: 3px solid currentColor !important;
+    outline-offset: 2px;
+}
+
+.apariencia-toolbar .mud-switch {
+    margin-right: 0;
 }
 
 a, .btn-link {
@@ -13,7 +48,7 @@ a, .btn-link {
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+    box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
 }
 
 .content {
@@ -42,9 +77,9 @@ h1:focus {
     color: white;
 }
 
-    .blazor-error-boundary::after {
-        content: "An error has occurred."
-    }
+.blazor-error-boundary::after {
+    content: "An error has occurred."
+}
 
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
@@ -57,4 +92,24 @@ h1:focus {
 
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
+}
+
+#blazor-error-ui {
+    background: lightyellow;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    box-sizing: border-box;
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
 }
