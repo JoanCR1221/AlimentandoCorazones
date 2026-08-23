@@ -1,42 +1,74 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">SIGAC</a>
-    </div>
-</div>
+﻿@inject NavigationManager Navigation
+@implements IDisposable
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+<MudNavMenu Class="pa-2">
+    <MudText Typo="Typo.subtitle2" Class="px-4 py-2 mud-text-secondary">Navegación</MudText>
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
+    <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">
+        Inicio
+    </MudNavLink>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
+    <MudNavGroup Title="Ver Beneficiarios"
+                 Icon="@Icons.Material.Filled.People"
+                 Expanded="_beneficiariosExpandido"
+                 ExpandedChanged="OnBeneficiariosExpandedChanged">
+        <MudNavLink Href="/beneficiarios/registrar" Icon="@Icons.Material.Filled.PersonAdd">
+            Registrar Beneficiario
+        </MudNavLink>
+    </MudNavGroup>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
+    <MudNavLink Href="/asistencia/registrar" Icon="@Icons.Material.Filled.Restaurant">
+        Agregar Asistencia
+    </MudNavLink>
+    <MudNavLink Href="/asistencia/historial" Icon="@Icons.Material.Filled.History">
+        Historial de Asistencia
+    </MudNavLink>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/beneficiarios">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Ver Beneficiarios
-            </NavLink>
-        </div>
+    <MudDivider Class="my-2" />
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/beneficiarios/registrar">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Registrar Beneficiario
-            </NavLink>
-        </div>
-    </nav>
-</div>
+    <MudNavLink Href="/prototipos" Icon="@Icons.Material.Filled.Palette">
+        Prototipos de apariencia
+    </MudNavLink>
+</MudNavMenu>
 
+@code {
+    private bool _beneficiariosExpandido;
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        _beneficiariosExpandido = EstaEnBeneficiarios();
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        var expandir = EstaEnBeneficiarios();
+        if (_beneficiariosExpandido != expandir)
+        {
+            _beneficiariosExpandido = expandir;
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private bool EstaEnBeneficiarios()
+    {
+        var ruta = Navigation.ToBaseRelativePath(Navigation.Uri);
+        return ruta.StartsWith("beneficiarios", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void OnBeneficiariosExpandedChanged(bool expandido)
+    {
+        _beneficiariosExpandido = expandido;
+
+        // Al abrir el grupo, ir al listado; Registrar aparece debajo.
+        if (expandido && !EstaEnBeneficiarios())
+        {
+            Navigation.NavigateTo("/beneficiarios");
+        }
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+}

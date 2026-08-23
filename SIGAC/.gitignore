@@ -3,3 +3,6 @@ obj/
 .vs/
 .claude/
 *.user
+
+# Cadena de conexion por entorno: cada desarrollador usa la suya
+SIGAC/appsettings.json

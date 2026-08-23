@@ -5,12 +5,15 @@ using SIGAC.Application.Services;
 using SIGAC.Infrastructure.Data;
 using SIGAC.Infrastructure.Repositories;
 using SIGAC.Components;
+using SIGAC.Services;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddScoped<AparienciaService>();
 
 builder.Services.AddMudServices();
 
@@ -27,7 +30,7 @@ builder.Services.AddScoped<IInventarioService, InventarioService>();
 builder.Services.AddScoped<IBeneficiariosRepository, BeneficiariosRepositoryEfCore>();
 
 // Repositorio de Asistencia TEMPORAL en memoria (aún sin migrar a EF Core)
-builder.Services.AddSingleton<IAsistenciaRepository, AsistenciaRepositoryEnMemoria>();
+builder.Services.AddScoped<IAsistenciaRepository, AsistenciaRepositoryEfCore>();
 
 // Repositorio de Inventario con EF Core
 //builder.Services.AddScoped<IInventarioRepository, InventarioRepository>();

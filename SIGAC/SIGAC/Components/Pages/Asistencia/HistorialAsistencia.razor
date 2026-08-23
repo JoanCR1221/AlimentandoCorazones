@@ -1,0 +1,110 @@
+﻿@page "/asistencia/historial"
+@using SIGAC.Application.DTOs.Asistencia
+@using SIGAC.Application.DTOs.Beneficiarios
+@using SIGAC.Application.Interfaces
+@using SIGAC.Domain
+@inject IAsistenciaService AsistenciaService
+@inject IBeneficiariosService BeneficiariosService
+
+<MudText Typo="Typo.h4" Class="mb-4">Historial de asistencia</MudText>
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        @* Es un buscador, no un desplegable: no despliega nada hasta que se
+           escriben MinimoCaracteresBusqueda caracteres. *@
+        <MudAutocomplete T="BeneficiarioListaDto" Value="beneficiarioSeleccionado" ValueChanged="OnBeneficiarioCambiadoAsync"
+                          SearchFunc="BuscarBeneficiariosAsync" ToStringFunc="@(b => b?.NombreCompleto)"
+                          MinCharacters="FiltrosBeneficiarioDto.MinimoCaracteresBusqueda"
+                          OpenOnFocus="false"
+                          HelperText="@AyudaBusqueda"
+                          Label="Beneficiario" Variant="Variant.Outlined" Class="mb-4" Clearable="true" />
+        @* Lista cerrada: la fuente es SIGAC.Domain.TiemposComida, no la pantalla. *@
+        <MudSelect T="string" Value="filtroTiempoComida" ValueChanged="OnTiempoComidaCambiadoAsync"
+                   Label="Tiempo de comida" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
+            @foreach (var tiempoComida in TiemposComida.Todos)
+            {
+                <MudSelectItem T="string" Value="@tiempoComida">@tiempoComida</MudSelectItem>
+            }
+        </MudSelect>
+        <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
+                             Label="Rango de fechas" Variant="Variant.Outlined" Class="mb-4" />
+
+        <MudText Typo="Typo.subtitle1" Class="mb-1">Total de asistencias del período: @resultado.Registros.Count</MudText>
+        @if (resultado.TotalesPorTiempoComida.Count > 0)
+        {
+            <MudText Typo="Typo.body2" Class="mb-4">
+                @string.Join(" · ", resultado.TotalesPorTiempoComida.Select(kv => $"{kv.Key}: {kv.Value}"))
+            </MudText>
+        }
+
+        <MudDataGrid T="HistorialAsistenciaDto" Items="@resultado.Registros">
+            <Columns>
+                <PropertyColumn Property="x => x.NombreBeneficiario" Title="Beneficiario" />
+                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
+                <PropertyColumn Property="x => x.TiempoComida" Title="Tiempo de comida" />
+            </Columns>
+            <NoRecordsContent>
+                <MudText>No hay asistencias registradas para los filtros seleccionados.</MudText>
+            </NoRecordsContent>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private HistorialAsistenciaResultadoDto resultado = new();
+    private BeneficiarioListaDto? beneficiarioSeleccionado;
+    private string? filtroTiempoComida;
+    private DateRange? rangoFechas;
+
+    private static readonly string AyudaBusqueda =
+        $"Escribí al menos {FiltrosBeneficiarioDto.MinimoCaracteresBusqueda} caracteres para buscar por nombre o número de identidad.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarAsync();
+    }
+
+    private async Task<IEnumerable<BeneficiarioListaDto>> BuscarBeneficiariosAsync(string valor, CancellationToken cancellationToken)
+    {
+        // MinCharacters ya evita la llamada, pero la guarda queda igual: es la que
+        // garantiza que nunca se devuelva una lista sin haber buscado nada.
+        if ((valor?.Trim().Length ?? 0) < FiltrosBeneficiarioDto.MinimoCaracteresBusqueda)
+            return Array.Empty<BeneficiarioListaDto>();
+
+        // Nombre es el campo de texto libre del filtro: el servicio lo busca en los
+        // cuatro campos de nombre y también en el número de identidad.
+        // El servicio pagina: al autocompletar alcanza con la primera página.
+        var resultado = await BeneficiariosService.ObtenerBeneficiariosAsync(new FiltrosBeneficiarioDto { Nombre = valor });
+
+        return resultado.Elementos;
+    }
+
+    private async Task OnBeneficiarioCambiadoAsync(BeneficiarioListaDto? valor)
+    {
+        beneficiarioSeleccionado = valor;
+        await CargarAsync();
+    }
+
+    private async Task OnTiempoComidaCambiadoAsync(string? valor)
+    {
+        filtroTiempoComida = valor;
+        await CargarAsync();
+    }
+
+    private async Task OnRangoFechasCambiadoAsync(DateRange? valor)
+    {
+        rangoFechas = valor;
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        resultado = await AsistenciaService.ObtenerHistorialAsistenciaAsync(new FiltrosAsistenciaDto
+        {
+            BeneficiarioId = beneficiarioSeleccionado?.Id,
+            TiempoComida = filtroTiempoComida,
+            FechaDesde = rangoFechas?.Start,
+            FechaHasta = rangoFechas?.End
+        });
+    }
+}

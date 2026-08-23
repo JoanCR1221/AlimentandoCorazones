@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SIGAC.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using SIGAC.Infrastructure.Data;
 namespace SIGAC.Infrastructure.Migrations
 {
     [DbContext(typeof(SigacDbContext))]
-    partial class SigacDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260821071358_CorrigeTiempoComidaMerienda")]
+    partial class CorrigeTiempoComidaMerienda
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -86,39 +89,21 @@ namespace SIGAC.Infrastructure.Migrations
                     b.Property<DateTime>("FechaRegistro")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(150)");
+
                     b.Property<string>("NumIdentidad")
                         .HasMaxLength(30)
                         .IsUnicode(false)
                         .HasColumnType("varchar(30)");
 
-                    b.Property<string>("PrimerApellido")
-                        .IsRequired()
-                        .HasMaxLength(75)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(75)");
-
-                    b.Property<string>("PrimerNombre")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("SegundoApellido")
-                        .IsRequired()
-                        .HasMaxLength(75)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(75)");
-
-                    b.Property<string>("SegundoNombre")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(100)");
-
                     b.Property<string>("Telefono")
-                        .HasMaxLength(8)
+                        .HasMaxLength(20)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(8)");
+                        .HasColumnType("varchar(20)");
 
                     b.Property<string>("TipoDocumento")
                         .HasMaxLength(50)
@@ -136,14 +121,7 @@ namespace SIGAC.Infrastructure.Migrations
 
                     b.HasIndex("Estado");
 
-                    b.HasIndex("PrimerNombre", "SegundoNombre", "PrimerApellido", "SegundoApellido", "FechaNacimiento")
-                        .IsUnique()
-                        .HasDatabaseName("UX_Beneficiarios_Nombres_Apellidos_FechaNacimiento");
-
-                    b.HasIndex("TipoDocumento", "NumIdentidad")
-                        .IsUnique()
-                        .HasDatabaseName("UX_Beneficiarios_TipoDocumento_NumIdentidad")
-                        .HasFilter("[NumIdentidad] IS NOT NULL AND [NumIdentidad] <> ''");
+                    b.HasIndex("Nombre");
 
                     b.ToTable("Beneficiarios", (string)null);
                 });

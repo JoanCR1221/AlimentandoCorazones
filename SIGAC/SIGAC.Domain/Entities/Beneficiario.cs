@@ -5,7 +5,20 @@ namespace SIGAC.Domain.Entities
     public class Beneficiario
     {
         public int Id { get; set; }
-        public string Nombre { get; set; } = string.Empty;
+        public string PrimerNombre { get; set; } = string.Empty;
+
+        // Opcionales (segundo nombre y segundo apellido): se guardan como cadena
+        // vacía y nunca como NULL. En SQL Server dos NULL no se consideran iguales,
+        // y el índice único de (nombres, apellidos, FechaNacimiento) no los detectaría.
+        public string SegundoNombre { get; set; } = string.Empty;
+
+        public string PrimerApellido { get; set; } = string.Empty;
+        public string SegundoApellido { get; set; } = string.Empty;
+
+        // Solo para mostrar en listados: no se mapea a la base de datos.
+        public string NombreCompleto =>
+            ReglasBeneficiario.ComponerNombreCompleto(PrimerNombre, SegundoNombre, PrimerApellido, SegundoApellido);
+
         public DateTime FechaNacimiento { get; set; }
         public string Categoria { get; set; } = string.Empty;
         public string? Telefono { get; set; }

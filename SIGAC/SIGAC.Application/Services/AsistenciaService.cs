@@ -1,6 +1,7 @@
 ﻿using SIGAC.Application.DTOs.Asistencia;
 using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
+using SIGAC.Domain;
 using SIGAC.Domain.Entities;
 
 namespace SIGAC.Application.Services
@@ -22,6 +23,16 @@ namespace SIGAC.Application.Services
         {
             try
             {
+                if (dto.Fecha == default)
+                    throw new ValidationException("La fecha de asistencia es obligatoria.");
+
+                if (dto.Fecha.Date > DateTime.Today)
+                    throw new ValidationException("La fecha de asistencia no puede ser futura.");
+
+                if (!TiemposComida.EsValido(dto.TiempoComida))
+                    throw new ValidationException(
+                        $"El tiempo de comida debe ser uno de: {string.Join(", ", TiemposComida.Todos)}.");
+
                 var beneficiario = await _beneficiariosRepository.ObtenerPorIdAsync(dto.BeneficiarioId)
                     ?? throw new NotFoundException("El beneficiario no existe.");
 
@@ -52,18 +63,38 @@ namespace SIGAC.Application.Services
             }
         }
 
+        public async Task<bool> ExisteAsistenciaAsync(int beneficiarioId, DateTime fecha, string tiempoComida)
+        {
+            try
+            {
+                // Con los datos incompletos no hay nada que verificar todavía: la
+                // pantalla llama a esto mientras el formulario se está llenando.
+                if (beneficiarioId <= 0 || fecha == default || !TiemposComida.EsValido(tiempoComida))
+                    return false;
+
+                return await _asistenciaRepository.ExisteAsistenciaAsync(beneficiarioId, fecha, tiempoComida);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al verificar la asistencia.", ex);
+            }
+        }
+
         public async Task<HistorialAsistenciaResultadoDto> ObtenerHistorialAsistenciaAsync(FiltrosAsistenciaDto filtros)
         {
             try
             {
                 var asistencias = await _asistenciaRepository.ObtenerHistorialAsync(filtros);
 
+                // El nombre sale de la navegación que el repositorio ya trajo con
+                // Include, en el mismo viaje a la base: antes era una consulta extra
+                // por cada beneficiario distinto del período.
                 var registros = asistencias
                     .OrderByDescending(a => a.Fecha)
                     .Select(a => new HistorialAsistenciaDto
                     {
                         Id = a.Id,
-                        NombreBeneficiario = a.Beneficiario?.Nombre ?? string.Empty,
+                        NombreBeneficiario = a.Beneficiario?.NombreCompleto ?? string.Empty,
                         Fecha = a.Fecha,
                         TiempoComida = a.TiempoComida
                     })

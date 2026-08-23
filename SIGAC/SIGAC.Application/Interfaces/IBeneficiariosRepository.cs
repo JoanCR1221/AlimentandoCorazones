@@ -1,4 +1,5 @@
 ﻿using SIGAC.Domain.Entities;
+using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Beneficiarios;
 
 namespace SIGAC.Application.Interfaces
@@ -8,8 +9,18 @@ namespace SIGAC.Application.Interfaces
         Task AgregarAsync(Beneficiario beneficiario);
         Task ActualizarAsync(Beneficiario beneficiario);
         Task<Beneficiario?> ObtenerPorIdAsync(int id);
-        Task<bool> ExisteAsync(string nombre, DateTime fechaNacimiento);
-        Task<IEnumerable<Beneficiario>> ObtenerTodosAsync(FiltrosBeneficiarioDto filtros);
+        // La comparación es normalizada (sin tildes, sin mayúsculas y sin espacios
+        // sobrantes). idExcluir permite editar un beneficiario sin chocar consigo mismo.
+        Task<bool> ExisteAsync(string primerNombre, string segundoNombre, string primerApellido, string segundoApellido, DateTime fechaNacimiento, int? idExcluir = null);
+        // Devuelve una sola página, ya filtrada y ordenada en SQL, junto con el
+        // total de registros que cumplen los filtros (que la grilla necesita para
+        // saber cuántas páginas hay). Nunca materializa la tabla entera.
+        Task<ResultadoPaginado<Beneficiario>> ObtenerPaginaAsync(FiltrosBeneficiarioDto filtros);
+
+        // Unicidad de documento: no puede haber dos beneficiarios con el mismo tipo
+        // y número. Los que no tienen documento (número nulo o vacío) quedan fuera
+        // de la regla y nunca chocan entre sí.
+        Task<bool> ExisteDocumentoAsync(string? tipoDocumento, string? numIdentidad, int? idExcluir = null);
         Task CambiarEstadoAsync(int id, bool estado);
     }
 }
