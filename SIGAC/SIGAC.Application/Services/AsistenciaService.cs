@@ -26,8 +26,23 @@ namespace SIGAC.Application.Services
                 if (dto.Fecha == default)
                     throw new ValidationException("La fecha de asistencia es obligatoria.");
 
-                if (dto.Fecha.Date > DateTime.Today)
+                // Se compara sin hora y contra una sola fuente de "hoy", la misma que
+                // usa el calendario de la pantalla: si no, una fecha elegida al
+                // mediodía podría verse como futura frente a una medianoche.
+                var hoy = ReglasAsistencia.Hoy;
+                var fecha = dto.Fecha.Date;
+
+                if (fecha > hoy)
                     throw new ValidationException("La fecha de asistencia no puede ser futura.");
+
+                // La pantalla ya acota el calendario, pero la regla tiene que estar
+                // acá: cualquier otro camino de entrada se saltearía la UI.
+                var fechaMinima = ReglasAsistencia.FechaMinimaRegistro(hoy);
+
+                if (fecha < fechaMinima)
+                    throw new ValidationException(
+                        $"Solo se pueden registrar asistencias de los últimos {ReglasAsistencia.MaximoDiasHaciaAtras} días. " +
+                        $"La fecha más antigua permitida es {fechaMinima:dd/MM/yyyy}.");
 
                 if (!TiemposComida.EsValido(dto.TiempoComida))
                     throw new ValidationException(
@@ -39,19 +54,20 @@ namespace SIGAC.Application.Services
                 if (!beneficiario.Estado)
                     throw new ValidationException("El beneficiario no está activo.");
 
-                if (await _asistenciaRepository.ExisteAsistenciaAsync(dto.BeneficiarioId, dto.Fecha, dto.TiempoComida))
+                if (await _asistenciaRepository.ExisteAsistenciaAsync(dto.BeneficiarioId, fecha, dto.TiempoComida))
                     throw new DuplicateException("Ya existe asistencia registrada para ese beneficiario, fecha y tiempo de comida.");
 
-                var asistenciasDelDia = await _asistenciaRepository.ObtenerAsistenciasDiariasAsync(dto.Fecha);
+                var asistenciasDelDia = await _asistenciaRepository.ObtenerAsistenciasDiariasAsync(fecha);
                 var registrosBeneficiario = asistenciasDelDia.Count(a => a.BeneficiarioId == dto.BeneficiarioId);
 
-                if (registrosBeneficiario >= 3)
-                    throw new ValidationException("El beneficiario ya alcanzó el máximo de 3 registros para este día.");
+                if (registrosBeneficiario >= ReglasAsistencia.MaximoRegistrosPorDia)
+                    throw new ValidationException(
+                        $"El beneficiario ya alcanzó el máximo de {ReglasAsistencia.MaximoRegistrosPorDia} registros para este día.");
 
                 var asistencia = new AsistenciaComedor
                 {
                     BeneficiarioId = dto.BeneficiarioId,
-                    Fecha = dto.Fecha,
+                    Fecha = fecha,
                     TiempoComida = dto.TiempoComida
                 };
 

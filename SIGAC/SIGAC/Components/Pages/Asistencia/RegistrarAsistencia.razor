@@ -25,8 +25,13 @@
                               MinCharacters="FiltrosBeneficiarioDto.MinimoCaracteresBusqueda"
                               OpenOnFocus="false"
                               HelperText="@AyudaBusqueda" />
+            @* La ventana de fechas sale de ReglasAsistencia, la misma fuente que
+               valida AsistenciaService: el calendario no puede ofrecer un día que
+               el servidor después rechace. *@
             <MudDatePicker @bind-Date="fecha" @bind-Date:after="VerificarDuplicadoAsync" Label="Fecha" Variant="Variant.Outlined" Class="mt-4"
-                           MaxDate="DateTime.Today" />
+                           MinDate="ReglasAsistencia.FechaMinimaRegistro()"
+                           MaxDate="ReglasAsistencia.Hoy"
+                           HelperText="@AyudaFecha" />
             @* Lista cerrada: la fuente es SIGAC.Domain.TiemposComida, no la pantalla. *@
             <MudSelect T="string" @bind-Value="modelo.TiempoComida" @bind-Value:after="VerificarDuplicadoAsync" For="@(() => modelo.TiempoComida)"
                        Label="Tiempo de comida" Variant="Variant.Outlined" Class="mt-4">
@@ -61,6 +66,19 @@
     {
         get => modelo.Fecha == default ? null : modelo.Fecha;
         set => modelo.Fecha = value ?? default;
+    }
+
+    // Propiedad y no campo estático: lleva una fecha adentro, y el servidor puede
+    // seguir vivo después de medianoche. Se recalcula en cada render.
+    private string AyudaFecha =>
+        $"La asistencia se registra el día en que ocurre. Solo se pueden cargar los últimos " +
+        $"{ReglasAsistencia.MaximoDiasHaciaAtras} días, desde el {ReglasAsistencia.FechaMinimaRegistro():dd/MM/yyyy}.";
+
+    // El caso normal es registrar hoy: el campo arranca en la fecha de hoy en vez
+    // de vacío, para no obligar a abrir el calendario en cada registro.
+    protected override void OnInitialized()
+    {
+        modelo.Fecha = ReglasAsistencia.Hoy;
     }
 
     private async Task<IEnumerable<BeneficiarioListaDto>> BuscarBeneficiariosActivosAsync(string valor, CancellationToken cancellationToken)
@@ -105,7 +123,7 @@
             await AsistenciaService.RegistrarAsistenciaAsync(modelo);
             Snackbar.Add("Asistencia registrada correctamente.", Severity.Success);
 
-            modelo = new();
+            modelo = new() { Fecha = ReglasAsistencia.Hoy };
             beneficiarioSeleccionado = null;
             asistenciaDuplicada = false;
         }
