@@ -1,7 +1,65 @@
 ﻿@page "/"
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Inicio — SIGAC</PageTitle>
 
-<h1>Hello, world!</h1>
+<MudText Typo="Typo.h4" Class="mb-2">Bienvenido a SIGAC</MudText>
+<MudText Typo="Typo.body1" Class="mb-6 mud-text-secondary">
+    Sistema de gestión del comedor social Alimentando Corazones. Seleccione una opción para continuar.
+</MudText>
 
-Welcome to your new app.
+<MudGrid Spacing="3">
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard Class="pa-4" Style="height: 100%;">
+            <MudStack Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.People" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.h6">Beneficiarios</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Consulte, registre y administre a las personas atendidas por el comedor.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/beneficiarios" Class="mt-2">
+                    Ver listado
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/beneficiarios/registrar">
+                    Registrar nuevo
+                </MudButton>
+            </MudStack>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard Class="pa-4" Style="height: 100%;">
+            <MudStack Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Restaurant" Color="Color.Secondary" Size="Size.Large" />
+                <MudText Typo="Typo.h6">Asistencia al comedor</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Registre la asistencia diaria y consulte el historial de comidas servidas.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary" Href="/asistencia/registrar" Class="mt-2">
+                    Agregar asistencia
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Href="/asistencia/historial">
+                    Ver historial
+                </MudButton>
+            </MudStack>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard Class="pa-4" Style="height: 100%;">
+            <MudStack Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Palette" Color="Color.Tertiary" Size="Size.Large" />
+                <MudText Typo="Typo.h6">Apariencia</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Pruebe modos claro y oscuro, alto contraste y tamaño de letra para una lectura más cómoda.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Tertiary" Href="/prototipos" Class="mt-2">
+                    Ver prototipos
+                </MudButton>
+            </MudStack>
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+<MudAlert Severity="Severity.Info" Class="mt-6">
+    Use los controles en la barra superior (modo claro/oscuro, contraste y tamaño de letra) para adaptar la pantalla a sus necesidades visuales.
+</MudAlert>
