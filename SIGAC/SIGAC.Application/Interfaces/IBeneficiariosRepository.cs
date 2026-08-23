@@ -16,6 +16,11 @@ namespace SIGAC.Application.Interfaces
         // total de registros que cumplen los filtros (que la grilla necesita para
         // saber cuántas páginas hay). Nunca materializa la tabla entera.
         Task<ResultadoPaginado<Beneficiario>> ObtenerPaginaAsync(FiltrosBeneficiarioDto filtros);
+
+        // Unicidad de documento: no puede haber dos beneficiarios con el mismo tipo
+        // y número. Los que no tienen documento (número nulo o vacío) quedan fuera
+        // de la regla y nunca chocan entre sí.
+        Task<bool> ExisteDocumentoAsync(string? tipoDocumento, string? numIdentidad, int? idExcluir = null);
         Task CambiarEstadoAsync(int id, bool estado);
     }
 }

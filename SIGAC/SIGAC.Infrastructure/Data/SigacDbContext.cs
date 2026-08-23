@@ -94,6 +94,19 @@ namespace SIGAC.Infrastructure.Data
                     .IsUnique()
                     .HasDatabaseName("UX_Beneficiarios_Nombres_Apellidos_FechaNacimiento");
 
+                // Unicidad de documento: no puede haber dos beneficiarios con el
+                // mismo tipo y número. Es la combinación y no el número solo, porque
+                // cédula, DIMEX y pasaportes de distintos países tienen numeraciones
+                // independientes que podrían coincidir por casualidad.
+                //
+                // Índice FILTRADO: los beneficiarios sin documento guardan
+                // NumIdentidad en NULL y quedan fuera de la regla. Sin el filtro,
+                // todas las personas indocumentadas chocarían entre sí.
+                entity.HasIndex(b => new { b.TipoDocumento, b.NumIdentidad })
+                    .IsUnique()
+                    .HasFilter("[NumIdentidad] IS NOT NULL AND [NumIdentidad] <> ''")
+                    .HasDatabaseName("UX_Beneficiarios_TipoDocumento_NumIdentidad");
+
                 // Índices en los campos de filtro frecuente. El índice único anterior
                 // ya cubre las búsquedas que empiezan por PrimerNombre.
                 entity.HasIndex(b => b.Categoria);

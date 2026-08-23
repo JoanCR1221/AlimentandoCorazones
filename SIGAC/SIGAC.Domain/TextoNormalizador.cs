@@ -39,6 +39,29 @@ namespace SIGAC.Domain
             return string.Concat(primera.ToString(), compactado.AsSpan(1));
         }
 
+        // Forma en que se guarda un número de documento: sin espacios de ningún
+        // tipo, ni en los extremos ni internos. La gente los agrupa al escribirlos
+        // ("1 2345 6789") y, sin esto, esa variante y "123456789" serían dos
+        // personas distintas para el índice único de documento.
+        //
+        // No se toca el resto: los pasaportes llevan letras y se conservan como el
+        // usuario las escribió (la comparación no distingue mayúsculas).
+        public static string NormalizarNumeroDocumento(string? valor)
+        {
+            if (string.IsNullOrWhiteSpace(valor))
+                return string.Empty;
+
+            var sinEspacios = new StringBuilder(valor.Length);
+
+            foreach (var caracter in valor)
+            {
+                if (!char.IsWhiteSpace(caracter))
+                    sinEspacios.Append(caracter);
+            }
+
+            return sinEspacios.ToString();
+        }
+
         // Clave de comparación: compactada, sin tildes y en mayúsculas, para que
         // "josé  pérez" y "Jose Perez" se detecten como la misma persona.
         public static string ClaveComparacion(string? valor)

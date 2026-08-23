@@ -50,12 +50,17 @@
                               MaxLength="ReglasBeneficiario.LongitudMaximaTipoDocumentoOtro" />
             }
 
-            @* "Sin documento" no pide número: el campo se oculta. *@
+            @* "Sin documento" no pide número: el campo se oculta.
+               MaxLength, teclado, patrón y ayuda salen de ReglasBeneficiario según
+               el tipo elegido, que es la misma fuente que usa el validador. *@
             @if (TiposDocumento.RequiereNumIdentidad(modelo.TipoDocumento))
             {
-                <MudTextField @bind-Value="modelo.NumIdentidad" Label="Número de identidad" Variant="Variant.Outlined" Class="mt-4"
-                              MaxLength="ReglasBeneficiario.LongitudMaximaNumIdentidad"
-                              HelperText="@AyudaNumIdentidad" />
+                <MudTextField T="string" Value="modelo.NumIdentidad" ValueChanged="OnNumIdentidadCambiado" Immediate="true"
+                              Label="Número de identidad" Variant="Variant.Outlined" Class="mt-4"
+                              MaxLength="ReglasBeneficiario.LongitudMaximaNumIdentidadPara(modelo.TipoDocumento)"
+                              InputMode="@ModoEntradaNumIdentidad"
+                              Pattern="@PatronNumIdentidad"
+                              HelperText="@ReglasBeneficiario.DescribirNumIdentidad(modelo.TipoDocumento)" />
             }
         </MudCardContent>
         <MudCardActions>
@@ -73,23 +78,33 @@
         set => modelo.FechaNacimiento = value ?? default;
     }
 
-    private string? AyudaNumIdentidad => modelo.TipoDocumento switch
+    // Teclado numérico en móvil para los tipos que solo admiten dígitos.
+    private InputMode ModoEntradaNumIdentidad =>
+        ReglasBeneficiario.NumIdentidadEsSoloDigitos(modelo.TipoDocumento) ? InputMode.numeric : InputMode.text;
+
+    private string PatronNumIdentidad =>
+        ReglasBeneficiario.NumIdentidadEsSoloDigitos(modelo.TipoDocumento) ? "[0-9]*" : "[A-Za-z0-9]*";
+
+    // Descarta lo que no corresponde al tipo mientras se escribe. Es comodidad: el
+    // validador del servidor vuelve a comprobar el valor completo igual que antes.
+    private void OnNumIdentidadCambiado(string? valor)
     {
-        TiposDocumento.CedulaNacional => $"{ReglasBeneficiario.DigitosCedulaNacional} dígitos, sin guiones ni espacios.",
-        TiposDocumento.Dimex => $"{ReglasBeneficiario.DigitosMinimosDimex} o {ReglasBeneficiario.DigitosMaximosDimex} dígitos, sin guiones ni espacios.",
-        TiposDocumento.Pasaporte => "Alfanumérico, de longitud variable según el país emisor.",
-        TiposDocumento.Otro => "Solo números y letras.",
-        _ => null
-    };
+        var filtrado = ReglasBeneficiario.FiltrarNumIdentidad(modelo.TipoDocumento, valor);
+        modelo.NumIdentidad = filtrado.Length == 0 ? null : filtrado;
+    }
 
     private void OnTipoDocumentoCambiado(string? valor)
     {
         modelo.TipoDocumento = valor;
 
-        // Los campos que se ocultan también se limpian: no debe quedar un número
-        // o una especificación que no se corresponda con lo que muestra la pantalla.
-        if (!TiposDocumento.RequiereNumIdentidad(valor))
-            modelo.NumIdentidad = null;
+        // Al registrar el número se limpia SIEMPRE, aunque siguiera siendo válido
+        // con las reglas del tipo nuevo (un DIMEX de 12 dígitos también pasa como
+        // pasaporte). Nadie tiene el mismo número en dos documentos distintos, así
+        // que conservarlo solo invita a guardarlo bajo el tipo equivocado.
+        //
+        // En EditarBeneficiario la regla es a propósito la contraria: allá hay un
+        // dato real cargado y un clic accidental no debe hacerlo perder.
+        modelo.NumIdentidad = null;
 
         if (!TiposDocumento.RequiereNombreDelDocumento(valor))
             modelo.TipoDocumentoOtro = null;

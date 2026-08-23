@@ -33,6 +33,15 @@ namespace SIGAC.Application.Services
                     throw new DuplicateException("Ya existe un beneficiario con esos nombres, apellidos y fecha de nacimiento.");
                 }
 
+                // Segunda regla anti-duplicados, independiente de cómo se escriba el
+                // nombre: el documento identifica a la persona. Los que no tienen
+                // documento quedan fuera (NumIdentidad en null).
+                if (await _repository.ExisteDocumentoAsync(datos.TipoDocumento, datos.NumIdentidad))
+                {
+                    throw new DuplicateException(
+                        $"Ya existe un beneficiario registrado con ese documento: {DescribirDocumento(datos)} {datos.NumIdentidad}.");
+                }
+
                 var beneficiario = new Beneficiario
                 {
                     PrimerNombre = datos.PrimerNombre,
@@ -106,6 +115,14 @@ namespace SIGAC.Application.Services
                     throw new DuplicateException("Ya existe otro beneficiario con esos nombres, apellidos y fecha de nacimiento.");
                 }
 
+                // Se excluye el propio registro: editar sin tocar el documento no
+                // debe detectarse a sí mismo como duplicado.
+                if (await _repository.ExisteDocumentoAsync(datos.TipoDocumento, datos.NumIdentidad, id))
+                {
+                    throw new DuplicateException(
+                        $"Ya existe otro beneficiario registrado con ese documento: {DescribirDocumento(datos)} {datos.NumIdentidad}.");
+                }
+
                 beneficiario.PrimerNombre = datos.PrimerNombre;
                 beneficiario.SegundoNombre = datos.SegundoNombre;
                 beneficiario.PrimerApellido = datos.PrimerApellido;
@@ -160,6 +177,13 @@ namespace SIGAC.Application.Services
                 throw new Exception("Error al consultar beneficiarios.", ex);
             }
         }
+
+        // "Otro" por sí solo no identifica el documento en el mensaje de error: se
+        // usa cómo se llama, que es lo que el usuario escribió.
+        private static string DescribirDocumento(BeneficiarioValidado datos) =>
+            TiposDocumento.RequiereNombreDelDocumento(datos.TipoDocumento) && !string.IsNullOrWhiteSpace(datos.TipoDocumentoOtro)
+                ? datos.TipoDocumentoOtro
+                : datos.TipoDocumento;
 
         public Task ActivarBeneficiarioAsync(int id) => CambiarEstadoAsync(id, true);
 

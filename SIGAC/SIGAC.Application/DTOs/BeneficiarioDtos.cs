@@ -83,6 +83,11 @@ namespace SIGAC.Application.DTOs.Beneficiarios
     {
         public const int TamanoPaginaPredeterminado = 20;
 
+        // Mínimo para que un autocompletado dispare la búsqueda. Con menos, el
+        // desplegable mostraría una lista arbitraria y parecería un combo en vez
+        // de un buscador.
+        public const int MinimoCaracteresBusqueda = 2;
+
         // Techo duro: ningún llamador puede pedir una página tan grande que anule
         // la paginación y traiga la tabla entera.
         public const int TamanoPaginaMaximo = 100;

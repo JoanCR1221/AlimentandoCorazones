@@ -3,6 +3,7 @@
 @using SIGAC.Application.DTOs.Beneficiarios
 @using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces
+@using SIGAC.Domain
 @inject IBeneficiariosService BeneficiariosService
 @inject IAsistenciaService AsistenciaService
 @inject ISnackbar Snackbar
@@ -15,16 +16,24 @@
 
     <MudCard Class="pa-4">
         <MudCardContent>
+            @* Es un buscador, no un desplegable: no despliega nada hasta que se
+               escriben MinimoCaracteresBusqueda caracteres. Con menos, mostraría
+               una lista arbitraria de beneficiarios. *@
             <MudAutocomplete T="BeneficiarioListaDto" Label="Beneficiario" Variant="Variant.Outlined"
                               Value="beneficiarioSeleccionado" ValueChanged="OnBeneficiarioSeleccionadoAsync"
-                              SearchFunc="BuscarBeneficiariosActivosAsync" ToStringFunc="@(b => b?.NombreCompleto)" />
+                              SearchFunc="BuscarBeneficiariosActivosAsync" ToStringFunc="@(b => b?.NombreCompleto)"
+                              MinCharacters="FiltrosBeneficiarioDto.MinimoCaracteresBusqueda"
+                              OpenOnFocus="false"
+                              HelperText="@AyudaBusqueda" />
             <MudDatePicker @bind-Date="fecha" @bind-Date:after="VerificarDuplicadoAsync" Label="Fecha" Variant="Variant.Outlined" Class="mt-4"
                            MaxDate="DateTime.Today" />
+            @* Lista cerrada: la fuente es SIGAC.Domain.TiemposComida, no la pantalla. *@
             <MudSelect T="string" @bind-Value="modelo.TiempoComida" @bind-Value:after="VerificarDuplicadoAsync" For="@(() => modelo.TiempoComida)"
                        Label="Tiempo de comida" Variant="Variant.Outlined" Class="mt-4">
-                <MudSelectItem T="string" Value="@("Desayuno")">Desayuno</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Almuerzo")">Almuerzo</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Merienda")">Merienda</MudSelectItem>
+                @foreach (var tiempoComida in TiemposComida.Todos)
+                {
+                    <MudSelectItem T="string" Value="@tiempoComida">@tiempoComida</MudSelectItem>
+                }
             </MudSelect>
 
             @if (asistenciaDuplicada)
@@ -45,6 +54,9 @@
     private BeneficiarioListaDto? beneficiarioSeleccionado;
     private bool asistenciaDuplicada;
 
+    private static readonly string AyudaBusqueda =
+        $"Escribí al menos {FiltrosBeneficiarioDto.MinimoCaracteresBusqueda} caracteres para buscar por nombre o número de identidad.";
+
     private DateTime? fecha
     {
         get => modelo.Fecha == default ? null : modelo.Fecha;
@@ -53,6 +65,13 @@
 
     private async Task<IEnumerable<BeneficiarioListaDto>> BuscarBeneficiariosActivosAsync(string valor, CancellationToken cancellationToken)
     {
+        // MinCharacters ya evita la llamada, pero la guarda queda igual: es la que
+        // garantiza que nunca se devuelva una lista sin haber buscado nada.
+        if ((valor?.Trim().Length ?? 0) < FiltrosBeneficiarioDto.MinimoCaracteresBusqueda)
+            return Array.Empty<BeneficiarioListaDto>();
+
+        // Nombre es el campo de texto libre del filtro: el servicio lo busca en los
+        // cuatro campos de nombre y también en el número de identidad.
         // El servicio pagina: al autocompletar alcanza con la primera página, que
         // además evita traer cientos de coincidencias para un texto corto.
         var resultado = await BeneficiariosService.ObtenerBeneficiariosAsync(new FiltrosBeneficiarioDto
@@ -73,20 +92,10 @@
 
     private async Task VerificarDuplicadoAsync()
     {
-        asistenciaDuplicada = false;
-
-        if (modelo.BeneficiarioId == 0 || modelo.Fecha == default || string.IsNullOrWhiteSpace(modelo.TiempoComida))
-            return;
-
-        var resultado = await AsistenciaService.ObtenerHistorialAsistenciaAsync(new FiltrosAsistenciaDto
-        {
-            BeneficiarioId = modelo.BeneficiarioId,
-            FechaDesde = modelo.Fecha,
-            FechaHasta = modelo.Fecha,
-            TiempoComida = modelo.TiempoComida
-        });
-
-        asistenciaDuplicada = resultado.Registros.Count > 0;
+        // Consulta de existencia (EXISTS). Antes traía el historial filtrado con su
+        // JOIN y sus totales solo para preguntar si había una fila.
+        asistenciaDuplicada = await AsistenciaService.ExisteAsistenciaAsync(
+            modelo.BeneficiarioId, modelo.Fecha, modelo.TiempoComida);
     }
 
     private async Task Guardar()

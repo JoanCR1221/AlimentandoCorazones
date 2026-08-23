@@ -2,6 +2,7 @@
 @using SIGAC.Application.DTOs.Asistencia
 @using SIGAC.Application.DTOs.Beneficiarios
 @using SIGAC.Application.Interfaces
+@using SIGAC.Domain
 @inject IAsistenciaService AsistenciaService
 @inject IBeneficiariosService BeneficiariosService
 
@@ -9,14 +10,21 @@
 
 <MudCard Class="pa-4">
     <MudCardContent>
+        @* Es un buscador, no un desplegable: no despliega nada hasta que se
+           escriben MinimoCaracteresBusqueda caracteres. *@
         <MudAutocomplete T="BeneficiarioListaDto" Value="beneficiarioSeleccionado" ValueChanged="OnBeneficiarioCambiadoAsync"
                           SearchFunc="BuscarBeneficiariosAsync" ToStringFunc="@(b => b?.NombreCompleto)"
+                          MinCharacters="FiltrosBeneficiarioDto.MinimoCaracteresBusqueda"
+                          OpenOnFocus="false"
+                          HelperText="@AyudaBusqueda"
                           Label="Beneficiario" Variant="Variant.Outlined" Class="mb-4" Clearable="true" />
+        @* Lista cerrada: la fuente es SIGAC.Domain.TiemposComida, no la pantalla. *@
         <MudSelect T="string" Value="filtroTiempoComida" ValueChanged="OnTiempoComidaCambiadoAsync"
                    Label="Tiempo de comida" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
-            <MudSelectItem T="string" Value="@("Desayuno")">Desayuno</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Almuerzo")">Almuerzo</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Merienda")">Merienda</MudSelectItem>
+            @foreach (var tiempoComida in TiemposComida.Todos)
+            {
+                <MudSelectItem T="string" Value="@tiempoComida">@tiempoComida</MudSelectItem>
+            }
         </MudSelect>
         <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
                              Label="Rango de fechas" Variant="Variant.Outlined" Class="mb-4" />
@@ -48,6 +56,9 @@
     private string? filtroTiempoComida;
     private DateRange? rangoFechas;
 
+    private static readonly string AyudaBusqueda =
+        $"Escribí al menos {FiltrosBeneficiarioDto.MinimoCaracteresBusqueda} caracteres para buscar por nombre o número de identidad.";
+
     protected override async Task OnInitializedAsync()
     {
         await CargarAsync();
@@ -55,6 +66,13 @@
 
     private async Task<IEnumerable<BeneficiarioListaDto>> BuscarBeneficiariosAsync(string valor, CancellationToken cancellationToken)
     {
+        // MinCharacters ya evita la llamada, pero la guarda queda igual: es la que
+        // garantiza que nunca se devuelva una lista sin haber buscado nada.
+        if ((valor?.Trim().Length ?? 0) < FiltrosBeneficiarioDto.MinimoCaracteresBusqueda)
+            return Array.Empty<BeneficiarioListaDto>();
+
+        // Nombre es el campo de texto libre del filtro: el servicio lo busca en los
+        // cuatro campos de nombre y también en el número de identidad.
         // El servicio pagina: al autocompletar alcanza con la primera página.
         var resultado = await BeneficiariosService.ObtenerBeneficiariosAsync(new FiltrosBeneficiarioDto { Nombre = valor });
 

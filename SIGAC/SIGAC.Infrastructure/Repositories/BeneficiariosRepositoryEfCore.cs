@@ -65,6 +65,26 @@ namespace SIGAC.Infrastructure.Repositories
                 TextoNormalizador.SonEquivalentes(c.SegundoApellido, segundoApellido));
         }
 
+        public async Task<bool> ExisteDocumentoAsync(string? tipoDocumento, string? numIdentidad, int? idExcluir = null)
+        {
+            // Los beneficiarios sin documento quedan fuera de la regla: son varias
+            // personas indocumentadas y no pueden chocar entre sí. Es la misma
+            // exclusión que hace el filtro del índice único.
+            if (string.IsNullOrEmpty(numIdentidad))
+                return false;
+
+            // Igualdad directa, exactamente la misma comparación que hace el índice
+            // único filtrado: así el código y la base coinciden en qué es duplicado,
+            // y la consulta puede hacer seek sobre ese índice.
+            // El "sin distinguir mayúsculas" lo aporta la collation CI de SQL Server.
+            return await _context.Beneficiarios
+                .AsNoTracking()
+                .AnyAsync(b =>
+                    b.TipoDocumento == tipoDocumento &&
+                    b.NumIdentidad == numIdentidad &&
+                    (idExcluir == null || b.Id != idExcluir));
+        }
+
         public async Task<ResultadoPaginado<Beneficiario>> ObtenerPaginaAsync(FiltrosBeneficiarioDto filtros)
         {
             // Un solo IQueryable con los filtros aplicados. Todavía no se ejecutó

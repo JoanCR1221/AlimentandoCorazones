@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 using SIGAC.Application.Interfaces;
 using SIGAC.Application.Services;
@@ -25,8 +25,10 @@ builder.Services.AddScoped<IAsistenciaService, AsistenciaService>();
 // Repositorio de Beneficiarios con EF Core (reemplaza la versión temporal en memoria)
 builder.Services.AddScoped<IBeneficiariosRepository, BeneficiariosRepositoryEfCore>();
 
-// Repositorio de Asistencia TEMPORAL en memoria (aún sin migrar a EF Core)
-builder.Services.AddSingleton<IAsistenciaRepository, AsistenciaRepositoryEnMemoria>();
+// Repositorio de Asistencia con EF Core (reemplaza la versión temporal en memoria)
+// Scoped y no Singleton: un Singleton capturaría el SigacDbContext, que es Scoped
+// (captive dependency), y quedaría usando un contexto ya descartado.
+builder.Services.AddScoped<IAsistenciaRepository, AsistenciaRepositoryEfCore>();
 
 var app = builder.Build();
 

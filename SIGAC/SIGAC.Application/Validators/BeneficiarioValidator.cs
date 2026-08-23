@@ -160,33 +160,25 @@ namespace SIGAC.Application.Validators
             if (!TiposDocumento.RequiereNumIdentidad(tipoDocumento))
                 return (null, especificacion);
 
-            var numero = numIdentidad?.Trim();
+            // Se normaliza antes de validar: los espacios que agrupan el número no
+            // son un error del usuario, se sacan. Es la forma en que se guarda, y la
+            // que compara el índice único de documento.
+            var numero = TextoNormalizador.NormalizarNumeroDocumento(numIdentidad);
 
-            if (string.IsNullOrEmpty(numero))
+            if (numero.Length == 0)
                 throw new ValidationException("El número de identidad es obligatorio.");
 
             if (numero.Length > ReglasBeneficiario.LongitudMaximaNumIdentidad)
                 throw new ValidationException(
                     $"El número de identidad no puede superar los {ReglasBeneficiario.LongitudMaximaNumIdentidad} caracteres.");
 
-            switch (tipoDocumento)
-            {
-                case TiposDocumento.CedulaNacional when !ReglasBeneficiario.TieneFormatoCedulaNacional(numero):
-                    throw new ValidationException(
-                        $"La cédula nacional debe tener exactamente {ReglasBeneficiario.DigitosCedulaNacional} dígitos, sin guiones ni espacios.");
-
-                case TiposDocumento.Dimex when !ReglasBeneficiario.TieneFormatoDimex(numero):
-                    throw new ValidationException(
-                        $"El DIMEX debe tener {ReglasBeneficiario.DigitosMinimosDimex} o {ReglasBeneficiario.DigitosMaximosDimex} dígitos, sin guiones ni espacios.");
-
-                // El pasaporte es alfanumérico y de longitud variable según el país
-                // emisor: alcanza con que no venga vacío.
-                case TiposDocumento.Pasaporte:
-                    break;
-
-                case TiposDocumento.Otro when !ReglasBeneficiario.EsAlfanumerico(numero):
-                    throw new ValidationException("El número de identidad solo puede contener números y letras.");
-            }
+            // Mismo predicado y mismo texto que usa la pantalla para el MaxLength y
+            // la ayuda del campo: si divergieran, el usuario vería una cosa y el
+            // servidor exigiría otra.
+            if (!ReglasBeneficiario.TieneFormatoNumIdentidad(tipoDocumento, numero))
+                throw new ValidationException(
+                    "El número de identidad no corresponde al tipo de documento. " +
+                    $"Se espera: {ReglasBeneficiario.DescribirNumIdentidad(tipoDocumento)}");
 
             return (numero, especificacion);
         }
