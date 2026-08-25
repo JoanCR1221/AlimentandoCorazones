@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Beneficiarios;
 using SIGAC.Application.Interfaces;
@@ -17,42 +17,52 @@ namespace SIGAC.Infrastructure.Repositories
         // no a la columna, así que no depende de la collation de la base.
         private const string ColacionSinTildes = "Latin1_General_CI_AI";
 
-        private readonly SigacDbContext _context;
+        // Factory y no un DbContext inyectado: en Blazor Server el scope dura toda
+        // la sesión, así que un contexto compartido queda expuesto a que dos
+        // operaciones lo usen a la vez (por ejemplo, la grilla recargando mientras
+        // se cambia el estado de una fila), y DbContext no tolera eso. Cada método
+        // pide su propio contexto de corta vida.
+        private readonly IDbContextFactory<SigacDbContext> _contextFactory;
 
-        public BeneficiariosRepositoryEfCore(SigacDbContext context)
+        public BeneficiariosRepositoryEfCore(IDbContextFactory<SigacDbContext> contextFactory)
         {
-            _context = context;
+            _contextFactory = contextFactory;
         }
 
         public async Task AgregarAsync(Beneficiario beneficiario)
         {
-            _context.Beneficiarios.Add(beneficiario);
-            await _context.SaveChangesAsync();
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            context.Beneficiarios.Add(beneficiario);
+            await context.SaveChangesAsync();
         }
 
         public async Task ActualizarAsync(Beneficiario beneficiario)
         {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
             // La entidad llega desprendida (ObtenerPorIdAsync usa AsNoTracking),
             // por lo que Update la adjunta y marca todos sus campos como modificados.
-            _context.Beneficiarios.Update(beneficiario);
-            await _context.SaveChangesAsync();
+            context.Beneficiarios.Update(beneficiario);
+            await context.SaveChangesAsync();
         }
 
         public async Task<Beneficiario?> ObtenerPorIdAsync(int id)
         {
-            return await _context.Beneficiarios
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            return await context.Beneficiarios
                 .AsNoTracking()
                 .FirstOrDefaultAsync(b => b.Id == id);
         }
 
         public async Task<bool> ExisteAsync(string primerNombre, string segundoNombre, string primerApellido, string segundoApellido, DateTime fechaNacimiento, int? idExcluir = null)
         {
+            await using var context = await _contextFactory.CreateDbContextAsync();
             var fecha = fechaNacimiento.Date;
 
             // La fecha de nacimiento se filtra en SQL (son pocos candidatos) y los
             // nombres se comparan en memoria: la normalización sin tildes no tiene
             // traducción a SQL y no hay collation que la garantice en la columna.
-            var candidatos = await _context.Beneficiarios
+            var candidatos = await context.Beneficiarios
                 .AsNoTracking()
                 .Where(b => b.FechaNacimiento == fecha && (idExcluir == null || b.Id != idExcluir))
                 .Select(b => new { b.PrimerNombre, b.SegundoNombre, b.PrimerApellido, b.SegundoApellido })
@@ -73,11 +83,13 @@ namespace SIGAC.Infrastructure.Repositories
             if (string.IsNullOrEmpty(numIdentidad))
                 return false;
 
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
             // Igualdad directa, exactamente la misma comparación que hace el índice
             // único filtrado: así el código y la base coinciden en qué es duplicado,
             // y la consulta puede hacer seek sobre ese índice.
             // El "sin distinguir mayúsculas" lo aporta la collation CI de SQL Server.
-            return await _context.Beneficiarios
+            return await context.Beneficiarios
                 .AsNoTracking()
                 .AnyAsync(b =>
                     b.TipoDocumento == tipoDocumento &&
@@ -87,9 +99,11 @@ namespace SIGAC.Infrastructure.Repositories
 
         public async Task<ResultadoPaginado<Beneficiario>> ObtenerPaginaAsync(FiltrosBeneficiarioDto filtros)
         {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
             // Un solo IQueryable con los filtros aplicados. Todavía no se ejecutó
             // nada contra la base: se materializa recién en el Count y en el ToList.
-            var consulta = ConstruirConsultaFiltrada(filtros);
+            var consulta = ConstruirConsultaFiltrada(context, filtros);
 
             // Consulta 1: cuántos registros cumplen los filtros. Lo necesita el
             // paginador para saber cuántas páginas hay.
@@ -122,9 +136,9 @@ namespace SIGAC.Infrastructure.Repositories
         // Compone los filtros sobre un IQueryable: todo se traduce a SQL y se aplica
         // ANTES de paginar. Nada de LINQ to Objects acá, o la paginación no serviría
         // de nada (habría que traer la tabla entera para filtrarla en memoria).
-        private IQueryable<Beneficiario> ConstruirConsultaFiltrada(FiltrosBeneficiarioDto filtros)
+        private static IQueryable<Beneficiario> ConstruirConsultaFiltrada(SigacDbContext context, FiltrosBeneficiarioDto filtros)
         {
-            var consulta = _context.Beneficiarios.AsNoTracking();
+            var consulta = context.Beneficiarios.AsNoTracking();
 
             if (!string.IsNullOrWhiteSpace(filtros.Nombre))
             {
@@ -164,13 +178,15 @@ namespace SIGAC.Infrastructure.Repositories
 
         public async Task CambiarEstadoAsync(int id, bool estado)
         {
-            var beneficiario = await _context.Beneficiarios
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            var beneficiario = await context.Beneficiarios
                 .FirstOrDefaultAsync(b => b.Id == id);
 
             if (beneficiario is not null)
             {
                 beneficiario.Estado = estado;
-                await _context.SaveChangesAsync();
+                await context.SaveChangesAsync();
             }
         }
     }

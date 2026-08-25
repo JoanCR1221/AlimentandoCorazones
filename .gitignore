@@ -7,3 +7,4 @@ SIGAC/SIGAC/appsettings.json
 /SIGAC/SIGAC
 *.json
 SIGAC/SIGAC/appsettings.Development.json
+/SIGAC/SIGAC/appsettings.Development.json

@@ -8,21 +8,29 @@
         Inicio
     </MudNavLink>
 
-    <MudNavGroup Title="Ver Beneficiarios"
+    <MudNavGroup Title="Beneficiarios"
                  Icon="@Icons.Material.Filled.People"
                  Expanded="_beneficiariosExpandido"
                  ExpandedChanged="OnBeneficiariosExpandedChanged">
+        <MudNavLink Href="/beneficiarios" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.People">
+            Ver Beneficiarios
+        </MudNavLink>
         <MudNavLink Href="/beneficiarios/registrar" Icon="@Icons.Material.Filled.PersonAdd">
             Registrar Beneficiario
         </MudNavLink>
     </MudNavGroup>
 
-    <MudNavLink Href="/asistencia/registrar" Icon="@Icons.Material.Filled.Restaurant">
-        Agregar Asistencia
-    </MudNavLink>
-    <MudNavLink Href="/asistencia/historial" Icon="@Icons.Material.Filled.History">
-        Historial de Asistencia
-    </MudNavLink>
+    <MudNavGroup Title="Asistencia"
+                 Icon="@Icons.Material.Filled.Restaurant"
+                 Expanded="_asistenciaExpandido"
+                 ExpandedChanged="OnAsistenciaExpandedChanged">
+        <MudNavLink Href="/asistencia/historial" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.History">
+            Ver Asistencia
+        </MudNavLink>
+        <MudNavLink Href="/asistencia/registrar" Icon="@Icons.Material.Filled.Restaurant">
+            Agregar Asistencia
+        </MudNavLink>
+    </MudNavGroup>
 
     <MudDivider Class="my-2" />
 
@@ -33,19 +41,24 @@
 
 @code {
     private bool _beneficiariosExpandido;
+    private bool _asistenciaExpandido;
 
     protected override void OnInitialized()
     {
         Navigation.LocationChanged += OnLocationChanged;
         _beneficiariosExpandido = EstaEnBeneficiarios();
+        _asistenciaExpandido = EstaEnAsistencia();
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        var expandir = EstaEnBeneficiarios();
-        if (_beneficiariosExpandido != expandir)
+        var expandirBeneficiarios = EstaEnBeneficiarios();
+        var expandirAsistencia = EstaEnAsistencia();
+
+        if (_beneficiariosExpandido != expandirBeneficiarios || _asistenciaExpandido != expandirAsistencia)
         {
-            _beneficiariosExpandido = expandir;
+            _beneficiariosExpandido = expandirBeneficiarios;
+            _asistenciaExpandido = expandirAsistencia;
             InvokeAsync(StateHasChanged);
         }
     }
@@ -56,6 +69,12 @@
         return ruta.StartsWith("beneficiarios", StringComparison.OrdinalIgnoreCase);
     }
 
+    private bool EstaEnAsistencia()
+    {
+        var ruta = Navigation.ToBaseRelativePath(Navigation.Uri);
+        return ruta.StartsWith("asistencia", StringComparison.OrdinalIgnoreCase);
+    }
+
     private void OnBeneficiariosExpandedChanged(bool expandido)
     {
         _beneficiariosExpandido = expandido;
@@ -64,6 +83,17 @@
         if (expandido && !EstaEnBeneficiarios())
         {
             Navigation.NavigateTo("/beneficiarios");
+        }
+    }
+
+    private void OnAsistenciaExpandedChanged(bool expandido)
+    {
+        _asistenciaExpandido = expandido;
+
+        // Al abrir el grupo, ir al historial; Agregar aparece debajo.
+        if (expandido && !EstaEnAsistencia())
+        {
+            Navigation.NavigateTo("/asistencia/historial");
         }
     }
 
