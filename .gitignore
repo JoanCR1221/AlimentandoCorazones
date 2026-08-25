@@ -4,3 +4,7 @@ obj/
 *.user
 Fundamentos Liderazgo Teorias Estilos.pptx
 SIGAC/SIGAC/appsettings.json
+/SIGAC/SIGAC
+*.json
+SIGAC/SIGAC/appsettings.Development.json
+/SIGAC/SIGAC/appsettings.Development.json

@@ -17,8 +17,13 @@ builder.Services.AddScoped<AparienciaService>();
 
 builder.Services.AddMudServices();
 
-// DbContext de EF Core contra SQL Server Express local
-builder.Services.AddDbContext<SigacDbContext>(options =>
+// DbContext de EF Core contra SQL Server Express local.
+// Factory en lugar de AddDbContext: en Blazor Server el scope dura toda la
+// sesión (circuito), no cada clic, así que un DbContext inyectado directo
+// queda compartido entre operaciones concurrentes y EF Core no tolera eso
+// (DbContext no es seguro para usarse desde dos operaciones a la vez). Cada
+// repositorio pide un contexto nuevo y de corta vida por operación.
+builder.Services.AddDbContextFactory<SigacDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("SigacDb")));
 
 // Servicios del módulo de Beneficiarios y Asistencia
