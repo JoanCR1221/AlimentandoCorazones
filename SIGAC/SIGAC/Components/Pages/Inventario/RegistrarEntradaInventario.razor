@@ -49,6 +49,16 @@
                               Value="donanteSeleccionado" ValueChanged="OnDonanteCambiado"
                               SearchFunc="BuscarDonantesAsync" Clearable="true" />
         }
+        else if (modelo.Origen == "Compra")
+        {
+            <MudSelect T="string" Value="gastoOperativoSeleccionado" ValueChanged="OnGastoOperativoCambiado"
+                       Label="Gasto operativo" Variant="Variant.Outlined" Class="mt-4" Clearable="true">
+                @foreach (var gasto in GastosOperativosMock.Keys)
+                {
+                    <MudSelectItem T="string" Value="@gasto">@gasto</MudSelectItem>
+                }
+            </MudSelect>
+        }
     </MudCardContent>
 </MudCard>
 
@@ -62,9 +72,18 @@
         ["Donante anónimo"] = 4
     };
 
+    // Mock temporal: el módulo de Gastos Operativos todavía no existe.
+    private static readonly Dictionary<string, int> GastosOperativosMock = new()
+    {
+        ["Compra de alimentos"] = 1,
+        ["Compra de insumos de limpieza"] = 2,
+        ["Compra de ropa y calzado"] = 3
+    };
+
     private EntradaInventarioCrearDto modelo = new();
     private ArticuloExistenciaDto? articuloExistente;
     private string? donanteSeleccionado;
+    private string? gastoOperativoSeleccionado;
 
     private DateTime? fecha
     {
@@ -100,6 +119,8 @@
     {
         donanteSeleccionado = null;
         modelo.DonanteId = null;
+        gastoOperativoSeleccionado = null;
+        modelo.GastoOperativoId = null;
     }
 
     private Task<IEnumerable<string>> BuscarDonantesAsync(string valor, CancellationToken cancellationToken)
@@ -115,5 +136,11 @@
     {
         donanteSeleccionado = valor;
         modelo.DonanteId = valor is not null && DonantesMock.TryGetValue(valor, out var id) ? id : null;
+    }
+
+    private void OnGastoOperativoCambiado(string? valor)
+    {
+        gastoOperativoSeleccionado = valor;
+        modelo.GastoOperativoId = valor is not null && GastosOperativosMock.TryGetValue(valor, out var id) ? id : null;
     }
 }
