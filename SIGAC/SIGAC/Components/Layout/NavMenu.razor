@@ -32,6 +32,18 @@
         </MudNavLink>
     </MudNavGroup>
 
+    <MudNavGroup Title="Inventario"
+                 Icon="@Icons.Material.Filled.Inventory"
+                 Expanded="_inventarioExpandido"
+                 ExpandedChanged="OnInventarioExpandedChanged">
+        <MudNavLink Href="/inventario/existencias" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Inventory2">
+            Ver Existencias
+        </MudNavLink>
+        <MudNavLink Href="/inventario/entradas/registrar" Icon="@Icons.Material.Filled.AddBox">
+            Registrar Entrada
+        </MudNavLink>
+    </MudNavGroup>
+
     <MudDivider Class="my-2" />
 
     <MudNavLink Href="/prototipos" Icon="@Icons.Material.Filled.Palette">
@@ -42,23 +54,27 @@
 @code {
     private bool _beneficiariosExpandido;
     private bool _asistenciaExpandido;
+    private bool _inventarioExpandido;
 
     protected override void OnInitialized()
     {
         Navigation.LocationChanged += OnLocationChanged;
         _beneficiariosExpandido = EstaEnBeneficiarios();
         _asistenciaExpandido = EstaEnAsistencia();
+        _inventarioExpandido = EstaEnInventario();
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         var expandirBeneficiarios = EstaEnBeneficiarios();
         var expandirAsistencia = EstaEnAsistencia();
+        var expandirInventario = EstaEnInventario();
 
-        if (_beneficiariosExpandido != expandirBeneficiarios || _asistenciaExpandido != expandirAsistencia)
+        if (_beneficiariosExpandido != expandirBeneficiarios || _asistenciaExpandido != expandirAsistencia || _inventarioExpandido != expandirInventario)
         {
             _beneficiariosExpandido = expandirBeneficiarios;
             _asistenciaExpandido = expandirAsistencia;
+            _inventarioExpandido = expandirInventario;
             InvokeAsync(StateHasChanged);
         }
     }
@@ -73,6 +89,12 @@
     {
         var ruta = Navigation.ToBaseRelativePath(Navigation.Uri);
         return ruta.StartsWith("asistencia", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool EstaEnInventario()
+    {
+        var ruta = Navigation.ToBaseRelativePath(Navigation.Uri);
+        return ruta.StartsWith("inventario", StringComparison.OrdinalIgnoreCase);
     }
 
     private void OnBeneficiariosExpandedChanged(bool expandido)
@@ -94,6 +116,17 @@
         if (expandido && !EstaEnAsistencia())
         {
             Navigation.NavigateTo("/asistencia/historial");
+        }
+    }
+
+    private void OnInventarioExpandedChanged(bool expandido)
+    {
+        _inventarioExpandido = expandido;
+
+        // Al abrir el grupo, ir a existencias; Registrar entrada aparece debajo.
+        if (expandido && !EstaEnInventario())
+        {
+            Navigation.NavigateTo("/inventario/existencias");
         }
     }
 

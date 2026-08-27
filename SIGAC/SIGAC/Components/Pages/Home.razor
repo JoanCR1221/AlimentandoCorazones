@@ -47,6 +47,24 @@
     <MudItem xs="12" sm="6" md="4">
         <MudCard Class="pa-4" Style="height: 100%;">
             <MudStack Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Inventory" Color="Color.Info" Size="Size.Large" />
+                <MudText Typo="Typo.h6">Inventario</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Consulte las existencias y registre nuevas entradas de artículos.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Info" Href="/inventario/existencias" Class="mt-2">
+                    Ver existencias
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Info" Href="/inventario/entradas/registrar">
+                    Registrar entrada
+                </MudButton>
+            </MudStack>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard Class="pa-4" Style="height: 100%;">
+            <MudStack Spacing="2">
                 <MudIcon Icon="@Icons.Material.Filled.Palette" Color="Color.Tertiary" Size="Size.Large" />
                 <MudText Typo="Typo.h6">Apariencia</MudText>
                 <MudText Typo="Typo.body2" Class="mud-text-secondary">
