@@ -38,16 +38,33 @@
 
         <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
 
-        <MudSelect T="string" @bind-Value="modelo.Origen" Label="Origen" Variant="Variant.Outlined" Class="mt-4">
+        <MudSelect T="string" @bind-Value="modelo.Origen" @bind-Value:after="OnOrigenCambiado" Label="Origen" Variant="Variant.Outlined" Class="mt-4">
             <MudSelectItem T="string" Value="@("Donacion")">Donación</MudSelectItem>
             <MudSelectItem T="string" Value="@("Compra")">Compra</MudSelectItem>
         </MudSelect>
+
+        @if (modelo.Origen == "Donacion")
+        {
+            <MudAutocomplete T="string" Label="Donante" Variant="Variant.Outlined" Class="mt-4"
+                              Value="donanteSeleccionado" ValueChanged="OnDonanteCambiado"
+                              SearchFunc="BuscarDonantesAsync" Clearable="true" />
+        }
     </MudCardContent>
 </MudCard>
 
 @code {
+    // Mock temporal: el módulo de Donaciones todavía no existe.
+    private static readonly Dictionary<string, int> DonantesMock = new()
+    {
+        ["Empresa Alimentos del Valle"] = 1,
+        ["Supermercado La Colonia"] = 2,
+        ["Panadería San José"] = 3,
+        ["Donante anónimo"] = 4
+    };
+
     private EntradaInventarioCrearDto modelo = new();
     private ArticuloExistenciaDto? articuloExistente;
+    private string? donanteSeleccionado;
 
     private DateTime? fecha
     {
@@ -77,5 +94,26 @@
             modelo.Categoria = articuloExistente.Categoria;
             modelo.UnidadMedida = articuloExistente.UnidadMedida;
         }
+    }
+
+    private void OnOrigenCambiado()
+    {
+        donanteSeleccionado = null;
+        modelo.DonanteId = null;
+    }
+
+    private Task<IEnumerable<string>> BuscarDonantesAsync(string valor, CancellationToken cancellationToken)
+    {
+        var resultado = string.IsNullOrWhiteSpace(valor)
+            ? DonantesMock.Keys.AsEnumerable()
+            : DonantesMock.Keys.Where(d => d.Contains(valor, StringComparison.OrdinalIgnoreCase));
+
+        return Task.FromResult(resultado);
+    }
+
+    private void OnDonanteCambiado(string? valor)
+    {
+        donanteSeleccionado = valor;
+        modelo.DonanteId = valor is not null && DonantesMock.TryGetValue(valor, out var id) ? id : null;
     }
 }
