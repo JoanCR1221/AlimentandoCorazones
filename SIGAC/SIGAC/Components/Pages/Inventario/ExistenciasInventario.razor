@@ -32,6 +32,11 @@
                         }
                     </CellTemplate>
                 </TemplateColumn>
+                <TemplateColumn Title="Acciones">
+                    <CellTemplate>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/inventario/articulos/editar/{context.Item.Id}")">Editar</MudButton>
+                    </CellTemplate>
+                </TemplateColumn>
             </Columns>
             <NoRecordsContent>
                 <MudText>Todavía no hay artículos registrados.</MudText>
