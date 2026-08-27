@@ -1,5 +1,8 @@
 @page "/inventario/articulos/editar/{Id:int}"
 @using SIGAC.Application.DTOs.Inventario
+@using SIGAC.Application.Interfaces
+@inject IInventarioService InventarioService
+@inject NavigationManager NavigationManager
 
 <MudText Typo="Typo.h4" Class="mb-4">Editar artículo</MudText>
 
@@ -29,4 +32,16 @@
     public int Id { get; set; }
 
     private ArticuloEditarDto modelo = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var datos = await InventarioService.ObtenerParaEditarAsync(Id);
+        if (datos is null)
+        {
+            NavigationManager.NavigateTo("/inventario/existencias");
+            return;
+        }
+
+        modelo = datos;
+    }
 }

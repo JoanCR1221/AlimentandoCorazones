@@ -112,6 +112,27 @@ namespace SIGAC.Application.Services
             }
         }
 
+        public async Task<ArticuloEditarDto?> ObtenerParaEditarAsync(int id)
+        {
+            try
+            {
+                var articulo = await _repository.ObtenerArticuloPorIdAsync(id);
+                if (articulo is null)
+                    return null;
+
+                return new ArticuloEditarDto
+                {
+                    Nombre = articulo.Nombre,
+                    Categoria = articulo.Categoria,
+                    UnidadMedida = articulo.UnidadMedida
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al consultar el artículo.", ex);
+            }
+        }
+
         public async Task EditarArticuloAsync(int id, ArticuloEditarDto dto)
         {
             try
