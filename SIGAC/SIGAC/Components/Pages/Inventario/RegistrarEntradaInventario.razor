@@ -5,62 +5,74 @@
 
 <MudText Typo="Typo.h4" Class="mb-4">Registrar entrada de inventario</MudText>
 
-<MudCard Class="pa-4">
-    <MudCardContent>
-        <MudAutocomplete T="string" Label="Nombre del artículo" Variant="Variant.Outlined"
-                          Value="modelo.NombreArticulo" ValueChanged="OnNombreArticuloCambiadoAsync"
-                          SearchFunc="BuscarNombresArticuloAsync" CoerceText="false" CoerceValue="true"
-                          HelperText="Buscá un artículo existente o escribí uno nuevo." />
+<EditForm Model="modelo">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
 
-        @if (articuloExistente is not null)
-        {
-            <MudAlert Severity="Severity.Info" Class="mt-2">
-                Ya existe este artículo (stock actual: @articuloExistente.StockActual @articuloExistente.UnidadMedida). Se usará su categoría y unidad de medida registradas.
-            </MudAlert>
-        }
+    <MudCard Class="pa-4">
+        <MudCardContent>
+            <MudAutocomplete T="string" Label="Nombre del artículo" Variant="Variant.Outlined"
+                              Value="modelo.NombreArticulo" ValueChanged="OnNombreArticuloCambiadoAsync"
+                              SearchFunc="BuscarNombresArticuloAsync" CoerceText="false" CoerceValue="true"
+                              HelperText="Buscá un artículo existente o escribí uno nuevo." />
 
-        <MudSelect T="string" @bind-Value="modelo.Categoria" Label="Categoría" Variant="Variant.Outlined" Class="mt-4" Disabled="articuloExistente is not null">
-            <MudSelectItem T="string" Value="@("Alimentos")">Alimentos</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Ropa")">Ropa</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Calzado")">Calzado</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Equipos")">Equipos</MudSelectItem>
-        </MudSelect>
+            @if (articuloExistente is not null)
+            {
+                <MudAlert Severity="Severity.Info" Class="mt-2">
+                    Ya existe este artículo (stock actual: @articuloExistente.StockActual @articuloExistente.UnidadMedida). Se usará su categoría y unidad de medida registradas.
+                </MudAlert>
+            }
 
-        <MudSelect T="string" @bind-Value="modelo.UnidadMedida" Label="Unidad de medida" Variant="Variant.Outlined" Class="mt-4" Disabled="articuloExistente is not null">
-            <MudSelectItem T="string" Value="@("Unidad")">Unidad</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Kilogramo")">Kilogramo</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Litro")">Litro</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Caja")">Caja</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Paquete")">Paquete</MudSelectItem>
-        </MudSelect>
-
-        <MudNumericField T="int" @bind-Value="modelo.Cantidad" Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
-
-        <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
-
-        <MudSelect T="string" @bind-Value="modelo.Origen" @bind-Value:after="OnOrigenCambiado" Label="Origen" Variant="Variant.Outlined" Class="mt-4">
-            <MudSelectItem T="string" Value="@("Donacion")">Donación</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Compra")">Compra</MudSelectItem>
-        </MudSelect>
-
-        @if (modelo.Origen == "Donacion")
-        {
-            <MudAutocomplete T="string" Label="Donante" Variant="Variant.Outlined" Class="mt-4"
-                              Value="donanteSeleccionado" ValueChanged="OnDonanteCambiado"
-                              SearchFunc="BuscarDonantesAsync" Clearable="true" />
-        }
-        else if (modelo.Origen == "Compra")
-        {
-            <MudSelect T="string" Value="gastoOperativoSeleccionado" ValueChanged="OnGastoOperativoCambiado"
-                       Label="Gasto operativo" Variant="Variant.Outlined" Class="mt-4" Clearable="true">
-                @foreach (var gasto in GastosOperativosMock.Keys)
-                {
-                    <MudSelectItem T="string" Value="@gasto">@gasto</MudSelectItem>
-                }
+            <MudSelect T="string" @bind-Value="modelo.Categoria" For="@(() => modelo.Categoria)"
+                       Label="Categoría" Variant="Variant.Outlined" Class="mt-4" Disabled="articuloExistente is not null">
+                <MudSelectItem T="string" Value="@("Alimentos")">Alimentos</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Ropa")">Ropa</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Calzado")">Calzado</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Equipos")">Equipos</MudSelectItem>
             </MudSelect>
-        }
-    </MudCardContent>
-</MudCard>
+
+            <MudSelect T="string" @bind-Value="modelo.UnidadMedida" For="@(() => modelo.UnidadMedida)"
+                       Label="Unidad de medida" Variant="Variant.Outlined" Class="mt-4" Disabled="articuloExistente is not null">
+                <MudSelectItem T="string" Value="@("Unidad")">Unidad</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Kilogramo")">Kilogramo</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Litro")">Litro</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Caja")">Caja</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Paquete")">Paquete</MudSelectItem>
+            </MudSelect>
+
+            <MudNumericField T="int" @bind-Value="modelo.Cantidad" For="@(() => modelo.Cantidad)"
+                              Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
+
+            <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
+
+            <MudSelect T="string" @bind-Value="modelo.Origen" For="@(() => modelo.Origen)" @bind-Value:after="OnOrigenCambiado"
+                       Label="Origen" Variant="Variant.Outlined" Class="mt-4">
+                <MudSelectItem T="string" Value="@("Donacion")">Donación</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Compra")">Compra</MudSelectItem>
+            </MudSelect>
+
+            @if (modelo.Origen == "Donacion")
+            {
+                <MudAutocomplete T="string" Label="Donante" Variant="Variant.Outlined" Class="mt-4"
+                                  Value="donanteSeleccionado" ValueChanged="OnDonanteCambiado"
+                                  SearchFunc="BuscarDonantesAsync" Clearable="true" />
+            }
+            else if (modelo.Origen == "Compra")
+            {
+                <MudSelect T="string" Value="gastoOperativoSeleccionado" ValueChanged="OnGastoOperativoCambiado"
+                           Label="Gasto operativo" Variant="Variant.Outlined" Class="mt-4" Clearable="true">
+                    @foreach (var gasto in GastosOperativosMock.Keys)
+                    {
+                        <MudSelectItem T="string" Value="@gasto">@gasto</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+        </MudCardActions>
+    </MudCard>
+</EditForm>
 
 @code {
     // Mock temporal: el módulo de Donaciones todavía no existe.

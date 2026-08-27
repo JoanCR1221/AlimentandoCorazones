@@ -1,13 +1,28 @@
-﻿namespace SIGAC.Application.DTOs.Inventario
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace SIGAC.Application.DTOs.Inventario
 {
     public class EntradaInventarioCrearDto
     {
+        [Required(ErrorMessage = "El nombre del artículo es obligatorio.")]
         public string NombreArticulo { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "La categoría es obligatoria.")]
         public string Categoria { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "La unidad de medida es obligatoria.")]
         public string UnidadMedida { get; set; } = string.Empty;
+
+        [Range(1, int.MaxValue, ErrorMessage = "La cantidad debe ser mayor a 0.")]
         public int Cantidad { get; set; }
+
+        // Fecha queda sin [Required]: DateTime no-nullable siempre "tiene valor"
+        // para DataAnnotations, así que la validación no dispararía nunca.
         public DateTime Fecha { get; set; }
+
+        [Required(ErrorMessage = "El origen es obligatorio.")]
         public string Origen { get; set; } = string.Empty;
+
         public int? DonanteId { get; set; }
         public int? GastoOperativoId { get; set; }
         public string? Observaciones { get; set; }
