@@ -1,7 +1,9 @@
 @page "/inventario/entradas/registrar"
 @using SIGAC.Application.DTOs.Inventario
+@using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces
 @inject IInventarioService InventarioService
+@inject ISnackbar Snackbar
 
 <MudText Typo="Typo.h4" Class="mb-4">Registrar entrada de inventario</MudText>
 
@@ -158,6 +160,23 @@
 
     private async Task Guardar()
     {
-        await InventarioService.RegistrarEntradaAsync(modelo);
+        try
+        {
+            await InventarioService.RegistrarEntradaAsync(modelo);
+            Snackbar.Add("Entrada de inventario registrada correctamente.", Severity.Success);
+
+            modelo = new();
+            articuloExistente = null;
+            donanteSeleccionado = null;
+            gastoOperativoSeleccionado = null;
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo registrar la entrada de inventario. Intentá de nuevo.", Severity.Error);
+        }
     }
 }
