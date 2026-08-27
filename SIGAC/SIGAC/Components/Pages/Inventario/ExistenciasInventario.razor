@@ -7,6 +7,7 @@
 
 <MudCard Class="pa-4">
     <MudCardContent>
+        <MudTextField @bind-Value="filtroNombre" Label="Buscar por nombre" Variant="Variant.Outlined" Class="mb-4" />
         <MudDataGrid T="ArticuloExistenciaDto" Items="@articulos">
             <Columns>
                 <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
@@ -23,6 +24,7 @@
 
 @code {
     private IEnumerable<ArticuloExistenciaDto> articulos = new List<ArticuloExistenciaDto>();
+    private string? filtroNombre;
 
     protected override async Task OnInitializedAsync()
     {
