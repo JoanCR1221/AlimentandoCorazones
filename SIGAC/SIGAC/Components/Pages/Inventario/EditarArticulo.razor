@@ -3,6 +3,7 @@
 @using SIGAC.Application.Interfaces
 @inject IInventarioService InventarioService
 @inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
 
 <MudText Typo="Typo.h4" Class="mb-4">Editar artículo</MudText>
 
@@ -58,5 +59,7 @@
     private async Task Guardar()
     {
         await InventarioService.EditarArticuloAsync(Id, modelo);
+        Snackbar.Add("Artículo actualizado correctamente.", Severity.Success);
+        NavigationManager.NavigateTo("/inventario/existencias");
     }
 }
