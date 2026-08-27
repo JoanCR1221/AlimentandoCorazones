@@ -37,6 +37,11 @@
         <MudNumericField T="int" @bind-Value="modelo.Cantidad" Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
 
         <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
+
+        <MudSelect T="string" @bind-Value="modelo.Origen" Label="Origen" Variant="Variant.Outlined" Class="mt-4">
+            <MudSelectItem T="string" Value="@("Donacion")">Donación</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Compra")">Compra</MudSelectItem>
+        </MudSelect>
     </MudCardContent>
 </MudCard>
 
