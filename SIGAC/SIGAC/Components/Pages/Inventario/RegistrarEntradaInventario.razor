@@ -5,7 +5,7 @@
 
 <MudText Typo="Typo.h4" Class="mb-4">Registrar entrada de inventario</MudText>
 
-<EditForm Model="modelo">
+<EditForm Model="modelo" OnValidSubmit="Guardar">
     <DataAnnotationsValidator />
     <ValidationSummary />
 
@@ -154,5 +154,10 @@
     {
         gastoOperativoSeleccionado = valor;
         modelo.GastoOperativoId = valor is not null && GastosOperativosMock.TryGetValue(valor, out var id) ? id : null;
+    }
+
+    private async Task Guardar()
+    {
+        await InventarioService.RegistrarEntradaAsync(modelo);
     }
 }
