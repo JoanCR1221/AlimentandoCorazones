@@ -33,6 +33,8 @@
             <MudSelectItem T="string" Value="@("Caja")">Caja</MudSelectItem>
             <MudSelectItem T="string" Value="@("Paquete")">Paquete</MudSelectItem>
         </MudSelect>
+
+        <MudNumericField T="int" @bind-Value="modelo.Cantidad" Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
     </MudCardContent>
 </MudCard>
 
