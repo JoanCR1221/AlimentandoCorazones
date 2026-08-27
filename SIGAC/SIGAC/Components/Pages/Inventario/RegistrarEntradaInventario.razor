@@ -1,14 +1,45 @@
 @page "/inventario/entradas/registrar"
 @using SIGAC.Application.DTOs.Inventario
+@using SIGAC.Application.Interfaces
+@inject IInventarioService InventarioService
 
 <MudText Typo="Typo.h4" Class="mb-4">Registrar entrada de inventario</MudText>
 
 <MudCard Class="pa-4">
     <MudCardContent>
+        <MudAutocomplete T="string" Label="Nombre del artículo" Variant="Variant.Outlined"
+                          Value="modelo.NombreArticulo" ValueChanged="OnNombreArticuloCambiadoAsync"
+                          SearchFunc="BuscarNombresArticuloAsync" CoerceText="false" CoerceValue="true"
+                          HelperText="Buscá un artículo existente o escribí uno nuevo." />
 
+        @if (articuloExistente is not null)
+        {
+            <MudAlert Severity="Severity.Info" Class="mt-2">
+                Ya existe este artículo (stock actual: @articuloExistente.StockActual @articuloExistente.UnidadMedida). Se usará su categoría y unidad de medida registradas.
+            </MudAlert>
+        }
     </MudCardContent>
 </MudCard>
 
 @code {
     private EntradaInventarioCrearDto modelo = new();
+    private ArticuloExistenciaDto? articuloExistente;
+
+    private async Task<IEnumerable<string>> BuscarNombresArticuloAsync(string valor, CancellationToken cancellationToken)
+    {
+        var existencias = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto { Nombre = valor });
+        return existencias.Select(a => a.Nombre);
+    }
+
+    private async Task OnNombreArticuloCambiadoAsync(string? valor)
+    {
+        modelo.NombreArticulo = valor ?? string.Empty;
+        articuloExistente = null;
+
+        if (!string.IsNullOrWhiteSpace(modelo.NombreArticulo))
+        {
+            var existencias = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto { Nombre = modelo.NombreArticulo });
+            articuloExistente = existencias.FirstOrDefault(a => string.Equals(a.Nombre, modelo.NombreArticulo, StringComparison.OrdinalIgnoreCase));
+        }
+    }
 }
