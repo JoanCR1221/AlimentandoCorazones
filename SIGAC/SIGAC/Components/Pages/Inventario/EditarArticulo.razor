@@ -6,7 +6,7 @@
 
 <MudText Typo="Typo.h4" Class="mb-4">Editar artículo</MudText>
 
-<EditForm Model="modelo">
+<EditForm Model="modelo" OnValidSubmit="Guardar">
     <DataAnnotationsValidator />
     <ValidationSummary />
 
@@ -53,5 +53,10 @@
         }
 
         modelo = datos;
+    }
+
+    private async Task Guardar()
+    {
+        await InventarioService.EditarArticuloAsync(Id, modelo);
     }
 }
