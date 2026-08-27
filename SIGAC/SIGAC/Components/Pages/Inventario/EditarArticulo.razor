@@ -1,0 +1,17 @@
+@page "/inventario/articulos/editar/{Id:int}"
+@using SIGAC.Application.DTOs.Inventario
+
+<MudText Typo="Typo.h4" Class="mb-4">Editar artículo</MudText>
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private ArticuloEditarDto modelo = new();
+}
