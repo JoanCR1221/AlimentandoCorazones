@@ -18,6 +18,13 @@
                 Ya existe este artículo (stock actual: @articuloExistente.StockActual @articuloExistente.UnidadMedida). Se usará su categoría y unidad de medida registradas.
             </MudAlert>
         }
+
+        <MudSelect T="string" @bind-Value="modelo.Categoria" Label="Categoría" Variant="Variant.Outlined" Class="mt-4" Disabled="articuloExistente is not null">
+            <MudSelectItem T="string" Value="@("Alimentos")">Alimentos</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Ropa")">Ropa</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Calzado")">Calzado</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Equipos")">Equipos</MudSelectItem>
+        </MudSelect>
     </MudCardContent>
 </MudCard>
 
@@ -40,6 +47,11 @@
         {
             var existencias = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto { Nombre = modelo.NombreArticulo });
             articuloExistente = existencias.FirstOrDefault(a => string.Equals(a.Nombre, modelo.NombreArticulo, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (articuloExistente is not null)
+        {
+            modelo.Categoria = articuloExistente.Categoria;
         }
     }
 }
