@@ -25,6 +25,14 @@
             <MudSelectItem T="string" Value="@("Calzado")">Calzado</MudSelectItem>
             <MudSelectItem T="string" Value="@("Equipos")">Equipos</MudSelectItem>
         </MudSelect>
+
+        <MudSelect T="string" @bind-Value="modelo.UnidadMedida" Label="Unidad de medida" Variant="Variant.Outlined" Class="mt-4" Disabled="articuloExistente is not null">
+            <MudSelectItem T="string" Value="@("Unidad")">Unidad</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Kilogramo")">Kilogramo</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Litro")">Litro</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Caja")">Caja</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Paquete")">Paquete</MudSelectItem>
+        </MudSelect>
     </MudCardContent>
 </MudCard>
 
@@ -52,6 +60,7 @@
         if (articuloExistente is not null)
         {
             modelo.Categoria = articuloExistente.Categoria;
+            modelo.UnidadMedida = articuloExistente.UnidadMedida;
         }
     }
 }
