@@ -124,7 +124,8 @@ namespace SIGAC.Application.Services
                 {
                     Nombre = articulo.Nombre,
                     Categoria = articulo.Categoria,
-                    UnidadMedida = articulo.UnidadMedida
+                    UnidadMedida = articulo.UnidadMedida,
+                    StockActual = articulo.StockActual
                 };
             }
             catch (Exception ex)

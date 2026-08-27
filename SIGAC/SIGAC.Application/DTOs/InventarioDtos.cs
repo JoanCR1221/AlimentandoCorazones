@@ -58,6 +58,9 @@ namespace SIGAC.Application.DTOs.Inventario
         public string Nombre { get; set; } = string.Empty;
         public string Categoria { get; set; } = string.Empty;
         public string UnidadMedida { get; set; } = string.Empty;
+
+        // Solo informativo: se muestra de solo lectura, no se edita desde acá.
+        public int StockActual { get; set; }
     }
 
     public class MovimientoInventarioDto
