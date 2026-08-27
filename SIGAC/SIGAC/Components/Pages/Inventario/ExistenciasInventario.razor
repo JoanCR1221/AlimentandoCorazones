@@ -19,7 +19,18 @@
                 <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
                 <PropertyColumn Property="x => x.Categoria" Title="Categoría" />
                 <PropertyColumn Property="x => x.UnidadMedida" Title="Unidad de medida" />
-                <PropertyColumn Property="x => x.StockActual" Title="Stock actual" />
+                <TemplateColumn Title="Stock actual">
+                    <CellTemplate>
+                        @if (context.Item.StockBajo)
+                        {
+                            <MudChip T="string" Color="Color.Error" Icon="@Icons.Material.Filled.Warning">@context.Item.StockActual (stock bajo)</MudChip>
+                        }
+                        else
+                        {
+                            @context.Item.StockActual
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
             </Columns>
             <NoRecordsContent>
                 <MudText>Todavía no hay artículos registrados.</MudText>
