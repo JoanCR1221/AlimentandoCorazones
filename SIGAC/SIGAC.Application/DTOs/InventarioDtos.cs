@@ -55,8 +55,13 @@ namespace SIGAC.Application.DTOs.Inventario
 
     public class ArticuloEditarDto
     {
+        [Required(ErrorMessage = "El nombre es obligatorio.")]
         public string Nombre { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "La categoría es obligatoria.")]
         public string Categoria { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "La unidad de medida es obligatoria.")]
         public string UnidadMedida { get; set; } = string.Empty;
 
         // Solo informativo: se muestra de solo lectura, no se edita desde acá.
