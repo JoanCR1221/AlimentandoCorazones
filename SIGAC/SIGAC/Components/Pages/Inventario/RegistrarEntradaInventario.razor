@@ -35,12 +35,20 @@
         </MudSelect>
 
         <MudNumericField T="int" @bind-Value="modelo.Cantidad" Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
+
+        <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
     </MudCardContent>
 </MudCard>
 
 @code {
     private EntradaInventarioCrearDto modelo = new();
     private ArticuloExistenciaDto? articuloExistente;
+
+    private DateTime? fecha
+    {
+        get => modelo.Fecha == default ? null : modelo.Fecha;
+        set => modelo.Fecha = value ?? default;
+    }
 
     private async Task<IEnumerable<string>> BuscarNombresArticuloAsync(string valor, CancellationToken cancellationToken)
     {
