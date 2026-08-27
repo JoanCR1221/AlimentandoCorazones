@@ -30,12 +30,18 @@ builder.Services.AddDbContextFactory<SigacDbContext>(options =>
 builder.Services.AddScoped<IBeneficiariosService, BeneficiariosService>();
 builder.Services.AddScoped<IAsistenciaService, AsistenciaService>();
 
+// Servicio del módulo de Control de Inventario
+builder.Services.AddScoped<IInventarioService, InventarioService>();
+
 
 // Repositorio de Beneficiarios con EF Core (reemplaza la versión temporal en memoria)
 builder.Services.AddScoped<IBeneficiariosRepository, BeneficiariosRepositoryEfCore>();
 
 // Repositorio de Asistencia TEMPORAL en memoria (aún sin migrar a EF Core)
 builder.Services.AddScoped<IAsistenciaRepository, AsistenciaRepositoryEfCore>();
+
+// Repositorio de Inventario TEMPORAL en memoria (aún sin EF Core del lado del backend)
+builder.Services.AddScoped<IInventarioRepository, InventarioRepositoryEnMemoria>();
 
 
 var app = builder.Build();
