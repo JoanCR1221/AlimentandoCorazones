@@ -5,7 +5,22 @@
 
 <MudCard Class="pa-4">
     <MudCardContent>
+        <MudTextField @bind-Value="modelo.Nombre" Label="Nombre" Variant="Variant.Outlined" />
 
+        <MudSelect T="string" @bind-Value="modelo.Categoria" Label="Categoría" Variant="Variant.Outlined" Class="mt-4">
+            <MudSelectItem T="string" Value="@("Alimentos")">Alimentos</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Ropa")">Ropa</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Calzado")">Calzado</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Equipos")">Equipos</MudSelectItem>
+        </MudSelect>
+
+        <MudSelect T="string" @bind-Value="modelo.UnidadMedida" Label="Unidad de medida" Variant="Variant.Outlined" Class="mt-4">
+            <MudSelectItem T="string" Value="@("Unidad")">Unidad</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Kilogramo")">Kilogramo</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Litro")">Litro</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Caja")">Caja</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Paquete")">Paquete</MudSelectItem>
+        </MudSelect>
     </MudCardContent>
 </MudCard>
 
