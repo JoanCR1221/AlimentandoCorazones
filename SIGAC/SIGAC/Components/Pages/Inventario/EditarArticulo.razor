@@ -58,8 +58,15 @@
 
     private async Task Guardar()
     {
-        await InventarioService.EditarArticuloAsync(Id, modelo);
-        Snackbar.Add("Artículo actualizado correctamente.", Severity.Success);
-        NavigationManager.NavigateTo("/inventario/existencias");
+        try
+        {
+            await InventarioService.EditarArticuloAsync(Id, modelo);
+            Snackbar.Add("Artículo actualizado correctamente.", Severity.Success);
+            NavigationManager.NavigateTo("/inventario/existencias");
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo actualizar el artículo. Intentá de nuevo.", Severity.Error);
+        }
     }
 }
