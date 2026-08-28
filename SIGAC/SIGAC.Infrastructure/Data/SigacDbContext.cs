@@ -16,6 +16,8 @@ namespace SIGAC.Infrastructure.Data
         // Módulo de Control de Inventario
         public DbSet<Articulo> Articulos { get; set; }
         public DbSet<EntradaInventario> EntradasInventario { get; set; }
+        public DbSet<SalidaInventario> SalidasInventario { get; set; }
+        public DbSet<SolicitudPrestamo> SolicitudesPrestamo { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -293,6 +295,162 @@ namespace SIGAC.Infrastructure.Data
                 // de fechas sin filtrar por artículo, y ahí el compuesto no sirve
                 // (no se puede hacer seek por la segunda columna del índice).
                 entity.HasIndex(e => e.Fecha);
+            });
+
+            modelBuilder.Entity<SalidaInventario>(entity =>
+            {
+                // CHECK a nivel de BD: TipoSalida es un dominio cerrado y una salida
+                // siempre descuenta stock, nunca cero ni negativo.
+                entity.ToTable("SalidasInventario", t =>
+                {
+                    t.HasCheckConstraint(
+                        "CK_SalidasInventario_TipoSalida",
+                        "[TipoSalida] IN ('Donacion', 'Prestamo')");
+
+                    t.HasCheckConstraint(
+                        "CK_SalidasInventario_Cantidad",
+                        "[Cantidad] > 0");
+                });
+
+                entity.HasKey(s => s.Id);
+
+                entity.Property(s => s.Cantidad)
+                    .IsRequired();
+
+                // datetime2 y no "date", por lo mismo que EntradasInventario: las
+                // salidas de préstamo se sellan con DateTime.Now y varias pueden
+                // caer el mismo día.
+                entity.Property(s => s.Fecha)
+                    .IsRequired();
+
+                entity.Property(s => s.TipoSalida)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(20);
+
+                // Opcional: solo las salidas por donación tienen comunidad destinataria.
+                // Las de préstamo identifican su destino por la solicitud asociada.
+                entity.Property(s => s.ComunidadDestinataria)
+                    .IsUnicode(false)
+                    .HasMaxLength(150);
+
+                entity.Property(s => s.Observaciones)
+                    .IsUnicode(false)
+                    .HasMaxLength(500);
+
+                // Relación FK obligatoria con Articulo. Restrict impide borrar un
+                // artículo con historial de salidas, igual que con las entradas: sin
+                // los movimientos no se puede reconstruir cómo llegó el stock a su valor.
+                entity.HasOne(s => s.Articulo)
+                    .WithMany()
+                    .HasForeignKey(s => s.ArticuloId)
+                    .IsRequired()
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // FK REAL y opcional hacia SolicitudPrestamo (y no un int suelto):
+                // el valor lo escribe AprobarPrestamoAsync a partir de una solicitud
+                // que acaba de leer, así que siempre apunta a una fila existente y la
+                // BD puede garantizarlo. Como int suelto se podrían colar ids
+                // inexistentes sin que nada avisara.
+                // Nullable porque las salidas por donación no nacen de una solicitud.
+                // Restrict: la salida es el comprobante de que el préstamo se entregó,
+                // no puede desaparecer al borrar la solicitud.
+                //
+                // Sin propiedad de navegación en la entidad: no se puede agregar una
+                // (las entidades del dominio están cerradas), así que se declara con
+                // HasOne<T>() sin selector, apoyada solo en la FK.
+                entity.HasOne<SolicitudPrestamo>()
+                    .WithMany()
+                    .HasForeignKey(s => s.SolicitudPrestamoId)
+                    .IsRequired(false)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Unicidad: una solicitud aprobada genera UNA sola salida. Cierra la
+                // condición de carrera de AprobarPrestamoAsync, donde dos aprobaciones
+                // simultáneas de la misma solicitud pasarían las dos el chequeo de
+                // "ya fue resuelta" y descontarían el stock dos veces.
+                //
+                // Índice FILTRADO: las salidas por donación llevan la columna en NULL
+                // y quedan fuera de la regla. Sin el filtro chocarían todas entre sí
+                // (en SQL Server el índice único trata dos NULL como iguales).
+                entity.HasIndex(s => s.SolicitudPrestamoId)
+                    .IsUnique()
+                    .HasFilter("[SolicitudPrestamoId] IS NOT NULL")
+                    .HasDatabaseName("UX_SalidasInventario_SolicitudPrestamo");
+
+                // Mismos índices que EntradasInventario: el historial de movimientos
+                // consulta las dos tablas con los mismos filtros.
+                entity.HasIndex(s => new { s.ArticuloId, s.Fecha })
+                    .HasDatabaseName("IX_SalidasInventario_Articulo_Fecha");
+
+                entity.HasIndex(s => s.Fecha);
+            });
+
+            modelBuilder.Entity<SolicitudPrestamo>(entity =>
+            {
+                // CHECK a nivel de BD: Estado es un dominio cerrado (el enum
+                // EstadoSolicitudPrestamo) y se guarda como texto, así que sin el
+                // CHECK la columna aceptaría cualquier cadena escrita desde afuera.
+                entity.ToTable("SolicitudesPrestamo", t =>
+                {
+                    t.HasCheckConstraint(
+                        "CK_SolicitudesPrestamo_Estado",
+                        "[Estado] IN ('Pendiente', 'Aprobada', 'Rechazada')");
+
+                    t.HasCheckConstraint(
+                        "CK_SolicitudesPrestamo_Cantidad",
+                        "[Cantidad] > 0");
+                });
+
+                entity.HasKey(s => s.Id);
+
+                entity.Property(s => s.Cantidad)
+                    .IsRequired();
+
+                entity.Property(s => s.Fecha)
+                    .IsRequired();
+
+                entity.Property(s => s.Actividad)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(150);
+
+                entity.Property(s => s.Solicitante)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(150);
+
+                // El enum se guarda como texto legible ('Pendiente') y no como el int
+                // del enum: la columna se entiende leyendo la tabla, el CHECK de
+                // arriba puede escribirse sobre valores con significado, y agregar o
+                // reordenar valores del enum no reinterpreta las filas ya guardadas.
+                //
+                // HasConversion<string>() es el conversor integrado de EF Core para
+                // enums (EnumToStringConverter); no hace falta escribir uno a mano.
+                entity.Property(s => s.Estado)
+                    .IsRequired()
+                    .HasConversion<string>()
+                    .IsUnicode(false)
+                    .HasMaxLength(20);
+
+                // Solo se llena cuando la solicitud se rechaza.
+                entity.Property(s => s.MotivoRechazo)
+                    .IsUnicode(false)
+                    .HasMaxLength(500);
+
+                // Relación FK obligatoria con Articulo. Restrict impide borrar un
+                // artículo que tenga solicitudes de préstamo asociadas.
+                entity.HasOne(s => s.Articulo)
+                    .WithMany()
+                    .HasForeignKey(s => s.ArticuloId)
+                    .IsRequired()
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Índice en el campo de filtro frecuente: la bandeja de préstamos
+                // trabaja sobre las solicitudes en estado Pendiente.
+                entity.HasIndex(s => s.Estado);
+
+                entity.HasIndex(s => s.Fecha);
             });
         }
     }
