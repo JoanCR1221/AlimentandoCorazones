@@ -13,6 +13,10 @@ namespace SIGAC.Infrastructure.Data
         public DbSet<Beneficiario> Beneficiarios { get; set; }
         public DbSet<AsistenciaComedor> AsistenciasComedor { get; set; }
 
+        // Módulo de Control de Inventario
+        public DbSet<Articulo> Articulos { get; set; }
+        public DbSet<EntradaInventario> EntradasInventario { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -151,6 +155,144 @@ namespace SIGAC.Infrastructure.Data
                 // ya cubre las búsquedas que empiezan por BeneficiarioId.
                 entity.HasIndex(a => a.Fecha);
                 entity.HasIndex(a => a.TiempoComida);
+            });
+
+            modelBuilder.Entity<Articulo>(entity =>
+            {
+                // CHECK a nivel de BD: el stock es un conteo físico, nunca puede ser
+                // negativo. Respalda la validación del servicio (que ya impide sacar
+                // más de lo disponible) ante inserciones o updates externos.
+                entity.ToTable("Articulos", t =>
+                {
+                    t.HasCheckConstraint(
+                        "CK_Articulos_StockActual_NoNegativo",
+                        "[StockActual] >= 0");
+
+                    t.HasCheckConstraint(
+                        "CK_Articulos_StockMinimo_NoNegativo",
+                        "[StockMinimo] >= 0");
+                });
+
+                entity.HasKey(a => a.Id);
+
+                // Convención del proyecto: VARCHAR en lugar de NVARCHAR (IsUnicode(false)).
+
+                entity.Property(a => a.Nombre)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(150);
+
+                entity.Property(a => a.Categoria)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(100);
+
+                // Más corta que las demás a propósito: son etiquetas de unidad
+                // ("Kilogramo", "Litro", "Unidad"), no texto libre.
+                entity.Property(a => a.UnidadMedida)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(50);
+
+                entity.Property(a => a.StockActual)
+                    .IsRequired();
+
+                entity.Property(a => a.StockMinimo)
+                    .IsRequired();
+
+                // Unicidad de nombre: el servicio busca el artículo por nombre y lo
+                // crea si no existe (ObtenerArticuloPorNombreAsync en
+                // RegistrarEntradaAsync), así que el nombre es la clave natural del
+                // catálogo. Sin este índice, dos entradas simultáneas del mismo
+                // artículo nuevo crearían dos filas y el stock quedaría partido.
+                // El "sin distinguir mayúsculas" lo aporta la collation CI de SQL Server.
+                entity.HasIndex(a => a.Nombre)
+                    .IsUnique()
+                    .HasDatabaseName("UX_Articulos_Nombre");
+
+                // Índice en el campo de filtro frecuente del listado de existencias.
+                // El índice único anterior ya cubre las búsquedas por Nombre.
+                entity.HasIndex(a => a.Categoria);
+            });
+
+            modelBuilder.Entity<EntradaInventario>(entity =>
+            {
+                // CHECK a nivel de BD: Origen es un dominio cerrado y la cantidad de
+                // una entrada siempre suma stock, nunca cero ni negativo. Refuerzan
+                // la validación de la capa de aplicación ante inserciones externas.
+                entity.ToTable("EntradasInventario", t =>
+                {
+                    t.HasCheckConstraint(
+                        "CK_EntradasInventario_Origen",
+                        "[Origen] IN ('Donacion', 'Compra')");
+
+                    t.HasCheckConstraint(
+                        "CK_EntradasInventario_Cantidad",
+                        "[Cantidad] > 0");
+                });
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Cantidad)
+                    .IsRequired();
+
+                // datetime2 y no "date" como en AsistenciasComedor: los movimientos se
+                // ordenan entre sí y varios pueden caer el mismo día (AprobarPrestamoAsync
+                // sella la salida con DateTime.Now). Sin la hora, el historial de un
+                // mismo día quedaría en orden arbitrario.
+                entity.Property(e => e.Fecha)
+                    .IsRequired();
+
+                entity.Property(e => e.Origen)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(20);
+
+                entity.Property(e => e.Observaciones)
+                    .IsUnicode(false)
+                    .HasMaxLength(500);
+
+                // Relación FK obligatoria con Articulo. Restrict impide borrar un
+                // artículo que tenga historial de entradas: el movimiento es el
+                // respaldo contable de la donación o la compra y no puede quedar huérfano.
+                entity.HasOne(e => e.Articulo)
+                    .WithMany()
+                    .HasForeignKey(e => e.ArticuloId)
+                    .IsRequired()
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // TODO (tarea 2074): FK opcional EntradaInventario -> Donante.
+                //   La entidad Donante todavía NO existe en SIGAC.Domain.Entities.
+                //   Al crearla, descomentar y generar la migración AddFksDonanteYGastoOperativo.
+                //   Mientras tanto DonanteId es solo una columna int NULL, sin integridad
+                //   referencial: se puede guardar un id de donante que no exista.
+                //
+                // entity.HasOne<Donante>()
+                //     .WithMany()
+                //     .HasForeignKey(e => e.DonanteId)
+                //     .IsRequired(false)
+                //     .OnDelete(DeleteBehavior.Restrict);
+
+                // TODO (tarea 2076): FK opcional EntradaInventario -> GastoOperativo.
+                //   La entidad GastoOperativo todavía NO existe en SIGAC.Domain.Entities.
+                //   Mismo tratamiento que DonanteId: por ahora es solo int NULL.
+                //
+                // entity.HasOne<GastoOperativo>()
+                //     .WithMany()
+                //     .HasForeignKey(e => e.GastoOperativoId)
+                //     .IsRequired(false)
+                //     .OnDelete(DeleteBehavior.Restrict);
+
+                // Índice compuesto para el historial de movimientos, que filtra por
+                // artículo y rango de fechas a la vez. Al empezar por ArticuloId, EF
+                // Core lo reconoce como índice de la FK y no crea otro redundante.
+                entity.HasIndex(e => new { e.ArticuloId, e.Fecha })
+                    .HasDatabaseName("IX_EntradasInventario_Articulo_Fecha");
+
+                // Índice suelto en Fecha: el historial también se consulta por rango
+                // de fechas sin filtrar por artículo, y ahí el compuesto no sirve
+                // (no se puede hacer seek por la segunda columna del índice).
+                entity.HasIndex(e => e.Fecha);
             });
         }
     }
