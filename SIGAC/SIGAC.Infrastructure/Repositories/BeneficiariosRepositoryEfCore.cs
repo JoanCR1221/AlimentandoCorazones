@@ -75,7 +75,7 @@ namespace SIGAC.Infrastructure.Repositories
                 TextoNormalizador.SonEquivalentes(c.SegundoApellido, segundoApellido));
         }
 
-        public async Task<bool> ExisteDocumentoAsync(string? tipoDocumento, string? numIdentidad, int? idExcluir = null)
+        public async Task<bool> ExisteNumIdentidadAsync(string? numIdentidad, int? idExcluir = null)
         {
             // Los beneficiarios sin documento quedan fuera de la regla: son varias
             // personas indocumentadas y no pueden chocar entre sí. Es la misma
@@ -85,14 +85,16 @@ namespace SIGAC.Infrastructure.Repositories
 
             await using var context = await _contextFactory.CreateDbContextAsync();
 
-            // Igualdad directa, exactamente la misma comparación que hace el índice
-            // único filtrado: así el código y la base coinciden en qué es duplicado,
-            // y la consulta puede hacer seek sobre ese índice.
+            // Solo el número: el tipo de documento no participa. Un mismo número
+            // cargado como cédula y como "Otro" es la misma persona escrita dos
+            // veces, y así lo entiende también el índice único de la base.
+            // Igualdad directa, la misma comparación que hace el índice único
+            // filtrado, para que el código y la base coincidan en qué es duplicado
+            // y la consulta pueda hacer seek sobre ese índice.
             // El "sin distinguir mayúsculas" lo aporta la collation CI de SQL Server.
             return await context.Beneficiarios
                 .AsNoTracking()
                 .AnyAsync(b =>
-                    b.TipoDocumento == tipoDocumento &&
                     b.NumIdentidad == numIdentidad &&
                     (idExcluir == null || b.Id != idExcluir));
         }
