@@ -1,6 +1,8 @@
-﻿using SIGAC.Application.DTOs.Inventario;
+﻿using SIGAC.Application.DTOs;
+using SIGAC.Application.DTOs.Inventario;
 using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
+using SIGAC.Domain;
 using SIGAC.Domain.Entities;
 
 namespace SIGAC.Application.Services
@@ -20,6 +22,13 @@ namespace SIGAC.Application.Services
             {
                 if (string.IsNullOrWhiteSpace(dto.NombreArticulo) || dto.Cantidad <= 0)
                     throw new ValidationException("Nombre del artículo y cantidad (mayor a 0) son obligatorios.");
+
+                // Antes esta comprobación no existía: un Origen inválido pasaba de
+                // largo hasta que el CHECK de la base lo rechazaba con un error
+                // genérico. Se valida acá para dar un mensaje claro.
+                if (!OrigenesEntradaInventario.EsValido(dto.Origen))
+                    throw new ValidationException(
+                        $"El origen debe ser uno de los siguientes valores: {string.Join(", ", OrigenesEntradaInventario.Todos)}.");
 
                 var articulo = await _repository.ObtenerArticuloPorNombreAsync(dto.NombreArticulo);
 
@@ -44,9 +53,9 @@ namespace SIGAC.Application.Services
                     Observaciones = dto.Observaciones
                 };
 
-                if (dto.Origen.Equals("Donacion", StringComparison.OrdinalIgnoreCase))
+                if (dto.Origen.Equals(OrigenesEntradaInventario.Donacion, StringComparison.OrdinalIgnoreCase))
                     entrada.DonanteId = dto.DonanteId;
-                else if (dto.Origen.Equals("Compra", StringComparison.OrdinalIgnoreCase))
+                else if (dto.Origen.Equals(OrigenesEntradaInventario.Compra, StringComparison.OrdinalIgnoreCase))
                     entrada.GastoOperativoId = dto.GastoOperativoId;
 
                 await _repository.AgregarEntradaAsync(entrada);
@@ -71,12 +80,18 @@ namespace SIGAC.Application.Services
                 if (dto.Cantidad > articulo.StockActual)
                     throw new ValidationException("La cantidad solicitada supera el stock disponible.");
 
+                // Antes no se validaba: se podía registrar una salida por donación
+                // sin decir a qué comunidad fue, que es justo lo que le da
+                // trazabilidad a esta historia de usuario.
+                if (string.IsNullOrWhiteSpace(dto.ComunidadDestinataria))
+                    throw new ValidationException("La comunidad destinataria es obligatoria.");
+
                 var salida = new SalidaInventario
                 {
                     ArticuloId = dto.ArticuloId,
                     Cantidad = dto.Cantidad,
                     Fecha = dto.Fecha,
-                    TipoSalida = "Donacion",
+                    TipoSalida = TiposSalidaInventario.Donacion,
                     ComunidadDestinataria = dto.ComunidadDestinataria,
                     Observaciones = dto.Observaciones
                 };
@@ -90,21 +105,25 @@ namespace SIGAC.Application.Services
             }
         }
 
-        public async Task<IEnumerable<ArticuloExistenciaDto>> ObtenerExistenciasAsync(FiltrosExistenciaDto filtros)
+        public async Task<ResultadoPaginado<ArticuloExistenciaDto>> ObtenerExistenciasAsync(FiltrosExistenciaDto filtros)
         {
             try
             {
-                var articulos = await _repository.ObtenerExistenciasAsync(filtros.Nombre, filtros.Categoria);
+                var pagina = await _repository.ObtenerExistenciasAsync(filtros);
 
-                return articulos.Select(a => new ArticuloExistenciaDto
+                var elementos = pagina.Elementos.Select(a => new ArticuloExistenciaDto
                 {
                     Id = a.Id,
                     Nombre = a.Nombre,
+                    Codigo = a.Codigo,
                     Categoria = a.Categoria,
                     UnidadMedida = a.UnidadMedida,
+                    Ubicacion = a.Ubicacion,
                     StockActual = a.StockActual,
                     StockBajo = a.StockActual <= a.StockMinimo
-                });
+                }).ToList();
+
+                return new ResultadoPaginado<ArticuloExistenciaDto>(elementos, pagina.TotalRegistros);
             }
             catch (Exception ex)
             {
@@ -123,8 +142,11 @@ namespace SIGAC.Application.Services
                 return new ArticuloEditarDto
                 {
                     Nombre = articulo.Nombre,
+                    Codigo = articulo.Codigo,
                     Categoria = articulo.Categoria,
                     UnidadMedida = articulo.UnidadMedida,
+                    Ubicacion = articulo.Ubicacion,
+                    StockMinimo = articulo.StockMinimo,
                     StockActual = articulo.StockActual
                 };
             }
@@ -144,15 +166,52 @@ namespace SIGAC.Application.Services
                 if (string.IsNullOrWhiteSpace(dto.Nombre))
                     throw new ValidationException("El nombre es obligatorio.");
 
+                if (dto.StockMinimo < 0)
+                    throw new ValidationException("El stock mínimo no puede ser negativo.");
+
+                // Antes no se comprobaba: renombrar un artículo a un nombre ya usado
+                // por otro solo se detectaba cuando el índice único lo rechazaba con
+                // un error genérico. Se excluye el propio id para no chocar consigo mismo.
+                if (await _repository.ExisteNombreAsync(dto.Nombre, id))
+                    throw new DuplicateException($"Ya existe otro artículo con el nombre \"{dto.Nombre}\".");
+
+                if (await _repository.ExisteCodigoAsync(dto.Codigo, id))
+                    throw new DuplicateException($"Ya existe otro artículo con el código \"{dto.Codigo}\".");
+
                 articulo.Nombre = dto.Nombre;
+                articulo.Codigo = string.IsNullOrWhiteSpace(dto.Codigo) ? null : dto.Codigo.Trim();
                 articulo.Categoria = dto.Categoria;
                 articulo.UnidadMedida = dto.UnidadMedida;
+                articulo.Ubicacion = string.IsNullOrWhiteSpace(dto.Ubicacion) ? null : dto.Ubicacion.Trim();
+                articulo.StockMinimo = dto.StockMinimo;
 
                 await _repository.ActualizarArticuloAsync(articulo);
             }
-            catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
+            catch (Exception ex) when (ex is not ValidationException and not NotFoundException and not DuplicateException)
             {
                 throw new Exception("Error al editar el artículo.", ex);
+            }
+        }
+
+        public async Task EliminarArticuloAsync(int id)
+        {
+            try
+            {
+                _ = await _repository.ObtenerArticuloPorIdAsync(id)
+                    ?? throw new NotFoundException("El artículo no existe.");
+
+                // El Restrict de las FK respalda esto en la base, pero sin este
+                // chequeo el usuario vería una excepción de SQL sin traducir en vez
+                // de un mensaje que explique por qué no se puede borrar.
+                if (await _repository.TieneMovimientosAsync(id))
+                    throw new ValidationException(
+                        "No se puede eliminar: el artículo tiene entradas, salidas o solicitudes de préstamo registradas. Podés editarlo, pero no borrarlo.");
+
+                await _repository.EliminarArticuloAsync(id);
+            }
+            catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
+            {
+                throw new Exception("Error al eliminar el artículo.", ex);
             }
         }
 
@@ -252,7 +311,7 @@ namespace SIGAC.Application.Services
                     ArticuloId = solicitud.ArticuloId,
                     Cantidad = solicitud.Cantidad,
                     Fecha = DateTime.Now,
-                    TipoSalida = "Prestamo",
+                    TipoSalida = TiposSalidaInventario.Prestamo,
                     SolicitudPrestamoId = solicitud.Id
                 };
 

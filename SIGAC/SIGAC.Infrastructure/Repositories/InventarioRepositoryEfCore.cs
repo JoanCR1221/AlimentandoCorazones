@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using SIGAC.Application.DTOs;
+using SIGAC.Application.DTOs.Inventario;
 using SIGAC.Application.Interfaces;
 using SIGAC.Domain.Entities;
 using SIGAC.Infrastructure.Data;
@@ -87,8 +89,10 @@ namespace SIGAC.Infrastructure.Repositories
             // Por eso StockActual queda deliberadamente afuera: en este repositorio
             // el stock SOLO cambia a través de los métodos de stock.
             existente.Nombre = articulo.Nombre;
+            existente.Codigo = articulo.Codigo;
             existente.Categoria = articulo.Categoria;
             existente.UnidadMedida = articulo.UnidadMedida;
+            existente.Ubicacion = articulo.Ubicacion;
             existente.StockMinimo = articulo.StockMinimo;
 
             await context.SaveChangesAsync();
@@ -132,35 +136,117 @@ namespace SIGAC.Infrastructure.Repositories
             }
         }
 
-        public async Task<IEnumerable<Articulo>> ObtenerExistenciasAsync(string? nombre, string? categoria)
+        public async Task<ResultadoPaginado<Articulo>> ObtenerExistenciasAsync(FiltrosExistenciaDto filtros)
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
 
             var consulta = context.Articulos.AsNoTracking();
 
-            if (!string.IsNullOrWhiteSpace(nombre))
+            if (!string.IsNullOrWhiteSpace(filtros.Nombre))
             {
                 // Acá sí va la collation AI: esto es la caja de búsqueda del listado,
                 // no la resolución de la clave natural, y quien escribe "azucar"
-                // espera encontrar "Azúcar".
-                var busqueda = nombre.Trim();
+                // espera encontrar "Azúcar". Código entra en la misma caja (sin
+                // collation: es un identificador corto, no texto para acentuar) para
+                // que buscar "P001" encuentre el artículo sin cambiar de campo.
+                var busqueda = filtros.Nombre.Trim();
                 consulta = consulta.Where(a =>
-                    EF.Functions.Collate(a.Nombre, ColacionSinTildes).Contains(busqueda));
+                    EF.Functions.Collate(a.Nombre, ColacionSinTildes).Contains(busqueda) ||
+                    (a.Codigo != null && a.Codigo.Contains(busqueda)));
             }
 
-            if (!string.IsNullOrWhiteSpace(categoria))
+            if (!string.IsNullOrWhiteSpace(filtros.Categoria))
             {
                 // Igualdad exacta: la categoría se elige de una lista, no se teclea.
                 // Cubierta por el índice IX_Articulos_Categoria.
-                var categoriaFiltro = categoria;
+                var categoriaFiltro = filtros.Categoria;
                 consulta = consulta.Where(a => a.Categoria == categoriaFiltro);
             }
 
-            // ToListAsync obligatorio: el contexto se libera al salir del método y un
-            // IQueryable diferido explotaría al recorrerlo desde la página.
-            return await consulta
+            // Consulta 1: cuántos artículos cumplen los filtros, para que la grilla
+            // sepa cuántas páginas hay.
+            var total = await consulta.CountAsync();
+
+            // Consulta 2: solo la página pedida. ToListAsync obligatorio: el contexto
+            // se libera al salir del método y un IQueryable diferido explotaría al
+            // recorrerlo desde la página.
+            var elementos = await consulta
                 .OrderBy(a => a.Nombre)
+                .Skip(filtros.PaginaEfectiva * filtros.TamanoPaginaEfectivo)
+                .Take(filtros.TamanoPaginaEfectivo)
                 .ToListAsync();
+
+            return new ResultadoPaginado<Articulo>(elementos, total);
+        }
+
+        public async Task<bool> ExisteNombreAsync(string nombre, int? idExcluir = null)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            // Igualdad directa, sin collation: es la misma comparación que hace
+            // UX_Articulos_Nombre. El "sin distinguir mayúsculas" lo aporta la
+            // collation CI de SQL Server, igual que en ObtenerArticuloPorNombreAsync.
+            return await context.Articulos
+                .AsNoTracking()
+                .AnyAsync(a => a.Nombre == nombre && (idExcluir == null || a.Id != idExcluir));
+        }
+
+        public async Task<bool> ExisteCodigoAsync(string? codigo, int? idExcluir = null)
+        {
+            // Sin código no hay nada que chocar: es la misma exclusión que hace el
+            // filtro del índice único UX_Articulos_Codigo.
+            if (string.IsNullOrEmpty(codigo))
+                return false;
+
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            return await context.Articulos
+                .AsNoTracking()
+                .AnyAsync(a => a.Codigo == codigo && (idExcluir == null || a.Id != idExcluir));
+        }
+
+        public async Task<bool> TieneMovimientosAsync(int articuloId)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            // Tres EXISTS independientes en vez de un JOIN: el artículo puede tener
+            // historial en cualquiera de las tres tablas y basta con encontrar uno
+            // para bloquear el borrado, así que no hace falta combinarlas.
+            var tieneEntradas = await context.EntradasInventario
+                .AsNoTracking()
+                .AnyAsync(e => e.ArticuloId == articuloId);
+
+            if (tieneEntradas)
+                return true;
+
+            var tieneSalidas = await context.SalidasInventario
+                .AsNoTracking()
+                .AnyAsync(s => s.ArticuloId == articuloId);
+
+            if (tieneSalidas)
+                return true;
+
+            return await context.SolicitudesPrestamo
+                .AsNoTracking()
+                .AnyAsync(s => s.ArticuloId == articuloId);
+        }
+
+        public async Task EliminarArticuloAsync(int articuloId)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            var articulo = await context.Articulos
+                .FirstOrDefaultAsync(a => a.Id == articuloId);
+
+            if (articulo is null)
+                return;
+
+            // Sin chequeo de movimientos acá a propósito: es responsabilidad de quien
+            // llama (TieneMovimientosAsync se consulta antes). Si de todos modos
+            // hubiera historial, las FK Restrict de EntradasInventario,
+            // SalidasInventario y SolicitudesPrestamo rechazan el DELETE en la base.
+            context.Articulos.Remove(articulo);
+            await context.SaveChangesAsync();
         }
 
         // ------------------------------------------------------------------

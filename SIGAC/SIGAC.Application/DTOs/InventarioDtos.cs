@@ -41,16 +41,40 @@ namespace SIGAC.Application.DTOs.Inventario
     {
         public int Id { get; set; }
         public string Nombre { get; set; } = string.Empty;
+        public string? Codigo { get; set; }
         public string Categoria { get; set; } = string.Empty;
         public string UnidadMedida { get; set; } = string.Empty;
+        public string? Ubicacion { get; set; }
         public int StockActual { get; set; }
         public bool StockBajo { get; set; }
     }
 
     public class FiltrosExistenciaDto
     {
+        public const int TamanoPaginaPredeterminado = 20;
+
+        // Techo duro: ningún llamador puede pedir una página tan grande que anule
+        // la paginación y traiga el catálogo entero.
+        public const int TamanoPaginaMaximo = 100;
+
+        // Busca por Nombre o por Código en la misma caja: quien tiene el artículo
+        // en la mano puede escribir cualquiera de los dos.
         public string? Nombre { get; set; }
         public string? Categoria { get; set; }
+
+        // Base 0, igual que el índice de página de la grilla. El repositorio la
+        // resuelve en SQL con Skip/Take: nunca se traen los registros anteriores.
+        public int Pagina { get; set; }
+        public int TamanoPagina { get; set; } = TamanoPaginaPredeterminado;
+
+        // Valores saneados: el repositorio usa estos, no los crudos, para que una
+        // página negativa o un tamaño de 0 no rompan el Skip/Take.
+        public int PaginaEfectiva => Pagina < 0 ? 0 : Pagina;
+
+        public int TamanoPaginaEfectivo => Math.Clamp(
+            TamanoPagina <= 0 ? TamanoPaginaPredeterminado : TamanoPagina,
+            1,
+            TamanoPaginaMaximo);
     }
 
     public class ArticuloEditarDto
@@ -58,11 +82,21 @@ namespace SIGAC.Application.DTOs.Inventario
         [Required(ErrorMessage = "El nombre es obligatorio.")]
         public string Nombre { get; set; } = string.Empty;
 
+        // Opcional: no todo artículo tiene un código asignado.
+        public string? Codigo { get; set; }
+
         [Required(ErrorMessage = "La categoría es obligatoria.")]
         public string Categoria { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "La unidad de medida es obligatoria.")]
         public string UnidadMedida { get; set; } = string.Empty;
+
+        public string? Ubicacion { get; set; }
+
+        // Antes fijo en 5 para todo artículo (el valor por defecto de la entidad);
+        // ahora se puede ajustar por artículo desde acá.
+        [Range(0, int.MaxValue, ErrorMessage = "El stock mínimo no puede ser negativo.")]
+        public int StockMinimo { get; set; }
 
         // Solo informativo: se muestra de solo lectura, no se edita desde acá.
         public int StockActual { get; set; }

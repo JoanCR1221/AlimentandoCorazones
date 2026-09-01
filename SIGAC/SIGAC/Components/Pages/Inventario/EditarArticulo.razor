@@ -1,5 +1,6 @@
 @page "/inventario/articulos/editar/{Id:int}"
 @using SIGAC.Application.DTOs.Inventario
+@using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces
 @inject IInventarioService InventarioService
 @inject NavigationManager NavigationManager
@@ -63,6 +64,14 @@
             await InventarioService.EditarArticuloAsync(Id, modelo);
             Snackbar.Add("Artículo actualizado correctamente.", Severity.Success);
             NavigationManager.NavigateTo("/inventario/existencias");
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (DuplicateException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
         }
         catch (Exception)
         {
