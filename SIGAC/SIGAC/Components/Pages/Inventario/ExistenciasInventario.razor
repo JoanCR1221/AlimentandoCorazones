@@ -69,10 +69,11 @@
 
     private async Task CargarAsync()
     {
-        articulos = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto
+        var pagina = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto
         {
             Nombre = filtroNombre,
             Categoria = filtroCategoria
         });
+        articulos = pagina.Elementos;
     }
 }

@@ -184,6 +184,11 @@ namespace SIGAC.Infrastructure.Data
                     .IsUnicode(false)
                     .HasMaxLength(150);
 
+                // Corta y opcional: es un SKU tipo "P001", no una descripción.
+                entity.Property(a => a.Codigo)
+                    .IsUnicode(false)
+                    .HasMaxLength(50);
+
                 entity.Property(a => a.Categoria)
                     .IsRequired()
                     .IsUnicode(false)
@@ -202,6 +207,13 @@ namespace SIGAC.Infrastructure.Data
                 entity.Property(a => a.StockMinimo)
                     .IsRequired();
 
+                // Dónde está físicamente el artículo. Texto libre y opcional: no hay
+                // una entidad Ubicacion todavía, así que no hay nada que validar
+                // contra una lista cerrada.
+                entity.Property(a => a.Ubicacion)
+                    .IsUnicode(false)
+                    .HasMaxLength(100);
+
                 // Unicidad de nombre: el servicio busca el artículo por nombre y lo
                 // crea si no existe (ObtenerArticuloPorNombreAsync en
                 // RegistrarEntradaAsync), así que el nombre es la clave natural del
@@ -211,6 +223,15 @@ namespace SIGAC.Infrastructure.Data
                 entity.HasIndex(a => a.Nombre)
                     .IsUnique()
                     .HasDatabaseName("UX_Articulos_Nombre");
+
+                // Unicidad de código, igual que NumIdentidad en Beneficiario: índice
+                // FILTRADO porque Código es opcional y dos artículos sin código no
+                // deben chocar entre sí (dos NULL, o dos '', no son iguales para SQL
+                // Server salvo que se filtren igual que aquí).
+                entity.HasIndex(a => a.Codigo)
+                    .IsUnique()
+                    .HasFilter("[Codigo] IS NOT NULL AND [Codigo] <> ''")
+                    .HasDatabaseName("UX_Articulos_Codigo");
 
                 // Índice en el campo de filtro frecuente del listado de existencias.
                 // El índice único anterior ya cubre las búsquedas por Nombre.
@@ -226,7 +247,7 @@ namespace SIGAC.Infrastructure.Data
                 {
                     t.HasCheckConstraint(
                         "CK_EntradasInventario_Origen",
-                        "[Origen] IN ('Donacion', 'Compra')");
+                        $"[Origen] IN ('{OrigenesEntradaInventario.Donacion}', '{OrigenesEntradaInventario.Compra}')");
 
                     t.HasCheckConstraint(
                         "CK_EntradasInventario_Cantidad",
@@ -305,7 +326,7 @@ namespace SIGAC.Infrastructure.Data
                 {
                     t.HasCheckConstraint(
                         "CK_SalidasInventario_TipoSalida",
-                        "[TipoSalida] IN ('Donacion', 'Prestamo')");
+                        $"[TipoSalida] IN ('{TiposSalidaInventario.Donacion}', '{TiposSalidaInventario.Prestamo}')");
 
                     t.HasCheckConstraint(
                         "CK_SalidasInventario_Cantidad",

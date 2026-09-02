@@ -108,7 +108,7 @@
     private async Task<IEnumerable<string>> BuscarNombresArticuloAsync(string valor, CancellationToken cancellationToken)
     {
         var existencias = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto { Nombre = valor });
-        return existencias.Select(a => a.Nombre);
+        return existencias.Elementos.Select(a => a.Nombre);
     }
 
     private async Task OnNombreArticuloCambiadoAsync(string? valor)
@@ -119,7 +119,7 @@
         if (!string.IsNullOrWhiteSpace(modelo.NombreArticulo))
         {
             var existencias = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto { Nombre = modelo.NombreArticulo });
-            articuloExistente = existencias.FirstOrDefault(a => string.Equals(a.Nombre, modelo.NombreArticulo, StringComparison.OrdinalIgnoreCase));
+            articuloExistente = existencias.Elementos.FirstOrDefault(a => string.Equals(a.Nombre, modelo.NombreArticulo, StringComparison.OrdinalIgnoreCase));
         }
 
         if (articuloExistente is not null)

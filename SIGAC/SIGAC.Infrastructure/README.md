@@ -101,14 +101,20 @@ Se aplican a todas las tablas por igual:
 |---|---|---|
 | `Id` | `int` | PK |
 | `Nombre` | `varchar(150)` | **único** |
+| `Codigo` | `varchar(50)` | opcional, **único cuando se define** (SKU corto, ej. "P001") |
 | `Categoria` | `varchar(100)` | indexada |
 | `UnidadMedida` | `varchar(50)` | etiquetas cortas: "Kilogramo", "Litro" |
+| `Ubicacion` | `varchar(100)` | opcional, texto libre (bodega, estante) |
 | `StockActual` | `int` | |
-| `StockMinimo` | `int` | por debajo de esto el listado marca stock bajo |
+| `StockMinimo` | `int` | editable por artículo desde "Editar artículo"; por debajo de esto el listado marca stock bajo |
 
 **`Nombre` es único (`UX_Articulos_Nombre`)** porque es la clave natural del catálogo: al registrar una entrada, el servicio busca el artículo por nombre y lo crea si no existe. Sin el índice, dos entradas simultáneas del mismo artículo nuevo crearían dos filas y el stock quedaría partido entre las dos.
 
+**`Codigo` es único cuando se define (`UX_Articulos_Codigo`, filtrado)**: igual tratamiento que `NumIdentidad` en `Beneficiarios` — es opcional, así que el índice deja fuera a los artículos sin código para que no choquen entre sí.
+
 `CK_Articulos_StockActual_NoNegativo` y `CK_Articulos_StockMinimo_NoNegativo`: el stock es un conteo físico y no puede ser negativo.
+
+**Eliminar un artículo** solo se permite cuando no tiene historial: `InventarioService.EliminarArticuloAsync` consulta `TieneMovimientosAsync` (¿tiene entradas, salidas o solicitudes de préstamo?) antes de borrar, y explica por qué si lo tiene. El `Restrict` de las FK de `EntradasInventario`, `SalidasInventario` y `SolicitudesPrestamo` respalda esto en la base como última red.
 
 ### `EntradasInventario`
 
@@ -192,6 +198,7 @@ En orden cronológico:
 | `20260822120000_UnicidadDocumentoBeneficiario` | Normaliza los números guardados y crea el índice único filtrado de documento. |
 | `20260828001822_AddTablaArticulosYEntradasInventario` | Tablas `Articulos` y `EntradasInventario`. |
 | `20260828001907_AddTablaSalidasInventarioYSolicitudesPrestamo` | Tablas `SalidasInventario` y `SolicitudesPrestamo`. |
+| `20260901010731_AddCodigoYUbicacionArticulo` | Agrega `Codigo` (único, filtrado) y `Ubicacion` a `Articulos`. |
 
 Varias de estas migraciones llevan bloques `migrationBuilder.Sql(...)` que **arreglan los datos ya guardados** antes de apretar una restricción. Es deliberado: no alcanza con cambiar el esquema si las filas existentes no cumplen la regla nueva.
 
@@ -230,6 +237,8 @@ Decisiones que conviene conocer antes de tocar `InventarioRepositoryEfCore`:
 - **`ActualizarArticuloAsync` copia campo por campo** en lugar de usar `Update()`. `Update()` marca *todas* las columnas como modificadas, incluida `StockActual`, y reescribiría el valor viejo que traía la entidad desprendida, pisando cualquier entrada registrada entre la lectura y el guardado. El stock solo cambia por los métodos de stock.
 - **`ObtenerSolicitudPorIdAsync` no hace `Include` del artículo a propósito.** La solicitud vuelve a `ActualizarSolicitudAsync` para guardarse, y un artículo colgado de la navegación podría arrastrarse a ese guardado y pisarle el stock. `ObtenerSolicitudesAsync` sí lo incluye, porque es solo lectura.
 - **La búsqueda por nombre de artículo usa igualdad directa, sin collation**, para que sea exactamente la misma comparación que hace `UX_Articulos_Nombre` y pueda hacer seek sobre ese índice. La collation acentuada-insensible (`Latin1_General_CI_AI`) se reserva para las cajas de búsqueda del listado, donde quien escribe "azucar" espera encontrar "Azúcar".
+- **`ObtenerExistenciasAsync` pagina en el servidor** (mismo patrón que `BeneficiariosRepositoryEfCore.ObtenerPaginaAsync`): dos consultas, un `CountAsync` para el total y un `Skip`/`Take` para la página. La caja de búsqueda filtra por `Nombre` o por `Codigo` a la vez, para que buscar "P001" encuentre el artículo sin cambiar de campo.
+- **`EliminarArticuloAsync` no valida nada por su cuenta.** El chequeo de "¿tiene movimientos?" vive en `TieneMovimientosAsync`, separado, porque es el servicio (`InventarioService.EliminarArticuloAsync`) quien decide qué hacer con la respuesta y arma el mensaje. El repositorio solo ejecuta lo que se le pide.
 
 ## Detalles que confunden la primera vez
 
@@ -240,4 +249,3 @@ Decisiones que conviene conocer antes de tocar `InventarioRepositoryEfCore`:
 ## Pendiente
 
 - **`EntradaInventario.DonanteId` y `GastoOperativoId` no tienen FK.** Las entidades `Donante` y `GastoOperativo` todavía no existen en el dominio, así que hoy son columnas `int NULL` sin integridad referencial: se puede guardar un id que no corresponda a nada. La configuración está escrita y comentada con un `TODO` en `SigacDbContext`, lista para descomentar y generar una migración cuando esas entidades se creen.
-- **`InventarioRepositoryEnMemoria` sigue en el repositorio pero ya no se usa.** Se puede borrar, igual que se hizo con `AsistenciaRepositoryEnMemoria` cuando llegó su versión EF Core.
