@@ -23,21 +23,26 @@ namespace SIGAC.Application.Services
 
                 var articulo = await _repository.ObtenerArticuloPorNombreAsync(dto.NombreArticulo);
 
-                if (articulo is null)
-                {
-                    articulo = new Articulo
+                // El artículo nuevo se arma acá pero NO se guarda por separado: se le
+                // pasa al repositorio para que lo cree dentro de la misma transacción
+                // que la entrada y el stock. Guardarlo antes, por su cuenta, dejaba un
+                // artículo en el catálogo con stock 0 si la entrada fallaba después.
+                Articulo? articuloNuevo = articulo is null
+                    ? new Articulo
                     {
                         Nombre = dto.NombreArticulo,
                         Categoria = dto.Categoria,
                         UnidadMedida = dto.UnidadMedida,
                         StockActual = 0
-                    };
-                    await _repository.AgregarArticuloAsync(articulo);
-                }
+                    }
+                    : null;
 
                 var entrada = new EntradaInventario
                 {
-                    ArticuloId = articulo.Id,
+                    // Cuando el artículo es nuevo todavía no tiene Id (lo genera la
+                    // base al insertarlo); el repositorio lo completa dentro de la
+                    // transacción, una vez creado.
+                    ArticuloId = articulo?.Id ?? 0,
                     Cantidad = dto.Cantidad,
                     Fecha = dto.Fecha,
                     Origen = dto.Origen,
@@ -49,10 +54,11 @@ namespace SIGAC.Application.Services
                 else if (dto.Origen.Equals("Compra", StringComparison.OrdinalIgnoreCase))
                     entrada.GastoOperativoId = dto.GastoOperativoId;
 
-                await _repository.AgregarEntradaAsync(entrada);
-                await _repository.ActualizarStockAsync(articulo.Id, dto.Cantidad);
+                // Una sola llamada: crear el artículo (si hace falta), insertar la
+                // entrada y sumar el stock son todo-o-nada.
+                await _repository.RegistrarEntradaConStockAsync(entrada, articuloNuevo);
             }
-            catch (Exception ex) when (ex is not ValidationException)
+            catch (Exception ex) when (ex is not ValidationException and not DuplicateException)
             {
                 throw new Exception("Error al registrar la entrada de inventario.", ex);
             }
@@ -81,8 +87,10 @@ namespace SIGAC.Application.Services
                     Observaciones = dto.Observaciones
                 };
 
-                await _repository.AgregarSalidaAsync(salida);
-                await _repository.ReducirStockAsync(dto.ArticuloId, dto.Cantidad);
+                // Una sola llamada: insertar la salida y descontar el stock son
+                // todo-o-nada. Antes eran dos guardados independientes y una falla al
+                // descontar dejaba la salida ya registrada, inflando el stock real.
+                await _repository.RegistrarSalidaConStockAsync(salida);
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {
@@ -256,11 +264,14 @@ namespace SIGAC.Application.Services
                     SolicitudPrestamoId = solicitud.Id
                 };
 
-                await _repository.AgregarSalidaAsync(salida);
-                await _repository.ReducirStockAsync(solicitud.ArticuloId, solicitud.Cantidad);
-
                 solicitud.Estado = EstadoSolicitudPrestamo.Aprobada;
-                await _repository.ActualizarSolicitudAsync(solicitud);
+
+                // Una sola llamada: marcar la solicitud como aprobada, registrar la
+                // salida y descontar el stock son todo-o-nada. Antes eran tres
+                // guardados independientes en este orden: salida, descuento, estado.
+                // Si el último fallaba, el préstamo quedaba entregado y descontado con
+                // la solicitud todavía en Pendiente, lista para aprobarse otra vez.
+                await _repository.AprobarPrestamoConStockAsync(solicitud, salida);
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {

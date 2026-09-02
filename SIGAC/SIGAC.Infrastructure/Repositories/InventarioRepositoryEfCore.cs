@@ -1,4 +1,6 @@
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
 using SIGAC.Domain.Entities;
 using SIGAC.Infrastructure.Data;
@@ -14,6 +16,13 @@ namespace SIGAC.Infrastructure.Repositories
         // "Azucar" encuentre a "Azúcar" sin salir de SQL. Se aplica a la expresión,
         // no a la columna, así que no depende de la collation de la base.
         private const string ColacionSinTildes = "Latin1_General_CI_AI";
+
+        // Números de error de SQL Server para violación de unicidad: 2627 es una
+        // restricción UNIQUE/PK y 2601 un índice único. Se usan para traducir el
+        // choque contra UX_Articulos_Nombre y UX_SalidasInventario_SolicitudPrestamo
+        // a excepciones con mensaje entendible en vez de un DbUpdateException crudo.
+        private const int ErrorSqlRestriccionUnica = 2627;
+        private const int ErrorSqlIndiceUnico = 2601;
 
         // Factory y no un DbContext inyectado: en Blazor Server el scope dura toda
         // la sesión, así que un contexto compartido queda expuesto a que dos
@@ -56,17 +65,6 @@ namespace SIGAC.Infrastructure.Repositories
                 .FirstOrDefaultAsync(a => a.Id == id);
         }
 
-        public async Task AgregarArticuloAsync(Articulo articulo)
-        {
-            await using var context = await _contextFactory.CreateDbContextAsync();
-            context.Articulos.Add(articulo);
-
-            // Tras el SaveChanges, EF Core escribe el Id generado en la misma entidad
-            // que recibió. El servicio depende de eso: usa articulo.Id para armar la
-            // entrada de inventario inmediatamente después de llamar a este método.
-            await context.SaveChangesAsync();
-        }
-
         public async Task ActualizarArticuloAsync(Articulo articulo)
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
@@ -80,55 +78,28 @@ namespace SIGAC.Infrastructure.Repositories
             // Se copian los campos del catálogo uno por uno en vez de usar Update():
             // Update() marcaría TODAS las columnas como modificadas, incluida
             // StockActual, y reescribiría el valor que traía la entidad desprendida.
-            // Como el stock se mueve por otro camino (ActualizarStockAsync /
-            // ReducirStockAsync), una entrada registrada entre la lectura y el
-            // guardado quedaría pisada.
+            // Como el stock se mueve por otro camino (las operaciones de movimiento
+            // de más abajo), una entrada registrada entre la lectura y el guardado
+            // quedaría pisada.
             //
             // Por eso StockActual queda deliberadamente afuera: en este repositorio
-            // el stock SOLO cambia a través de los métodos de stock.
+            // el stock SOLO cambia dentro de una operación de movimiento.
             existente.Nombre = articulo.Nombre;
             existente.Categoria = articulo.Categoria;
             existente.UnidadMedida = articulo.UnidadMedida;
             existente.StockMinimo = articulo.StockMinimo;
 
-            await context.SaveChangesAsync();
-        }
-
-        public async Task ActualizarStockAsync(int articuloId, int cantidad)
-        {
-            await using var context = await _contextFactory.CreateDbContextAsync();
-
-            // ExecuteUpdate y no leer-modificar-guardar: se traduce a un solo
-            // UPDATE Articulos SET StockActual = StockActual + @cantidad, que la base
-            // resuelve de forma atómica. Con la versión leída en memoria, dos entradas
-            // simultáneas del mismo artículo leerían el mismo stock inicial y una
-            // pisaría a la otra (lost update).
-            await context.Articulos
-                .Where(a => a.Id == articuloId)
-                .ExecuteUpdateAsync(s => s.SetProperty(a => a.StockActual, a => a.StockActual + cantidad));
-        }
-
-        public async Task ReducirStockAsync(int articuloId, int cantidad)
-        {
-            await using var context = await _contextFactory.CreateDbContextAsync();
-
-            // La condición "hay stock suficiente" viaja dentro del WHERE del UPDATE en
-            // vez de evaluarse antes: así el chequeo y el descuento son la misma
-            // operación y dos salidas simultáneas no pueden dejar el stock negativo.
-            // El CHECK CK_Articulos_StockActual_NoNegativo es la última red de todos modos.
-            var filasAfectadas = await context.Articulos
-                .Where(a => a.Id == articuloId && a.StockActual >= cantidad)
-                .ExecuteUpdateAsync(s => s.SetProperty(a => a.StockActual, a => a.StockActual - cantidad));
-
-            // Cero filas significa que el artículo no existe o que el stock ya no
-            // alcanza, aunque el servicio lo hubiera verificado un instante antes.
-            // Se falla en voz alta en vez de no hacer nada: la salida ya quedó
-            // insertada por la llamada anterior, y callarse dejaría el movimiento
-            // registrado sin su descuento.
-            if (filasAfectadas == 0)
+            try
             {
-                throw new InvalidOperationException(
-                    "No se pudo descontar el stock: el artículo no existe o el stock disponible cambió.");
+                await context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (EsViolacionDeUnicidad(ex))
+            {
+                // Choque contra UX_Articulos_Nombre al renombrar hacia un nombre ya
+                // usado. Antes salía como DbUpdateException y el servicio la envolvía
+                // en un Exception genérico, así que el usuario no sabía el motivo.
+                throw new DuplicateException(
+                    $"Ya existe otro artículo con el nombre '{articulo.Nombre}'.");
             }
         }
 
@@ -164,22 +135,172 @@ namespace SIGAC.Infrastructure.Repositories
         }
 
         // ------------------------------------------------------------------
-        // Entradas y salidas
+        // Movimientos que mueven stock
+        //
+        // Los tres métodos de esta sección comparten la misma forma: UN solo
+        // contexto pedido a la factory y UNA transacción explícita que abarca todas
+        // las escrituras del movimiento.
+        //
+        // La transacción explícita hace falta y no alcanza con "un solo
+        // SaveChangesAsync": ExecuteUpdateAsync no pasa por el change tracker,
+        // ejecuta su UPDATE en el acto y en su propia sentencia. Lo que lo une al
+        // resto de las escrituras es la transacción abierta sobre el contexto, en la
+        // que se enrola igual que SaveChanges.
+        //
+        // Se mantiene ExecuteUpdateAsync (en vez de mover el stock con una entidad
+        // rastreada) porque genera UPDATE ... SET StockActual = StockActual ± @n, que
+        // la base resuelve de forma atómica. Leer-modificar-guardar dejaría que dos
+        // movimientos simultáneos del mismo artículo leyeran el mismo valor inicial y
+        // uno pisara al otro (lost update).
+        //
+        // Si algo falla antes del Commit, el using de la transacción hace rollback al
+        // liberarse y no queda ninguna escritura a medias.
         // ------------------------------------------------------------------
 
-        public async Task AgregarEntradaAsync(EntradaInventario entrada)
+        public async Task RegistrarEntradaConStockAsync(EntradaInventario entrada, Articulo? articuloNuevo)
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
+            await using var transaccion = await context.Database.BeginTransactionAsync();
+
+            if (articuloNuevo is not null)
+            {
+                context.Articulos.Add(articuloNuevo);
+
+                try
+                {
+                    // SaveChanges propio y no diferido: hace falta el Id generado para
+                    // poder colgarle la entrada. Sigue dentro de la transacción, así
+                    // que el artículo no queda creado si la entrada falla después.
+                    await context.SaveChangesAsync();
+                }
+                catch (DbUpdateException ex) when (EsViolacionDeUnicidad(ex))
+                {
+                    // Choque contra UX_Articulos_Nombre: otro usuario creó el mismo
+                    // artículo entre la búsqueda por nombre del servicio y este
+                    // INSERT. La transacción revierte y el mensaje explica qué hacer.
+                    throw new DuplicateException(
+                        $"Otro usuario acaba de crear el artículo '{articuloNuevo.Nombre}'. " +
+                        "Volvé a registrar la entrada para que se sume a ese artículo.");
+                }
+
+                entrada.ArticuloId = articuloNuevo.Id;
+            }
+
             context.EntradasInventario.Add(entrada);
             await context.SaveChangesAsync();
+
+            // Variables locales y no entrada.ArticuloId / entrada.Cantidad dentro del
+            // árbol de expresión: así se capturan como parámetros SQL simples y no se
+            // intenta traducir un acceso a la entidad rastreada.
+            var articuloId = entrada.ArticuloId;
+            var cantidad = entrada.Cantidad;
+
+            var filasAfectadas = await context.Articulos
+                .Where(a => a.Id == articuloId)
+                .ExecuteUpdateAsync(s => s.SetProperty(a => a.StockActual, a => a.StockActual + cantidad));
+
+            // La FK de EntradasInventario ya garantiza que el artículo existe, así que
+            // cero filas sería una inconsistencia del esquema. Se falla y se revierte
+            // en vez de dar la entrada por registrada sin sumar el stock.
+            if (filasAfectadas == 0)
+            {
+                throw new InvalidOperationException(
+                    "No se pudo actualizar el stock: el artículo de la entrada no existe.");
+            }
+
+            await transaccion.CommitAsync();
         }
 
-        public async Task AgregarSalidaAsync(SalidaInventario salida)
+        public async Task RegistrarSalidaConStockAsync(SalidaInventario salida)
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
+            await using var transaccion = await context.Database.BeginTransactionAsync();
+
             context.SalidasInventario.Add(salida);
             await context.SaveChangesAsync();
+
+            await DescontarStockAsync(context, salida.ArticuloId, salida.Cantidad);
+
+            await transaccion.CommitAsync();
         }
+
+        public async Task AprobarPrestamoConStockAsync(SolicitudPrestamo solicitud, SalidaInventario salida)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            await using var transaccion = await context.Database.BeginTransactionAsync();
+
+            var existente = await context.SolicitudesPrestamo
+                .FirstOrDefaultAsync(s => s.Id == solicitud.Id)
+                ?? throw new NotFoundException("La solicitud no existe.");
+
+            // Se relee el estado DENTRO de la transacción y no se confía en el que
+            // validó el servicio: entre aquella lectura y esta pudo resolverse la
+            // solicitud. La red definitiva contra la doble aprobación sigue siendo
+            // UX_SalidasInventario_SolicitudPrestamo (índice único filtrado), que
+            // ahora además revierte la salida y el descuento en vez de dejarlos.
+            if (existente.Estado != EstadoSolicitudPrestamo.Pendiente)
+                throw new ValidationException("La solicitud ya fue resuelta.");
+
+            existente.Estado = solicitud.Estado;
+            existente.MotivoRechazo = solicitud.MotivoRechazo;
+
+            context.SalidasInventario.Add(salida);
+
+            try
+            {
+                // Un solo SaveChanges para el cambio de estado y la salida: ambas son
+                // escrituras rastreadas y viajan juntas.
+                await context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (EsViolacionDeUnicidad(ex))
+            {
+                throw new ValidationException(
+                    "La solicitud acaba de ser aprobada por otro usuario.");
+            }
+
+            await DescontarStockAsync(context, salida.ArticuloId, salida.Cantidad);
+
+            await transaccion.CommitAsync();
+        }
+
+        // La condición "hay stock suficiente" viaja dentro del WHERE del UPDATE en vez
+        // de evaluarse antes: así el chequeo y el descuento son la misma operación y
+        // dos salidas simultáneas no pueden dejar el stock negativo. El CHECK
+        // CK_Articulos_StockActual_NoNegativo es la última red de todos modos.
+        //
+        // Recibe el contexto por parámetro (y no lo pide a la factory) para escribir en
+        // la MISMA transacción que la salida que lo invoca. Pedir otro contexto acá lo
+        // dejaría fuera del rollback, que es justo el error que se está corrigiendo.
+        private static async Task DescontarStockAsync(SigacDbContext context, int articuloId, int cantidad)
+        {
+            var filasAfectadas = await context.Articulos
+                .Where(a => a.Id == articuloId && a.StockActual >= cantidad)
+                .ExecuteUpdateAsync(s => s.SetProperty(a => a.StockActual, a => a.StockActual - cantidad));
+
+            // Cero filas significa que el artículo no existe o que el stock ya no
+            // alcanza, aunque el servicio lo hubiera verificado un instante antes.
+            // Se lanza ValidationException y no InvalidOperationException porque es una
+            // situación esperable de concurrencia, no un fallo del sistema: el servicio
+            // la deja pasar sin envolverla y el usuario ve el motivo real.
+            //
+            // Al lanzarse antes del Commit, la salida insertada en esta misma
+            // transacción se revierte. Antes ya estaba confirmada y quedaba un
+            // movimiento registrado sin su descuento.
+            if (filasAfectadas == 0)
+            {
+                throw new ValidationException(
+                    "El stock disponible cambió mientras se registraba el movimiento y ya no alcanza. " +
+                    "Volvé a intentarlo.");
+            }
+        }
+
+        private static bool EsViolacionDeUnicidad(DbUpdateException ex) =>
+            ex.InnerException is SqlException sql &&
+            (sql.Number == ErrorSqlRestriccionUnica || sql.Number == ErrorSqlIndiceUnico);
+
+        // ------------------------------------------------------------------
+        // Consultas de movimientos
+        // ------------------------------------------------------------------
 
         public async Task<IEnumerable<EntradaInventario>> ObtenerEntradasAsync(int? articuloId, DateTime? desde, DateTime? hasta)
         {
@@ -274,10 +395,10 @@ namespace SIGAC.Infrastructure.Repositories
             await using var context = await _contextFactory.CreateDbContextAsync();
 
             // A propósito SIN Include del artículo: quien llama a este método
-            // (AprobarPrestamoAsync / RechazarPrestamoAsync) modifica la solicitud y
-            // se la devuelve a ActualizarSolicitudAsync. Si viniera con el artículo
-            // colgado, el guardado podría arrastrar también esa fila y pisarle el
-            // stock. El servicio pide el artículo por separado cuando lo necesita.
+            // (AprobarPrestamoAsync / RechazarPrestamoAsync) modifica la solicitud y se
+            // la devuelve al repositorio. Si viniera con el artículo colgado, el
+            // guardado podría arrastrar también esa fila y pisarle el stock. El
+            // servicio pide el artículo por separado cuando lo necesita.
             return await context.SolicitudesPrestamo
                 .AsNoTracking()
                 .FirstOrDefaultAsync(s => s.Id == id);
@@ -296,6 +417,10 @@ namespace SIGAC.Infrastructure.Repositories
             // Solo los campos de resolución, que son los únicos que el servicio cambia
             // después de crear la solicitud. Artículo, cantidad, actividad y
             // solicitante son el pedido original y no se reescriben.
+            //
+            // Este método queda para el RECHAZO, que es una escritura única y no mueve
+            // stock. La aprobación va por AprobarPrestamoConStockAsync, que además
+            // registra la salida y el descuento en la misma transacción.
             existente.Estado = solicitud.Estado;
             existente.MotivoRechazo = solicitud.MotivoRechazo;
 
@@ -307,8 +432,8 @@ namespace SIGAC.Infrastructure.Repositories
             await using var context = await _contextFactory.CreateDbContextAsync();
 
             // Acá sí va el Include: la lista muestra el nombre del artículo y las
-            // entidades salen en AsNoTracking, así que no hay riesgo de arrastrarlas
-            // a un guardado posterior.
+            // entidades salen en AsNoTracking, así que no hay riesgo de arrastrarlas a
+            // un guardado posterior.
             return await context.SolicitudesPrestamo
                 .AsNoTracking()
                 .Include(s => s.Articulo)

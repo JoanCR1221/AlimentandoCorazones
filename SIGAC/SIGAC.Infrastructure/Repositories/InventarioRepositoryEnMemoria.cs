@@ -1,16 +1,25 @@
 using System.Collections.Concurrent;
+using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
 using SIGAC.Domain.Entities;
 
 namespace SIGAC.Infrastructure.Repositories
 {
     // Implementación TEMPORAL en memoria, solo para desarrollo/pruebas.
+    // Ya no está registrada en Program.cs: la reemplazó InventarioRepositoryEfCore.
     public class InventarioRepositoryEnMemoria : IInventarioRepository
     {
         private readonly ConcurrentDictionary<int, Articulo> _articulos = new();
         private readonly ConcurrentDictionary<int, EntradaInventario> _entradas = new();
         private readonly ConcurrentDictionary<int, SalidaInventario> _salidas = new();
         private readonly ConcurrentDictionary<int, SolicitudPrestamo> _solicitudes = new();
+
+        // Sustituto de la transacción de la base: las operaciones compuestas se
+        // ejecutan enteras bajo este lock, así ningún otro hilo ve el estado a medio
+        // aplicar. No hay rollback real, pero como todos los pasos son en memoria y
+        // no fallan por I/O, alcanza para que esta implementación se comporte como la
+        // de EF Core de cara al servicio.
+        private readonly object _candado = new();
 
         private int _siguienteArticuloId = 1;
         private int _siguienteEntradaId = 1;
@@ -30,30 +39,9 @@ namespace SIGAC.Infrastructure.Repositories
             return Task.FromResult(articulo);
         }
 
-        public Task AgregarArticuloAsync(Articulo articulo)
-        {
-            articulo.Id = _siguienteArticuloId++;
-            _articulos[articulo.Id] = articulo;
-            return Task.CompletedTask;
-        }
-
         public Task ActualizarArticuloAsync(Articulo articulo)
         {
             _articulos[articulo.Id] = articulo;
-            return Task.CompletedTask;
-        }
-
-        public Task ActualizarStockAsync(int articuloId, int cantidad)
-        {
-            if (_articulos.TryGetValue(articuloId, out var articulo))
-                articulo.StockActual += cantidad;
-            return Task.CompletedTask;
-        }
-
-        public Task ReducirStockAsync(int articuloId, int cantidad)
-        {
-            if (_articulos.TryGetValue(articuloId, out var articulo))
-                articulo.StockActual -= cantidad;
             return Task.CompletedTask;
         }
 
@@ -70,21 +58,88 @@ namespace SIGAC.Infrastructure.Repositories
             return Task.FromResult(query);
         }
 
-        public Task AgregarEntradaAsync(EntradaInventario entrada)
+        // ------------------------------------------------------------------
+        // Movimientos que mueven stock (operaciones compuestas)
+        // ------------------------------------------------------------------
+
+        public Task RegistrarEntradaConStockAsync(EntradaInventario entrada, Articulo? articuloNuevo)
         {
-            entrada.Id = _siguienteEntradaId++;
-            entrada.Articulo = _articulos.GetValueOrDefault(entrada.ArticuloId);
-            _entradas[entrada.Id] = entrada;
+            lock (_candado)
+            {
+                if (articuloNuevo is not null)
+                {
+                    articuloNuevo.Id = _siguienteArticuloId++;
+                    _articulos[articuloNuevo.Id] = articuloNuevo;
+                    entrada.ArticuloId = articuloNuevo.Id;
+                }
+
+                if (!_articulos.TryGetValue(entrada.ArticuloId, out var articulo))
+                    throw new NotFoundException("El artículo no existe.");
+
+                entrada.Id = _siguienteEntradaId++;
+                entrada.Articulo = articulo;
+                _entradas[entrada.Id] = entrada;
+
+                articulo.StockActual += entrada.Cantidad;
+            }
+
             return Task.CompletedTask;
         }
 
-        public Task AgregarSalidaAsync(SalidaInventario salida)
+        public Task RegistrarSalidaConStockAsync(SalidaInventario salida)
         {
-            salida.Id = _siguienteSalidaId++;
-            salida.Articulo = _articulos.GetValueOrDefault(salida.ArticuloId);
-            _salidas[salida.Id] = salida;
+            lock (_candado)
+            {
+                RegistrarSalidaYDescontar(salida);
+            }
+
             return Task.CompletedTask;
         }
+
+        public Task AprobarPrestamoConStockAsync(SolicitudPrestamo solicitud, SalidaInventario salida)
+        {
+            lock (_candado)
+            {
+                if (!_solicitudes.TryGetValue(solicitud.Id, out var existente))
+                    throw new NotFoundException("La solicitud no existe.");
+
+                // Mismo re-chequeo dentro de la "transacción" que hace la versión de
+                // EF Core: el estado pudo cambiar desde que lo validó el servicio.
+                if (existente.Estado != EstadoSolicitudPrestamo.Pendiente)
+                    throw new ValidationException("La solicitud ya fue resuelta.");
+
+                RegistrarSalidaYDescontar(salida);
+
+                existente.Estado = solicitud.Estado;
+                existente.MotivoRechazo = solicitud.MotivoRechazo;
+            }
+
+            return Task.CompletedTask;
+        }
+
+        // Se llama siempre con _candado tomado.
+        private void RegistrarSalidaYDescontar(SalidaInventario salida)
+        {
+            if (!_articulos.TryGetValue(salida.ArticuloId, out var articulo))
+                throw new NotFoundException("El artículo no existe.");
+
+            if (articulo.StockActual < salida.Cantidad)
+            {
+                throw new ValidationException(
+                    "El stock disponible cambió mientras se registraba el movimiento y ya no alcanza. " +
+                    "Volvé a intentarlo.");
+            }
+
+            salida.Id = _siguienteSalidaId++;
+            salida.Articulo = articulo;
+            _salidas[salida.Id] = salida;
+
+            articulo.StockActual -= salida.Cantidad;
+        }
+
+        // ------------------------------------------------------------------
+        // Consultas de movimientos
+        // ------------------------------------------------------------------
 
         public Task<IEnumerable<EntradaInventario>> ObtenerEntradasAsync(int? articuloId, DateTime? desde, DateTime? hasta)
         {
@@ -118,11 +173,19 @@ namespace SIGAC.Infrastructure.Repositories
             return Task.FromResult(query);
         }
 
+        // ------------------------------------------------------------------
+        // Préstamos
+        // ------------------------------------------------------------------
+
         public Task AgregarSolicitudPrestamoAsync(SolicitudPrestamo solicitud)
         {
-            solicitud.Id = _siguienteSolicitudId++;
-            solicitud.Articulo = _articulos.GetValueOrDefault(solicitud.ArticuloId);
-            _solicitudes[solicitud.Id] = solicitud;
+            lock (_candado)
+            {
+                solicitud.Id = _siguienteSolicitudId++;
+                solicitud.Articulo = _articulos.GetValueOrDefault(solicitud.ArticuloId);
+                _solicitudes[solicitud.Id] = solicitud;
+            }
+
             return Task.CompletedTask;
         }
 
