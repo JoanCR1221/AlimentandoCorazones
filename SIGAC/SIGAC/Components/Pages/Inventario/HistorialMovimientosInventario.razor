@@ -21,6 +21,10 @@
         <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
                              Label="Rango de fechas" Variant="Variant.Outlined" Class="mb-4" />
 
+        <MudText Typo="Typo.subtitle1" Class="mb-4">
+            Total de entradas: @resultado.TotalEntradas · Total de salidas: @resultado.TotalSalidas
+        </MudText>
+
         <MudDataGrid T="MovimientoInventarioDto" Items="@resultado.Movimientos">
             <Columns>
                 <PropertyColumn Property="x => x.Articulo" Title="Artículo" />
