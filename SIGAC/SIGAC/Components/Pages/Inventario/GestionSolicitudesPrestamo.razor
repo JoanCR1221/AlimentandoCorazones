@@ -3,6 +3,7 @@
 @using SIGAC.Application.Interfaces
 @inject IInventarioService InventarioService
 @inject IDialogService DialogService
+@inject ISnackbar Snackbar
 
 <MudText Typo="Typo.h4" Class="mb-4">Solicitudes de préstamo pendientes</MudText>
 
@@ -54,6 +55,7 @@
             return;
 
         await InventarioService.AprobarPrestamoAsync(new ResolucionPrestamoDto { SolicitudId = solicitudId, Aprobado = true });
+        Snackbar.Add("Solicitud aprobada correctamente.", Severity.Success);
         await CargarAsync();
     }
 
@@ -68,6 +70,7 @@
         var motivo = (string)resultado.Data!;
 
         await InventarioService.RechazarPrestamoAsync(new ResolucionPrestamoDto { SolicitudId = solicitudId, MotivoRechazo = motivo });
+        Snackbar.Add("Solicitud rechazada.", Severity.Success);
         await CargarAsync();
     }
 }
