@@ -28,10 +28,14 @@
         <MudDataGrid T="MovimientoInventarioDto" Items="@resultado.Movimientos">
             <Columns>
                 <PropertyColumn Property="x => x.Articulo" Title="Artículo" />
-                <PropertyColumn Property="x => x.TipoMovimiento" Title="Tipo de movimiento" />
+                <TemplateColumn Title="Tipo de movimiento">
+                    <CellTemplate>@EtiquetaTipoMovimiento(context.Item.TipoMovimiento)</CellTemplate>
+                </TemplateColumn>
                 <PropertyColumn Property="x => x.Cantidad" Title="Cantidad" />
                 <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
-                <PropertyColumn Property="x => x.OrigenODestino" Title="Origen / Destino" />
+                <TemplateColumn Title="Origen / Destino">
+                    <CellTemplate>@EtiquetaTipoMovimiento(context.Item.OrigenODestino ?? string.Empty)</CellTemplate>
+                </TemplateColumn>
             </Columns>
             <NoRecordsContent>
                 <MudText>No hay movimientos registrados para los filtros seleccionados.</MudText>
@@ -74,6 +78,13 @@
         rangoFechas = valor;
         await CargarAsync();
     }
+
+    private static string EtiquetaTipoMovimiento(string tipoMovimiento) => tipoMovimiento switch
+    {
+        "Donacion" => "Donación",
+        "Prestamo" => "Préstamo",
+        _ => tipoMovimiento
+    };
 
     private async Task CargarAsync()
     {
