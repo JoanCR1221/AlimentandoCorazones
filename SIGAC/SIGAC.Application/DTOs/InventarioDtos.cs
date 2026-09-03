@@ -130,9 +130,16 @@ namespace SIGAC.Application.DTOs.Inventario
     public class SolicitudPrestamoCrearDto
     {
         public int ArticuloId { get; set; }
+
+        [Range(1, int.MaxValue, ErrorMessage = "La cantidad debe ser mayor a 0.")]
         public int Cantidad { get; set; }
+
         public DateTime Fecha { get; set; }
+
+        [Required(ErrorMessage = "La actividad es obligatoria.")]
         public string Actividad { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El solicitante es obligatorio.")]
         public string Solicitante { get; set; } = string.Empty;
     }
 

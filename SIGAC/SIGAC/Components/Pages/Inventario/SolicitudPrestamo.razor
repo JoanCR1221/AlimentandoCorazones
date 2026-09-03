@@ -1,26 +1,36 @@
 @page "/inventario/prestamos/solicitar"
 @using SIGAC.Application.DTOs.Inventario
+@using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces
 @inject IInventarioService InventarioService
+@inject ISnackbar Snackbar
 
 <MudText Typo="Typo.h4" Class="mb-4">Solicitar préstamo de artículo</MudText>
 
-<MudCard Class="pa-4">
-    <MudCardContent>
-        <MudAutocomplete T="ArticuloExistenciaDto" Label="Artículo" Variant="Variant.Outlined"
-                          Value="articuloSeleccionado" ValueChanged="OnArticuloCambiado"
-                          SearchFunc="BuscarArticulosAsync"
-                          ToStringFunc="@(a => a is null ? null : $"{a.Nombre} (stock: {a.StockActual} {a.UnidadMedida})")" />
+<EditForm Model="modelo" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
 
-        <MudNumericField T="int" @bind-Value="modelo.Cantidad" Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
+    <MudCard Class="pa-4">
+        <MudCardContent>
+            <MudAutocomplete T="ArticuloExistenciaDto" Label="Artículo" Variant="Variant.Outlined"
+                              Value="articuloSeleccionado" ValueChanged="OnArticuloCambiado"
+                              SearchFunc="BuscarArticulosAsync"
+                              ToStringFunc="@(a => a is null ? null : $"{a.Nombre} (stock: {a.StockActual} {a.UnidadMedida})")" />
 
-        <MudDatePicker @bind-Date="fecha" Label="Fecha de la actividad" Variant="Variant.Outlined" Class="mt-4" />
+            <MudNumericField T="int" @bind-Value="modelo.Cantidad" For="@(() => modelo.Cantidad)" Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
 
-        <MudTextField @bind-Value="modelo.Actividad" Label="Actividad" Variant="Variant.Outlined" Class="mt-4" />
+            <MudDatePicker @bind-Date="fecha" Label="Fecha de la actividad" Variant="Variant.Outlined" Class="mt-4" />
 
-        <MudTextField @bind-Value="modelo.Solicitante" Label="Solicitante" Variant="Variant.Outlined" Class="mt-4" />
-    </MudCardContent>
-</MudCard>
+            <MudTextField @bind-Value="modelo.Actividad" For="@(() => modelo.Actividad)" Label="Actividad" Variant="Variant.Outlined" Class="mt-4" />
+
+            <MudTextField @bind-Value="modelo.Solicitante" For="@(() => modelo.Solicitante)" Label="Solicitante" Variant="Variant.Outlined" Class="mt-4" />
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Solicitar</MudButton>
+        </MudCardActions>
+    </MudCard>
+</EditForm>
 
 @code {
     private SolicitudPrestamoCrearDto modelo = new();
@@ -42,5 +52,29 @@
     {
         articuloSeleccionado = valor;
         modelo.ArticuloId = valor?.Id ?? 0;
+    }
+
+    private async Task Guardar()
+    {
+        try
+        {
+            await InventarioService.RegistrarSolicitudPrestamoAsync(modelo);
+            Snackbar.Add("Solicitud de préstamo registrada correctamente.", Severity.Success);
+
+            modelo = new();
+            articuloSeleccionado = null;
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (NotFoundException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo registrar la solicitud de préstamo. Intentá de nuevo.", Severity.Error);
+        }
     }
 }
