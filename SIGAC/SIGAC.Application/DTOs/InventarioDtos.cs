@@ -106,7 +106,13 @@ namespace SIGAC.Application.DTOs.Inventario
     {
         public int Id { get; set; }
         public string Articulo { get; set; } = string.Empty;
-        public string TipoMovimiento { get; set; } = string.Empty; // "Entrada" o "Salida"
+
+        // "Entrada", "Donacion" o "Prestamo" (estas dos últimas son los valores de
+        // SalidaInventario.TipoSalida): distingue el sub-tipo de salida en vez de
+        // agrupar todo bajo "Salida", para que el historial pueda filtrar por
+        // cada uno por separado.
+        public string TipoMovimiento { get; set; } = string.Empty;
+
         public int Cantidad { get; set; }
         public DateTime Fecha { get; set; }
         public string? OrigenODestino { get; set; }
@@ -115,7 +121,7 @@ namespace SIGAC.Application.DTOs.Inventario
     public class FiltrosMovimientoDto
     {
         public int? ArticuloId { get; set; }
-        public string? TipoMovimiento { get; set; } // "Entrada", "Salida" o null (ambos)
+        public string? TipoMovimiento { get; set; } // "Entrada", "Donacion", "Prestamo" o null (todos)
         public DateTime? Desde { get; set; }
         public DateTime? Hasta { get; set; }
     }

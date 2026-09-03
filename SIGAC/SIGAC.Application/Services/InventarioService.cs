@@ -227,13 +227,24 @@ namespace SIGAC.Application.Services
         {
             try
             {
-                var entradas = filtros.TipoMovimiento is null or "Entrada"
+                var incluyeEntradas = filtros.TipoMovimiento is null or "Entrada";
+                var incluyeSalidas = filtros.TipoMovimiento is null
+                    or TiposSalidaInventario.Donacion
+                    or TiposSalidaInventario.Prestamo;
+
+                var entradas = incluyeEntradas
                     ? await _repository.ObtenerEntradasAsync(filtros.ArticuloId, filtros.Desde, filtros.Hasta)
                     : Enumerable.Empty<EntradaInventario>();
 
-                var salidas = filtros.TipoMovimiento is null or "Salida"
+                var salidas = incluyeSalidas
                     ? await _repository.ObtenerSalidasAsync(filtros.ArticuloId, filtros.Desde, filtros.Hasta)
                     : Enumerable.Empty<SalidaInventario>();
+
+                // ObtenerSalidasAsync no filtra por TipoSalida (solo por artículo y
+                // fecha), así que un sub-tipo puntual (Donacion o Prestamo) se recorta
+                // acá antes de mapear.
+                if (filtros.TipoMovimiento is TiposSalidaInventario.Donacion or TiposSalidaInventario.Prestamo)
+                    salidas = salidas.Where(s => s.TipoSalida == filtros.TipoMovimiento);
 
                 var movimientos = new List<MovimientoInventarioDto>();
 
@@ -251,7 +262,7 @@ namespace SIGAC.Application.Services
                 {
                     Id = s.Id,
                     Articulo = s.Articulo?.Nombre ?? string.Empty,
-                    TipoMovimiento = "Salida",
+                    TipoMovimiento = s.TipoSalida,
                     Cantidad = s.Cantidad,
                     Fecha = s.Fecha,
                     OrigenODestino = s.ComunidadDestinataria ?? s.TipoSalida
