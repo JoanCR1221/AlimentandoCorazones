@@ -11,6 +11,13 @@
                           Value="articuloSeleccionado" ValueChanged="OnArticuloCambiadoAsync"
                           SearchFunc="BuscarArticulosAsync" ToStringFunc="@(a => a?.Nombre)" Clearable="true" />
 
+        <MudSelect T="string" Value="filtroTipoMovimiento" ValueChanged="OnTipoMovimientoCambiadoAsync"
+                   Label="Tipo de movimiento" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
+            <MudSelectItem T="string" Value="@("Entrada")">Entrada</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Donacion")">Donación</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Prestamo")">Préstamo</MudSelectItem>
+        </MudSelect>
+
         <MudDataGrid T="MovimientoInventarioDto" Items="@resultado.Movimientos">
             <Columns>
                 <PropertyColumn Property="x => x.Articulo" Title="Artículo" />
@@ -29,6 +36,7 @@
 @code {
     private HistorialMovimientosResultadoDto resultado = new();
     private ArticuloExistenciaDto? articuloSeleccionado;
+    private string? filtroTipoMovimiento;
 
     protected override async Task OnInitializedAsync()
     {
@@ -47,11 +55,18 @@
         await CargarAsync();
     }
 
+    private async Task OnTipoMovimientoCambiadoAsync(string? valor)
+    {
+        filtroTipoMovimiento = valor;
+        await CargarAsync();
+    }
+
     private async Task CargarAsync()
     {
         resultado = await InventarioService.ObtenerHistorialMovimientosAsync(new FiltrosMovimientoDto
         {
-            ArticuloId = articuloSeleccionado?.Id
+            ArticuloId = articuloSeleccionado?.Id,
+            TipoMovimiento = filtroTipoMovimiento
         });
     }
 }
