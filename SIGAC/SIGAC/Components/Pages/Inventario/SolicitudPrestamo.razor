@@ -11,6 +11,8 @@
                           Value="articuloSeleccionado" ValueChanged="OnArticuloCambiado"
                           SearchFunc="BuscarArticulosAsync"
                           ToStringFunc="@(a => a is null ? null : $"{a.Nombre} (stock: {a.StockActual} {a.UnidadMedida})")" />
+
+        <MudNumericField T="int" @bind-Value="modelo.Cantidad" Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
     </MudCardContent>
 </MudCard>
 
