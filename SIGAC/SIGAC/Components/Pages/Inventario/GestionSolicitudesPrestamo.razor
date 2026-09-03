@@ -19,6 +19,7 @@
                 <TemplateColumn Title="Acciones">
                     <CellTemplate>
                         <MudButton Variant="Variant.Text" Color="Color.Success" OnClick="@(() => AprobarAsync(context.Item.Id))">Aprobar</MudButton>
+                        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@(() => RechazarAsync(context.Item.Id))">Rechazar</MudButton>
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
@@ -53,5 +54,18 @@
             return;
 
         await InventarioService.AprobarPrestamoAsync(new ResolucionPrestamoDto { SolicitudId = solicitudId, Aprobado = true });
+    }
+
+    private async Task RechazarAsync(int solicitudId)
+    {
+        var dialog = await DialogService.ShowAsync<RechazarSolicitudDialog>("Rechazar solicitud");
+        var resultado = await dialog.Result;
+
+        if (resultado is null || resultado.Canceled)
+            return;
+
+        var motivo = (string)resultado.Data!;
+
+        await InventarioService.RechazarPrestamoAsync(new ResolucionPrestamoDto { SolicitudId = solicitudId, MotivoRechazo = motivo });
     }
 }
