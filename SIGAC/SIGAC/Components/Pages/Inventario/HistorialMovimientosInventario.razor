@@ -18,6 +18,9 @@
             <MudSelectItem T="string" Value="@("Prestamo")">Préstamo</MudSelectItem>
         </MudSelect>
 
+        <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
+                             Label="Rango de fechas" Variant="Variant.Outlined" Class="mb-4" />
+
         <MudDataGrid T="MovimientoInventarioDto" Items="@resultado.Movimientos">
             <Columns>
                 <PropertyColumn Property="x => x.Articulo" Title="Artículo" />
@@ -37,6 +40,7 @@
     private HistorialMovimientosResultadoDto resultado = new();
     private ArticuloExistenciaDto? articuloSeleccionado;
     private string? filtroTipoMovimiento;
+    private DateRange? rangoFechas;
 
     protected override async Task OnInitializedAsync()
     {
@@ -61,12 +65,20 @@
         await CargarAsync();
     }
 
+    private async Task OnRangoFechasCambiadoAsync(DateRange? valor)
+    {
+        rangoFechas = valor;
+        await CargarAsync();
+    }
+
     private async Task CargarAsync()
     {
         resultado = await InventarioService.ObtenerHistorialMovimientosAsync(new FiltrosMovimientoDto
         {
             ArticuloId = articuloSeleccionado?.Id,
-            TipoMovimiento = filtroTipoMovimiento
+            TipoMovimiento = filtroTipoMovimiento,
+            Desde = rangoFechas?.Start,
+            Hasta = rangoFechas?.End
         });
     }
 }
