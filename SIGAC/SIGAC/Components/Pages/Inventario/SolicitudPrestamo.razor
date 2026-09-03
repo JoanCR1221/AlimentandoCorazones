@@ -1,14 +1,32 @@
 @page "/inventario/prestamos/solicitar"
 @using SIGAC.Application.DTOs.Inventario
+@using SIGAC.Application.Interfaces
+@inject IInventarioService InventarioService
 
 <MudText Typo="Typo.h4" Class="mb-4">Solicitar préstamo de artículo</MudText>
 
 <MudCard Class="pa-4">
     <MudCardContent>
-
+        <MudAutocomplete T="ArticuloExistenciaDto" Label="Artículo" Variant="Variant.Outlined"
+                          Value="articuloSeleccionado" ValueChanged="OnArticuloCambiado"
+                          SearchFunc="BuscarArticulosAsync"
+                          ToStringFunc="@(a => a is null ? null : $"{a.Nombre} (stock: {a.StockActual} {a.UnidadMedida})")" />
     </MudCardContent>
 </MudCard>
 
 @code {
     private SolicitudPrestamoCrearDto modelo = new();
+    private ArticuloExistenciaDto? articuloSeleccionado;
+
+    private async Task<IEnumerable<ArticuloExistenciaDto>> BuscarArticulosAsync(string valor, CancellationToken cancellationToken)
+    {
+        var resultado = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto { Nombre = valor });
+        return resultado.Elementos;
+    }
+
+    private void OnArticuloCambiado(ArticuloExistenciaDto? valor)
+    {
+        articuloSeleccionado = valor;
+        modelo.ArticuloId = valor?.Id ?? 0;
+    }
 }
