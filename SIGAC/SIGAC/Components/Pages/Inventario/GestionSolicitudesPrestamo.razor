@@ -1,10 +1,39 @@
 @page "/inventario/prestamos/gestionar"
 @using SIGAC.Application.DTOs.Inventario
+@using SIGAC.Application.Interfaces
+@inject IInventarioService InventarioService
 
 <MudText Typo="Typo.h4" Class="mb-4">Solicitudes de préstamo pendientes</MudText>
 
 <MudCard Class="pa-4">
     <MudCardContent>
-
+        <MudDataGrid T="SolicitudPrestamoListaDto" Items="@solicitudes">
+            <Columns>
+                <PropertyColumn Property="x => x.Articulo" Title="Artículo" />
+                <PropertyColumn Property="x => x.Cantidad" Title="Cantidad" />
+                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
+                <PropertyColumn Property="x => x.Actividad" Title="Actividad" />
+                <PropertyColumn Property="x => x.Solicitante" Title="Solicitante" />
+                <PropertyColumn Property="x => x.Estado" Title="Estado" />
+            </Columns>
+            <NoRecordsContent>
+                <MudText>No hay solicitudes de préstamo pendientes.</MudText>
+            </NoRecordsContent>
+        </MudDataGrid>
     </MudCardContent>
 </MudCard>
+
+@code {
+    private IEnumerable<SolicitudPrestamoListaDto> solicitudes = new List<SolicitudPrestamoListaDto>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        var todas = await InventarioService.ObtenerSolicitudesAsync();
+        solicitudes = todas.Where(s => s.Estado == "Pendiente");
+    }
+}
