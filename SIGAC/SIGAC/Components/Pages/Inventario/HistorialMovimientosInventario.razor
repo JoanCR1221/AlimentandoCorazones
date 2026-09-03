@@ -7,6 +7,10 @@
 
 <MudCard Class="pa-4">
     <MudCardContent>
+        <MudAutocomplete T="ArticuloExistenciaDto" Label="Artículo" Variant="Variant.Outlined" Class="mb-4"
+                          Value="articuloSeleccionado" ValueChanged="OnArticuloCambiadoAsync"
+                          SearchFunc="BuscarArticulosAsync" ToStringFunc="@(a => a?.Nombre)" Clearable="true" />
+
         <MudDataGrid T="MovimientoInventarioDto" Items="@resultado.Movimientos">
             <Columns>
                 <PropertyColumn Property="x => x.Articulo" Title="Artículo" />
@@ -24,14 +28,30 @@
 
 @code {
     private HistorialMovimientosResultadoDto resultado = new();
+    private ArticuloExistenciaDto? articuloSeleccionado;
 
     protected override async Task OnInitializedAsync()
     {
         await CargarAsync();
     }
 
+    private async Task<IEnumerable<ArticuloExistenciaDto>> BuscarArticulosAsync(string valor, CancellationToken cancellationToken)
+    {
+        var existencias = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto { Nombre = valor });
+        return existencias.Elementos;
+    }
+
+    private async Task OnArticuloCambiadoAsync(ArticuloExistenciaDto? valor)
+    {
+        articuloSeleccionado = valor;
+        await CargarAsync();
+    }
+
     private async Task CargarAsync()
     {
-        resultado = await InventarioService.ObtenerHistorialMovimientosAsync(new FiltrosMovimientoDto());
+        resultado = await InventarioService.ObtenerHistorialMovimientosAsync(new FiltrosMovimientoDto
+        {
+            ArticuloId = articuloSeleccionado?.Id
+        });
     }
 }
