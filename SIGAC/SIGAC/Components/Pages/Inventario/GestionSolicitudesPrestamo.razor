@@ -2,6 +2,7 @@
 @using SIGAC.Application.DTOs.Inventario
 @using SIGAC.Application.Interfaces
 @inject IInventarioService InventarioService
+@inject IDialogService DialogService
 
 <MudText Typo="Typo.h4" Class="mb-4">Solicitudes de préstamo pendientes</MudText>
 
@@ -15,6 +16,11 @@
                 <PropertyColumn Property="x => x.Actividad" Title="Actividad" />
                 <PropertyColumn Property="x => x.Solicitante" Title="Solicitante" />
                 <PropertyColumn Property="x => x.Estado" Title="Estado" />
+                <TemplateColumn Title="Acciones">
+                    <CellTemplate>
+                        <MudButton Variant="Variant.Text" Color="Color.Success" OnClick="@(() => AprobarAsync(context.Item.Id))">Aprobar</MudButton>
+                    </CellTemplate>
+                </TemplateColumn>
             </Columns>
             <NoRecordsContent>
                 <MudText>No hay solicitudes de préstamo pendientes.</MudText>
@@ -35,5 +41,17 @@
     {
         var todas = await InventarioService.ObtenerSolicitudesAsync();
         solicitudes = todas.Where(s => s.Estado == "Pendiente");
+    }
+
+    private async Task AprobarAsync(int solicitudId)
+    {
+        var confirmado = await DialogService.ShowMessageBoxAsync(
+            "Confirmar", "¿Aprobar esta solicitud de préstamo? El stock se descontará automáticamente.",
+            yesText: "Aprobar", cancelText: "Cancelar");
+
+        if (confirmado != true)
+            return;
+
+        await InventarioService.AprobarPrestamoAsync(new ResolucionPrestamoDto { SolicitudId = solicitudId, Aprobado = true });
     }
 }
