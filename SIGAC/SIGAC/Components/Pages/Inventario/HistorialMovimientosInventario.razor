@@ -1,14 +1,37 @@
 @page "/inventario/movimientos/historial"
 @using SIGAC.Application.DTOs.Inventario
+@using SIGAC.Application.Interfaces
+@inject IInventarioService InventarioService
 
 <MudText Typo="Typo.h4" Class="mb-4">Historial de movimientos de inventario</MudText>
 
 <MudCard Class="pa-4">
     <MudCardContent>
-
+        <MudDataGrid T="MovimientoInventarioDto" Items="@resultado.Movimientos">
+            <Columns>
+                <PropertyColumn Property="x => x.Articulo" Title="Artículo" />
+                <PropertyColumn Property="x => x.TipoMovimiento" Title="Tipo de movimiento" />
+                <PropertyColumn Property="x => x.Cantidad" Title="Cantidad" />
+                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
+                <PropertyColumn Property="x => x.OrigenODestino" Title="Origen / Destino" />
+            </Columns>
+            <NoRecordsContent>
+                <MudText>No hay movimientos registrados para los filtros seleccionados.</MudText>
+            </NoRecordsContent>
+        </MudDataGrid>
     </MudCardContent>
 </MudCard>
 
 @code {
     private HistorialMovimientosResultadoDto resultado = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        resultado = await InventarioService.ObtenerHistorialMovimientosAsync(new FiltrosMovimientoDto());
+    }
 }
