@@ -13,12 +13,20 @@
                           ToStringFunc="@(a => a is null ? null : $"{a.Nombre} (stock: {a.StockActual} {a.UnidadMedida})")" />
 
         <MudNumericField T="int" @bind-Value="modelo.Cantidad" Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
+
+        <MudDatePicker @bind-Date="fecha" Label="Fecha de la actividad" Variant="Variant.Outlined" Class="mt-4" />
     </MudCardContent>
 </MudCard>
 
 @code {
     private SolicitudPrestamoCrearDto modelo = new();
     private ArticuloExistenciaDto? articuloSeleccionado;
+
+    private DateTime? fecha
+    {
+        get => modelo.Fecha == default ? null : modelo.Fecha;
+        set => modelo.Fecha = value ?? default;
+    }
 
     private async Task<IEnumerable<ArticuloExistenciaDto>> BuscarArticulosAsync(string valor, CancellationToken cancellationToken)
     {
