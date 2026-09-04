@@ -2,6 +2,7 @@
 @using SIGAC.Application.DTOs.Inventario
 @using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces
+@using SIGAC.Domain
 @inject IInventarioService InventarioService
 @inject ISnackbar Snackbar
 
@@ -13,10 +14,24 @@
 
     <MudCard Class="pa-4">
         <MudCardContent>
+            @* MinCharacters="1" es lo que evita que al enfocar el campo se despliegue
+               el catálogo entero: sin él (el valor por omisión es 0) MudBlazor llama a
+               SearchFunc con la cadena vacía apenas el campo recibe el foco, y una
+               búsqueda sin texto devuelve la primera página completa de artículos.
+               Con 1, no hay sugerencias hasta que el usuario escribe, y lo que se
+               ofrece siempre está filtrado por lo que escribió.
+
+               DebounceInterval evita una consulta por cada tecla mientras escribe;
+               son los mismos 300 ms que ya usa el buscador de ExistenciasInventario.
+
+               CoerceValue="true" se mantiene y es esencial: permite confirmar un
+               nombre que NO está en la lista, que es como se dan de alta los
+               artículos nuevos desde esta pantalla. *@
             <MudAutocomplete T="string" Label="Nombre del artículo" Variant="Variant.Outlined"
                               Value="modelo.NombreArticulo" ValueChanged="OnNombreArticuloCambiadoAsync"
                               SearchFunc="BuscarNombresArticuloAsync" CoerceText="false" CoerceValue="true"
-                              HelperText="Buscá un artículo existente o escribí uno nuevo." />
+                              MinCharacters="1" DebounceInterval="300"
+                              HelperText="Escribí para buscar un artículo existente, o ingresá uno nuevo." />
 
             @if (articuloExistente is not null)
             {
@@ -26,20 +41,26 @@
             }
 
             <MudSelect T="string" @bind-Value="modelo.Categoria" For="@(() => modelo.Categoria)"
+                       @bind-Value:after="OnCategoriaCambiada"
                        Label="Categoría" Variant="Variant.Outlined" Class="mt-4" Disabled="articuloExistente is not null">
-                <MudSelectItem T="string" Value="@("Alimentos")">Alimentos</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Ropa")">Ropa</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Calzado")">Calzado</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Equipos")">Equipos</MudSelectItem>
+                @foreach (var categoria in CategoriasArticulo.Todos)
+                {
+                    <MudSelectItem T="string" Value="@categoria">@categoria</MudSelectItem>
+                }
             </MudSelect>
 
+            @* Las opciones salen de UnidadesMedidaArticulo según la categoría elegida,
+               la misma fuente que valida el servicio: no se puede ofrecer una unidad
+               que el guardado vaya a rechazar (antes se ofrecían las cinco siempre,
+               así que "Calzado" + "Litro" era elegible). *@
             <MudSelect T="string" @bind-Value="modelo.UnidadMedida" For="@(() => modelo.UnidadMedida)"
-                       Label="Unidad de medida" Variant="Variant.Outlined" Class="mt-4" Disabled="articuloExistente is not null">
-                <MudSelectItem T="string" Value="@("Unidad")">Unidad</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Kilogramo")">Kilogramo</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Litro")">Litro</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Caja")">Caja</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Paquete")">Paquete</MudSelectItem>
+                       Label="Unidad de medida" Variant="Variant.Outlined" Class="mt-4"
+                       Disabled="articuloExistente is not null || string.IsNullOrWhiteSpace(modelo.Categoria)"
+                       HelperText="@(articuloExistente is null && string.IsNullOrWhiteSpace(modelo.Categoria) ? "Elegí primero una categoría." : null)">
+                @foreach (var unidad in UnidadesMedidaArticulo.ObtenerUnidadesValidas(modelo.Categoria))
+                {
+                    <MudSelectItem T="string" Value="@unidad">@unidad</MudSelectItem>
+                }
             </MudSelect>
 
             <MudNumericField T="int" @bind-Value="modelo.Cantidad" For="@(() => modelo.Cantidad)"
@@ -107,6 +128,14 @@
 
     private async Task<IEnumerable<string>> BuscarNombresArticuloAsync(string valor, CancellationToken cancellationToken)
     {
+        // Guarda explícita, además del MinCharacters del componente: una búsqueda sin
+        // texto NO significa "todos los artículos" acá. El repositorio ignora el
+        // filtro de nombre cuando llega vacío y devuelve la primera página entera del
+        // catálogo, que es exactamente lo que no queremos desplegar sin que el usuario
+        // haya escrito nada.
+        if (string.IsNullOrWhiteSpace(valor))
+            return Array.Empty<string>();
+
         var existencias = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto { Nombre = valor });
         return existencias.Elementos.Select(a => a.Nombre);
     }
@@ -127,6 +156,16 @@
             modelo.Categoria = articuloExistente.Categoria;
             modelo.UnidadMedida = articuloExistente.UnidadMedida;
         }
+    }
+
+    // Al cambiar de categoría, la unidad ya elegida puede dejar de pertenecer a la
+    // nueva lista (por ejemplo "Litro" al pasar de Alimento a Calzado). Si se dejara,
+    // el campo mostraría un valor que ya no está entre las opciones y el guardado lo
+    // rechazaría recién al enviar el formulario.
+    private void OnCategoriaCambiada()
+    {
+        if (!UnidadesMedidaArticulo.EsValidaParaCategoria(modelo.Categoria, modelo.UnidadMedida))
+            modelo.UnidadMedida = string.Empty;
     }
 
     private void OnOrigenCambiado()
