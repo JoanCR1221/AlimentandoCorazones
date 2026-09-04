@@ -199,9 +199,9 @@ namespace SIGAC.Infrastructure.Migrations
 
                     b.HasIndex("Estado");
 
-                    b.HasIndex("TipoDocumento", "NumIdentidad")
+                    b.HasIndex("NumIdentidad")
                         .IsUnique()
-                        .HasDatabaseName("UX_Beneficiarios_TipoDocumento_NumIdentidad")
+                        .HasDatabaseName("UX_Beneficiarios_NumIdentidad")
                         .HasFilter("[NumIdentidad] IS NOT NULL AND [NumIdentidad] <> ''");
 
                     b.HasIndex("PrimerNombre", "SegundoNombre", "PrimerApellido", "SegundoApellido", "FechaNacimiento")
