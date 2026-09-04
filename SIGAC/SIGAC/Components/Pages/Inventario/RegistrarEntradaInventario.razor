@@ -21,26 +21,27 @@
             @if (articuloExistente is not null)
             {
                 <MudAlert Severity="Severity.Info" Class="mt-2">
-                    Ya existe este artículo (stock actual: @articuloExistente.StockActual @articuloExistente.UnidadMedida). Se usará su categoría y unidad de medida registradas.
+                    Ya existe este artículo (stock actual: @articuloExistente.StockActual @articuloExistente.UnidadMedida). Se usará su categoría, unidad de medida, código y ubicación registrados.
                 </MudAlert>
             }
 
-            <MudSelect T="string" @bind-Value="modelo.Categoria" For="@(() => modelo.Categoria)"
-                       Label="Categoría" Variant="Variant.Outlined" Class="mt-4" Disabled="articuloExistente is not null">
-                <MudSelectItem T="string" Value="@("Alimentos")">Alimentos</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Ropa")">Ropa</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Calzado")">Calzado</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Equipos")">Equipos</MudSelectItem>
-            </MudSelect>
+            <MudTextField @bind-Value="modelo.Codigo" Label="Código (opcional)" Variant="Variant.Outlined" Class="mt-4"
+                          Disabled="articuloExistente is not null" />
 
-            <MudSelect T="string" @bind-Value="modelo.UnidadMedida" For="@(() => modelo.UnidadMedida)"
-                       Label="Unidad de medida" Variant="Variant.Outlined" Class="mt-4" Disabled="articuloExistente is not null">
-                <MudSelectItem T="string" Value="@("Unidad")">Unidad</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Kilogramo")">Kilogramo</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Litro")">Litro</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Caja")">Caja</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Paquete")">Paquete</MudSelectItem>
-            </MudSelect>
+            <MudAutocomplete T="string" @bind-Value="modelo.Categoria" For="@(() => modelo.Categoria)"
+                              Label="Categoría" Variant="Variant.Outlined" Class="mt-4"
+                              SearchFunc="BuscarCategoriasAsync" CoerceText="false" CoerceValue="true"
+                              Disabled="articuloExistente is not null"
+                              HelperText="Elegí una categoría existente o escribí una nueva." />
+
+            <MudAutocomplete T="string" @bind-Value="modelo.UnidadMedida" For="@(() => modelo.UnidadMedida)"
+                              Label="Unidad de medida" Variant="Variant.Outlined" Class="mt-4"
+                              SearchFunc="BuscarUnidadesMedidaAsync" CoerceText="false" CoerceValue="true"
+                              Disabled="articuloExistente is not null"
+                              HelperText="Elegí una unidad existente o escribí una nueva." />
+
+            <MudTextField @bind-Value="modelo.Ubicacion" Label="Ubicación (opcional)" Variant="Variant.Outlined" Class="mt-4"
+                          Disabled="articuloExistente is not null" />
 
             <MudNumericField T="int" @bind-Value="modelo.Cantidad" For="@(() => modelo.Cantidad)"
                               Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
@@ -99,10 +100,44 @@
     private string? donanteSeleccionado;
     private string? gastoOperativoSeleccionado;
 
+    // Se cargan una sola vez al entrar a la pantalla: la lista es chica y no
+    // cambia mientras se llena el formulario, así que filtrar en memoria en cada
+    // tecleo evita una consulta nueva por cada letra.
+    private IReadOnlyList<string> categoriasDisponibles = Array.Empty<string>();
+    private IReadOnlyList<string> unidadesMedidaDisponibles = Array.Empty<string>();
+
     private DateTime? fecha
     {
         get => modelo.Fecha == default ? null : modelo.Fecha;
         set => modelo.Fecha = value ?? default;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        categoriasDisponibles = await InventarioService.ObtenerCategoriasAsync();
+        unidadesMedidaDisponibles = await InventarioService.ObtenerUnidadesMedidaAsync();
+    }
+
+    // Igual patrón que BuscarDonantesAsync: si escribís una categoría o unidad que
+    // no está en la lista, CoerceValue="true" la deja pasar igual. Al guardar la
+    // entrada, ese texto queda en el artículo nuevo y la próxima vez que se entra
+    // a esta pantalla ya aparece sola (ObtenerCategoriasAsync la trae del catálogo).
+    private Task<IEnumerable<string>> BuscarCategoriasAsync(string valor, CancellationToken cancellationToken)
+    {
+        var resultado = string.IsNullOrWhiteSpace(valor)
+            ? categoriasDisponibles.AsEnumerable()
+            : categoriasDisponibles.Where(c => c.Contains(valor, StringComparison.OrdinalIgnoreCase));
+
+        return Task.FromResult(resultado);
+    }
+
+    private Task<IEnumerable<string>> BuscarUnidadesMedidaAsync(string valor, CancellationToken cancellationToken)
+    {
+        var resultado = string.IsNullOrWhiteSpace(valor)
+            ? unidadesMedidaDisponibles.AsEnumerable()
+            : unidadesMedidaDisponibles.Where(u => u.Contains(valor, StringComparison.OrdinalIgnoreCase));
+
+        return Task.FromResult(resultado);
     }
 
     private async Task<IEnumerable<string>> BuscarNombresArticuloAsync(string valor, CancellationToken cancellationToken)
@@ -126,6 +161,8 @@
         {
             modelo.Categoria = articuloExistente.Categoria;
             modelo.UnidadMedida = articuloExistente.UnidadMedida;
+            modelo.Codigo = articuloExistente.Codigo;
+            modelo.Ubicacion = articuloExistente.Ubicacion;
         }
     }
 
@@ -165,12 +202,22 @@
             await InventarioService.RegistrarEntradaAsync(modelo);
             Snackbar.Add("Entrada de inventario registrada correctamente.", Severity.Success);
 
+            // Si la entrada creó un artículo con categoría o unidad nuevas, que
+            // aparezcan ya en las sugerencias por si se registra otra entrada a
+            // continuación, sin recargar la página.
+            categoriasDisponibles = await InventarioService.ObtenerCategoriasAsync();
+            unidadesMedidaDisponibles = await InventarioService.ObtenerUnidadesMedidaAsync();
+
             modelo = new();
             articuloExistente = null;
             donanteSeleccionado = null;
             gastoOperativoSeleccionado = null;
         }
         catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (DuplicateException ex)
         {
             Snackbar.Add(ex.Message, Severity.Warning);
         }

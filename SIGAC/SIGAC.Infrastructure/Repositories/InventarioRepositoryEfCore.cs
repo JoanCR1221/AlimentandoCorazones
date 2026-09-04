@@ -162,6 +162,37 @@ namespace SIGAC.Infrastructure.Repositories
                 .AnyAsync(a => a.Nombre == nombre && (idExcluir == null || a.Id != idExcluir));
         }
 
+        public async Task<int> ContarStockBajoAsync()
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            return await context.Articulos
+                .AsNoTracking()
+                .CountAsync(a => a.StockActual <= a.StockMinimo);
+        }
+
+        public async Task<IReadOnlyList<string>> ObtenerCategoriasDistintasAsync()
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            return await context.Articulos
+                .AsNoTracking()
+                .Select(a => a.Categoria)
+                .Distinct()
+                .ToListAsync();
+        }
+
+        public async Task<IReadOnlyList<string>> ObtenerUnidadesMedidaDistintasAsync()
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            return await context.Articulos
+                .AsNoTracking()
+                .Select(a => a.UnidadMedida)
+                .Distinct()
+                .ToListAsync();
+        }
+
         public async Task<bool> ExisteCodigoAsync(string? codigo, int? idExcluir = null)
         {
             // Sin código no hay nada que chocar: es la misma exclusión que hace el

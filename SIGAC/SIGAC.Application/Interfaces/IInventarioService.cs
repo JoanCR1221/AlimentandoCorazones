@@ -8,6 +8,9 @@ namespace SIGAC.Application.Interfaces
         Task RegistrarEntradaAsync(EntradaInventarioCrearDto dto);
         Task RegistrarSalidaDonacionAsync(SalidaDonacionCrearDto dto);
         Task<ResultadoPaginado<ArticuloExistenciaDto>> ObtenerExistenciasAsync(FiltrosExistenciaDto filtros);
+        Task<int> ContarArticulosStockBajoAsync();
+        Task<IReadOnlyList<string>> ObtenerCategoriasAsync();
+        Task<IReadOnlyList<string>> ObtenerUnidadesMedidaAsync();
         Task<ArticuloEditarDto?> ObtenerParaEditarAsync(int id);
         Task EditarArticuloAsync(int id, ArticuloEditarDto dto);
         Task EliminarArticuloAsync(int id);

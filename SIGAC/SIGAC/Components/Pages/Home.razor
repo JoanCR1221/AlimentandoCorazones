@@ -1,4 +1,7 @@
 ﻿@page "/"
+@using SIGAC.Application.Interfaces
+@implements IDisposable
+@inject IInventarioService InventarioService
 
 <PageTitle>Inicio — SIGAC</PageTitle>
 
@@ -6,6 +9,14 @@
 <MudText Typo="Typo.body1" Class="mb-6 mud-text-secondary">
     Sistema de gestión del comedor social Alimentando Corazones. Seleccione una opción para continuar.
 </MudText>
+
+@if (mostrarAlertaStockBajo)
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-6" Icon="@Icons.Material.Filled.Warning">
+        Hay @articulosStockBajo artículo@(articulosStockBajo == 1 ? "" : "s") con stock bajo.
+        <MudLink Href="/inventario/existencias" Class="ml-1">Ver existencias</MudLink>
+    </MudAlert>
+}
 
 <MudGrid Spacing="3">
     <MudItem xs="12" sm="6" md="4">
@@ -81,3 +92,40 @@
 <MudAlert Severity="Severity.Info" Class="mt-6">
     Use los controles en la barra superior (modo claro/oscuro, contraste y tamaño de letra) para adaptar la pantalla a sus necesidades visuales.
 </MudAlert>
+
+@code {
+    private int articulosStockBajo;
+    private bool mostrarAlertaStockBajo;
+    private readonly CancellationTokenSource _cts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        articulosStockBajo = await InventarioService.ContarArticulosStockBajoAsync();
+        mostrarAlertaStockBajo = articulosStockBajo > 0;
+
+        if (mostrarAlertaStockBajo)
+        {
+            // Fire-and-forget deliberado: la carga de la página no debe esperar
+            // 4 segundos para terminar. El CancellationTokenSource evita que el
+            // callback dispare StateHasChanged sobre un componente ya desmontado
+            // si el usuario navega a otra pantalla antes de que se cumpla el plazo.
+            _ = OcultarAlertaStockBajoAsync();
+        }
+    }
+
+    private async Task OcultarAlertaStockBajoAsync()
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(4), _cts.Token);
+            mostrarAlertaStockBajo = false;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (TaskCanceledException)
+        {
+            // El componente se desmontó antes de los 4 segundos: no hay nada que actualizar.
+        }
+    }
+
+    public void Dispose() => _cts.Cancel();
+}

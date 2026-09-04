@@ -18,20 +18,15 @@
 
             <MudTextField @bind-Value="modelo.Codigo" Label="Código (opcional)" Variant="Variant.Outlined" Class="mt-4" />
 
-            <MudSelect T="string" @bind-Value="modelo.Categoria" For="@(() => modelo.Categoria)" Label="Categoría" Variant="Variant.Outlined" Class="mt-4">
-                <MudSelectItem T="string" Value="@("Alimentos")">Alimentos</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Ropa")">Ropa</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Calzado")">Calzado</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Equipos")">Equipos</MudSelectItem>
-            </MudSelect>
+            <MudAutocomplete T="string" @bind-Value="modelo.Categoria" For="@(() => modelo.Categoria)"
+                              Label="Categoría" Variant="Variant.Outlined" Class="mt-4"
+                              SearchFunc="BuscarCategoriasAsync" CoerceText="false" CoerceValue="true"
+                              HelperText="Elegí una categoría existente o escribí una nueva." />
 
-            <MudSelect T="string" @bind-Value="modelo.UnidadMedida" For="@(() => modelo.UnidadMedida)" Label="Unidad de medida" Variant="Variant.Outlined" Class="mt-4">
-                <MudSelectItem T="string" Value="@("Unidad")">Unidad</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Kilogramo")">Kilogramo</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Litro")">Litro</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Caja")">Caja</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Paquete")">Paquete</MudSelectItem>
-            </MudSelect>
+            <MudAutocomplete T="string" @bind-Value="modelo.UnidadMedida" For="@(() => modelo.UnidadMedida)"
+                              Label="Unidad de medida" Variant="Variant.Outlined" Class="mt-4"
+                              SearchFunc="BuscarUnidadesMedidaAsync" CoerceText="false" CoerceValue="true"
+                              HelperText="Elegí una unidad existente o escribí una nueva." />
 
             <MudTextField @bind-Value="modelo.Ubicacion" Label="Ubicación (opcional)" Variant="Variant.Outlined" Class="mt-4" />
 
@@ -50,6 +45,8 @@
     public int Id { get; set; }
 
     private ArticuloEditarDto modelo = new();
+    private IReadOnlyList<string> categoriasDisponibles = Array.Empty<string>();
+    private IReadOnlyList<string> unidadesMedidaDisponibles = Array.Empty<string>();
 
     protected override async Task OnInitializedAsync()
     {
@@ -61,6 +58,26 @@
         }
 
         modelo = datos;
+        categoriasDisponibles = await InventarioService.ObtenerCategoriasAsync();
+        unidadesMedidaDisponibles = await InventarioService.ObtenerUnidadesMedidaAsync();
+    }
+
+    private Task<IEnumerable<string>> BuscarCategoriasAsync(string valor, CancellationToken cancellationToken)
+    {
+        var resultado = string.IsNullOrWhiteSpace(valor)
+            ? categoriasDisponibles.AsEnumerable()
+            : categoriasDisponibles.Where(c => c.Contains(valor, StringComparison.OrdinalIgnoreCase));
+
+        return Task.FromResult(resultado);
+    }
+
+    private Task<IEnumerable<string>> BuscarUnidadesMedidaAsync(string valor, CancellationToken cancellationToken)
+    {
+        var resultado = string.IsNullOrWhiteSpace(valor)
+            ? unidadesMedidaDisponibles.AsEnumerable()
+            : unidadesMedidaDisponibles.Where(u => u.Contains(valor, StringComparison.OrdinalIgnoreCase));
+
+        return Task.FromResult(resultado);
     }
 
     private async Task Guardar()

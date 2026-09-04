@@ -32,6 +32,42 @@ namespace SIGAC.Application.Services
 
                 var articulo = await _repository.ObtenerArticuloPorNombreAsync(dto.NombreArticulo);
 
+                // Solo aplica cuando el artículo es nuevo: si ya existe, se usa su
+                // categoría y unidad guardadas y estos valores del dto se descartan
+                // igual que antes.
+                if (articulo is null)
+                {
+                    // Categoría y unidad de medida son una lista abierta (ver
+                    // CategoriasArticulo/UnidadesMedidaArticulo): no se validan contra
+                    // un catálogo cerrado, solo que traigan algo y que entren en la
+                    // columna, para no descubrir el límite recién con un error de base.
+                    if (string.IsNullOrWhiteSpace(dto.Categoria))
+                        throw new ValidationException("La categoría es obligatoria.");
+
+                    if (dto.Categoria.Trim().Length > CategoriasArticulo.LongitudMaxima)
+                        throw new ValidationException(
+                            $"La categoría no puede superar los {CategoriasArticulo.LongitudMaxima} caracteres.");
+
+                    if (string.IsNullOrWhiteSpace(dto.UnidadMedida))
+                        throw new ValidationException("La unidad de medida es obligatoria.");
+
+                    if (dto.UnidadMedida.Trim().Length > UnidadesMedidaArticulo.LongitudMaxima)
+                        throw new ValidationException(
+                            $"La unidad de medida no puede superar los {UnidadesMedidaArticulo.LongitudMaxima} caracteres.");
+
+                    // Antes no se comprobaba: dos artículos nuevos con el mismo código
+                    // chocarían recién en la base, con un mensaje genérico que no dice
+                    // que fue el código (y no el nombre) lo que coincidió.
+                    if (await _repository.ExisteCodigoAsync(dto.Codigo))
+                        throw new DuplicateException($"Ya existe otro artículo con el código \"{dto.Codigo}\".");
+                }
+
+                // La entrada se registra el día en que ocurre: una fecha futura no
+                // representa un movimiento real todavía. Antes solo lo restringía el
+                // calendario del formulario (MaxDate), sin repetirlo en el servidor.
+                if (dto.Fecha.Date > DateTime.Today)
+                    throw new ValidationException("La fecha de la entrada no puede ser futura.");
+
                 // El artículo nuevo se arma acá pero NO se guarda por separado: se le
                 // pasa al repositorio para que lo cree dentro de la misma transacción
                 // que la entrada y el stock. Guardarlo antes, por su cuenta, dejaba un
@@ -40,8 +76,10 @@ namespace SIGAC.Application.Services
                     ? new Articulo
                     {
                         Nombre = dto.NombreArticulo,
+                        Codigo = string.IsNullOrWhiteSpace(dto.Codigo) ? null : dto.Codigo.Trim(),
                         Categoria = dto.Categoria,
                         UnidadMedida = dto.UnidadMedida,
+                        Ubicacion = string.IsNullOrWhiteSpace(dto.Ubicacion) ? null : dto.Ubicacion.Trim(),
                         StockActual = 0
                     }
                     : null;
@@ -139,6 +177,56 @@ namespace SIGAC.Application.Services
             }
         }
 
+        public async Task<int> ContarArticulosStockBajoAsync()
+        {
+            try
+            {
+                return await _repository.ContarStockBajoAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al consultar los artículos con stock bajo.", ex);
+            }
+        }
+
+        public async Task<IReadOnlyList<string>> ObtenerCategoriasAsync()
+        {
+            try
+            {
+                var delCatalogo = await _repository.ObtenerCategoriasDistintasAsync();
+
+                // Semillas primero y sin duplicar: para un catálogo vacío o chico,
+                // que siempre haya algo para elegir además de lo ya escrito.
+                return CategoriasArticulo.Sugeridas
+                    .Concat(delCatalogo)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(c => c)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al consultar las categorías.", ex);
+            }
+        }
+
+        public async Task<IReadOnlyList<string>> ObtenerUnidadesMedidaAsync()
+        {
+            try
+            {
+                var delCatalogo = await _repository.ObtenerUnidadesMedidaDistintasAsync();
+
+                return UnidadesMedidaArticulo.Sugeridas
+                    .Concat(delCatalogo)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(u => u)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al consultar las unidades de medida.", ex);
+            }
+        }
+
         public async Task<ArticuloEditarDto?> ObtenerParaEditarAsync(int id)
         {
             try
@@ -176,6 +264,22 @@ namespace SIGAC.Application.Services
 
                 if (dto.StockMinimo < 0)
                     throw new ValidationException("El stock mínimo no puede ser negativo.");
+
+                // Lista abierta, igual que en RegistrarEntradaAsync: solo se exige que
+                // traigan algo y que entren en la columna.
+                if (string.IsNullOrWhiteSpace(dto.Categoria))
+                    throw new ValidationException("La categoría es obligatoria.");
+
+                if (dto.Categoria.Trim().Length > CategoriasArticulo.LongitudMaxima)
+                    throw new ValidationException(
+                        $"La categoría no puede superar los {CategoriasArticulo.LongitudMaxima} caracteres.");
+
+                if (string.IsNullOrWhiteSpace(dto.UnidadMedida))
+                    throw new ValidationException("La unidad de medida es obligatoria.");
+
+                if (dto.UnidadMedida.Trim().Length > UnidadesMedidaArticulo.LongitudMaxima)
+                    throw new ValidationException(
+                        $"La unidad de medida no puede superar los {UnidadesMedidaArticulo.LongitudMaxima} caracteres.");
 
                 // Antes no se comprobaba: renombrar un artículo a un nombre ya usado
                 // por otro solo se detectaba cuando el índice único lo rechazaba con
@@ -291,6 +395,15 @@ namespace SIGAC.Application.Services
                 if (dto.Cantidad <= 0)
                     throw new ValidationException("La cantidad debe ser mayor a 0.");
 
+                // El DTO ya lleva [Required] en Actividad y Solicitante, pero eso solo
+                // corre en el EditForm del cliente; se repite acá para que un llamador
+                // que no pase por ese formulario no pueda dejarlos vacíos.
+                if (string.IsNullOrWhiteSpace(dto.Actividad))
+                    throw new ValidationException("La actividad es obligatoria.");
+
+                if (string.IsNullOrWhiteSpace(dto.Solicitante))
+                    throw new ValidationException("El solicitante es obligatorio.");
+
                 var solicitud = new SolicitudPrestamo
                 {
                     ArticuloId = dto.ArticuloId,
@@ -358,6 +471,12 @@ namespace SIGAC.Application.Services
 
                 if (solicitud.Estado != EstadoSolicitudPrestamo.Pendiente)
                     throw new ValidationException("La solicitud ya fue resuelta.");
+
+                // Antes no se comprobaba: solo lo impedía el botón deshabilitado del
+                // diálogo de rechazo, no el servicio. Un rechazo sin motivo no dice
+                // nada de por qué no se prestó el artículo.
+                if (string.IsNullOrWhiteSpace(dto.MotivoRechazo))
+                    throw new ValidationException("El motivo del rechazo es obligatorio.");
 
                 solicitud.Estado = EstadoSolicitudPrestamo.Rechazada;
                 solicitud.MotivoRechazo = dto.MotivoRechazo;

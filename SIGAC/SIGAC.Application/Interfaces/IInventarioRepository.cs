@@ -21,6 +21,16 @@ namespace SIGAC.Application.Interfaces
         Task<bool> ExisteNombreAsync(string nombre, int? idExcluir = null);
         Task<bool> ExisteCodigoAsync(string? codigo, int? idExcluir = null);
 
+        // Cuenta en SQL (COUNT) en vez de traer artículos para contarlos en memoria:
+        // lo usa el resumen de Inicio, que solo necesita el número.
+        Task<int> ContarStockBajoAsync();
+
+        // DISTINCT de la columna, no una lista fija: cuando alguien escribe una
+        // categoría o unidad de medida nueva en el formulario, queda como valor de
+        // un artículo y a partir de ahí aparece acá sola, sin tocar código.
+        Task<IReadOnlyList<string>> ObtenerCategoriasDistintasAsync();
+        Task<IReadOnlyList<string>> ObtenerUnidadesMedidaDistintasAsync();
+
         // Un artículo con historial (entradas, salidas o solicitudes de préstamo)
         // no se puede borrar: el movimiento es el respaldo contable y no puede
         // quedar huérfano. EliminarArticuloAsync no hace este chequeo por su cuenta
