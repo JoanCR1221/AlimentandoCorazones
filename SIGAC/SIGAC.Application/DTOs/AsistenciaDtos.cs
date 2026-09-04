@@ -1,9 +1,13 @@
-﻿namespace SIGAC.Application.DTOs.Asistencia
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace SIGAC.Application.DTOs.Asistencia
 {
     public class AsistenciaCrearDto
     {
         public int BeneficiarioId { get; set; }
         public DateTime Fecha { get; set; }
+
+        [Required(ErrorMessage = "El tiempo de comida es obligatorio.")]
         public string TiempoComida { get; set; } = string.Empty;
     }
 

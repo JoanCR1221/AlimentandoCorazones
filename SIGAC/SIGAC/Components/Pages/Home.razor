@@ -1,7 +1,131 @@
 ﻿@page "/"
+@using SIGAC.Application.Interfaces
+@implements IDisposable
+@inject IInventarioService InventarioService
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Inicio — SIGAC</PageTitle>
 
-<h1>Hello, world!</h1>
+<MudText Typo="Typo.h4" Class="mb-2">Bienvenido a SIGAC</MudText>
+<MudText Typo="Typo.body1" Class="mb-6 mud-text-secondary">
+    Sistema de gestión del comedor social Alimentando Corazones. Seleccione una opción para continuar.
+</MudText>
 
-Welcome to your new app.
+@if (mostrarAlertaStockBajo)
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-6" Icon="@Icons.Material.Filled.Warning">
+        Hay @articulosStockBajo artículo@(articulosStockBajo == 1 ? "" : "s") con stock bajo.
+        <MudLink Href="/inventario/existencias" Class="ml-1">Ver existencias</MudLink>
+    </MudAlert>
+}
+
+<MudGrid Spacing="3">
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard Class="pa-4" Style="height: 100%;">
+            <MudStack Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.People" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.h6">Beneficiarios</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Consulte, registre y administre a las personas atendidas por el comedor.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/beneficiarios" Class="mt-2">
+                    Ver listado
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/beneficiarios/registrar">
+                    Registrar nuevo
+                </MudButton>
+            </MudStack>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard Class="pa-4" Style="height: 100%;">
+            <MudStack Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Restaurant" Color="Color.Secondary" Size="Size.Large" />
+                <MudText Typo="Typo.h6">Asistencia al comedor</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Registre la asistencia diaria y consulte el historial de comidas servidas.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary" Href="/asistencia/registrar" Class="mt-2">
+                    Agregar asistencia
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Href="/asistencia/historial">
+                    Ver historial
+                </MudButton>
+            </MudStack>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard Class="pa-4" Style="height: 100%;">
+            <MudStack Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Inventory" Color="Color.Info" Size="Size.Large" />
+                <MudText Typo="Typo.h6">Inventario</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Consulte las existencias y registre nuevas entradas de artículos.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Info" Href="/inventario/existencias" Class="mt-2">
+                    Ver existencias
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Info" Href="/inventario/entradas/registrar">
+                    Registrar entrada
+                </MudButton>
+            </MudStack>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard Class="pa-4" Style="height: 100%;">
+            <MudStack Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Palette" Color="Color.Tertiary" Size="Size.Large" />
+                <MudText Typo="Typo.h6">Apariencia</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Pruebe modos claro y oscuro, alto contraste y tamaño de letra para una lectura más cómoda.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Tertiary" Href="/prototipos" Class="mt-2">
+                    Ver prototipos
+                </MudButton>
+            </MudStack>
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+<MudAlert Severity="Severity.Info" Class="mt-6">
+    Use los controles en la barra superior (modo claro/oscuro, contraste y tamaño de letra) para adaptar la pantalla a sus necesidades visuales.
+</MudAlert>
+
+@code {
+    private int articulosStockBajo;
+    private bool mostrarAlertaStockBajo;
+    private readonly CancellationTokenSource _cts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        articulosStockBajo = await InventarioService.ContarArticulosStockBajoAsync();
+        mostrarAlertaStockBajo = articulosStockBajo > 0;
+
+        if (mostrarAlertaStockBajo)
+        {
+            // Fire-and-forget deliberado: la carga de la página no debe esperar
+            // 4 segundos para terminar. El CancellationTokenSource evita que el
+            // callback dispare StateHasChanged sobre un componente ya desmontado
+            // si el usuario navega a otra pantalla antes de que se cumpla el plazo.
+            _ = OcultarAlertaStockBajoAsync();
+        }
+    }
+
+    private async Task OcultarAlertaStockBajoAsync()
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(4), _cts.Token);
+            mostrarAlertaStockBajo = false;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (TaskCanceledException)
+        {
+            // El componente se desmontó antes de los 4 segundos: no hay nada que actualizar.
+        }
+    }
+
+    public void Dispose() => _cts.Cancel();
+}

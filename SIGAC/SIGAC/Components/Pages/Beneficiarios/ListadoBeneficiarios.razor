@@ -1,0 +1,200 @@
+﻿@page "/beneficiarios"
+@using SIGAC.Application.DTOs
+@using SIGAC.Application.DTOs.Beneficiarios
+@using SIGAC.Application.Interfaces
+@using SIGAC.Domain
+@inject IBeneficiariosService BeneficiariosService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudText Typo="Typo.h4" Class="mb-4">Beneficiarios registrados</MudText>
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        @* Una sola caja: busca en los cuatro campos de nombre y en el número de
+           identidad, para poder buscar por la cédula que trae la persona. *@
+        <MudTextField T="string" Value="filtroTexto" ValueChanged="OnFiltroTextoCambiado" Immediate="true" DebounceInterval="300"
+                      Label="Buscar por nombres, apellidos o número de identidad" Variant="Variant.Outlined" Class="mb-4" />
+        <MudSelect T="string" Value="filtroCategoria" ValueChanged="OnFiltroCategoriaCambiado" Label="Categoría" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
+            @foreach (var categoria in CategoriasBeneficiario.Todas)
+            {
+                <MudSelectItem T="string" Value="@categoria">@categoria</MudSelectItem>
+            }
+        </MudSelect>
+        @* Lista cerrada: la fuente es SIGAC.Domain.TiposDocumento, no la pantalla. *@
+        <MudSelect T="string" Value="filtroTipoDocumento" ValueChanged="OnFiltroTipoDocumentoCambiado" Label="Tipo de documento" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
+            @foreach (var tipo in TiposDocumento.Todos)
+            {
+                <MudSelectItem T="string" Value="@tipo">@tipo</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect T="bool?" Value="filtroEstado" ValueChanged="OnFiltroEstadoCambiado" Label="Estado" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
+            <MudSelectItem T="bool?" Value="true">Activo</MudSelectItem>
+            <MudSelectItem T="bool?" Value="false">Inactivo</MudSelectItem>
+        </MudSelect>
+
+        @* ServerData en lugar de Items: la grilla pide una página por vez y el
+           repositorio trae de la base solo esos registros.
+           SortMode.None porque el orden lo fija la consulta en SQL: dejar ordenar
+           por columna solo reordenaría la página visible, que sería engañoso. *@
+        <MudDataGrid T="BeneficiarioListaDto" @ref="grilla"
+                     ServerData="CargarPaginaAsync"
+                     RowsPerPage="FiltrosBeneficiarioDto.TamanoPaginaPredeterminado"
+                     SortMode="SortMode.None" Filterable="false">
+            <Columns>
+                <PropertyColumn Property="x => x.NombreCompleto" Title="Nombre completo" />
+                <TemplateColumn Title="Documento">
+                    <CellTemplate>
+                        @DescribirDocumento(context.Item)
+                    </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.NumIdentidad" Title="N.º de identidad" />
+                <PropertyColumn Property="x => x.FechaNacimiento" Title="Fecha de nacimiento" Format="dd/MM/yyyy" />
+                <PropertyColumn Property="x => x.Categoria" Title="Categoría" />
+                <PropertyColumn Property="x => x.Telefono" Title="Teléfono" />
+                <TemplateColumn Title="Estado">
+                    <CellTemplate>
+                        @(context.Item.Estado ? "Activo" : "Inactivo")
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Acciones">
+                    <CellTemplate>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/beneficiarios/editar/{context.Item.Id}")">Editar</MudButton>
+                        @if (context.Item.Estado)
+                        {
+                            <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.NombreCompleto, false))">Desactivar</MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Text" Color="Color.Success" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.NombreCompleto, true))">Activar</MudButton>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+            <NoRecordsContent>
+                <MudText>No hay beneficiarios que coincidan con los filtros.</MudText>
+            </NoRecordsContent>
+            <PagerContent>
+                <MudDataGridPager T="BeneficiarioListaDto"
+                                  PageSizeOptions="@(new[] { FiltrosBeneficiarioDto.TamanoPaginaPredeterminado, 50, FiltrosBeneficiarioDto.TamanoPaginaMaximo })" />
+            </PagerContent>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private MudDataGrid<BeneficiarioListaDto>? grilla;
+
+    private string? filtroTexto;
+    private string? filtroCategoria;
+    private string? filtroTipoDocumento;
+    private bool? filtroEstado;
+
+    // La llama la grilla cada vez que cambia de página o se recarga. Devuelve solo
+    // los registros de esa página más el total, que es lo que necesita el paginador.
+    private async Task<GridData<BeneficiarioListaDto>> CargarPaginaAsync(
+        GridState<BeneficiarioListaDto> estado, CancellationToken cancellationToken)
+    {
+        var resultado = await BeneficiariosService.ObtenerBeneficiariosAsync(new FiltrosBeneficiarioDto
+        {
+            Nombre = filtroTexto,
+            Categoria = filtroCategoria,
+            TipoDocumento = filtroTipoDocumento,
+            Estado = filtroEstado,
+            Pagina = estado.Page,
+            TamanoPagina = estado.PageSize
+        });
+
+        return new GridData<BeneficiarioListaDto>
+        {
+            Items = resultado.Elementos,
+            TotalItems = resultado.TotalRegistros
+        };
+    }
+
+    private async Task OnFiltroTextoCambiado(string? valor)
+    {
+        filtroTexto = valor;
+        await RecargarAsync();
+    }
+
+    private async Task OnFiltroCategoriaCambiado(string? valor)
+    {
+        filtroCategoria = valor;
+        await RecargarAsync();
+    }
+
+    private async Task OnFiltroTipoDocumentoCambiado(string? valor)
+    {
+        filtroTipoDocumento = valor;
+        await RecargarAsync();
+    }
+
+    private async Task OnFiltroEstadoCambiado(bool? valor)
+    {
+        filtroEstado = valor;
+        await RecargarAsync();
+    }
+
+    private async Task RecargarAsync()
+    {
+        if (grilla is null)
+            return;
+
+        // Al cambiar un filtro se vuelve a la primera página: la que se estaba
+        // viendo puede no existir con el filtro nuevo (y quedaría vacía).
+        //
+        // NavigateTo cambia CurrentPage, y el setter de CurrentPage ya dispara
+        // ServerData por dentro. Por eso solo se recarga a mano en la otra rama:
+        // así el cambio de filtro cuesta una sola consulta y no dos.
+        if (grilla.CurrentPage != 0)
+            grilla.NavigateTo(Page.First);
+        else
+            await grilla.ReloadServerData();
+    }
+
+    // "Otro" por sí solo no dice nada: se muestra cómo se llama el documento.
+    private static string DescribirDocumento(BeneficiarioListaDto beneficiario)
+    {
+        if (beneficiario.TipoDocumento == TiposDocumento.Otro && !string.IsNullOrWhiteSpace(beneficiario.TipoDocumentoOtro))
+            return beneficiario.TipoDocumentoOtro;
+
+        return beneficiario.TipoDocumento ?? string.Empty;
+    }
+
+    private async Task ConfirmarCambioEstadoAsync(int id, string nombre, bool activar)
+    {
+        var accion = activar ? "activar" : "desactivar";
+        var confirmado = await DialogService.ShowMessageBoxAsync(
+            "Confirmar",
+            $"¿Seguro que querés {accion} a {nombre}?",
+            yesText: "Confirmar",
+            cancelText: "Cancelar");
+
+        if (confirmado == true)
+        {
+            await CambiarEstadoAsync(id, activar);
+        }
+    }
+
+    private async Task CambiarEstadoAsync(int id, bool activar)
+    {
+        try
+        {
+            if (activar)
+                await BeneficiariosService.ActivarBeneficiarioAsync(id);
+            else
+                await BeneficiariosService.DesactivarBeneficiarioAsync(id);
+
+            Snackbar.Add(activar ? "Beneficiario activado." : "Beneficiario desactivado.", Severity.Success);
+
+            // Se recarga la página actual, no la primera: el filtro no cambió.
+            if (grilla is not null)
+                await grilla.ReloadServerData();
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo actualizar el estado del beneficiario. Intentá de nuevo.", Severity.Error);
+        }
+    }
+}

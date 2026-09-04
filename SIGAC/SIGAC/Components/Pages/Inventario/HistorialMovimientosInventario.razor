@@ -1,0 +1,99 @@
+@page "/inventario/movimientos/historial"
+@using SIGAC.Application.DTOs.Inventario
+@using SIGAC.Application.Interfaces
+@inject IInventarioService InventarioService
+
+<MudText Typo="Typo.h4" Class="mb-4">Historial de movimientos de inventario</MudText>
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        <MudAutocomplete T="ArticuloExistenciaDto" Label="Artículo" Variant="Variant.Outlined" Class="mb-4"
+                          Value="articuloSeleccionado" ValueChanged="OnArticuloCambiadoAsync"
+                          SearchFunc="BuscarArticulosAsync" ToStringFunc="@(a => a?.Nombre)" Clearable="true" />
+
+        <MudSelect T="string" Value="filtroTipoMovimiento" ValueChanged="OnTipoMovimientoCambiadoAsync"
+                   Label="Tipo de movimiento" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
+            <MudSelectItem T="string" Value="@("Entrada")">Entrada</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Donacion")">Donación</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Prestamo")">Préstamo</MudSelectItem>
+        </MudSelect>
+
+        <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
+                             Label="Rango de fechas" Variant="Variant.Outlined" Class="mb-4" />
+
+        <MudText Typo="Typo.subtitle1" Class="mb-4">
+            Total de entradas: @resultado.TotalEntradas · Total de salidas: @resultado.TotalSalidas
+        </MudText>
+
+        <MudDataGrid T="MovimientoInventarioDto" Items="@resultado.Movimientos">
+            <Columns>
+                <PropertyColumn Property="x => x.Articulo" Title="Artículo" />
+                <TemplateColumn Title="Tipo de movimiento">
+                    <CellTemplate>@EtiquetaTipoMovimiento(context.Item.TipoMovimiento)</CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.Cantidad" Title="Cantidad" />
+                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
+                <TemplateColumn Title="Origen / Destino">
+                    <CellTemplate>@EtiquetaTipoMovimiento(context.Item.OrigenODestino ?? string.Empty)</CellTemplate>
+                </TemplateColumn>
+            </Columns>
+            <NoRecordsContent>
+                <MudText>No hay movimientos registrados para los filtros seleccionados.</MudText>
+            </NoRecordsContent>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private HistorialMovimientosResultadoDto resultado = new();
+    private ArticuloExistenciaDto? articuloSeleccionado;
+    private string? filtroTipoMovimiento;
+    private DateRange? rangoFechas;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarAsync();
+    }
+
+    private async Task<IEnumerable<ArticuloExistenciaDto>> BuscarArticulosAsync(string valor, CancellationToken cancellationToken)
+    {
+        var existencias = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto { Nombre = valor });
+        return existencias.Elementos;
+    }
+
+    private async Task OnArticuloCambiadoAsync(ArticuloExistenciaDto? valor)
+    {
+        articuloSeleccionado = valor;
+        await CargarAsync();
+    }
+
+    private async Task OnTipoMovimientoCambiadoAsync(string? valor)
+    {
+        filtroTipoMovimiento = valor;
+        await CargarAsync();
+    }
+
+    private async Task OnRangoFechasCambiadoAsync(DateRange? valor)
+    {
+        rangoFechas = valor;
+        await CargarAsync();
+    }
+
+    private static string EtiquetaTipoMovimiento(string tipoMovimiento) => tipoMovimiento switch
+    {
+        "Donacion" => "Donación",
+        "Prestamo" => "Préstamo",
+        _ => tipoMovimiento
+    };
+
+    private async Task CargarAsync()
+    {
+        resultado = await InventarioService.ObtenerHistorialMovimientosAsync(new FiltrosMovimientoDto
+        {
+            ArticuloId = articuloSeleccionado?.Id,
+            TipoMovimiento = filtroTipoMovimiento,
+            Desde = rangoFechas?.Start,
+            Hasta = rangoFechas?.End
+        });
+    }
+}

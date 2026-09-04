@@ -1,0 +1,103 @@
+@page "/inventario/articulos/editar/{Id:int}"
+@using SIGAC.Application.DTOs.Inventario
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@using SIGAC.Domain
+@inject IInventarioService InventarioService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h4" Class="mb-4">Editar artículo</MudText>
+
+<EditForm Model="modelo" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <MudCard Class="pa-4">
+        <MudCardContent>
+            <MudTextField @bind-Value="modelo.Nombre" For="@(() => modelo.Nombre)" Label="Nombre" Variant="Variant.Outlined" />
+
+            <MudTextField @bind-Value="modelo.Codigo" Label="Código (opcional)" Variant="Variant.Outlined" Class="mt-4" />
+
+            <MudSelect T="string" @bind-Value="modelo.Categoria" For="@(() => modelo.Categoria)"
+                       @bind-Value:after="OnCategoriaCambiada"
+                       Label="Categoría" Variant="Variant.Outlined" Class="mt-4">
+                @foreach (var categoria in CategoriasArticulo.Todos)
+                {
+                    <MudSelectItem T="string" Value="@categoria">@categoria</MudSelectItem>
+                }
+            </MudSelect>
+
+            @* Mismas opciones que valida el servicio: se filtran por la categoría
+               elegida en vez de ofrecer siempre las cinco unidades. *@
+            <MudSelect T="string" @bind-Value="modelo.UnidadMedida" For="@(() => modelo.UnidadMedida)"
+                       Label="Unidad de medida" Variant="Variant.Outlined" Class="mt-4"
+                       Disabled="string.IsNullOrWhiteSpace(modelo.Categoria)"
+                       HelperText="@(string.IsNullOrWhiteSpace(modelo.Categoria) ? "Elegí primero una categoría." : null)">
+                @foreach (var unidad in UnidadesMedidaArticulo.ObtenerUnidadesValidas(modelo.Categoria))
+                {
+                    <MudSelectItem T="string" Value="@unidad">@unidad</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudTextField @bind-Value="modelo.Ubicacion" Label="Ubicación (opcional)" Variant="Variant.Outlined" Class="mt-4" />
+
+            <MudNumericField T="int" @bind-Value="modelo.StockMinimo" For="@(() => modelo.StockMinimo)" Label="Stock mínimo" Variant="Variant.Outlined" Class="mt-4" Min="0" />
+
+            <MudNumericField T="int" Value="modelo.StockActual" Label="Stock actual" Variant="Variant.Outlined" Class="mt-4" ReadOnly="true" />
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+        </MudCardActions>
+    </MudCard>
+</EditForm>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private ArticuloEditarDto modelo = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var datos = await InventarioService.ObtenerParaEditarAsync(Id);
+        if (datos is null)
+        {
+            NavigationManager.NavigateTo("/inventario/existencias");
+            return;
+        }
+
+        modelo = datos;
+    }
+
+    // Si la unidad guardada deja de pertenecer a la categoría recién elegida, se
+    // limpia para que el campo no muestre un valor ausente de la lista. El usuario
+    // tiene que elegir una unidad válida antes de poder guardar.
+    private void OnCategoriaCambiada()
+    {
+        if (!UnidadesMedidaArticulo.EsValidaParaCategoria(modelo.Categoria, modelo.UnidadMedida))
+            modelo.UnidadMedida = string.Empty;
+    }
+
+    private async Task Guardar()
+    {
+        try
+        {
+            await InventarioService.EditarArticuloAsync(Id, modelo);
+            Snackbar.Add("Artículo actualizado correctamente.", Severity.Success);
+            NavigationManager.NavigateTo("/inventario/existencias");
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (DuplicateException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo actualizar el artículo. Intentá de nuevo.", Severity.Error);
+        }
+    }
+}

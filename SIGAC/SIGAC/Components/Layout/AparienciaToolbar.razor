@@ -1,0 +1,99 @@
+@inject AparienciaService Apariencia
+@implements IDisposable
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="apariencia-toolbar">
+    <MudTooltip Text="Modo claro">
+        <MudIconButton Icon="@Icons.Material.Filled.LightMode"
+                       Color="@(Apariencia.EsOscuro ? Color.Default : Color.Inherit)"
+                       aria-label="Activar modo claro"
+                       OnClick="@(() => Apariencia.SetEsOscuroAsync(false))" />
+    </MudTooltip>
+    <MudTooltip Text="Modo oscuro">
+        <MudIconButton Icon="@Icons.Material.Filled.DarkMode"
+                       Color="@(Apariencia.EsOscuro ? Color.Inherit : Color.Default)"
+                       aria-label="Activar modo oscuro"
+                       OnClick="@(() => Apariencia.SetEsOscuroAsync(true))" />
+    </MudTooltip>
+
+    <div class="d-inline-flex" style="position: relative;">
+        <MudIconButton Icon="@Icons.Material.Filled.AccessibilityNew"
+                       Color="Color.Inherit"
+                       aria-label="Abrir opciones de contraste y tamaño de letra"
+                       title="Contraste y tamaño de letra"
+                       OnClick="TogglePanel" />
+
+        <MudPopover Open="_panelAbierto"
+                    AnchorOrigin="Origin.BottomRight"
+                    TransformOrigin="Origin.TopRight"
+                    Class="mt-1">
+            <MudPaper Class="pa-3" Elevation="8" Style="min-width: 15rem;">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
+                    <MudText Typo="Typo.subtitle2">Lectura</MudText>
+                    <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                   Size="Size.Small"
+                                   aria-label="Cerrar opciones de lectura"
+                                   OnClick="@(() => _panelAbierto = false)" />
+                </MudStack>
+
+                <MudSwitch T="bool"
+                           Value="Apariencia.AltoContraste"
+                           ValueChanged="OnAltoContrasteChanged"
+                           Color="Color.Primary"
+                           Label="Contraste"
+                           LabelPlacement="Placement.Start"
+                           Class="mb-3"
+                           aria-label="Alternar alto contraste" />
+
+                <MudText Typo="Typo.caption" Class="mb-1 mud-text-secondary">Tamaño de letra</MudText>
+                <MudButtonGroup Size="Size.Small" Color="Color.Primary">
+                    <MudButton Variant="@(Apariencia.EscalaFuente == EscalaFuente.Pequena ? Variant.Filled : Variant.Outlined)"
+                               Disabled="@(Apariencia.EscalaFuente == EscalaFuente.Pequena)"
+                               OnClick="@(() => SetEscalaAsync(EscalaFuente.Pequena))"
+                               aria-label="Reducir tamaño de letra">
+                        A−
+                    </MudButton>
+                    <MudButton Variant="@(Apariencia.EscalaFuente == EscalaFuente.Normal ? Variant.Filled : Variant.Outlined)"
+                               OnClick="@(() => SetEscalaAsync(EscalaFuente.Normal))"
+                               aria-label="Tamaño de letra normal">
+                        A
+                    </MudButton>
+                    <MudButton Variant="@(Apariencia.EscalaFuente == EscalaFuente.Grande ? Variant.Filled : Variant.Outlined)"
+                               Disabled="@(Apariencia.EscalaFuente == EscalaFuente.Grande)"
+                               OnClick="@(() => SetEscalaAsync(EscalaFuente.Grande))"
+                               aria-label="Aumentar tamaño de letra">
+                        A+
+                    </MudButton>
+                </MudButtonGroup>
+            </MudPaper>
+        </MudPopover>
+    </div>
+</MudStack>
+
+@code {
+    private bool _panelAbierto;
+
+    protected override void OnInitialized()
+    {
+        Apariencia.OnChange += StateHasChanged;
+    }
+
+    private void TogglePanel()
+    {
+        _panelAbierto = !_panelAbierto;
+    }
+
+    private async Task OnAltoContrasteChanged(bool valor)
+    {
+        await Apariencia.SetAltoContrasteAsync(valor);
+    }
+
+    private async Task SetEscalaAsync(EscalaFuente escala)
+    {
+        await Apariencia.SetEscalaFuenteAsync(escala);
+    }
+
+    public void Dispose()
+    {
+        Apariencia.OnChange -= StateHasChanged;
+    }
+}

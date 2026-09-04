@@ -1,0 +1,107 @@
+@page "/inventario/prestamos/gestionar"
+@using SIGAC.Application.DTOs.Inventario
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@inject IInventarioService InventarioService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h4" Class="mb-4">Solicitudes de préstamo pendientes</MudText>
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        <MudDataGrid T="SolicitudPrestamoListaDto" Items="@solicitudes">
+            <Columns>
+                <PropertyColumn Property="x => x.Articulo" Title="Artículo" />
+                <PropertyColumn Property="x => x.Cantidad" Title="Cantidad" />
+                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
+                <PropertyColumn Property="x => x.Actividad" Title="Actividad" />
+                <PropertyColumn Property="x => x.Solicitante" Title="Solicitante" />
+                <PropertyColumn Property="x => x.Estado" Title="Estado" />
+                <TemplateColumn Title="Acciones">
+                    <CellTemplate>
+                        <MudButton Variant="Variant.Text" Color="Color.Success" OnClick="@(() => AprobarAsync(context.Item.Id))">Aprobar</MudButton>
+                        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@(() => RechazarAsync(context.Item.Id))">Rechazar</MudButton>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+            <NoRecordsContent>
+                <MudText>No hay solicitudes de préstamo pendientes.</MudText>
+            </NoRecordsContent>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private IEnumerable<SolicitudPrestamoListaDto> solicitudes = new List<SolicitudPrestamoListaDto>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        var todas = await InventarioService.ObtenerSolicitudesAsync();
+        solicitudes = todas.Where(s => s.Estado == "Pendiente");
+    }
+
+    private async Task AprobarAsync(int solicitudId)
+    {
+        var confirmado = await DialogService.ShowMessageBoxAsync(
+            "Confirmar", "¿Aprobar esta solicitud de préstamo? El stock se descontará automáticamente.",
+            yesText: "Aprobar", cancelText: "Cancelar");
+
+        if (confirmado != true)
+            return;
+
+        try
+        {
+            await InventarioService.AprobarPrestamoAsync(new ResolucionPrestamoDto { SolicitudId = solicitudId, Aprobado = true });
+            Snackbar.Add("Solicitud aprobada correctamente.", Severity.Success);
+            await CargarAsync();
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (NotFoundException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo aprobar la solicitud. Intentá de nuevo.", Severity.Error);
+        }
+    }
+
+    private async Task RechazarAsync(int solicitudId)
+    {
+        var dialog = await DialogService.ShowAsync<RechazarSolicitudDialog>("Rechazar solicitud");
+        var resultado = await dialog.Result;
+
+        if (resultado is null || resultado.Canceled)
+            return;
+
+        var motivo = (string)resultado.Data!;
+
+        try
+        {
+            await InventarioService.RechazarPrestamoAsync(new ResolucionPrestamoDto { SolicitudId = solicitudId, MotivoRechazo = motivo });
+            Snackbar.Add("Solicitud rechazada.", Severity.Success);
+            await CargarAsync();
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (NotFoundException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo rechazar la solicitud. Intentá de nuevo.", Severity.Error);
+        }
+    }
+}

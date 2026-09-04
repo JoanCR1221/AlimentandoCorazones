@@ -1,0 +1,91 @@
+@page "/prototipos"
+
+<PageTitle>Prototipos de apariencia — SIGAC</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-2">Prototipos de apariencia</MudText>
+<MudText Typo="Typo.body1" Class="mb-4 mud-text-secondary">
+    Use los controles de la barra superior para probar modo claro, oscuro, alto contraste y tamaño de letra.
+    Este texto de ejemplo ayuda a validar la lectura con lentes: «María González, cédula 1-2345-6789, beneficiaria activa del comedor».
+</MudText>
+
+<MudCard Class="mb-4 pa-4">
+    <MudText Typo="Typo.h6" Class="mb-3">Controles de apariencia</MudText>
+    <AparienciaToolbar />
+</MudCard>
+
+<MudGrid Spacing="3">
+    <MudItem xs="12" md="6">
+        <MudCard Class="pa-4">
+            <MudText Typo="Typo.h6" Class="mb-3">Formulario de ejemplo</MudText>
+            <MudTextField T="string" Label="Nombre completo" Variant="Variant.Outlined" Class="mb-3"
+                          Placeholder="Ej. Ana Pérez Solís" />
+            <MudTextField T="string" Label="N.º de identidad" Variant="Variant.Outlined" Class="mb-3"
+                          Placeholder="Ej. 1-0234-0567" />
+            <MudSelect T="string" Label="Categoría" Variant="Variant.Outlined" Class="mb-3" Value="@("Adulto mayor")">
+                <MudSelectItem T="string" Value="@("Adulto mayor")">Adulto mayor</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Niño/a")">Niño/a</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Discapacidad")">Discapacidad</MudSelectItem>
+            </MudSelect>
+            <MudDatePicker Label="Fecha de nacimiento" Variant="Variant.Outlined" Class="mb-3" />
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary">Guardar</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default">Cancelar</MudButton>
+            </MudStack>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudCard Class="pa-4">
+            <MudText Typo="Typo.h6" Class="mb-3">Botones y alertas</MudText>
+            <MudStack Spacing="2" Class="mb-4">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save">Primario</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Edit">Secundario</MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete">Peligro</MudButton>
+            </MudStack>
+            <MudAlert Severity="Severity.Info" Class="mb-2">Información: registro guardado correctamente.</MudAlert>
+            <MudAlert Severity="Severity.Success" Class="mb-2">Éxito: beneficiario activado.</MudAlert>
+            <MudAlert Severity="Severity.Warning" Class="mb-2">Advertencia: revise los datos ingresados.</MudAlert>
+            <MudAlert Severity="Severity.Error">Error: no se pudo conectar con la base de datos.</MudAlert>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12">
+        <MudCard Class="pa-4">
+            <MudText Typo="Typo.h6" Class="mb-3">Tabla administrativa de ejemplo</MudText>
+            <MudTable Items="@_beneficiariosEjemplo" Hover="true" Striped="true" Dense="false">
+                <HeaderContent>
+                    <MudTh>Nombre completo</MudTh>
+                    <MudTh>Documento</MudTh>
+                    <MudTh>Categoría</MudTh>
+                    <MudTh>Estado</MudTh>
+                    <MudTh>Acciones</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Nombre completo">@context.Nombre</MudTd>
+                    <MudTd DataLabel="Documento">@context.Documento</MudTd>
+                    <MudTd DataLabel="Categoría">@context.Categoria</MudTd>
+                    <MudTd DataLabel="Estado">
+                        <MudChip T="string" Color="@(context.Activo ? Color.Success : Color.Default)" Size="Size.Small">
+                            @(context.Activo ? "Activo" : "Inactivo")
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Acciones">
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small">Editar</MudButton>
+                        <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small">Desactivar</MudButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private readonly List<BeneficiarioEjemplo> _beneficiariosEjemplo =
+    [
+        new("María González Solís", "Cédula 1-2345-6789", "Adulto mayor", true),
+        new("José Ramírez Mora", "Cédula 2-0456-7890", "Adulto mayor", true),
+        new("Lucía Fernández", "Cédula 3-0567-8901", "Niño/a", false)
+    ];
+
+    private sealed record BeneficiarioEjemplo(string Nombre, string Documento, string Categoria, bool Activo);
+}

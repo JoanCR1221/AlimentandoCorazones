@@ -1,10 +1,15 @@
-﻿using SIGAC.Application.DTOs.Beneficiarios;
+﻿using SIGAC.Application.DTOs;
+using SIGAC.Application.DTOs.Beneficiarios;
 using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
+using SIGAC.Application.Validators;
+using SIGAC.Domain;
 using SIGAC.Domain.Entities;
 
 namespace SIGAC.Application.Services
 {
+    // Orquesta el alta y la edición: valida con BeneficiarioValidator, arma la
+    // entidad y delega en el repositorio. Las reglas de validación no viven acá.
     public class BeneficiariosService : IBeneficiariosService
     {
         private readonly IBeneficiariosRepository _repository;
@@ -18,21 +23,41 @@ namespace SIGAC.Application.Services
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(dto.Nombre) || string.IsNullOrWhiteSpace(dto.Categoria))
-                    throw new ValidationException("Nombre y Categoría son obligatorios.");
+                var datos = BeneficiarioValidator.Validar(dto);
 
-                if (await _repository.ExisteAsync(dto.Nombre, dto.FechaNacimiento))
-                    throw new DuplicateException("Ya existe un beneficiario con ese nombre y fecha de nacimiento.");
+                if (await _repository.ExisteAsync(
+                        datos.PrimerNombre, datos.SegundoNombre,
+                        datos.PrimerApellido, datos.SegundoApellido,
+                        datos.FechaNacimiento))
+                {
+                    throw new DuplicateException("Ya existe un beneficiario con esos nombres, apellidos y fecha de nacimiento.");
+                }
+
+                // Segunda regla anti-duplicados, independiente de cómo se escriba el
+                // nombre: el documento identifica a la persona. Los que no tienen
+                // documento quedan fuera (NumIdentidad en null).
+                if (await _repository.ExisteDocumentoAsync(datos.TipoDocumento, datos.NumIdentidad))
+                {
+                    throw new DuplicateException(
+                        $"Ya existe un beneficiario registrado con ese documento: {DescribirDocumento(datos)} {datos.NumIdentidad}.");
+                }
 
                 var beneficiario = new Beneficiario
                 {
-                    Nombre = dto.Nombre,
-                    FechaNacimiento = dto.FechaNacimiento,
-                    Categoria = dto.Categoria,
-                    Telefono = dto.Telefono,
-                    Direccion = dto.Direccion,
+                    PrimerNombre = datos.PrimerNombre,
+                    SegundoNombre = datos.SegundoNombre,
+                    PrimerApellido = datos.PrimerApellido,
+                    SegundoApellido = datos.SegundoApellido,
+                    FechaNacimiento = datos.FechaNacimiento,
+                    // La categoría se almacena, pero nunca se elige a mano.
+                    Categoria = CategoriasBeneficiario.DerivarDesdeFechaNacimiento(datos.FechaNacimiento),
+                    Telefono = datos.Telefono,
+                    Direccion = datos.Direccion,
                     Estado = true,
-                    FechaRegistro = DateTime.Now
+                    FechaRegistro = DateTime.Now,
+                    TipoDocumento = datos.TipoDocumento,
+                    NumIdentidad = datos.NumIdentidad,
+                    TipoDocumentoOtro = datos.TipoDocumentoOtro
                 };
 
                 await _repository.AgregarAsync(beneficiario);
@@ -43,6 +68,34 @@ namespace SIGAC.Application.Services
             }
         }
 
+        public async Task<BeneficiarioEditarDto?> ObtenerParaEditarAsync(int id)
+        {
+            try
+            {
+                var beneficiario = await _repository.ObtenerPorIdAsync(id);
+                if (beneficiario is null)
+                    return null;
+
+                return new BeneficiarioEditarDto
+                {
+                    PrimerNombre = beneficiario.PrimerNombre,
+                    SegundoNombre = beneficiario.SegundoNombre,
+                    PrimerApellido = beneficiario.PrimerApellido,
+                    SegundoApellido = beneficiario.SegundoApellido,
+                    FechaNacimiento = beneficiario.FechaNacimiento,
+                    Telefono = beneficiario.Telefono,
+                    Direccion = beneficiario.Direccion,
+                    TipoDocumento = beneficiario.TipoDocumento,
+                    NumIdentidad = beneficiario.NumIdentidad,
+                    TipoDocumentoOtro = beneficiario.TipoDocumentoOtro
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al consultar el beneficiario.", ex);
+            }
+        }
+
         public async Task ActualizarBeneficiarioAsync(int id, BeneficiarioEditarDto dto)
         {
             try
@@ -50,44 +103,87 @@ namespace SIGAC.Application.Services
                 var beneficiario = await _repository.ObtenerPorIdAsync(id)
                     ?? throw new NotFoundException("El beneficiario no existe.");
 
-                if (string.IsNullOrWhiteSpace(dto.Nombre) || string.IsNullOrWhiteSpace(dto.Categoria))
-                    throw new ValidationException("Nombre y Categoría son obligatorios.");
+                var datos = BeneficiarioValidator.Validar(dto);
 
-                beneficiario.Nombre = dto.Nombre;
-                beneficiario.FechaNacimiento = dto.FechaNacimiento;
-                beneficiario.Categoria = dto.Categoria;
-                beneficiario.Telefono = dto.Telefono;
-                beneficiario.Direccion = dto.Direccion;
+                // Editar los nombres o la fecha puede chocar con otro beneficiario ya
+                // registrado; se excluye el propio para no detectarse a sí mismo.
+                if (await _repository.ExisteAsync(
+                        datos.PrimerNombre, datos.SegundoNombre,
+                        datos.PrimerApellido, datos.SegundoApellido,
+                        datos.FechaNacimiento, id))
+                {
+                    throw new DuplicateException("Ya existe otro beneficiario con esos nombres, apellidos y fecha de nacimiento.");
+                }
+
+                // Se excluye el propio registro: editar sin tocar el documento no
+                // debe detectarse a sí mismo como duplicado.
+                if (await _repository.ExisteDocumentoAsync(datos.TipoDocumento, datos.NumIdentidad, id))
+                {
+                    throw new DuplicateException(
+                        $"Ya existe otro beneficiario registrado con ese documento: {DescribirDocumento(datos)} {datos.NumIdentidad}.");
+                }
+
+                beneficiario.PrimerNombre = datos.PrimerNombre;
+                beneficiario.SegundoNombre = datos.SegundoNombre;
+                beneficiario.PrimerApellido = datos.PrimerApellido;
+                beneficiario.SegundoApellido = datos.SegundoApellido;
+                beneficiario.FechaNacimiento = datos.FechaNacimiento;
+                beneficiario.Categoria = CategoriasBeneficiario.DerivarDesdeFechaNacimiento(datos.FechaNacimiento);
+                beneficiario.Telefono = datos.Telefono;
+                beneficiario.Direccion = datos.Direccion;
+                beneficiario.TipoDocumento = datos.TipoDocumento;
+                // Con "Sin documento" el validador ya devolvió null: al cambiar el tipo
+                // el número anterior se borra en lugar de quedar huérfano.
+                beneficiario.NumIdentidad = datos.NumIdentidad;
+                beneficiario.TipoDocumentoOtro = datos.TipoDocumentoOtro;
 
                 await _repository.ActualizarAsync(beneficiario);
             }
-            catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
+            catch (Exception ex) when (ex is not ValidationException and not NotFoundException and not DuplicateException)
             {
                 throw new Exception("Error al actualizar el beneficiario.", ex);
             }
         }
 
-        public async Task<IEnumerable<BeneficiarioListaDto>> ObtenerBeneficiariosAsync(FiltrosBeneficiarioDto filtros)
+        public async Task<ResultadoPaginado<BeneficiarioListaDto>> ObtenerBeneficiariosAsync(FiltrosBeneficiarioDto filtros)
         {
             try
             {
-                var beneficiarios = await _repository.ObtenerTodosAsync(filtros);
+                // El repositorio filtra, ordena y pagina en SQL: acá solo llegan los
+                // registros de la página pedida, más el total para el paginador.
+                var pagina = await _repository.ObtenerPaginaAsync(filtros);
 
-                return beneficiarios.Select(b => new BeneficiarioListaDto
+                var elementos = pagina.Elementos.Select(b => new BeneficiarioListaDto
                 {
                     Id = b.Id,
-                    Nombre = b.Nombre,
+                    PrimerNombre = b.PrimerNombre,
+                    SegundoNombre = b.SegundoNombre,
+                    PrimerApellido = b.PrimerApellido,
+                    SegundoApellido = b.SegundoApellido,
                     FechaNacimiento = b.FechaNacimiento,
                     Categoria = b.Categoria,
                     Telefono = b.Telefono,
-                    Estado = b.Estado
-                });
+                    Estado = b.Estado,
+                    TipoDocumento = b.TipoDocumento,
+                    NumIdentidad = b.NumIdentidad,
+                    TipoDocumentoOtro = b.TipoDocumentoOtro
+
+                }).ToList();
+
+                return new ResultadoPaginado<BeneficiarioListaDto>(elementos, pagina.TotalRegistros);
             }
             catch (Exception ex)
             {
                 throw new Exception("Error al consultar beneficiarios.", ex);
             }
         }
+
+        // "Otro" por sí solo no identifica el documento en el mensaje de error: se
+        // usa cómo se llama, que es lo que el usuario escribió.
+        private static string DescribirDocumento(BeneficiarioValidado datos) =>
+            TiposDocumento.RequiereNombreDelDocumento(datos.TipoDocumento) && !string.IsNullOrWhiteSpace(datos.TipoDocumentoOtro)
+                ? datos.TipoDocumentoOtro
+                : datos.TipoDocumento;
 
         public Task ActivarBeneficiarioAsync(int id) => CambiarEstadoAsync(id, true);
 

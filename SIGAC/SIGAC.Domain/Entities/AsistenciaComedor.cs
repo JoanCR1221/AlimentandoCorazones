@@ -6,6 +6,6 @@
         public int BeneficiarioId { get; set; }
         public Beneficiario? Beneficiario { get; set; }
         public DateTime Fecha { get; set; }
-        public string TiempoComida { get; set; } = string.Empty; // Desayuno, Almuerzo, Cena
+        public string TiempoComida { get; set; } = string.Empty; // Valores válidos: TiemposComida.Todos
     }
 }

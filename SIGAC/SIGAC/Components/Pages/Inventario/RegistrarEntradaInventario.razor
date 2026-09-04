@@ -1,0 +1,240 @@
+@page "/inventario/entradas/registrar"
+@using SIGAC.Application.DTOs.Inventario
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@using SIGAC.Domain
+@inject IInventarioService InventarioService
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h4" Class="mb-4">Registrar entrada de inventario</MudText>
+
+<EditForm Model="modelo" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <MudCard Class="pa-4">
+        <MudCardContent>
+            @* MinCharacters="1" es lo que evita que al enfocar el campo se despliegue
+               el catálogo entero: sin él (el valor por omisión es 0) MudBlazor llama a
+               SearchFunc con la cadena vacía apenas el campo recibe el foco, y una
+               búsqueda sin texto devuelve la primera página completa de artículos.
+               Con 1, no hay sugerencias hasta que el usuario escribe, y lo que se
+               ofrece siempre está filtrado por lo que escribió.
+
+               DebounceInterval evita una consulta por cada tecla mientras escribe;
+               son los mismos 300 ms que ya usa el buscador de ExistenciasInventario.
+
+               CoerceValue="true" se mantiene y es esencial: permite confirmar un
+               nombre que NO está en la lista, que es como se dan de alta los
+               artículos nuevos desde esta pantalla. *@
+            <MudAutocomplete T="string" Label="Nombre del artículo" Variant="Variant.Outlined"
+                              Value="modelo.NombreArticulo" ValueChanged="OnNombreArticuloCambiadoAsync"
+                              SearchFunc="BuscarNombresArticuloAsync" CoerceText="false" CoerceValue="true"
+                              MinCharacters="1" DebounceInterval="300"
+                              HelperText="Escribí para buscar un artículo existente, o ingresá uno nuevo." />
+
+            @if (articuloExistente is not null)
+            {
+                <MudAlert Severity="Severity.Info" Class="mt-2">
+                    Ya existe este artículo (stock actual: @articuloExistente.StockActual @articuloExistente.UnidadMedida). Se usará su categoría, unidad de medida, código y ubicación registrados.
+                </MudAlert>
+            }
+
+            @* Código y Ubicación quedan deshabilitados igual que categoría y unidad
+               cuando el artículo ya existe: en ese caso el servicio usa los valores
+               que el artículo ya tiene guardados y descarta los del formulario. *@
+            <MudTextField @bind-Value="modelo.Codigo" Label="Código (opcional)" Variant="Variant.Outlined" Class="mt-4"
+                          Disabled="articuloExistente is not null" />
+
+            <MudSelect T="string" @bind-Value="modelo.Categoria" For="@(() => modelo.Categoria)"
+                       @bind-Value:after="OnCategoriaCambiada"
+                       Label="Categoría" Variant="Variant.Outlined" Class="mt-4" Disabled="articuloExistente is not null">
+                @foreach (var categoria in CategoriasArticulo.Todos)
+                {
+                    <MudSelectItem T="string" Value="@categoria">@categoria</MudSelectItem>
+                }
+            </MudSelect>
+
+            @* Las opciones salen de UnidadesMedidaArticulo según la categoría elegida,
+               la misma fuente que valida el servicio: no se puede ofrecer una unidad
+               que el guardado vaya a rechazar (antes se ofrecían las cinco siempre,
+               así que "Calzado" + "Litro" era elegible). *@
+            <MudSelect T="string" @bind-Value="modelo.UnidadMedida" For="@(() => modelo.UnidadMedida)"
+                       Label="Unidad de medida" Variant="Variant.Outlined" Class="mt-4"
+                       Disabled="articuloExistente is not null || string.IsNullOrWhiteSpace(modelo.Categoria)"
+                       HelperText="@(articuloExistente is null && string.IsNullOrWhiteSpace(modelo.Categoria) ? "Elegí primero una categoría." : null)">
+                @foreach (var unidad in UnidadesMedidaArticulo.ObtenerUnidadesValidas(modelo.Categoria))
+                {
+                    <MudSelectItem T="string" Value="@unidad">@unidad</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudTextField @bind-Value="modelo.Ubicacion" Label="Ubicación (opcional)" Variant="Variant.Outlined" Class="mt-4"
+                          Disabled="articuloExistente is not null" />
+
+            <MudNumericField T="int" @bind-Value="modelo.Cantidad" For="@(() => modelo.Cantidad)"
+                              Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
+
+            <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
+
+            <MudSelect T="string" @bind-Value="modelo.Origen" For="@(() => modelo.Origen)" @bind-Value:after="OnOrigenCambiado"
+                       Label="Origen" Variant="Variant.Outlined" Class="mt-4">
+                <MudSelectItem T="string" Value="@("Donacion")">Donación</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Compra")">Compra</MudSelectItem>
+            </MudSelect>
+
+            @if (modelo.Origen == "Donacion")
+            {
+                <MudAutocomplete T="string" Label="Donante" Variant="Variant.Outlined" Class="mt-4"
+                                  Value="donanteSeleccionado" ValueChanged="OnDonanteCambiado"
+                                  SearchFunc="BuscarDonantesAsync" Clearable="true" />
+            }
+            else if (modelo.Origen == "Compra")
+            {
+                <MudSelect T="string" Value="gastoOperativoSeleccionado" ValueChanged="OnGastoOperativoCambiado"
+                           Label="Gasto operativo" Variant="Variant.Outlined" Class="mt-4" Clearable="true">
+                    @foreach (var gasto in GastosOperativosMock.Keys)
+                    {
+                        <MudSelectItem T="string" Value="@gasto">@gasto</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+        </MudCardActions>
+    </MudCard>
+</EditForm>
+
+@code {
+    // Mock temporal: el módulo de Donaciones todavía no existe.
+    private static readonly Dictionary<string, int> DonantesMock = new()
+    {
+        ["Empresa Alimentos del Valle"] = 1,
+        ["Supermercado La Colonia"] = 2,
+        ["Panadería San José"] = 3,
+        ["Donante anónimo"] = 4
+    };
+
+    // Mock temporal: el módulo de Gastos Operativos todavía no existe.
+    private static readonly Dictionary<string, int> GastosOperativosMock = new()
+    {
+        ["Compra de alimentos"] = 1,
+        ["Compra de insumos de limpieza"] = 2,
+        ["Compra de ropa y calzado"] = 3
+    };
+
+    private EntradaInventarioCrearDto modelo = new();
+    private ArticuloExistenciaDto? articuloExistente;
+    private string? donanteSeleccionado;
+    private string? gastoOperativoSeleccionado;
+
+    private DateTime? fecha
+    {
+        get => modelo.Fecha == default ? null : modelo.Fecha;
+        set => modelo.Fecha = value ?? default;
+    }
+
+    // Sin OnInitializedAsync ni listas cacheadas de categorías/unidades: las opciones
+    // de esos dos desplegables salen del catálogo cerrado en SIGAC.Domain, que se lee
+    // directo desde el marcado. No hay nada que traer del servidor al abrir.
+
+    private async Task<IEnumerable<string>> BuscarNombresArticuloAsync(string valor, CancellationToken cancellationToken)
+    {
+        // Guarda explícita, además del MinCharacters del componente: una búsqueda sin
+        // texto NO significa "todos los artículos" acá. El repositorio ignora el
+        // filtro de nombre cuando llega vacío y devuelve la primera página entera del
+        // catálogo, que es exactamente lo que no queremos desplegar sin que el usuario
+        // haya escrito nada.
+        if (string.IsNullOrWhiteSpace(valor))
+            return Array.Empty<string>();
+
+        var existencias = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto { Nombre = valor });
+        return existencias.Elementos.Select(a => a.Nombre);
+    }
+
+    private async Task OnNombreArticuloCambiadoAsync(string? valor)
+    {
+        modelo.NombreArticulo = valor ?? string.Empty;
+        articuloExistente = null;
+
+        if (!string.IsNullOrWhiteSpace(modelo.NombreArticulo))
+        {
+            var existencias = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto { Nombre = modelo.NombreArticulo });
+            articuloExistente = existencias.Elementos.FirstOrDefault(a => string.Equals(a.Nombre, modelo.NombreArticulo, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (articuloExistente is not null)
+        {
+            modelo.Categoria = articuloExistente.Categoria;
+            modelo.UnidadMedida = articuloExistente.UnidadMedida;
+            modelo.Codigo = articuloExistente.Codigo;
+            modelo.Ubicacion = articuloExistente.Ubicacion;
+        }
+    }
+
+    // Al cambiar de categoría, la unidad ya elegida puede dejar de pertenecer a la
+    // nueva lista (por ejemplo "Litro" al pasar de Alimento a Calzado). Si se dejara,
+    // el campo mostraría un valor que ya no está entre las opciones y el guardado lo
+    // rechazaría recién al enviar el formulario.
+    private void OnCategoriaCambiada()
+    {
+        if (!UnidadesMedidaArticulo.EsValidaParaCategoria(modelo.Categoria, modelo.UnidadMedida))
+            modelo.UnidadMedida = string.Empty;
+    }
+
+    private void OnOrigenCambiado()
+    {
+        donanteSeleccionado = null;
+        modelo.DonanteId = null;
+        gastoOperativoSeleccionado = null;
+        modelo.GastoOperativoId = null;
+    }
+
+    private Task<IEnumerable<string>> BuscarDonantesAsync(string valor, CancellationToken cancellationToken)
+    {
+        var resultado = string.IsNullOrWhiteSpace(valor)
+            ? DonantesMock.Keys.AsEnumerable()
+            : DonantesMock.Keys.Where(d => d.Contains(valor, StringComparison.OrdinalIgnoreCase));
+
+        return Task.FromResult(resultado);
+    }
+
+    private void OnDonanteCambiado(string? valor)
+    {
+        donanteSeleccionado = valor;
+        modelo.DonanteId = valor is not null && DonantesMock.TryGetValue(valor, out var id) ? id : null;
+    }
+
+    private void OnGastoOperativoCambiado(string? valor)
+    {
+        gastoOperativoSeleccionado = valor;
+        modelo.GastoOperativoId = valor is not null && GastosOperativosMock.TryGetValue(valor, out var id) ? id : null;
+    }
+
+    private async Task Guardar()
+    {
+        try
+        {
+            await InventarioService.RegistrarEntradaAsync(modelo);
+            Snackbar.Add("Entrada de inventario registrada correctamente.", Severity.Success);
+
+            modelo = new();
+            articuloExistente = null;
+            donanteSeleccionado = null;
+            gastoOperativoSeleccionado = null;
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (DuplicateException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo registrar la entrada de inventario. Intentá de nuevo.", Severity.Error);
+        }
+    }
+}

@@ -1,36 +1,146 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">SIGAC</a>
-    </div>
-</div>
+﻿@inject NavigationManager Navigation
+@implements IDisposable
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+<MudNavMenu Class="pa-2">
+    <MudText Typo="Typo.subtitle2" Class="px-4 py-2 mud-text-secondary">Navegación</MudText>
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
+    <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">
+        Inicio
+    </MudNavLink>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
+    <MudNavGroup Title="Beneficiarios"
+                 Icon="@Icons.Material.Filled.People"
+                 Expanded="_beneficiariosExpandido"
+                 ExpandedChanged="OnBeneficiariosExpandedChanged">
+        <MudNavLink Href="/beneficiarios" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.People">
+            Ver Beneficiarios
+        </MudNavLink>
+        <MudNavLink Href="/beneficiarios/registrar" Icon="@Icons.Material.Filled.PersonAdd">
+            Registrar Beneficiario
+        </MudNavLink>
+    </MudNavGroup>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
+    <MudNavGroup Title="Asistencia"
+                 Icon="@Icons.Material.Filled.Restaurant"
+                 Expanded="_asistenciaExpandido"
+                 ExpandedChanged="OnAsistenciaExpandedChanged">
+        <MudNavLink Href="/asistencia/historial" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.History">
+            Ver Asistencia
+        </MudNavLink>
+        <MudNavLink Href="/asistencia/registrar" Icon="@Icons.Material.Filled.Restaurant">
+            Agregar Asistencia
+        </MudNavLink>
+    </MudNavGroup>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="prueba-backend">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Prueba Backend
-            </NavLink>
-        </div>
-    </nav>
-</div>
+    <MudNavGroup Title="Inventario"
+                 Icon="@Icons.Material.Filled.Inventory"
+                 Expanded="_inventarioExpandido"
+                 ExpandedChanged="OnInventarioExpandedChanged">
+        <MudNavLink Href="/inventario/existencias" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Inventory2">
+            Ver Existencias
+        </MudNavLink>
+        <MudNavLink Href="/inventario/entradas/registrar" Icon="@Icons.Material.Filled.AddBox">
+            Registrar Entrada
+        </MudNavLink>
+        <MudNavLink Href="/inventario/prestamos/solicitar" Icon="@Icons.Material.Filled.Handshake">
+            Solicitar Préstamo
+        </MudNavLink>
+        <MudNavLink Href="/inventario/prestamos/gestionar" Icon="@Icons.Material.Filled.FactCheck">
+            Gestionar Solicitudes
+        </MudNavLink>
+        <MudNavLink Href="/inventario/movimientos/historial" Icon="@Icons.Material.Filled.History">
+            Historial de Movimientos
+        </MudNavLink>
+    </MudNavGroup>
 
+    <MudDivider Class="my-2" />
+
+    <MudNavLink Href="/prototipos" Icon="@Icons.Material.Filled.Palette">
+        Prototipos de apariencia
+    </MudNavLink>
+</MudNavMenu>
+
+@code {
+    private bool _beneficiariosExpandido;
+    private bool _asistenciaExpandido;
+    private bool _inventarioExpandido;
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        _beneficiariosExpandido = EstaEnBeneficiarios();
+        _asistenciaExpandido = EstaEnAsistencia();
+        _inventarioExpandido = EstaEnInventario();
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        var expandirBeneficiarios = EstaEnBeneficiarios();
+        var expandirAsistencia = EstaEnAsistencia();
+        var expandirInventario = EstaEnInventario();
+
+        if (_beneficiariosExpandido != expandirBeneficiarios || _asistenciaExpandido != expandirAsistencia || _inventarioExpandido != expandirInventario)
+        {
+            _beneficiariosExpandido = expandirBeneficiarios;
+            _asistenciaExpandido = expandirAsistencia;
+            _inventarioExpandido = expandirInventario;
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private bool EstaEnBeneficiarios()
+    {
+        var ruta = Navigation.ToBaseRelativePath(Navigation.Uri);
+        return ruta.StartsWith("beneficiarios", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool EstaEnAsistencia()
+    {
+        var ruta = Navigation.ToBaseRelativePath(Navigation.Uri);
+        return ruta.StartsWith("asistencia", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool EstaEnInventario()
+    {
+        var ruta = Navigation.ToBaseRelativePath(Navigation.Uri);
+        return ruta.StartsWith("inventario", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void OnBeneficiariosExpandedChanged(bool expandido)
+    {
+        _beneficiariosExpandido = expandido;
+
+        // Al abrir el grupo, ir al listado; Registrar aparece debajo.
+        if (expandido && !EstaEnBeneficiarios())
+        {
+            Navigation.NavigateTo("/beneficiarios");
+        }
+    }
+
+    private void OnAsistenciaExpandedChanged(bool expandido)
+    {
+        _asistenciaExpandido = expandido;
+
+        // Al abrir el grupo, ir al historial; Agregar aparece debajo.
+        if (expandido && !EstaEnAsistencia())
+        {
+            Navigation.NavigateTo("/asistencia/historial");
+        }
+    }
+
+    private void OnInventarioExpandedChanged(bool expandido)
+    {
+        _inventarioExpandido = expandido;
+
+        // Al abrir el grupo, ir a existencias; Registrar entrada aparece debajo.
+        if (expandido && !EstaEnInventario())
+        {
+            Navigation.NavigateTo("/inventario/existencias");
+        }
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+}

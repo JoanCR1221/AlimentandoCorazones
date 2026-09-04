@@ -1,23 +1,66 @@
 ﻿@inherits LayoutComponentBase
+@inject AparienciaService Apariencia
+@implements IDisposable
 
-<div class="page">
-    <div class="sidebar">
+<MudThemeProvider IsDarkMode="@Apariencia.EsOscuro"
+                  Theme="@Apariencia.Tema"
+                  @key="@($"{Apariencia.EsOscuro}-{Apariencia.AltoContraste}")" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1" Dense="false">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                       Color="Color.Inherit"
+                       Edge="Edge.Start"
+                       aria-label="Abrir menú de navegación"
+                       OnClick="ToggleDrawer" />
+        <MudText Typo="Typo.h6" Class="ml-2">SIGAC</MudText>
+        <MudSpacer />
+        <AparienciaToolbar />
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen"
+               ClipMode="DrawerClipMode.Always"
+               Elevation="2"
+               Variant="@DrawerVariant.Responsive">
+        <MudDrawerHeader Class="pa-4">
+            <MudText Typo="Typo.h6">Panel administrativo</MudText>
+        </MudDrawerHeader>
         <NavMenu />
-    </div>
+    </MudDrawer>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+    <MudMainContent Class="pa-4">
+        @Body
+    </MudMainContent>
+</MudLayout>
 
 <div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
+    Ha ocurrido un error inesperado.
+    <a href="." class="reload">Recargar</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    private bool _drawerOpen = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            Apariencia.OnChange += StateHasChanged;
+            await Apariencia.InitializeAsync();
+        }
+    }
+
+    private void ToggleDrawer()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    public void Dispose()
+    {
+        Apariencia.OnChange -= StateHasChanged;
+    }
+}
