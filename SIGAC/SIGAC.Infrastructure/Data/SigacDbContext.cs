@@ -460,6 +460,11 @@ namespace SIGAC.Infrastructure.Data
                     .IsUnicode(false)
                     .HasMaxLength(500);
 
+                // Sin IsRequired(): es opcional porque una solicitud Pendiente todavía no
+                // tiene resolución. Queda en NULL hasta que se aprueba o se rechaza, y
+                // ese NULL es justamente lo que distingue "sin resolver" de "resuelta".
+                entity.Property(s => s.FechaResolucion);
+
                 // Relación FK obligatoria con Articulo. Restrict impide borrar un
                 // artículo que tenga solicitudes de préstamo asociadas.
                 entity.HasOne(s => s.Articulo)

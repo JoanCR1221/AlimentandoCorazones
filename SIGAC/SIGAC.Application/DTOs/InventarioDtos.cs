@@ -165,5 +165,9 @@ namespace SIGAC.Application.DTOs.Inventario
         public string Actividad { get; set; } = string.Empty;
         public string Solicitante { get; set; } = string.Empty;
         public string Estado { get; set; } = string.Empty;
+
+        // Complemento natural de Estado: dice CUÁNDO se resolvió. Null mientras la
+        // solicitud sigue Pendiente.
+        public DateTime? FechaResolucion { get; set; }
     }
 }

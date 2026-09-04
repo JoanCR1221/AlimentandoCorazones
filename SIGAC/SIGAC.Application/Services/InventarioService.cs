@@ -335,6 +335,7 @@ namespace SIGAC.Application.Services
                 };
 
                 solicitud.Estado = EstadoSolicitudPrestamo.Aprobada;
+                solicitud.FechaResolucion = DateTime.Now;
 
                 // Una sola llamada: marcar la solicitud como aprobada, registrar la
                 // salida y descontar el stock son todo-o-nada. Antes eran tres
@@ -360,6 +361,7 @@ namespace SIGAC.Application.Services
                     throw new ValidationException("La solicitud ya fue resuelta.");
 
                 solicitud.Estado = EstadoSolicitudPrestamo.Rechazada;
+                solicitud.FechaResolucion = DateTime.Now;
                 solicitud.MotivoRechazo = dto.MotivoRechazo;
 
                 await _repository.ActualizarSolicitudAsync(solicitud);
@@ -384,7 +386,8 @@ namespace SIGAC.Application.Services
                     Fecha = s.Fecha,
                     Actividad = s.Actividad,
                     Solicitante = s.Solicitante,
-                    Estado = s.Estado.ToString()
+                    Estado = s.Estado.ToString(),
+                    FechaResolucion = s.FechaResolucion
                 });
             }
             catch (Exception ex)

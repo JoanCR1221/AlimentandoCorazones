@@ -18,5 +18,9 @@
         public string Solicitante { get; set; } = string.Empty;
         public EstadoSolicitudPrestamo Estado { get; set; } = EstadoSolicitudPrestamo.Pendiente;
         public string? MotivoRechazo { get; set; }
+
+        // Nullable a propósito: una solicitud en Pendiente todavía no fue resuelta y
+        // por lo tanto no tiene fecha que registrar. Se llena al aprobar o rechazar.
+        public DateTime? FechaResolucion { get; set; }
     }
 }

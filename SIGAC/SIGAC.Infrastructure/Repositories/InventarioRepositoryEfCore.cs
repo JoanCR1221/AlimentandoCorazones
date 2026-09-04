@@ -329,6 +329,7 @@ namespace SIGAC.Infrastructure.Repositories
 
             existente.Estado = solicitud.Estado;
             existente.MotivoRechazo = solicitud.MotivoRechazo;
+            existente.FechaResolucion = solicitud.FechaResolucion;
 
             context.SalidasInventario.Add(salida);
 
@@ -509,6 +510,7 @@ namespace SIGAC.Infrastructure.Repositories
             // registra la salida y el descuento en la misma transacción.
             existente.Estado = solicitud.Estado;
             existente.MotivoRechazo = solicitud.MotivoRechazo;
+            existente.FechaResolucion = solicitud.FechaResolucion;
 
             await context.SaveChangesAsync();
         }
