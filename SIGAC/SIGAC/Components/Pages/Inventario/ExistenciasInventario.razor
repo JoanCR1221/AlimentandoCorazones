@@ -1,6 +1,7 @@
 @page "/inventario/existencias"
 @using SIGAC.Application.DTOs.Inventario
 @using SIGAC.Application.Interfaces
+@using SIGAC.Domain
 @inject IInventarioService InventarioService
 
 <MudText Typo="Typo.h4" Class="mb-4">Existencias de inventario</MudText>
@@ -9,11 +10,13 @@
     <MudCardContent>
         <MudTextField T="string" Value="filtroNombre" ValueChanged="OnFiltroNombreCambiadoAsync" Immediate="true" DebounceInterval="300"
                       Label="Buscar por nombre o código" Variant="Variant.Outlined" Class="mb-4" />
+        @* Mismo catálogo que usan el alta y la edición: si esta lista quedara con sus
+           propios literales, el filtro buscaría categorías que ya nadie guarda. *@
         <MudSelect T="string" Value="filtroCategoria" ValueChanged="OnFiltroCategoriaCambiadoAsync" Label="Categoría" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
-            <MudSelectItem T="string" Value="@("Alimentos")">Alimentos</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Ropa")">Ropa</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Calzado")">Calzado</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Equipos")">Equipos</MudSelectItem>
+            @foreach (var categoria in CategoriasArticulo.Todos)
+            {
+                <MudSelectItem T="string" Value="@categoria">@categoria</MudSelectItem>
+            }
         </MudSelect>
         <MudDataGrid T="ArticuloExistenciaDto" Items="@articulos">
             <Columns>
@@ -40,22 +43,39 @@
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
+            @* Dos estados vacíos distintos, y el usuario tiene que poder diferenciarlos:
+               "todavía no buscaste" es una invitación a escribir, "no hay coincidencias"
+               es el resultado de una búsqueda que sí se hizo. Con un solo mensaje, una
+               pantalla recién abierta parecería un inventario vacío. *@
             <NoRecordsContent>
-                <MudText>Todavía no hay artículos registrados.</MudText>
+                @if (HayFiltro)
+                {
+                    <MudText>Ningún artículo coincide con la búsqueda. Probá con otro nombre, código o categoría.</MudText>
+                }
+                else
+                {
+                    <MudText>Escribí un nombre o código, o elegí una categoría, para ver el inventario.</MudText>
+                }
             </NoRecordsContent>
         </MudDataGrid>
     </MudCardContent>
 </MudCard>
 
 @code {
-    private IEnumerable<ArticuloExistenciaDto> articulos = new List<ArticuloExistenciaDto>();
+    private IEnumerable<ArticuloExistenciaDto> articulos = Array.Empty<ArticuloExistenciaDto>();
     private string? filtroNombre;
     private string? filtroCategoria;
 
-    protected override async Task OnInitializedAsync()
-    {
-        await CargarAsync();
-    }
+    // Se usa IsNullOrWhiteSpace y no IsNullOrEmpty a propósito: es el mismo criterio
+    // con el que el repositorio decide si aplica el filtro. Un campo con solo espacios
+    // allá se ignora, así que acá tampoco puede contar como búsqueda; si contara,
+    // pedir " " devolvería el catálogo entero.
+    private bool HayFiltro =>
+        !string.IsNullOrWhiteSpace(filtroNombre) || !string.IsNullOrWhiteSpace(filtroCategoria);
+
+    // Sin OnInitializedAsync a propósito: la pantalla abre sin consultar nada. Antes
+    // cargaba acá con los filtros vacíos, y como el repositorio los ignora, mostraba
+    // la primera página del catálogo completo sin que nadie hubiera buscado.
 
     private async Task OnFiltroNombreCambiadoAsync(string? valor)
     {
@@ -71,6 +91,16 @@
 
     private async Task CargarAsync()
     {
+        // Sin ningún criterio no se consulta y la tabla queda vacía. Cubre las dos
+        // entradas a este estado: abrir la pantalla, y borrar el texto y quitar la
+        // categoría hasta dejar todo en blanco. En ese segundo caso, salir sin
+        // vaciar dejaría en pantalla los resultados de la búsqueda anterior.
+        if (!HayFiltro)
+        {
+            articulos = Array.Empty<ArticuloExistenciaDto>();
+            return;
+        }
+
         var pagina = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto
         {
             Nombre = filtroNombre,

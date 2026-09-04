@@ -21,6 +21,16 @@ namespace SIGAC.Application.Interfaces
         Task<bool> ExisteNombreAsync(string nombre, int? idExcluir = null);
         Task<bool> ExisteCodigoAsync(string? codigo, int? idExcluir = null);
 
+        // Cuenta en SQL (COUNT) en vez de traer artículos para contarlos en memoria:
+        // lo usa el resumen de Inicio, que solo necesita el número.
+        Task<int> ContarStockBajoAsync();
+
+        // Sin ObtenerCategoriasDistintasAsync ni ObtenerUnidadesMedidaDistintasAsync:
+        // devolvían un DISTINCT de las columnas para alimentar un catálogo ABIERTO de
+        // categorías y unidades. El módulo usa el catálogo CERRADO de
+        // CategoriasArticulo/UnidadesMedidaArticulo, así que las opciones salen del
+        // código y no de lo que haya guardado en la tabla.
+
         // Un artículo con historial (entradas, salidas o solicitudes de préstamo)
         // no se puede borrar: el movimiento es el respaldo contable y no puede
         // quedar huérfano. EliminarArticuloAsync no hace este chequeo por su cuenta
@@ -69,6 +79,10 @@ namespace SIGAC.Application.Interfaces
         Task AgregarSolicitudPrestamoAsync(SolicitudPrestamo solicitud);
         Task<SolicitudPrestamo?> ObtenerSolicitudPorIdAsync(int id);
         Task ActualizarSolicitudAsync(SolicitudPrestamo solicitud);
-        Task<IEnumerable<SolicitudPrestamo>> ObtenerSolicitudesAsync();
+
+        // estado opcional: null devuelve todas. El filtro se resuelve en SQL sobre
+        // IX_SolicitudesPrestamo_Estado, que existe justamente para la bandeja de
+        // solicitudes pendientes.
+        Task<IEnumerable<SolicitudPrestamo>> ObtenerSolicitudesAsync(EstadoSolicitudPrestamo? estado = null);
     }
 }

@@ -7,6 +7,11 @@ namespace SIGAC.Application.DTOs.Inventario
         [Required(ErrorMessage = "El nombre del artículo es obligatorio.")]
         public string NombreArticulo { get; set; } = string.Empty;
 
+        // Opcionales y solo aplican cuando el artículo es nuevo: si ya existe, se
+        // usa el código y la ubicación que ya tiene guardados (ver RegistrarEntradaAsync).
+        public string? Codigo { get; set; }
+        public string? Ubicacion { get; set; }
+
         [Required(ErrorMessage = "La categoría es obligatoria.")]
         public string Categoria { get; set; } = string.Empty;
 
@@ -30,10 +35,17 @@ namespace SIGAC.Application.DTOs.Inventario
 
     public class SalidaDonacionCrearDto
     {
+        [Range(1, int.MaxValue, ErrorMessage = "Debe seleccionar un artículo.")]
         public int ArticuloId { get; set; }
+
+        [Range(1, int.MaxValue, ErrorMessage = "La cantidad debe ser mayor a 0.")]
         public int Cantidad { get; set; }
+
         public DateTime Fecha { get; set; }
+
+        [Required(ErrorMessage = "La comunidad destinataria es obligatoria.")]
         public string ComunidadDestinataria { get; set; } = string.Empty;
+
         public string? Observaciones { get; set; }
     }
 
@@ -135,6 +147,7 @@ namespace SIGAC.Application.DTOs.Inventario
 
     public class SolicitudPrestamoCrearDto
     {
+        [Range(1, int.MaxValue, ErrorMessage = "Debe seleccionar un artículo.")]
         public int ArticuloId { get; set; }
 
         [Range(1, int.MaxValue, ErrorMessage = "La cantidad debe ser mayor a 0.")]

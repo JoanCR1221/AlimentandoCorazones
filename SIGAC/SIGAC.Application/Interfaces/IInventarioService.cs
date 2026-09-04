@@ -1,5 +1,6 @@
 ﻿using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Inventario;
+using SIGAC.Domain.Entities;
 
 namespace SIGAC.Application.Interfaces
 {
@@ -8,6 +9,9 @@ namespace SIGAC.Application.Interfaces
         Task RegistrarEntradaAsync(EntradaInventarioCrearDto dto);
         Task RegistrarSalidaDonacionAsync(SalidaDonacionCrearDto dto);
         Task<ResultadoPaginado<ArticuloExistenciaDto>> ObtenerExistenciasAsync(FiltrosExistenciaDto filtros);
+        // Lo consume la alerta de stock bajo de la portada.
+        Task<int> ContarArticulosStockBajoAsync();
+
         Task<ArticuloEditarDto?> ObtenerParaEditarAsync(int id);
         Task EditarArticuloAsync(int id, ArticuloEditarDto dto);
         Task EliminarArticuloAsync(int id);
@@ -16,6 +20,7 @@ namespace SIGAC.Application.Interfaces
         Task RegistrarSolicitudPrestamoAsync(SolicitudPrestamoCrearDto dto);
         Task AprobarPrestamoAsync(ResolucionPrestamoDto dto);
         Task RechazarPrestamoAsync(ResolucionPrestamoDto dto);
-        Task<IEnumerable<SolicitudPrestamoListaDto>> ObtenerSolicitudesAsync();
+        // estado opcional: null devuelve todas, que es como lo llama hoy el frontend.
+        Task<IEnumerable<SolicitudPrestamoListaDto>> ObtenerSolicitudesAsync(EstadoSolicitudPrestamo? estado = null);
     }
 }

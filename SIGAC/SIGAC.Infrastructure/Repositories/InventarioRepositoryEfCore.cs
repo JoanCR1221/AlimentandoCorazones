@@ -26,6 +26,20 @@ namespace SIGAC.Infrastructure.Repositories
         private const int ErrorSqlRestriccionUnica = 2627;
         private const int ErrorSqlIndiceUnico = 2601;
 
+        // 547 es el conflicto con una restricción: cubre tanto las FK como los CHECK.
+        // Se usa para traducir el rechazo del DELETE de un artículo con movimientos,
+        // que las FK Restrict de EntradasInventario, SalidasInventario y
+        // SolicitudesPrestamo bloquean en la base.
+        private const int ErrorSqlConflictoRestriccion = 547;
+
+        // Nombres de los índices únicos de Articulos. SQL Server los incluye
+        // literalmente en el texto del error 2601/2627, así que sirven para saber
+        // CUÁL de los dos rechazó la escritura y dar el mensaje que corresponde.
+        // El nombre del índice va en el mensaje aunque el servidor esté en otro
+        // idioma, así que no depende de la localización.
+        private const string IndiceUnicoNombreArticulo = "UX_Articulos_Nombre";
+        private const string IndiceUnicoCodigoArticulo = "UX_Articulos_Codigo";
+
         // Factory y no un DbContext inyectado: en Blazor Server el scope dura toda
         // la sesión, así que un contexto compartido queda expuesto a que dos
         // operaciones lo usen a la vez (por ejemplo, el listado de existencias
@@ -99,11 +113,12 @@ namespace SIGAC.Infrastructure.Repositories
             }
             catch (DbUpdateException ex) when (EsViolacionDeUnicidad(ex))
             {
-                // Choque contra UX_Articulos_Nombre al renombrar hacia un nombre ya
-                // usado. Antes salía como DbUpdateException y el servicio la envolvía
-                // en un Exception genérico, así que el usuario no sabía el motivo.
-                throw new DuplicateException(
-                    $"Ya existe otro artículo con el nombre '{articulo.Nombre}'.");
+                // Choque contra UX_Articulos_Nombre o UX_Articulos_Codigo al editar
+                // hacia un valor ya usado. Antes salía como DbUpdateException y el
+                // servicio la envolvía en un Exception genérico, así que el usuario no
+                // sabía el motivo; y una vez traducido, el mensaje hablaba siempre del
+                // nombre aunque el choque hubiera sido del código.
+                throw new DuplicateException(DescribirDuplicadoDeArticulo(ex, articulo));
             }
         }
 
@@ -162,6 +177,15 @@ namespace SIGAC.Infrastructure.Repositories
                 .AnyAsync(a => a.Nombre == nombre && (idExcluir == null || a.Id != idExcluir));
         }
 
+        public async Task<int> ContarStockBajoAsync()
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            return await context.Articulos
+                .AsNoTracking()
+                .CountAsync(a => a.StockActual <= a.StockMinimo);
+        }
+
         public async Task<bool> ExisteCodigoAsync(string? codigo, int? idExcluir = null)
         {
             // Sin código no hay nada que chocar: es la misma exclusión que hace el
@@ -217,7 +241,25 @@ namespace SIGAC.Infrastructure.Repositories
             // hubiera historial, las FK Restrict de EntradasInventario,
             // SalidasInventario y SolicitudesPrestamo rechazan el DELETE en la base.
             context.Articulos.Remove(articulo);
-            await context.SaveChangesAsync();
+
+            try
+            {
+                await context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (EsConflictoDeRestriccion(ex))
+            {
+                // La carrera que el chequeo previo no puede cerrar: entre el
+                // TieneMovimientosAsync del servicio y este DELETE alguien registró un
+                // movimiento del artículo. La base lo frena (no se pierde nada), pero
+                // sin traducir salía como DbUpdateException y el servicio la envolvía
+                // en "Error al eliminar el artículo", sin decir por qué.
+                //
+                // ValidationException y no DuplicateException: es la misma condición
+                // de negocio que ya valida el servicio antes de llamar acá, y su
+                // filtro de excepciones la deja pasar sin envolverla.
+                throw new ValidationException(
+                    "No se puede eliminar: el artículo tiene movimientos registrados.");
+            }
         }
 
         // ------------------------------------------------------------------
@@ -385,6 +427,26 @@ namespace SIGAC.Infrastructure.Repositories
             ex.InnerException is SqlException sql &&
             (sql.Number == ErrorSqlRestriccionUnica || sql.Number == ErrorSqlIndiceUnico);
 
+        private static bool EsConflictoDeRestriccion(DbUpdateException ex) =>
+            ex.InnerException is SqlException sql &&
+            sql.Number == ErrorSqlConflictoRestriccion;
+
+        // Arma el mensaje de duplicado según CUÁL índice único rechazó la escritura.
+        // SQL Server nombra el índice violado dentro del texto del error, así que
+        // alcanza con buscarlo ahí; si no se lo puede identificar (otro índice, o un
+        // formato de mensaje inesperado) se cae al nombre, que es el caso frecuente
+        // por ser la clave natural del catálogo.
+        private static string DescribirDuplicadoDeArticulo(DbUpdateException ex, Articulo articulo)
+        {
+            if (ex.InnerException is SqlException sql &&
+                sql.Message.Contains(IndiceUnicoCodigoArticulo, StringComparison.OrdinalIgnoreCase))
+            {
+                return $"Ya existe otro artículo con el código '{articulo.Codigo}'.";
+            }
+
+            return $"Ya existe otro artículo con el nombre '{articulo.Nombre}'.";
+        }
+
         // ------------------------------------------------------------------
         // Consultas de movimientos
         // ------------------------------------------------------------------
@@ -515,16 +577,29 @@ namespace SIGAC.Infrastructure.Repositories
             await context.SaveChangesAsync();
         }
 
-        public async Task<IEnumerable<SolicitudPrestamo>> ObtenerSolicitudesAsync()
+        public async Task<IEnumerable<SolicitudPrestamo>> ObtenerSolicitudesAsync(EstadoSolicitudPrestamo? estado = null)
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
 
             // Acá sí va el Include: la lista muestra el nombre del artículo y las
             // entidades salen en AsNoTracking, así que no hay riesgo de arrastrarlas a
             // un guardado posterior.
-            return await context.SolicitudesPrestamo
+            IQueryable<SolicitudPrestamo> consulta = context.SolicitudesPrestamo
                 .AsNoTracking()
-                .Include(s => s.Articulo)
+                .Include(s => s.Articulo);
+
+            if (estado.HasValue)
+            {
+                // Variable local para que se capture como parámetro SQL. La columna
+                // guarda el enum como texto (HasConversion<string>), y EF Core aplica
+                // ese mismo conversor a la comparación, así que el WHERE viaja como
+                // [Estado] = 'Pendiente' y puede hacer seek sobre
+                // IX_SolicitudesPrestamo_Estado.
+                var estadoFiltro = estado.Value;
+                consulta = consulta.Where(s => s.Estado == estadoFiltro);
+            }
+
+            return await consulta
                 .OrderByDescending(s => s.Fecha)
                 .ThenByDescending(s => s.Id)
                 .ToListAsync();

@@ -2,6 +2,7 @@
 using SIGAC.Application.DTOs.Inventario;
 using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
+using SIGAC.Application.Validators;
 using SIGAC.Domain;
 using SIGAC.Domain.Entities;
 
@@ -30,21 +31,65 @@ namespace SIGAC.Application.Services
                     throw new ValidationException(
                         $"El origen debe ser uno de los siguientes valores: {string.Join(", ", OrigenesEntradaInventario.Todos)}.");
 
-                var articulo = await _repository.ObtenerArticuloPorNombreAsync(dto.NombreArticulo);
+                // Se normaliza ANTES de buscar y ANTES de guardar, con el mismo valor
+                // para las dos cosas: el nombre es la clave natural del catálogo, así
+                // que comparar por un texto y persistir otro es lo que hacía que
+                // " Arroz" no encontrara a "Arroz" y entrara como un artículo aparte,
+                // partiendo el stock en dos filas.
+                var nombreArticulo = ArticuloValidator.ValidarNombre(dto.NombreArticulo);
+
+                var articulo = await _repository.ObtenerArticuloPorNombreAsync(nombreArticulo);
+
+                // La entrada se registra el día en que ocurre: una fecha futura no
+                // representa un movimiento real todavía. Antes solo lo restringía el
+                // calendario del formulario (MaxDate), sin repetirlo en el servidor.
+                if (dto.Fecha.Date > DateTime.Today)
+                    throw new ValidationException("La fecha de la entrada no puede ser futura.");
 
                 // El artículo nuevo se arma acá pero NO se guarda por separado: se le
                 // pasa al repositorio para que lo cree dentro de la misma transacción
                 // que la entrada y el stock. Guardarlo antes, por su cuenta, dejaba un
                 // artículo en el catálogo con stock 0 si la entrada fallaba después.
-                Articulo? articuloNuevo = articulo is null
-                    ? new Articulo
+                Articulo? articuloNuevo = null;
+
+                if (articulo is null)
+                {
+                    // Categoría, unidad, código y ubicación solo se validan cuando hay
+                    // artículo nuevo: son los únicos casos en que se persisten. Si el
+                    // artículo ya existe, el formulario deshabilita esos campos y el
+                    // servicio usa los que ya tiene guardados, así que exigirlos acá
+                    // rechazaría entradas de artículos viejos cuya categoría no esté en
+                    // el catálogo actual.
+                    //
+                    // ValidarCategoriaYUnidad cubre lo obligatorio, la longitud máxima
+                    // y además que la combinación exista en el catálogo cerrado.
+                    var (categoria, unidadMedida) =
+                        ArticuloValidator.ValidarCategoriaYUnidad(dto.Categoria, dto.UnidadMedida);
+
+                    // Normalizados con el mismo criterio que EditarArticuloAsync: el
+                    // valor que se compara contra el índice único tiene que ser el
+                    // mismo que se persiste. Comparar "P001 " en crudo y guardar
+                    // "P001" dejaba pasar el chequeo para chocar después contra
+                    // UX_Articulos_Codigo.
+                    var codigo = ArticuloValidator.ValidarCodigo(dto.Codigo);
+                    var ubicacion = ArticuloValidator.ValidarUbicacion(dto.Ubicacion);
+
+                    // Antes no se comprobaba: dos artículos nuevos con el mismo código
+                    // chocarían recién en la base, con un mensaje genérico que no dice
+                    // que fue el código (y no el nombre) lo que coincidió.
+                    if (await _repository.ExisteCodigoAsync(codigo))
+                        throw new DuplicateException($"Ya existe otro artículo con el código \"{codigo}\".");
+
+                    articuloNuevo = new Articulo
                     {
-                        Nombre = dto.NombreArticulo,
-                        Categoria = dto.Categoria,
-                        UnidadMedida = dto.UnidadMedida,
+                        Nombre = nombreArticulo,
+                        Codigo = codigo,
+                        Categoria = categoria,
+                        UnidadMedida = unidadMedida,
+                        Ubicacion = ubicacion,
                         StockActual = 0
-                    }
-                    : null;
+                    };
+                }
 
                 var entrada = new EntradaInventario
                 {
@@ -139,6 +184,24 @@ namespace SIGAC.Application.Services
             }
         }
 
+        public async Task<int> ContarArticulosStockBajoAsync()
+        {
+            try
+            {
+                return await _repository.ContarStockBajoAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al consultar los artículos con stock bajo.", ex);
+            }
+        }
+
+        // Sin ObtenerCategoriasAsync ni ObtenerUnidadesMedidaAsync: pertenecían al
+        // catálogo ABIERTO (sugerencias armadas con un DISTINCT de la tabla más unas
+        // semillas), que se descartó en favor del catálogo cerrado de
+        // CategoriasArticulo/UnidadesMedidaArticulo. Las pantallas leen las opciones
+        // directo de esas clases, así que no hay a quién servirle esa lista.
+
         public async Task<ArticuloEditarDto?> ObtenerParaEditarAsync(int id)
         {
             try
@@ -171,27 +234,31 @@ namespace SIGAC.Application.Services
                 var articulo = await _repository.ObtenerArticuloPorIdAsync(id)
                     ?? throw new NotFoundException("El artículo no existe.");
 
-                if (string.IsNullOrWhiteSpace(dto.Nombre))
-                    throw new ValidationException("El nombre es obligatorio.");
-
-                if (dto.StockMinimo < 0)
-                    throw new ValidationException("El stock mínimo no puede ser negativo.");
+                // Normaliza y valida de una sola vez. Lo que devuelve es exactamente
+                // lo que se compara contra los índices únicos y lo que se persiste:
+                // antes el código se comprobaba crudo pero se guardaba con Trim(), así
+                // que "P001 " pasaba el chequeo de unicidad y después chocaba contra
+                // UX_Articulos_Codigo al guardarse como "P001".
+                // Cubre lo obligatorio, la longitud máxima de cada campo y, además, que
+                // la combinación categoría/unidad exista en el catálogo cerrado. Por eso
+                // no se repiten acá los chequeos sueltos de no-vacío y longitud.
+                var datos = ArticuloValidator.Validar(dto);
 
                 // Antes no se comprobaba: renombrar un artículo a un nombre ya usado
                 // por otro solo se detectaba cuando el índice único lo rechazaba con
                 // un error genérico. Se excluye el propio id para no chocar consigo mismo.
-                if (await _repository.ExisteNombreAsync(dto.Nombre, id))
-                    throw new DuplicateException($"Ya existe otro artículo con el nombre \"{dto.Nombre}\".");
+                if (await _repository.ExisteNombreAsync(datos.Nombre, id))
+                    throw new DuplicateException($"Ya existe otro artículo con el nombre \"{datos.Nombre}\".");
 
-                if (await _repository.ExisteCodigoAsync(dto.Codigo, id))
-                    throw new DuplicateException($"Ya existe otro artículo con el código \"{dto.Codigo}\".");
+                if (await _repository.ExisteCodigoAsync(datos.Codigo, id))
+                    throw new DuplicateException($"Ya existe otro artículo con el código \"{datos.Codigo}\".");
 
-                articulo.Nombre = dto.Nombre;
-                articulo.Codigo = string.IsNullOrWhiteSpace(dto.Codigo) ? null : dto.Codigo.Trim();
-                articulo.Categoria = dto.Categoria;
-                articulo.UnidadMedida = dto.UnidadMedida;
-                articulo.Ubicacion = string.IsNullOrWhiteSpace(dto.Ubicacion) ? null : dto.Ubicacion.Trim();
-                articulo.StockMinimo = dto.StockMinimo;
+                articulo.Nombre = datos.Nombre;
+                articulo.Codigo = datos.Codigo;
+                articulo.Categoria = datos.Categoria;
+                articulo.UnidadMedida = datos.UnidadMedida;
+                articulo.Ubicacion = datos.Ubicacion;
+                articulo.StockMinimo = datos.StockMinimo;
 
                 await _repository.ActualizarArticuloAsync(articulo);
             }
@@ -285,11 +352,47 @@ namespace SIGAC.Application.Services
         {
             try
             {
-                _ = await _repository.ObtenerArticuloPorIdAsync(dto.ArticuloId)
+                var articulo = await _repository.ObtenerArticuloPorIdAsync(dto.ArticuloId)
                     ?? throw new NotFoundException("El artículo no existe.");
+
+                // Va primero, antes de mirar la cantidad: es un rechazo categórico, no
+                // una cuestión de cuánto se pide. Si el artículo no se presta, avisar
+                // "la cantidad debe ser mayor a 0" mandaría al usuario a corregir algo
+                // que no es el problema.
+                //
+                // Solo se presta Equipo (mobiliario, equipo de cocina, herramientas).
+                // Alimento, Ropa y Calzado se consumen o se entregan en forma
+                // definitiva: no vuelven, así que no hay préstamo que registrar.
+                //
+                // SolicitudPrestamo.razor ya filtra el buscador por esta categoría,
+                // pero eso es una comodidad de la pantalla, no la regla: sin esta
+                // comprobación, cualquier otro camino al servicio puede crear la
+                // solicitud igual.
+                if (articulo.Categoria != CategoriasArticulo.Equipo)
+                {
+                    throw new ValidationException(
+                        $"Solo se pueden prestar artículos de categoría {CategoriasArticulo.Equipo}.");
+                }
 
                 if (dto.Cantidad <= 0)
                     throw new ValidationException("La cantidad debe ser mayor a 0.");
+
+                // Mismo chequeo que RegistrarSalidaDonacionAsync. Es una validación
+                // del momento del pedido, no una reserva: el stock puede cambiar antes
+                // de la aprobación, y AprobarPrestamoAsync lo vuelve a verificar (y el
+                // descuento lo cierra en SQL dentro de la transacción). Lo que evita es
+                // dejar entrar solicitudes que ya nacen imposibles de aprobar.
+                if (dto.Cantidad > articulo.StockActual)
+                    throw new ValidationException("La cantidad solicitada supera el stock disponible.");
+
+                // El DTO ya lleva [Required] en Actividad y Solicitante, pero eso solo
+                // corre en el EditForm del cliente; se repite acá para que un llamador
+                // que no pase por ese formulario no pueda dejarlos vacíos.
+                if (string.IsNullOrWhiteSpace(dto.Actividad))
+                    throw new ValidationException("La actividad es obligatoria.");
+
+                if (string.IsNullOrWhiteSpace(dto.Solicitante))
+                    throw new ValidationException("El solicitante es obligatorio.");
 
                 var solicitud = new SolicitudPrestamo
                 {
@@ -321,6 +424,25 @@ namespace SIGAC.Application.Services
 
                 var articulo = await _repository.ObtenerArticuloPorIdAsync(solicitud.ArticuloId)
                     ?? throw new NotFoundException("El artículo no existe.");
+
+                // Se revalida acá y no se confía en lo que se comprobó al crear la
+                // solicitud, por el mismo motivo que se revalidan el estado y el stock:
+                // el dato pudo cambiar en el medio. EditarArticuloAsync permite mover
+                // un artículo de categoría, así que un Equipo solicitado la semana
+                // pasada puede ser un Alimento hoy. La aprobación es el momento en que
+                // el artículo sale físicamente, así que es acá donde tiene que valer.
+                //
+                // También cubre las solicitudes creadas antes de que existiera la
+                // validación del alta: para esas, esta es la única barrera.
+                //
+                // Si una solicitud queda atrapada por este chequeo, el camino es
+                // rechazarla con su motivo, no aprobarla.
+                if (articulo.Categoria != CategoriasArticulo.Equipo)
+                {
+                    throw new ValidationException(
+                        $"No se puede aprobar: el artículo ya no es de categoría {CategoriasArticulo.Equipo} " +
+                        "y solo se prestan artículos de esa categoría.");
+                }
 
                 if (solicitud.Cantidad > articulo.StockActual)
                     throw new ValidationException("El stock disponible ya no alcanza para este préstamo.");
@@ -360,6 +482,12 @@ namespace SIGAC.Application.Services
                 if (solicitud.Estado != EstadoSolicitudPrestamo.Pendiente)
                     throw new ValidationException("La solicitud ya fue resuelta.");
 
+                // Antes no se comprobaba: solo lo impedía el botón deshabilitado del
+                // diálogo de rechazo, no el servicio. Un rechazo sin motivo no dice
+                // nada de por qué no se prestó el artículo.
+                if (string.IsNullOrWhiteSpace(dto.MotivoRechazo))
+                    throw new ValidationException("El motivo del rechazo es obligatorio.");
+
                 solicitud.Estado = EstadoSolicitudPrestamo.Rechazada;
                 solicitud.FechaResolucion = DateTime.Now;
                 solicitud.MotivoRechazo = dto.MotivoRechazo;
@@ -372,11 +500,15 @@ namespace SIGAC.Application.Services
             }
         }
 
-        public async Task<IEnumerable<SolicitudPrestamoListaDto>> ObtenerSolicitudesAsync()
+        // estado opcional: sin él devuelve todas, como antes. Con él, el filtrado se
+        // resuelve en SQL apoyado en IX_SolicitudesPrestamo_Estado, en vez de traer
+        // el histórico completo para descartarlo en memoria.
+        public async Task<IEnumerable<SolicitudPrestamoListaDto>> ObtenerSolicitudesAsync(
+            EstadoSolicitudPrestamo? estado = null)
         {
             try
             {
-                var solicitudes = await _repository.ObtenerSolicitudesAsync();
+                var solicitudes = await _repository.ObtenerSolicitudesAsync(estado);
 
                 return solicitudes.Select(s => new SolicitudPrestamoListaDto
                 {

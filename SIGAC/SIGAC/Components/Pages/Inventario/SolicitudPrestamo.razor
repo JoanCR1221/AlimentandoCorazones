@@ -2,6 +2,7 @@
 @using SIGAC.Application.DTOs.Inventario
 @using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces
+@using SIGAC.Domain
 @inject IInventarioService InventarioService
 @inject ISnackbar Snackbar
 
@@ -13,9 +14,21 @@
 
     <MudCard Class="pa-4">
         <MudCardContent>
+            @* MinCharacters="1" evita que al enfocar el campo se despliegue el catálogo
+               entero: con el valor por omisión (0) MudBlazor llama a SearchFunc con la
+               cadena vacía apenas el campo recibe el foco, y una búsqueda sin texto
+               devuelve la primera página completa de artículos.
+
+               DebounceInterval son los mismos 300 ms que ya usan RegistrarEntrada y el
+               buscador de ExistenciasInventario.
+
+               El HelperText explica por qué un alimento o una prenda no aparecen en la
+               lista: sin ese aviso, buscar "Arroz" y no obtener nada parece una falla. *@
             <MudAutocomplete T="ArticuloExistenciaDto" Label="Artículo" Variant="Variant.Outlined"
                               Value="articuloSeleccionado" ValueChanged="OnArticuloCambiado"
                               SearchFunc="BuscarArticulosAsync"
+                              MinCharacters="1" DebounceInterval="300"
+                              HelperText="@($"Escribí para buscar. Solo se prestan artículos de categoría {CategoriasArticulo.Equipo}.")"
                               ToStringFunc="@(a => a is null ? null : $"{a.Nombre} (stock: {a.StockActual} {a.UnidadMedida})")" />
 
             <MudNumericField T="int" @bind-Value="modelo.Cantidad" For="@(() => modelo.Cantidad)" Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
@@ -44,7 +57,28 @@
 
     private async Task<IEnumerable<ArticuloExistenciaDto>> BuscarArticulosAsync(string valor, CancellationToken cancellationToken)
     {
-        var resultado = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto { Nombre = valor });
+        // Guarda explícita, además del MinCharacters del componente: una búsqueda sin
+        // texto NO significa "todos los artículos" acá. El repositorio ignora el filtro
+        // de nombre cuando llega vacío y devolvería la primera página del catálogo.
+        if (string.IsNullOrWhiteSpace(valor))
+            return Array.Empty<ArticuloExistenciaDto>();
+
+        // La categoría va fija en Equipo: solo se presta mobiliario, equipo de cocina
+        // y herramientas. Los alimentos, la ropa y el calzado se entregan de forma
+        // definitiva, no se devuelven, así que no tiene sentido ofrecerlos acá.
+        //
+        // Se filtra en el servicio y no en memoria sobre el resultado porque
+        // FiltrosExistenciaDto ya admite la categoría y el repositorio la resuelve en
+        // SQL con el índice IX_Articulos_Categoria. Descartar en memoria además
+        // rompería con la paginación: el filtro se aplicaría después de recortar la
+        // página, y un Equipo que quedara fuera de los primeros resultados no
+        // aparecería nunca.
+        var resultado = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto
+        {
+            Nombre = valor,
+            Categoria = CategoriasArticulo.Equipo
+        });
+
         return resultado.Elementos;
     }
 
