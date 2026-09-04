@@ -34,12 +34,12 @@ namespace SIGAC.Application.Services
                 }
 
                 // Segunda regla anti-duplicados, independiente de cómo se escriba el
-                // nombre: el documento identifica a la persona. Los que no tienen
+                // nombre: el número de identidad identifica a la persona. Es global,
+                // no depende del tipo de documento elegido. Los que no tienen
                 // documento quedan fuera (NumIdentidad en null).
-                if (await _repository.ExisteDocumentoAsync(datos.TipoDocumento, datos.NumIdentidad))
+                if (await _repository.ExisteNumIdentidadAsync(datos.NumIdentidad))
                 {
-                    throw new DuplicateException(
-                        $"Ya existe un beneficiario registrado con ese documento: {DescribirDocumento(datos)} {datos.NumIdentidad}.");
+                    throw new DuplicateException("Ya existe un beneficiario registrado con ese número de identidad.");
                 }
 
                 var beneficiario = new Beneficiario
@@ -117,10 +117,9 @@ namespace SIGAC.Application.Services
 
                 // Se excluye el propio registro: editar sin tocar el documento no
                 // debe detectarse a sí mismo como duplicado.
-                if (await _repository.ExisteDocumentoAsync(datos.TipoDocumento, datos.NumIdentidad, id))
+                if (await _repository.ExisteNumIdentidadAsync(datos.NumIdentidad, id))
                 {
-                    throw new DuplicateException(
-                        $"Ya existe otro beneficiario registrado con ese documento: {DescribirDocumento(datos)} {datos.NumIdentidad}.");
+                    throw new DuplicateException("Ya existe otro beneficiario registrado con ese número de identidad.");
                 }
 
                 beneficiario.PrimerNombre = datos.PrimerNombre;
@@ -177,13 +176,6 @@ namespace SIGAC.Application.Services
                 throw new Exception("Error al consultar beneficiarios.", ex);
             }
         }
-
-        // "Otro" por sí solo no identifica el documento en el mensaje de error: se
-        // usa cómo se llama, que es lo que el usuario escribió.
-        private static string DescribirDocumento(BeneficiarioValidado datos) =>
-            TiposDocumento.RequiereNombreDelDocumento(datos.TipoDocumento) && !string.IsNullOrWhiteSpace(datos.TipoDocumentoOtro)
-                ? datos.TipoDocumentoOtro
-                : datos.TipoDocumento;
 
         public Task ActivarBeneficiarioAsync(int id) => CambiarEstadoAsync(id, true);
 
