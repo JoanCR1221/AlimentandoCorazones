@@ -69,6 +69,10 @@ namespace SIGAC.Application.Interfaces
         Task AgregarSolicitudPrestamoAsync(SolicitudPrestamo solicitud);
         Task<SolicitudPrestamo?> ObtenerSolicitudPorIdAsync(int id);
         Task ActualizarSolicitudAsync(SolicitudPrestamo solicitud);
-        Task<IEnumerable<SolicitudPrestamo>> ObtenerSolicitudesAsync();
+
+        // estado opcional: null devuelve todas. El filtro se resuelve en SQL sobre
+        // IX_SolicitudesPrestamo_Estado, que existe justamente para la bandeja de
+        // solicitudes pendientes.
+        Task<IEnumerable<SolicitudPrestamo>> ObtenerSolicitudesAsync(EstadoSolicitudPrestamo? estado = null);
     }
 }
