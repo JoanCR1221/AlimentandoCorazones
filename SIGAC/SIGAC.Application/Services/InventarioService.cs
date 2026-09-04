@@ -40,6 +40,12 @@ namespace SIGAC.Application.Services
 
                 var articulo = await _repository.ObtenerArticuloPorNombreAsync(nombreArticulo);
 
+                // La entrada se registra el día en que ocurre: una fecha futura no
+                // representa un movimiento real todavía. Antes solo lo restringía el
+                // calendario del formulario (MaxDate), sin repetirlo en el servidor.
+                if (dto.Fecha.Date > DateTime.Today)
+                    throw new ValidationException("La fecha de la entrada no puede ser futura.");
+
                 // El artículo nuevo se arma acá pero NO se guarda por separado: se le
                 // pasa al repositorio para que lo cree dentro de la misma transacción
                 // que la entrada y el stock. Guardarlo antes, por su cuenta, dejaba un
@@ -48,19 +54,39 @@ namespace SIGAC.Application.Services
 
                 if (articulo is null)
                 {
-                    // Categoría y unidad solo se validan cuando hay artículo nuevo:
-                    // son los únicos casos en que se persisten. Si el artículo ya
-                    // existe, el formulario deshabilita ambos campos y el servicio usa
-                    // los del catálogo, así que exigirlos acá rechazaría entradas de
-                    // artículos viejos cuya categoría no esté en el catálogo actual.
+                    // Categoría, unidad, código y ubicación solo se validan cuando hay
+                    // artículo nuevo: son los únicos casos en que se persisten. Si el
+                    // artículo ya existe, el formulario deshabilita esos campos y el
+                    // servicio usa los que ya tiene guardados, así que exigirlos acá
+                    // rechazaría entradas de artículos viejos cuya categoría no esté en
+                    // el catálogo actual.
+                    //
+                    // ValidarCategoriaYUnidad cubre lo obligatorio, la longitud máxima
+                    // y además que la combinación exista en el catálogo cerrado.
                     var (categoria, unidadMedida) =
                         ArticuloValidator.ValidarCategoriaYUnidad(dto.Categoria, dto.UnidadMedida);
+
+                    // Normalizados con el mismo criterio que EditarArticuloAsync: el
+                    // valor que se compara contra el índice único tiene que ser el
+                    // mismo que se persiste. Comparar "P001 " en crudo y guardar
+                    // "P001" dejaba pasar el chequeo para chocar después contra
+                    // UX_Articulos_Codigo.
+                    var codigo = ArticuloValidator.ValidarCodigo(dto.Codigo);
+                    var ubicacion = ArticuloValidator.ValidarUbicacion(dto.Ubicacion);
+
+                    // Antes no se comprobaba: dos artículos nuevos con el mismo código
+                    // chocarían recién en la base, con un mensaje genérico que no dice
+                    // que fue el código (y no el nombre) lo que coincidió.
+                    if (await _repository.ExisteCodigoAsync(codigo))
+                        throw new DuplicateException($"Ya existe otro artículo con el código \"{codigo}\".");
 
                     articuloNuevo = new Articulo
                     {
                         Nombre = nombreArticulo,
+                        Codigo = codigo,
                         Categoria = categoria,
                         UnidadMedida = unidadMedida,
+                        Ubicacion = ubicacion,
                         StockActual = 0
                     };
                 }
@@ -158,6 +184,24 @@ namespace SIGAC.Application.Services
             }
         }
 
+        public async Task<int> ContarArticulosStockBajoAsync()
+        {
+            try
+            {
+                return await _repository.ContarStockBajoAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al consultar los artículos con stock bajo.", ex);
+            }
+        }
+
+        // Sin ObtenerCategoriasAsync ni ObtenerUnidadesMedidaAsync: pertenecían al
+        // catálogo ABIERTO (sugerencias armadas con un DISTINCT de la tabla más unas
+        // semillas), que se descartó en favor del catálogo cerrado de
+        // CategoriasArticulo/UnidadesMedidaArticulo. Las pantallas leen las opciones
+        // directo de esas clases, así que no hay a quién servirle esa lista.
+
         public async Task<ArticuloEditarDto?> ObtenerParaEditarAsync(int id)
         {
             try
@@ -195,6 +239,9 @@ namespace SIGAC.Application.Services
                 // antes el código se comprobaba crudo pero se guardaba con Trim(), así
                 // que "P001 " pasaba el chequeo de unicidad y después chocaba contra
                 // UX_Articulos_Codigo al guardarse como "P001".
+                // Cubre lo obligatorio, la longitud máxima de cada campo y, además, que
+                // la combinación categoría/unidad exista en el catálogo cerrado. Por eso
+                // no se repiten acá los chequeos sueltos de no-vacío y longitud.
                 var datos = ArticuloValidator.Validar(dto);
 
                 // Antes no se comprobaba: renombrar un artículo a un nombre ya usado
@@ -338,6 +385,15 @@ namespace SIGAC.Application.Services
                 if (dto.Cantidad > articulo.StockActual)
                     throw new ValidationException("La cantidad solicitada supera el stock disponible.");
 
+                // El DTO ya lleva [Required] en Actividad y Solicitante, pero eso solo
+                // corre en el EditForm del cliente; se repite acá para que un llamador
+                // que no pase por ese formulario no pueda dejarlos vacíos.
+                if (string.IsNullOrWhiteSpace(dto.Actividad))
+                    throw new ValidationException("La actividad es obligatoria.");
+
+                if (string.IsNullOrWhiteSpace(dto.Solicitante))
+                    throw new ValidationException("El solicitante es obligatorio.");
+
                 var solicitud = new SolicitudPrestamo
                 {
                     ArticuloId = dto.ArticuloId,
@@ -424,6 +480,12 @@ namespace SIGAC.Application.Services
 
                 if (solicitud.Estado != EstadoSolicitudPrestamo.Pendiente)
                     throw new ValidationException("La solicitud ya fue resuelta.");
+
+                // Antes no se comprobaba: solo lo impedía el botón deshabilitado del
+                // diálogo de rechazo, no el servicio. Un rechazo sin motivo no dice
+                // nada de por qué no se prestó el artículo.
+                if (string.IsNullOrWhiteSpace(dto.MotivoRechazo))
+                    throw new ValidationException("El motivo del rechazo es obligatorio.");
 
                 solicitud.Estado = EstadoSolicitudPrestamo.Rechazada;
                 solicitud.MotivoRechazo = dto.MotivoRechazo;

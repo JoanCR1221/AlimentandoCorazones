@@ -9,6 +9,9 @@ namespace SIGAC.Application.Interfaces
         Task RegistrarEntradaAsync(EntradaInventarioCrearDto dto);
         Task RegistrarSalidaDonacionAsync(SalidaDonacionCrearDto dto);
         Task<ResultadoPaginado<ArticuloExistenciaDto>> ObtenerExistenciasAsync(FiltrosExistenciaDto filtros);
+        // Lo consume la alerta de stock bajo de la portada.
+        Task<int> ContarArticulosStockBajoAsync();
+
         Task<ArticuloEditarDto?> ObtenerParaEditarAsync(int id);
         Task EditarArticuloAsync(int id, ArticuloEditarDto dto);
         Task EliminarArticuloAsync(int id);

@@ -36,9 +36,15 @@
             @if (articuloExistente is not null)
             {
                 <MudAlert Severity="Severity.Info" Class="mt-2">
-                    Ya existe este artículo (stock actual: @articuloExistente.StockActual @articuloExistente.UnidadMedida). Se usará su categoría y unidad de medida registradas.
+                    Ya existe este artículo (stock actual: @articuloExistente.StockActual @articuloExistente.UnidadMedida). Se usará su categoría, unidad de medida, código y ubicación registrados.
                 </MudAlert>
             }
+
+            @* Código y Ubicación quedan deshabilitados igual que categoría y unidad
+               cuando el artículo ya existe: en ese caso el servicio usa los valores
+               que el artículo ya tiene guardados y descarta los del formulario. *@
+            <MudTextField @bind-Value="modelo.Codigo" Label="Código (opcional)" Variant="Variant.Outlined" Class="mt-4"
+                          Disabled="articuloExistente is not null" />
 
             <MudSelect T="string" @bind-Value="modelo.Categoria" For="@(() => modelo.Categoria)"
                        @bind-Value:after="OnCategoriaCambiada"
@@ -62,6 +68,9 @@
                     <MudSelectItem T="string" Value="@unidad">@unidad</MudSelectItem>
                 }
             </MudSelect>
+
+            <MudTextField @bind-Value="modelo.Ubicacion" Label="Ubicación (opcional)" Variant="Variant.Outlined" Class="mt-4"
+                          Disabled="articuloExistente is not null" />
 
             <MudNumericField T="int" @bind-Value="modelo.Cantidad" For="@(() => modelo.Cantidad)"
                               Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
@@ -126,6 +135,10 @@
         set => modelo.Fecha = value ?? default;
     }
 
+    // Sin OnInitializedAsync ni listas cacheadas de categorías/unidades: las opciones
+    // de esos dos desplegables salen del catálogo cerrado en SIGAC.Domain, que se lee
+    // directo desde el marcado. No hay nada que traer del servidor al abrir.
+
     private async Task<IEnumerable<string>> BuscarNombresArticuloAsync(string valor, CancellationToken cancellationToken)
     {
         // Guarda explícita, además del MinCharacters del componente: una búsqueda sin
@@ -155,6 +168,8 @@
         {
             modelo.Categoria = articuloExistente.Categoria;
             modelo.UnidadMedida = articuloExistente.UnidadMedida;
+            modelo.Codigo = articuloExistente.Codigo;
+            modelo.Ubicacion = articuloExistente.Ubicacion;
         }
     }
 
@@ -210,6 +225,10 @@
             gastoOperativoSeleccionado = null;
         }
         catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (DuplicateException ex)
         {
             Snackbar.Add(ex.Message, Severity.Warning);
         }
