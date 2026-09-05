@@ -183,10 +183,16 @@ public sealed class AparienciaService : IAsyncDisposable
         {
             PaletteLight = new PaletteLight
             {
-                Primary = "#00695C",
-                Secondary = "#4A6572",
-                Tertiary = "#558B2F",
-                AppbarBackground = "#00695C",
+                // Colores del logo de Alimentando Corazones: verde esmeralda,
+                // naranja y verde lima.
+                Primary = "#00A88E",
+                Secondary = "#F58220",
+                Tertiary = "#A6CE39",
+                // Esmeralda un punto más profundo que Primary (mismo matiz y
+                // saturación, luminosidad 26% en vez de 33%): con #00A88E el texto
+                // blanco de la barra daba 3.00:1, por debajo del 4.5:1 que pide
+                // WCAG AA para texto normal. Con este tono llega a 4.51:1.
+                AppbarBackground = "#008672",
                 AppbarText = "#FFFFFF",
                 Background = "#F5F5F0",
                 Surface = "#FFFFFF",
@@ -194,14 +200,16 @@ public sealed class AparienciaService : IAsyncDisposable
                 TextSecondary = "#424242",
                 DrawerBackground = "#FFFFFF",
                 DrawerText = "#1A1A1A",
-                DrawerIcon = "#00695C"
+                DrawerIcon = "#00A88E"
             },
             PaletteDark = new PaletteDark
             {
-                Primary = "#4DB6AC",
-                Secondary = "#78909C",
-                Tertiary = "#AED581",
-                AppbarBackground = "#004D40",
+                // Versiones más claras y suaves de los mismos colores: los tonos
+                // vivos del logo resultan demasiado intensos sobre fondo oscuro.
+                Primary = "#4DD0B1",
+                Secondary = "#FFA35C",
+                Tertiary = "#C5E17A",
+                AppbarBackground = "#00695C",
                 AppbarText = "#FFFFFF",
                 Background = "#121212",
                 Surface = "#1E1E1E",
@@ -209,7 +217,7 @@ public sealed class AparienciaService : IAsyncDisposable
                 TextSecondary = "#BDBDBD",
                 DrawerBackground = "#1E1E1E",
                 DrawerText = "#F5F5F5",
-                DrawerIcon = "#4DB6AC"
+                DrawerIcon = "#4DD0B1"
             },
             LayoutProperties = new LayoutProperties
             {
