@@ -100,18 +100,19 @@ namespace SIGAC.Infrastructure.Data
                     .IsUnique()
                     .HasDatabaseName("UX_Beneficiarios_Nombres_Apellidos_FechaNacimiento");
 
-                // Unicidad de documento: no puede haber dos beneficiarios con el
-                // mismo tipo y número. Es la combinación y no el número solo, porque
-                // cédula, DIMEX y pasaportes de distintos países tienen numeraciones
-                // independientes que podrían coincidir por casualidad.
+                // Unicidad del número de identidad: no puede haber dos beneficiarios
+                // con el mismo número, sin importar el tipo de documento. Es el
+                // número solo y no la combinación con el tipo, porque un mismo
+                // número cargado como cédula y como "Otro" es la misma persona
+                // escrita dos veces: incluir el tipo dejaba pasar ese duplicado.
                 //
                 // Índice FILTRADO: los beneficiarios sin documento guardan
                 // NumIdentidad en NULL y quedan fuera de la regla. Sin el filtro,
                 // todas las personas indocumentadas chocarían entre sí.
-                entity.HasIndex(b => new { b.TipoDocumento, b.NumIdentidad })
+                entity.HasIndex(b => b.NumIdentidad)
                     .IsUnique()
                     .HasFilter("[NumIdentidad] IS NOT NULL AND [NumIdentidad] <> ''")
-                    .HasDatabaseName("UX_Beneficiarios_TipoDocumento_NumIdentidad");
+                    .HasDatabaseName("UX_Beneficiarios_NumIdentidad");
 
                 // Índices en los campos de filtro frecuente. El índice único anterior
                 // ya cubre las búsquedas que empiezan por PrimerNombre.
@@ -458,6 +459,11 @@ namespace SIGAC.Infrastructure.Data
                 entity.Property(s => s.MotivoRechazo)
                     .IsUnicode(false)
                     .HasMaxLength(500);
+
+                // Sin IsRequired(): es opcional porque una solicitud Pendiente todavía no
+                // tiene resolución. Queda en NULL hasta que se aprueba o se rechaza, y
+                // ese NULL es justamente lo que distingue "sin resolver" de "resuelta".
+                entity.Property(s => s.FechaResolucion);
 
                 // Relación FK obligatoria con Articulo. Restrict impide borrar un
                 // artículo que tenga solicitudes de préstamo asociadas.

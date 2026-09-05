@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SIGAC.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using SIGAC.Infrastructure.Data;
 namespace SIGAC.Infrastructure.Migrations
 {
     [DbContext(typeof(SigacDbContext))]
-    partial class SigacDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260831043005_UnicidadGlobalNumIdentidadBeneficiario")]
+    partial class UnicidadGlobalNumIdentidadBeneficiario
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -36,11 +39,6 @@ namespace SIGAC.Infrastructure.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(100)");
 
-                    b.Property<string>("Codigo")
-                        .HasMaxLength(50)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(50)");
-
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -53,11 +51,6 @@ namespace SIGAC.Infrastructure.Migrations
                     b.Property<int>("StockMinimo")
                         .HasColumnType("int");
 
-                    b.Property<string>("Ubicacion")
-                        .HasMaxLength(100)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(100)");
-
                     b.Property<string>("UnidadMedida")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -67,11 +60,6 @@ namespace SIGAC.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Categoria");
-
-                    b.HasIndex("Codigo")
-                        .IsUnique()
-                        .HasDatabaseName("UX_Articulos_Codigo")
-                        .HasFilter("[Codigo] IS NOT NULL AND [Codigo] <> ''");
 
                     b.HasIndex("Nombre")
                         .IsUnique()
@@ -343,9 +331,6 @@ namespace SIGAC.Infrastructure.Migrations
                         .HasColumnType("varchar(20)");
 
                     b.Property<DateTime>("Fecha")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("FechaResolucion")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("MotivoRechazo")
