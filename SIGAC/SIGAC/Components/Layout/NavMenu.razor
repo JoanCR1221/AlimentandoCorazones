@@ -18,6 +18,12 @@
         <MudNavLink Href="/beneficiarios/registrar" Icon="@Icons.Material.Filled.PersonAdd">
             Registrar Beneficiario
         </MudNavLink>
+        <MudNavLink Href="/donaciones/entregas/registrar" Icon="@Icons.Material.Filled.LocalShipping">
+            Entregar Donación
+        </MudNavLink>
+        <MudNavLink Href="/donaciones/entregas/historial" Icon="@Icons.Material.Filled.History">
+            Historial de Entregas
+        </MudNavLink>
     </MudNavGroup>
 
     <MudNavGroup Title="Asistencia"
@@ -72,18 +78,12 @@
         <MudNavLink Href="/donaciones/historial" Icon="@Icons.Material.Filled.History">
             Historial de Donaciones
         </MudNavLink>
-        <MudNavLink Href="/donaciones/entregas/registrar" Icon="@Icons.Material.Filled.LocalShipping">
-            Registrar Entrega
-        </MudNavLink>
-        <MudNavLink Href="/donaciones/entregas/historial" Icon="@Icons.Material.Filled.History">
-            Historial de Entregas
-        </MudNavLink>
     </MudNavGroup>
 
     <MudDivider Class="my-2" />
 
-    <MudNavLink Href="/prototipos" Icon="@Icons.Material.Filled.Palette">
-        Prototipos de apariencia
+    <MudNavLink Href="/configuracion" Icon="@Icons.Material.Filled.Settings">
+        Configuraciones
     </MudNavLink>
 </MudNavMenu>
 
@@ -123,7 +123,12 @@
     private bool EstaEnBeneficiarios()
     {
         var ruta = Navigation.ToBaseRelativePath(Navigation.Uri);
-        return ruta.StartsWith("beneficiarios", StringComparison.OrdinalIgnoreCase);
+
+        // "Entregar Donación" e "Historial de Entregas" viven acá aunque su ruta
+        // siga siendo /donaciones/entregas/...: son la salida de una donación
+        // hacia un beneficiario o una comunidad, no el alta de la donación en sí.
+        return ruta.StartsWith("beneficiarios", StringComparison.OrdinalIgnoreCase)
+            || ruta.StartsWith("donaciones/entregas", StringComparison.OrdinalIgnoreCase);
     }
 
     private bool EstaEnAsistencia()
@@ -140,11 +145,14 @@
 
     // Dos prefijos y no uno: Donantes y Donaciones son pantallas del mismo grupo
     // de navegación pero con rutas separadas ("/donantes/..." y "/donaciones/...").
+    // Excluye donaciones/entregas a propósito: esas dos pantallas se mudaron al
+    // grupo Beneficiarios (ver EstaEnBeneficiarios), aunque la ruta no cambió.
     private bool EstaEnDonaciones()
     {
         var ruta = Navigation.ToBaseRelativePath(Navigation.Uri);
         return ruta.StartsWith("donantes", StringComparison.OrdinalIgnoreCase)
-            || ruta.StartsWith("donaciones", StringComparison.OrdinalIgnoreCase);
+            || (ruta.StartsWith("donaciones", StringComparison.OrdinalIgnoreCase)
+                && !ruta.StartsWith("donaciones/entregas", StringComparison.OrdinalIgnoreCase));
     }
 
     private void OnBeneficiariosExpandedChanged(bool expandido)

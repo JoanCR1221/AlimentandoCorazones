@@ -1,17 +1,22 @@
 html {
+    /* Tamaño base: el slider de Configuraciones lo sobrescribe con un estilo
+       inline (ver apariencia.js), este 100% es solo el valor antes de que
+       cargue JS o si nunca se tocó el control. */
     font-size: 100%;
-}
-
-html[data-escala="pequena"] {
-    font-size: 87.5%;
-}
-
-html[data-escala="grande"] {
-    font-size: 125%;
 }
 
 html, body {
     font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+/* La barra superior es position:fixed con un z-index alto; MudBlazor le suma
+   a .mud-main-content un padding-top automático para no quedar tapado por
+   ella, pero la utilidad "pa-4" (padding parejo en los cuatro lados,
+   !important) lo pisa. Resultado: el título de cada pantalla queda debajo
+   de la barra. Clase propia en vez de pa-4 para no perder esa separación. */
+.sigac-main {
+    padding: 1rem;
+    padding-top: calc(var(--mud-appbar-height, 64px) + 1rem);
 }
 
 html[data-alto-contraste="true"] .mud-input-outlined .mud-input-outlined-border {

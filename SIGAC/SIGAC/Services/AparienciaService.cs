@@ -3,15 +3,15 @@ using MudBlazor;
 
 namespace SIGAC.Services;
 
-public enum EscalaFuente
-{
-    Pequena,
-    Normal,
-    Grande
-}
-
 public sealed class AparienciaService : IAsyncDisposable
 {
+    // Rango del control deslizante de tamaño de letra. Porcentaje aplicado
+    // directo como font-size del <html> (ver apariencia.js): 100 es el tamaño
+    // del navegador sin ajustar, no un valor de diseño arbitrario.
+    public const int TamanoFuenteMinimo = 80;
+    public const int TamanoFuenteMaximo = 150;
+    public const int TamanoFuentePredeterminado = 100;
+
     private const string StorageKey = "sigac-apariencia";
     private readonly IJSRuntime _js;
     private IJSObjectReference? _module;
@@ -24,7 +24,7 @@ public sealed class AparienciaService : IAsyncDisposable
 
     public bool EsOscuro { get; private set; }
     public bool AltoContraste { get; private set; }
-    public EscalaFuente EscalaFuente { get; private set; } = EscalaFuente.Normal;
+    public int TamanoFuente { get; private set; } = TamanoFuentePredeterminado;
 
     public MudTheme Tema => ConstruirTema();
 
@@ -44,7 +44,11 @@ public sealed class AparienciaService : IAsyncDisposable
         {
             EsOscuro = settings.EsOscuro;
             AltoContraste = settings.AltoContraste;
-            EscalaFuente = ParseEscala(settings.Escala);
+
+            // Acotado y no asignado directo: una preferencia guardada por una
+            // versión anterior (o corrompida a mano en localStorage) no puede
+            // dejar el texto ilegible por fuera del rango que el slider ofrece.
+            TamanoFuente = Math.Clamp(settings.TamanoFuente, TamanoFuenteMinimo, TamanoFuenteMaximo);
         }
 
         await AplicarAlDocumentoAsync();
@@ -74,23 +78,17 @@ public sealed class AparienciaService : IAsyncDisposable
         await GuardarYAplicarAsync();
     }
 
-    public async Task SetEscalaFuenteAsync(EscalaFuente escala)
+    public async Task SetTamanoFuenteAsync(int porcentaje)
     {
-        if (EscalaFuente == escala)
+        var acotado = Math.Clamp(porcentaje, TamanoFuenteMinimo, TamanoFuenteMaximo);
+        if (TamanoFuente == acotado)
         {
             return;
         }
 
-        EscalaFuente = escala;
+        TamanoFuente = acotado;
         await GuardarYAplicarAsync();
     }
-
-    public string EscalaFuenteAtributo => EscalaFuente switch
-    {
-        EscalaFuente.Pequena => "pequena",
-        EscalaFuente.Grande => "grande",
-        _ => "normal"
-    };
 
     private async Task GuardarYAplicarAsync()
     {
@@ -99,7 +97,7 @@ public sealed class AparienciaService : IAsyncDisposable
         {
             EsOscuro = EsOscuro,
             AltoContraste = AltoContraste,
-            Escala = EscalaFuenteAtributo
+            TamanoFuente = TamanoFuente
         });
         await AplicarAlDocumentoAsync();
         OnChange?.Invoke();
@@ -112,7 +110,7 @@ public sealed class AparienciaService : IAsyncDisposable
         {
             EsOscuro = EsOscuro,
             AltoContraste = AltoContraste,
-            Escala = EscalaFuenteAtributo
+            TamanoFuente = TamanoFuente
         });
     }
 
@@ -121,13 +119,6 @@ public sealed class AparienciaService : IAsyncDisposable
         _module ??= await _js.InvokeAsync<IJSObjectReference>("import", "./js/apariencia.js");
         return _module;
     }
-
-    private static EscalaFuente ParseEscala(string? escala) => escala switch
-    {
-        "pequena" => EscalaFuente.Pequena,
-        "grande" => EscalaFuente.Grande,
-        _ => EscalaFuente.Normal
-    };
 
     private MudTheme ConstruirTema()
     {
@@ -239,6 +230,6 @@ public sealed class AparienciaService : IAsyncDisposable
     {
         public bool EsOscuro { get; set; }
         public bool AltoContraste { get; set; }
-        public string Escala { get; set; } = "normal";
+        public int TamanoFuente { get; set; } = TamanoFuentePredeterminado;
     }
 }

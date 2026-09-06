@@ -26,7 +26,7 @@
                     AnchorOrigin="Origin.BottomRight"
                     TransformOrigin="Origin.TopRight"
                     Class="mt-1">
-            <MudPaper Class="pa-3" Elevation="8" Style="min-width: 15rem;">
+            <MudPaper Class="pa-3" Elevation="8" Style="min-width: 16rem;">
                 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
                     <MudText Typo="Typo.subtitle2">Lectura</MudText>
                     <MudIconButton Icon="@Icons.Material.Filled.Close"
@@ -44,26 +44,14 @@
                            Class="mb-3"
                            aria-label="Alternar alto contraste" />
 
-                <MudText Typo="Typo.caption" Class="mb-1 mud-text-secondary">Tamaño de letra</MudText>
-                <MudButtonGroup Size="Size.Small" Color="Color.Primary">
-                    <MudButton Variant="@(Apariencia.EscalaFuente == EscalaFuente.Pequena ? Variant.Filled : Variant.Outlined)"
-                               Disabled="@(Apariencia.EscalaFuente == EscalaFuente.Pequena)"
-                               OnClick="@(() => SetEscalaAsync(EscalaFuente.Pequena))"
-                               aria-label="Reducir tamaño de letra">
-                        A−
-                    </MudButton>
-                    <MudButton Variant="@(Apariencia.EscalaFuente == EscalaFuente.Normal ? Variant.Filled : Variant.Outlined)"
-                               OnClick="@(() => SetEscalaAsync(EscalaFuente.Normal))"
-                               aria-label="Tamaño de letra normal">
-                        A
-                    </MudButton>
-                    <MudButton Variant="@(Apariencia.EscalaFuente == EscalaFuente.Grande ? Variant.Filled : Variant.Outlined)"
-                               Disabled="@(Apariencia.EscalaFuente == EscalaFuente.Grande)"
-                               OnClick="@(() => SetEscalaAsync(EscalaFuente.Grande))"
-                               aria-label="Aumentar tamaño de letra">
-                        A+
-                    </MudButton>
-                </MudButtonGroup>
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Tamaño de letra</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Apariencia.TamanoFuente%</MudText>
+                </MudStack>
+                <MudSlider T="int" Value="Apariencia.TamanoFuente" ValueChanged="SetTamanoFuenteAsync"
+                           Min="AparienciaService.TamanoFuenteMinimo" Max="AparienciaService.TamanoFuenteMaximo"
+                           Step="5" Color="Color.Primary" Class="mt-1"
+                           aria-label="Ajustar tamaño de letra" />
             </MudPaper>
         </MudPopover>
     </div>
@@ -87,9 +75,9 @@
         await Apariencia.SetAltoContrasteAsync(valor);
     }
 
-    private async Task SetEscalaAsync(EscalaFuente escala)
+    private async Task SetTamanoFuenteAsync(int porcentaje)
     {
-        await Apariencia.SetEscalaFuenteAsync(escala);
+        await Apariencia.SetTamanoFuenteAsync(porcentaje);
     }
 
     public void Dispose()
