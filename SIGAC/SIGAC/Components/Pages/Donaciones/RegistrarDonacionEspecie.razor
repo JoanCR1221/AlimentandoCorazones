@@ -1,0 +1,200 @@
+@page "/donaciones/especie/registrar"
+@using SIGAC.Application.DTOs
+@using SIGAC.Application.DTOs.Donaciones
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@using SIGAC.Domain
+@inject IDonantesService DonantesService
+@inject IDonacionesService DonacionesService
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h4" Class="mb-4">Registrar donación en especie</MudText>
+
+<EditForm Model="modelo" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <MudCard Class="pa-4">
+        <MudCardContent>
+            <MudAutocomplete T="DonanteListaDto" Label="Donante" Variant="Variant.Outlined"
+                              Value="donanteSeleccionado" ValueChanged="OnDonanteSeleccionadoAsync"
+                              SearchFunc="BuscarDonantesActivosAsync" ToStringFunc="@(d => d?.Nombre)"
+                              MinCharacters="1" DebounceInterval="300" Clearable="true"
+                              Disabled="panelNuevoDonanteAbierto"
+                              HelperText="Escribí para buscar un donante ya registrado." />
+
+            <MudExpansionPanels Class="mt-4">
+                <MudExpansionPanel Text="Registrar donante nuevo" Expanded="panelNuevoDonanteAbierto" ExpandedChanged="OnPanelNuevoDonanteCambiadoAsync">
+                    <MudTextField @bind-Value="nuevoDonante.Nombre" Label="Nombre" Variant="Variant.Outlined" />
+                    <MudSelect T="string" @bind-Value="nuevoDonante.TipoPersona" Label="Tipo de persona" Variant="Variant.Outlined" Class="mt-4">
+                        @foreach (var tipo in TiposPersonaDonante.Todos)
+                        {
+                            <MudSelectItem T="string" Value="@tipo">@tipo</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudTextField @bind-Value="nuevoDonante.Telefono" Label="Teléfono (opcional)" Variant="Variant.Outlined" Class="mt-4" />
+                    <MudTextField @bind-Value="nuevoDonante.Correo" Label="Correo (opcional)" Variant="Variant.Outlined" Class="mt-4" />
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+
+            <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
+            <MudTextField @bind-Value="modelo.Observaciones" Label="Observaciones (opcional)" Variant="Variant.Outlined" Class="mt-4" Lines="2" />
+
+            <MudText Typo="Typo.h6" Class="mt-6 mb-2">Artículos donados</MudText>
+
+            @for (var i = 0; i < modelo.Articulos.Count; i++)
+            {
+                var indice = i;
+                var articulo = modelo.Articulos[indice];
+
+                <MudPaper Class="pa-4 mb-3" Outlined="true">
+                    <MudTextField @bind-Value="articulo.NombreArticulo" Label="Nombre del artículo" Variant="Variant.Outlined" />
+
+                    <MudSelect T="string" Value="articulo.Categoria" ValueChanged="@(valor => OnCategoriaCambiada(indice, valor))"
+                               Label="Categoría" Variant="Variant.Outlined" Class="mt-4">
+                        @foreach (var categoria in CategoriasArticulo.Todos)
+                        {
+                            <MudSelectItem T="string" Value="@categoria">@categoria</MudSelectItem>
+                        }
+                    </MudSelect>
+
+                    @* Mismas opciones que valida el servicio: filtradas por la categoría
+                       elegida en esta línea, igual que en Inventario. *@
+                    <MudSelect T="string" @bind-Value="articulo.UnidadMedida" Label="Unidad de medida" Variant="Variant.Outlined" Class="mt-4"
+                               Disabled="string.IsNullOrWhiteSpace(articulo.Categoria)"
+                               HelperText="@(string.IsNullOrWhiteSpace(articulo.Categoria) ? "Elegí primero una categoría." : null)">
+                        @foreach (var unidad in UnidadesMedidaArticulo.ObtenerUnidadesValidas(articulo.Categoria))
+                        {
+                            <MudSelectItem T="string" Value="@unidad">@unidad</MudSelectItem>
+                        }
+                    </MudSelect>
+
+                    <MudNumericField T="int" @bind-Value="articulo.Cantidad" Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
+
+                    <MudButton Variant="Variant.Text" Color="Color.Error" Class="mt-2"
+                               Disabled="modelo.Articulos.Count == 1"
+                               OnClick="@(() => EliminarArticulo(indice))">
+                        Quitar artículo
+                    </MudButton>
+                </MudPaper>
+            }
+
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="AgregarArticulo">Agregar artículo</MudButton>
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+        </MudCardActions>
+    </MudCard>
+</EditForm>
+
+@code {
+    private DonacionEspecieCrearDto modelo = new();
+    private DonanteListaDto? donanteSeleccionado;
+    private bool panelNuevoDonanteAbierto;
+    private NuevoDonanteDto nuevoDonante = new();
+
+    private DateTime? fecha
+    {
+        get => modelo.Fecha == default ? null : modelo.Fecha;
+        set => modelo.Fecha = value ?? default;
+    }
+
+    protected override void OnInitialized()
+    {
+        modelo.Fecha = DateTime.Today;
+        modelo.Articulos.Add(new DetalleArticuloDto());
+    }
+
+    private async Task<IEnumerable<DonanteListaDto>> BuscarDonantesActivosAsync(string valor, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(valor))
+            return Array.Empty<DonanteListaDto>();
+
+        var resultado = await DonantesService.ObtenerDonantesAsync(new FiltrosDonanteDto
+        {
+            Nombre = valor,
+            Estado = true
+        });
+
+        return resultado.Elementos;
+    }
+
+    private Task OnDonanteSeleccionadoAsync(DonanteListaDto? valor)
+    {
+        donanteSeleccionado = valor;
+
+        if (valor is not null && panelNuevoDonanteAbierto)
+        {
+            panelNuevoDonanteAbierto = false;
+            nuevoDonante = new();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnPanelNuevoDonanteCambiadoAsync(bool abierto)
+    {
+        panelNuevoDonanteAbierto = abierto;
+
+        if (abierto)
+        {
+            donanteSeleccionado = null;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    // Al cambiar de categoría, la unidad ya elegida en ESA línea puede dejar de
+    // pertenecer a la nueva lista. Mismo criterio que RegistrarEntradaInventario.
+    private void OnCategoriaCambiada(int indice, string? categoria)
+    {
+        var articulo = modelo.Articulos[indice];
+        articulo.Categoria = categoria ?? string.Empty;
+
+        if (!UnidadesMedidaArticulo.EsValidaParaCategoria(articulo.Categoria, articulo.UnidadMedida))
+            articulo.UnidadMedida = string.Empty;
+    }
+
+    private void AgregarArticulo()
+    {
+        modelo.Articulos.Add(new DetalleArticuloDto());
+    }
+
+    private void EliminarArticulo(int indice)
+    {
+        // Siempre queda al menos una línea: una donación en especie sin artículos
+        // no registra nada, mismo mínimo que exige el servicio.
+        if (modelo.Articulos.Count > 1)
+            modelo.Articulos.RemoveAt(indice);
+    }
+
+    private async Task Guardar()
+    {
+        modelo.DonanteId = panelNuevoDonanteAbierto ? null : donanteSeleccionado?.Id;
+        modelo.NuevoDonante = panelNuevoDonanteAbierto ? nuevoDonante : null;
+
+        try
+        {
+            await DonacionesService.RegistrarDonacionEspecieAsync(modelo);
+            Snackbar.Add("Donación registrada correctamente.", Severity.Success);
+
+            modelo = new() { Fecha = DateTime.Today };
+            modelo.Articulos.Add(new DetalleArticuloDto());
+            donanteSeleccionado = null;
+            panelNuevoDonanteAbierto = false;
+            nuevoDonante = new();
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (NotFoundException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo registrar la donación. Intentá de nuevo.", Severity.Error);
+        }
+    }
+}

@@ -33,6 +33,10 @@ builder.Services.AddScoped<IAsistenciaService, AsistenciaService>();
 // Servicio del módulo de Control de Inventario
 builder.Services.AddScoped<IInventarioService, InventarioService>();
 
+// Servicios del módulo de Gestión de Donaciones
+builder.Services.AddScoped<IDonantesService, DonantesService>();
+builder.Services.AddScoped<IDonacionesService, DonacionesService>();
+
 
 // Repositorio de Beneficiarios con EF Core (reemplaza la versión temporal en memoria)
 builder.Services.AddScoped<IBeneficiariosRepository, BeneficiariosRepositoryEfCore>();
@@ -42,6 +46,10 @@ builder.Services.AddScoped<IAsistenciaRepository, AsistenciaRepositoryEfCore>();
 
 // Repositorio de Inventario con EF Core (reemplaza la versión temporal en memoria)
 builder.Services.AddScoped<IInventarioRepository, InventarioRepositoryEfCore>();
+
+// Repositorios de Donantes y Donaciones con EF Core
+builder.Services.AddScoped<IDonantesRepository, DonantesRepositoryEfCore>();
+builder.Services.AddScoped<IDonacionesRepository, DonacionesRepositoryEfCore>();
 
 
 var app = builder.Build();

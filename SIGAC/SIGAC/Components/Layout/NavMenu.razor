@@ -53,6 +53,33 @@
         </MudNavLink>
     </MudNavGroup>
 
+    <MudNavGroup Title="Donaciones"
+                 Icon="@Icons.Material.Filled.VolunteerActivism"
+                 Expanded="_donacionesExpandido"
+                 ExpandedChanged="OnDonacionesExpandedChanged">
+        <MudNavLink Href="/donantes" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.People">
+            Ver Donantes
+        </MudNavLink>
+        <MudNavLink Href="/donantes/registrar" Icon="@Icons.Material.Filled.PersonAdd">
+            Registrar Donante
+        </MudNavLink>
+        <MudNavLink Href="/donaciones/dinero/registrar" Icon="@Icons.Material.Filled.AttachMoney">
+            Donación en Dinero
+        </MudNavLink>
+        <MudNavLink Href="/donaciones/especie/registrar" Icon="@Icons.Material.Filled.Redeem">
+            Donación en Especie
+        </MudNavLink>
+        <MudNavLink Href="/donaciones/historial" Icon="@Icons.Material.Filled.History">
+            Historial de Donaciones
+        </MudNavLink>
+        <MudNavLink Href="/donaciones/entregas/registrar" Icon="@Icons.Material.Filled.LocalShipping">
+            Registrar Entrega
+        </MudNavLink>
+        <MudNavLink Href="/donaciones/entregas/historial" Icon="@Icons.Material.Filled.History">
+            Historial de Entregas
+        </MudNavLink>
+    </MudNavGroup>
+
     <MudDivider Class="my-2" />
 
     <MudNavLink Href="/prototipos" Icon="@Icons.Material.Filled.Palette">
@@ -64,6 +91,7 @@
     private bool _beneficiariosExpandido;
     private bool _asistenciaExpandido;
     private bool _inventarioExpandido;
+    private bool _donacionesExpandido;
 
     protected override void OnInitialized()
     {
@@ -71,6 +99,7 @@
         _beneficiariosExpandido = EstaEnBeneficiarios();
         _asistenciaExpandido = EstaEnAsistencia();
         _inventarioExpandido = EstaEnInventario();
+        _donacionesExpandido = EstaEnDonaciones();
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
@@ -78,12 +107,15 @@
         var expandirBeneficiarios = EstaEnBeneficiarios();
         var expandirAsistencia = EstaEnAsistencia();
         var expandirInventario = EstaEnInventario();
+        var expandirDonaciones = EstaEnDonaciones();
 
-        if (_beneficiariosExpandido != expandirBeneficiarios || _asistenciaExpandido != expandirAsistencia || _inventarioExpandido != expandirInventario)
+        if (_beneficiariosExpandido != expandirBeneficiarios || _asistenciaExpandido != expandirAsistencia
+            || _inventarioExpandido != expandirInventario || _donacionesExpandido != expandirDonaciones)
         {
             _beneficiariosExpandido = expandirBeneficiarios;
             _asistenciaExpandido = expandirAsistencia;
             _inventarioExpandido = expandirInventario;
+            _donacionesExpandido = expandirDonaciones;
             InvokeAsync(StateHasChanged);
         }
     }
@@ -104,6 +136,15 @@
     {
         var ruta = Navigation.ToBaseRelativePath(Navigation.Uri);
         return ruta.StartsWith("inventario", StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Dos prefijos y no uno: Donantes y Donaciones son pantallas del mismo grupo
+    // de navegación pero con rutas separadas ("/donantes/..." y "/donaciones/...").
+    private bool EstaEnDonaciones()
+    {
+        var ruta = Navigation.ToBaseRelativePath(Navigation.Uri);
+        return ruta.StartsWith("donantes", StringComparison.OrdinalIgnoreCase)
+            || ruta.StartsWith("donaciones", StringComparison.OrdinalIgnoreCase);
     }
 
     private void OnBeneficiariosExpandedChanged(bool expandido)
@@ -136,6 +177,17 @@
         if (expandido && !EstaEnInventario())
         {
             Navigation.NavigateTo("/inventario/existencias");
+        }
+    }
+
+    private void OnDonacionesExpandedChanged(bool expandido)
+    {
+        _donacionesExpandido = expandido;
+
+        // Al abrir el grupo, ir al listado de donantes; el resto aparece debajo.
+        if (expandido && !EstaEnDonaciones())
+        {
+            Navigation.NavigateTo("/donantes");
         }
     }
 

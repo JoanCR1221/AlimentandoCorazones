@@ -1,0 +1,166 @@
+@page "/donantes"
+@using SIGAC.Application.DTOs
+@using SIGAC.Application.DTOs.Donaciones
+@using SIGAC.Application.Interfaces
+@using SIGAC.Domain
+@inject IDonantesService DonantesService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudText Typo="Typo.h4" Class="mb-4">Donantes registrados</MudText>
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        <MudTextField T="string" Value="filtroTexto" ValueChanged="OnFiltroTextoCambiado" Immediate="true" DebounceInterval="300"
+                      Label="Buscar por nombre" Variant="Variant.Outlined" Class="mb-4" />
+        @* Lista cerrada: la fuente es SIGAC.Domain.TiposPersonaDonante, no la pantalla. *@
+        <MudSelect T="string" Value="filtroTipoPersona" ValueChanged="OnFiltroTipoPersonaCambiado" Label="Tipo de persona" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
+            @foreach (var tipo in TiposPersonaDonante.Todos)
+            {
+                <MudSelectItem T="string" Value="@tipo">@tipo</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect T="bool?" Value="filtroEstado" ValueChanged="OnFiltroEstadoCambiado" Label="Estado" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
+            <MudSelectItem T="bool?" Value="true">Activo</MudSelectItem>
+            <MudSelectItem T="bool?" Value="false">Inactivo</MudSelectItem>
+        </MudSelect>
+
+        <MudDataGrid T="DonanteListaDto" @ref="grilla"
+                     ServerData="CargarPaginaAsync"
+                     RowsPerPage="FiltrosDonanteDto.TamanoPaginaPredeterminado"
+                     SortMode="SortMode.None" Filterable="false">
+            <Columns>
+                <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
+                <PropertyColumn Property="x => x.TipoPersona" Title="Tipo de persona" />
+                <PropertyColumn Property="x => x.Correo" Title="Correo" />
+                <PropertyColumn Property="x => x.Telefono" Title="Teléfono" />
+                <TemplateColumn Title="Estado">
+                    <CellTemplate>
+                        @(context.Item.Estado ? "Activo" : "Inactivo")
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Acciones">
+                    <CellTemplate>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/donantes/editar/{context.Item.Id}")">Editar</MudButton>
+                        @if (context.Item.Estado)
+                        {
+                            <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.Nombre, false))">Desactivar</MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Text" Color="Color.Success" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.Nombre, true))">Activar</MudButton>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+            <NoRecordsContent>
+                <MudText>No hay donantes que coincidan con los filtros.</MudText>
+            </NoRecordsContent>
+            <PagerContent>
+                <MudDataGridPager T="DonanteListaDto" />
+            </PagerContent>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private MudDataGrid<DonanteListaDto>? grilla;
+
+    private string? filtroTexto;
+    private string? filtroTipoPersona;
+    private bool? filtroEstado;
+
+    // MudDataGrid con ServerData no dispara la primera carga solo: sin este
+    // reload explícito la grilla se ve vacía al entrar aunque haya donantes,
+    // hasta que algún filtro cambie y llame a ReloadServerData por su cuenta.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && grilla is not null)
+        {
+            await grilla.ReloadServerData();
+        }
+    }
+
+    private async Task<GridData<DonanteListaDto>> CargarPaginaAsync(
+        GridState<DonanteListaDto> estado, CancellationToken cancellationToken)
+    {
+        var resultado = await DonantesService.ObtenerDonantesAsync(new FiltrosDonanteDto
+        {
+            Nombre = filtroTexto,
+            TipoPersona = filtroTipoPersona,
+            Estado = filtroEstado,
+            Pagina = estado.Page,
+            TamanoPagina = estado.PageSize
+        });
+
+        return new GridData<DonanteListaDto>
+        {
+            Items = resultado.Elementos,
+            TotalItems = resultado.TotalRegistros
+        };
+    }
+
+    private async Task OnFiltroTextoCambiado(string? valor)
+    {
+        filtroTexto = valor;
+        await RecargarAsync();
+    }
+
+    private async Task OnFiltroTipoPersonaCambiado(string? valor)
+    {
+        filtroTipoPersona = valor;
+        await RecargarAsync();
+    }
+
+    private async Task OnFiltroEstadoCambiado(bool? valor)
+    {
+        filtroEstado = valor;
+        await RecargarAsync();
+    }
+
+    private async Task RecargarAsync()
+    {
+        if (grilla is null)
+            return;
+
+        if (grilla.CurrentPage != 0)
+            grilla.NavigateTo(Page.First);
+        else
+            await grilla.ReloadServerData();
+    }
+
+    private async Task ConfirmarCambioEstadoAsync(int id, string nombre, bool activar)
+    {
+        var accion = activar ? "activar" : "desactivar";
+        var confirmado = await DialogService.ShowMessageBoxAsync(
+            "Confirmar",
+            $"¿Seguro que querés {accion} a {nombre}?",
+            yesText: "Confirmar",
+            cancelText: "Cancelar");
+
+        if (confirmado == true)
+        {
+            await CambiarEstadoAsync(id, activar);
+        }
+    }
+
+    private async Task CambiarEstadoAsync(int id, bool activar)
+    {
+        try
+        {
+            if (activar)
+                await DonantesService.ActivarDonanteAsync(id);
+            else
+                await DonantesService.DesactivarDonanteAsync(id);
+
+            Snackbar.Add(activar ? "Donante activado." : "Donante desactivado.", Severity.Success);
+
+            if (grilla is not null)
+                await grilla.ReloadServerData();
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo actualizar el estado del donante. Intentá de nuevo.", Severity.Error);
+        }
+    }
+}

@@ -1,0 +1,119 @@
+@page "/donaciones/entregas/historial"
+@using SIGAC.Application.DTOs
+@using SIGAC.Application.DTOs.Beneficiarios
+@using SIGAC.Application.DTOs.Donaciones
+@using SIGAC.Application.DTOs.Inventario
+@using SIGAC.Application.Interfaces
+@using SIGAC.Domain
+@inject IInventarioService InventarioService
+@inject IBeneficiariosService BeneficiariosService
+@inject IDonacionesService DonacionesService
+
+<MudText Typo="Typo.h4" Class="mb-4">Historial de entregas</MudText>
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        <MudAutocomplete T="ArticuloExistenciaDto" Label="Artículo" Variant="Variant.Outlined" Class="mb-4"
+                          Value="articuloSeleccionado" ValueChanged="OnArticuloCambiadoAsync"
+                          SearchFunc="BuscarArticulosAsync" ToStringFunc="@(a => a?.Nombre)" Clearable="true" />
+
+        <MudSelect T="string" Value="filtroTipoDestinatario" ValueChanged="OnTipoDestinatarioCambiadoAsync"
+                   Label="Tipo de destinatario" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
+            @foreach (var tipo in TiposDestinatarioDonacion.Todos)
+            {
+                <MudSelectItem T="string" Value="@tipo">@tipo</MudSelectItem>
+            }
+        </MudSelect>
+
+        @* Complementa al filtro de tipo sin depender de él: sirve para ver "qué se
+           le ha entregado a esta persona" aunque no se haya elegido "Beneficiario" arriba. *@
+        <MudAutocomplete T="BeneficiarioListaDto" Label="Beneficiario" Variant="Variant.Outlined" Class="mb-4"
+                          Value="beneficiarioSeleccionado" ValueChanged="OnBeneficiarioCambiadoAsync"
+                          SearchFunc="BuscarBeneficiariosAsync" ToStringFunc="@(b => b?.NombreCompleto)" Clearable="true" />
+
+        <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
+                             Label="Rango de fechas" Variant="Variant.Outlined" Class="mb-4" />
+
+        <MudText Typo="Typo.subtitle1" Class="mb-4">
+            Total entregado del período: @resultado.TotalEntregado
+        </MudText>
+
+        <MudDataGrid T="HistorialDonacionEntregadaDto" Items="@resultado.Entregas">
+            <Columns>
+                <PropertyColumn Property="x => x.Articulo" Title="Artículo" />
+                <PropertyColumn Property="x => x.Cantidad" Title="Cantidad" />
+                <PropertyColumn Property="x => x.UnidadMedida" Title="Unidad" />
+                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
+                <PropertyColumn Property="x => x.TipoDestinatario" Title="Tipo" />
+                <PropertyColumn Property="x => x.NombreDestinatario" Title="Destinatario" />
+                <PropertyColumn Property="x => x.Observaciones" Title="Observaciones" />
+            </Columns>
+            <NoRecordsContent>
+                <MudText>No hay entregas registradas para los filtros seleccionados.</MudText>
+            </NoRecordsContent>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private HistorialEntregasResultadoDto resultado = new();
+    private ArticuloExistenciaDto? articuloSeleccionado;
+    private string? filtroTipoDestinatario;
+    private BeneficiarioListaDto? beneficiarioSeleccionado;
+    private DateRange? rangoFechas;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarAsync();
+    }
+
+    private async Task<IEnumerable<ArticuloExistenciaDto>> BuscarArticulosAsync(string valor, CancellationToken cancellationToken)
+    {
+        var resultado = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto { Nombre = valor });
+        return resultado.Elementos;
+    }
+
+    private async Task OnArticuloCambiadoAsync(ArticuloExistenciaDto? valor)
+    {
+        articuloSeleccionado = valor;
+        await CargarAsync();
+    }
+
+    private async Task OnTipoDestinatarioCambiadoAsync(string? valor)
+    {
+        filtroTipoDestinatario = valor;
+        await CargarAsync();
+    }
+
+    // Sin filtrar por Estado: el historial también debe poder mostrar entregas a
+    // un beneficiario que hoy está inactivo.
+    private async Task<IEnumerable<BeneficiarioListaDto>> BuscarBeneficiariosAsync(string valor, CancellationToken cancellationToken)
+    {
+        var resultado = await BeneficiariosService.ObtenerBeneficiariosAsync(new FiltrosBeneficiarioDto { Nombre = valor });
+        return resultado.Elementos;
+    }
+
+    private async Task OnBeneficiarioCambiadoAsync(BeneficiarioListaDto? valor)
+    {
+        beneficiarioSeleccionado = valor;
+        await CargarAsync();
+    }
+
+    private async Task OnRangoFechasCambiadoAsync(DateRange? valor)
+    {
+        rangoFechas = valor;
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        resultado = await DonacionesService.ObtenerHistorialEntregasAsync(new FiltrosHistorialEntregaDto
+        {
+            ArticuloId = articuloSeleccionado?.Id,
+            TipoDestinatario = filtroTipoDestinatario,
+            BeneficiarioId = beneficiarioSeleccionado?.Id,
+            FechaDesde = rangoFechas?.Start,
+            FechaHasta = rangoFechas?.End
+        });
+    }
+}
