@@ -7,6 +7,9 @@ namespace SIGAC.Application.Interfaces
     public interface IInventarioService
     {
         Task RegistrarEntradaAsync(EntradaInventarioCrearDto dto);
+        // No hace nada si el gasto CompraInsumos nunca llegó a completar el enlace
+        // desde Registrar Entrada (AB#2501): no es un error, solo no hay nada que anular.
+        Task AnularEntradaVinculadaAGastoAsync(int gastoOperativoId, string motivo);
         Task RegistrarSalidaDonacionAsync(SalidaDonacionCrearDto dto);
         Task<ResultadoPaginado<ArticuloExistenciaDto>> ObtenerExistenciasAsync(FiltrosExistenciaDto filtros);
         // Lo consume la alerta de stock bajo de la portada.
