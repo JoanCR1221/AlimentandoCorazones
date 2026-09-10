@@ -45,6 +45,29 @@ namespace SIGAC.Application.Services
             }
         }
 
+        public async Task<GastoOperativoEditarDto?> ObtenerParaEditarAsync(int id)
+        {
+            try
+            {
+                var gasto = await _repository.ObtenerPorIdAsync(id);
+                if (gasto is null)
+                    return null;
+
+                return new GastoOperativoEditarDto
+                {
+                    Categoria = gasto.Categoria,
+                    Monto = gasto.Monto,
+                    Fecha = gasto.Fecha,
+                    Descripcion = gasto.Descripcion,
+                    Responsable = gasto.Responsable
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al consultar el gasto operativo.", ex);
+            }
+        }
+
         public async Task EditarGastoAsync(int id, GastoOperativoEditarDto dto)
         {
             try
