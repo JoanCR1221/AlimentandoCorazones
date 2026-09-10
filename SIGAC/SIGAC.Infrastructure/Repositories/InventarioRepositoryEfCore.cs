@@ -339,6 +339,33 @@ namespace SIGAC.Infrastructure.Repositories
             await transaccion.CommitAsync();
         }
 
+        public async Task AnularEntradaConStockAsync(EntradaInventario entrada, string motivo)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            await using var transaccion = await context.Database.BeginTransactionAsync();
+
+            // Se relee dentro de la transacción por el mismo motivo que
+            // AprobarPrestamoConStockAsync: entre la lectura del servicio y acá
+            // pudo anularse por otra vía.
+            var existente = await context.EntradasInventario
+                .FirstOrDefaultAsync(e => e.Id == entrada.Id)
+                ?? throw new NotFoundException("La entrada de inventario no existe.");
+
+            if (existente.Anulada)
+                throw new ValidationException("La entrada de inventario ya está anulada.");
+
+            existente.Anulada = true;
+            existente.MotivoAnulacion = motivo;
+
+            await context.SaveChangesAsync();
+
+            // Reutiliza el mismo helper que una salida: anular una entrada revierte
+            // exactamente la cantidad que en su momento sumó al stock.
+            await DescontarStockAsync(context, existente.ArticuloId, existente.Cantidad);
+
+            await transaccion.CommitAsync();
+        }
+
         public async Task RegistrarSalidaConStockAsync(SalidaInventario salida)
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
@@ -492,6 +519,15 @@ namespace SIGAC.Infrastructure.Repositories
                 .OrderByDescending(e => e.Fecha)
                 .ThenByDescending(e => e.Id)
                 .ToListAsync();
+        }
+
+        public async Task<EntradaInventario?> ObtenerEntradaPorGastoOperativoIdAsync(int gastoOperativoId)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            return await context.EntradasInventario
+                .AsNoTracking()
+                .FirstOrDefaultAsync(e => e.GastoOperativoId == gastoOperativoId);
         }
 
         public async Task<IEnumerable<SalidaInventario>> ObtenerSalidasAsync(int? articuloId, DateTime? desde, DateTime? hasta)

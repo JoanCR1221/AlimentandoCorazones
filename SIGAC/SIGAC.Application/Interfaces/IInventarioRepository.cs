@@ -61,6 +61,12 @@ namespace SIGAC.Application.Interfaces
         Task RegistrarEntradaConStockAsync(EntradaInventario entrada, Articulo? articuloNuevo);
 
         /// <summary>
+        /// Anula la entrada (no la borra: es el respaldo contable) y revierte su
+        /// cantidad del stock del artículo, todo en la misma operación.
+        /// </summary>
+        Task AnularEntradaConStockAsync(EntradaInventario entrada, string motivo);
+
+        /// <summary>
         /// Registra la salida y descuenta su cantidad del stock del artículo.
         /// </summary>
         Task RegistrarSalidaConStockAsync(SalidaInventario salida);
@@ -73,6 +79,12 @@ namespace SIGAC.Application.Interfaces
 
         // Consultas de movimientos
         Task<IEnumerable<EntradaInventario>> ObtenerEntradasAsync(int? articuloId, DateTime? desde, DateTime? hasta);
+
+        // Sin FK configurada todavía entre EntradaInventario y GastoOperativo
+        // (tarea 2076, pendiente): esto busca por la columna suelta. Null si el
+        // gasto CompraInsumos nunca llegó a completar el enlace desde Registrar
+        // Entrada, algo válido por diseño (ver AB#2501).
+        Task<EntradaInventario?> ObtenerEntradaPorGastoOperativoIdAsync(int gastoOperativoId);
         Task<IEnumerable<SalidaInventario>> ObtenerSalidasAsync(int? articuloId, DateTime? desde, DateTime? hasta);
 
         // Préstamos
