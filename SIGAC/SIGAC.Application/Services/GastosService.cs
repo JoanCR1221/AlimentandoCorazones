@@ -96,5 +96,39 @@ namespace SIGAC.Application.Services
                 throw new Exception("Error al editar el gasto operativo.", ex);
             }
         }
+
+        public async Task<GastosConsultaDto> ObtenerGastosAsync(FiltrosGastoDto filtros)
+        {
+            try
+            {
+                var gastos = await _repository.ObtenerTodosAsync(filtros);
+
+                var lista = gastos
+                    .Select(g => new GastoOperativoListaDto
+                    {
+                        Id = g.Id,
+                        Categoria = g.Categoria,
+                        Monto = g.Monto,
+                        Fecha = g.Fecha,
+                        Descripcion = g.Descripcion,
+                        Responsable = g.Responsable,
+                        Estado = g.Estado.ToString()
+                    })
+                    .ToList();
+
+                // El total acumulado excluye los anulados: un gasto anulado ya no
+                // representa dinero efectivamente gastado, así que sumarlo
+                // distorsionaría el total del período consultado.
+                var totalAcumulado = lista
+                    .Where(g => g.Estado == nameof(EstadoGastoOperativo.Activo))
+                    .Sum(g => g.Monto);
+
+                return new GastosConsultaDto(lista, totalAcumulado);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al consultar los gastos operativos.", ex);
+            }
+        }
     }
 }

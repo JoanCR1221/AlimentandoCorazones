@@ -10,5 +10,6 @@ namespace SIGAC.Application.Interfaces
         Task<int> RegistrarGastoAsync(GastoOperativoCrearDto dto);
         Task<GastoOperativoEditarDto?> ObtenerParaEditarAsync(int id);
         Task EditarGastoAsync(int id, GastoOperativoEditarDto dto);
+        Task<GastosConsultaDto> ObtenerGastosAsync(FiltrosGastoDto filtros);
     }
 }

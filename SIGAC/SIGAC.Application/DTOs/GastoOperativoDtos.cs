@@ -53,4 +53,9 @@ namespace SIGAC.Application.DTOs.Gastos
         public DateTime? FechaDesde { get; set; }
         public DateTime? FechaHasta { get; set; }
     }
+
+    // El total es del conjunto filtrado completo, no de lo que se ve en
+    // pantalla: por eso viaja junto con la lista en vez de calcularse en el
+    // frontend, que solo vería una posible futura página.
+    public sealed record GastosConsultaDto(IReadOnlyList<GastoOperativoListaDto> Gastos, decimal TotalAcumulado);
 }
