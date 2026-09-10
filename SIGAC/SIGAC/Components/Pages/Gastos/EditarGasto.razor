@@ -4,6 +4,7 @@
 @using SIGAC.Domain
 @inject IGastosService GastosService
 @inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
 
 <MudText Typo="Typo.h4" Class="mb-4">Editar gasto operativo</MudText>
 
@@ -74,8 +75,12 @@
         _ => categoria
     };
 
+    // Sin redirección al guardar: todavía no existe ListadoGastos.razor
+    // (AB#2552) al que volver, así que la persona se queda en el formulario
+    // con los datos ya actualizados.
     private async Task Guardar()
     {
         await GastosService.EditarGastoAsync(Id, modelo);
+        Snackbar.Add("Gasto operativo actualizado correctamente.", Severity.Success);
     }
 }
