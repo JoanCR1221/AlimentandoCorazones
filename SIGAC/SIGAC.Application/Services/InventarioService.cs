@@ -118,23 +118,6 @@ namespace SIGAC.Application.Services
             }
         }
 
-        public async Task AnularEntradaVinculadaAGastoAsync(int gastoOperativoId, string motivo)
-        {
-            try
-            {
-                var entrada = await _repository.ObtenerEntradaPorGastoOperativoIdAsync(gastoOperativoId);
-                if (entrada is null || entrada.Anulada)
-                    return;
-
-                var motivoNormalizado = TextoNormalizador.CompactarEspacios(motivo);
-                await _repository.AnularEntradaConStockAsync(entrada, motivoNormalizado);
-            }
-            catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
-            {
-                throw new Exception("Error al anular la entrada de inventario vinculada.", ex);
-            }
-        }
-
         public async Task RegistrarSalidaDonacionAsync(SalidaDonacionCrearDto dto)
         {
             try

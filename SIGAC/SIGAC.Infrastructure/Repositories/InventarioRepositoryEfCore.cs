@@ -1,4 +1,4 @@
-using Microsoft.Data.SqlClient;
+﻿using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Inventario;
@@ -339,33 +339,6 @@ namespace SIGAC.Infrastructure.Repositories
             await transaccion.CommitAsync();
         }
 
-        public async Task AnularEntradaConStockAsync(EntradaInventario entrada, string motivo)
-        {
-            await using var context = await _contextFactory.CreateDbContextAsync();
-            await using var transaccion = await context.Database.BeginTransactionAsync();
-
-            // Se relee dentro de la transacción por el mismo motivo que
-            // AprobarPrestamoConStockAsync: entre la lectura del servicio y acá
-            // pudo anularse por otra vía.
-            var existente = await context.EntradasInventario
-                .FirstOrDefaultAsync(e => e.Id == entrada.Id)
-                ?? throw new NotFoundException("La entrada de inventario no existe.");
-
-            if (existente.Anulada)
-                throw new ValidationException("La entrada de inventario ya está anulada.");
-
-            existente.Anulada = true;
-            existente.MotivoAnulacion = motivo;
-
-            await context.SaveChangesAsync();
-
-            // Reutiliza el mismo helper que una salida: anular una entrada revierte
-            // exactamente la cantidad que en su momento sumó al stock.
-            await DescontarStockAsync(context, existente.ArticuloId, existente.Cantidad);
-
-            await transaccion.CommitAsync();
-        }
-
         public async Task RegistrarSalidaConStockAsync(SalidaInventario salida)
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
@@ -429,11 +402,11 @@ namespace SIGAC.Infrastructure.Repositories
         // dejaría fuera del rollback, que es justo el error que se está corrigiendo.
         private static async Task DescontarStockAsync(SigacDbContext context, int articuloId, int cantidad)
         {
-            var filasAfectadas = await context.Articulos
-                .Where(a => a.Id == articuloId && a.StockActual >= cantidad)
-                .ExecuteUpdateAsync(s => s.SetProperty(a => a.StockActual, a => a.StockActual - cantidad));
-
-            // Cero filas significa que el artículo no existe o que el stock ya no
+            // El UPDATE condicional vive en StockArticulos, compartido con
+            // GastosRepositoryEfCore. Acá solo se traduce el "no se pudo" al motivo
+            // que corresponde a ESTE camino: registrar un movimiento.
+            //
+            // No se pudo significa que el artículo no existe o que el stock ya no
             // alcanza, aunque el servicio lo hubiera verificado un instante antes.
             // Se lanza ValidationException y no InvalidOperationException porque es una
             // situación esperable de concurrencia, no un fallo del sistema: el servicio
@@ -442,7 +415,7 @@ namespace SIGAC.Infrastructure.Repositories
             // Al lanzarse antes del Commit, la salida insertada en esta misma
             // transacción se revierte. Antes ya estaba confirmada y quedaba un
             // movimiento registrado sin su descuento.
-            if (filasAfectadas == 0)
+            if (!await StockArticulos.IntentarDescontarAsync(context, articuloId, cantidad))
             {
                 throw new ValidationException(
                     "El stock disponible cambió mientras se registraba el movimiento y ya no alcanza. " +
@@ -519,15 +492,6 @@ namespace SIGAC.Infrastructure.Repositories
                 .OrderByDescending(e => e.Fecha)
                 .ThenByDescending(e => e.Id)
                 .ToListAsync();
-        }
-
-        public async Task<EntradaInventario?> ObtenerEntradaPorGastoOperativoIdAsync(int gastoOperativoId)
-        {
-            await using var context = await _contextFactory.CreateDbContextAsync();
-
-            return await context.EntradasInventario
-                .AsNoTracking()
-                .FirstOrDefaultAsync(e => e.GastoOperativoId == gastoOperativoId);
         }
 
         public async Task<IEnumerable<SalidaInventario>> ObtenerSalidasAsync(int? articuloId, DateTime? desde, DateTime? hasta)

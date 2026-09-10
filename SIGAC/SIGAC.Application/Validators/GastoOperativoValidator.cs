@@ -1,4 +1,4 @@
-using SIGAC.Application.DTOs.Gastos;
+﻿using SIGAC.Application.DTOs.Gastos;
 using SIGAC.Application.Exceptions;
 using SIGAC.Domain;
 
@@ -16,9 +16,11 @@ namespace SIGAC.Application.Validators
     // Toda la validación y normalización de entrada del gasto, centralizada por
     // el mismo motivo que ArticuloValidator y BeneficiarioValidator.
     //
-    // Los largos máximos son un valor de trabajo mientras Base de datos no
-    // configure GastoOperativo en SigacDbContext (AB#2489/2491/2494): hay que
-    // confirmarlos contra las columnas reales cuando esa tarea se entregue.
+    // Los largos máximos coinciden exactamente con las columnas reales de
+    // GastosOperativos (AB#2489/2491/2494, ya entregada): Descripcion
+    // varchar(500), Responsable varchar(150) y MotivoAnulacion varchar(500).
+    // Si cambia una columna, hay que mover también la constante de acá: de lo
+    // contrario el texto se corta o revienta recién al guardar.
     public static class GastoOperativoValidator
     {
         public const int LongitudMaximaDescripcion = 500;

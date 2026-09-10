@@ -1,8 +1,7 @@
-using SIGAC.Application.DTOs.Gastos;
+﻿using SIGAC.Application.DTOs.Gastos;
 using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
 using SIGAC.Application.Validators;
-using SIGAC.Domain;
 using SIGAC.Domain.Entities;
 
 namespace SIGAC.Application.Services
@@ -13,12 +12,10 @@ namespace SIGAC.Application.Services
     public class GastosService : IGastosService
     {
         private readonly IGastosRepository _repository;
-        private readonly IInventarioService _inventarioService;
 
-        public GastosService(IGastosRepository repository, IInventarioService inventarioService)
+        public GastosService(IGastosRepository repository)
         {
             _repository = repository;
-            _inventarioService = inventarioService;
         }
 
         public async Task<int> RegistrarGastoAsync(GastoOperativoCrearDto dto)
@@ -146,13 +143,13 @@ namespace SIGAC.Application.Services
 
                 var motivo = GastoOperativoValidator.ValidarMotivoAnulacion(dto.MotivoAnulacion);
 
-                await _repository.AnularAsync(dto.GastoId, motivo);
-
-                // Si nunca se completó el enlace desde Registrar Entrada (AB#2501,
-                // flujo manual, no automático), AnularEntradaVinculadaAGastoAsync no
-                // hace nada: no es un error, solo no hay ninguna entrada que anular.
-                if (gasto.Categoria == CategoriasGastoOperativo.CompraInsumos)
-                    await _inventarioService.AnularEntradaVinculadaAGastoAsync(gasto.Id, motivo);
+                // Una sola llamada, y no anular acá y pedirle después al inventario
+                // que revierta lo suyo: los dos pasos son todo-o-nada y cada uno con
+                // su propia transacción no podía serlo. El repositorio resuelve
+                // adentro cuántas entradas hay que revertir, incluido el caso de
+                // ninguna: el enlace de AB#2501 es manual, así que un gasto de compra
+                // sin entrada cargada es válido y no es un error.
+                await _repository.AnularConEntradasVinculadasAsync(dto.GastoId, motivo);
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {

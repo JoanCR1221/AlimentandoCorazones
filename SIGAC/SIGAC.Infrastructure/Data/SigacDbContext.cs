@@ -266,8 +266,8 @@ namespace SIGAC.Infrastructure.Data
 
                     // Una entrada anulada tiene que decir por qué, y una vigente no
                     // puede arrastrar el motivo de una anulación que se revirtió. La
-                    // aplicación ya lo garantiza en AnularEntradaConStockAsync; esto
-                    // lo sostiene ante updates externos. Mismo criterio que
+                    // aplicación ya lo garantiza en AnularConEntradasVinculadasAsync;
+                    // esto lo sostiene ante updates externos. Mismo criterio que
                     // CK_GastosOperativos_MotivoAnulacion.
                     t.HasCheckConstraint(
                         "CK_EntradasInventario_MotivoAnulacion",
@@ -352,7 +352,9 @@ namespace SIGAC.Infrastructure.Data
                 // Restrict, igual que el resto de las FK del proyecto: la entrada es el
                 // respaldo contable de la compra, así que un gasto con entradas
                 // vinculadas no se borra en duro. Se anula con Estado, y esa anulación
-                // arrastra la entrada a Anulada = true (AnularEntradaVinculadaAGastoAsync).
+                // arrastra a Anulada = true TODAS sus entradas, en la misma transacción
+                // (AnularConEntradasVinculadasAsync). Son varias y no una: una compra de
+                // varios artículos genera una entrada por artículo.
                 //
                 // Sin propiedad de navegación, mismo criterio que la FK a Donante:
                 // EntradaInventario pertenece al módulo de Inventario y no se le agrega
@@ -384,9 +386,10 @@ namespace SIGAC.Infrastructure.Data
                     .HasDatabaseName("IX_EntradasInventario_Donante");
 
                 // Índice de la FK a GastoOperativo, por lo mismo que el de Donante.
-                // Además de la verificación que hace Restrict al borrar, lo usa
-                // ObtenerEntradaPorGastoOperativoIdAsync, que es la consulta que
-                // corre cada vez que se anula un gasto de tipo compra.
+                // Además de la verificación que hace Restrict al borrar, lo usa la
+                // consulta que junta las entradas de un gasto en
+                // AnularConEntradasVinculadasAsync, que corre cada vez que se anula un
+                // gasto. No es único a propósito: la relación es 1:N.
                 entity.HasIndex(e => e.GastoOperativoId)
                     .HasDatabaseName("IX_EntradasInventario_GastoOperativo");
 
