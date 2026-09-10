@@ -7,25 +7,33 @@
 
 <MudText Typo="Typo.h4" Class="mb-4">Editar gasto operativo</MudText>
 
-<MudCard Class="pa-4">
-    <MudCardContent>
-        <MudSelect T="string" @bind-Value="modelo.Categoria" Label="Categoría" Variant="Variant.Outlined">
-            @foreach (var categoria in CategoriasGastoOperativo.Todos)
-            {
-                <MudSelectItem T="string" Value="@categoria">@EtiquetaCategoria(categoria)</MudSelectItem>
-            }
-        </MudSelect>
+<EditForm Model="modelo">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
 
-        <MudNumericField T="decimal" @bind-Value="modelo.Monto" Label="Monto" Variant="Variant.Outlined" Class="mt-4"
-                          Min="0.01m" Format="N2" Adornment="Adornment.Start" AdornmentText="₡" />
+    <MudCard Class="pa-4">
+        <MudCardContent>
+            <MudSelect T="string" @bind-Value="modelo.Categoria" For="@(() => modelo.Categoria)" Label="Categoría" Variant="Variant.Outlined">
+                @foreach (var categoria in CategoriasGastoOperativo.Todos)
+                {
+                    <MudSelectItem T="string" Value="@categoria">@EtiquetaCategoria(categoria)</MudSelectItem>
+                }
+            </MudSelect>
 
-        <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
+            <MudNumericField T="decimal" @bind-Value="modelo.Monto" For="@(() => modelo.Monto)" Label="Monto" Variant="Variant.Outlined" Class="mt-4"
+                              Min="0.01m" Format="N2" Adornment="Adornment.Start" AdornmentText="₡" />
 
-        <MudTextField @bind-Value="modelo.Descripcion" Label="Descripción" Variant="Variant.Outlined" Class="mt-4" Lines="2" />
+            <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
 
-        <MudTextField @bind-Value="modelo.Responsable" Label="Responsable" Variant="Variant.Outlined" Class="mt-4" />
-    </MudCardContent>
-</MudCard>
+            <MudTextField @bind-Value="modelo.Descripcion" For="@(() => modelo.Descripcion)" Label="Descripción" Variant="Variant.Outlined" Class="mt-4" Lines="2" />
+
+            <MudTextField @bind-Value="modelo.Responsable" For="@(() => modelo.Responsable)" Label="Responsable" Variant="Variant.Outlined" Class="mt-4" />
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+        </MudCardActions>
+    </MudCard>
+</EditForm>
 
 @code {
     [Parameter]
