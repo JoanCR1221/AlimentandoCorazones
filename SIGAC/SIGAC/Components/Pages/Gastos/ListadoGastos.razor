@@ -1,12 +1,24 @@
 @page "/gastos"
 @using SIGAC.Application.DTOs.Gastos
 @using SIGAC.Application.Interfaces
+@using SIGAC.Domain
 @inject IGastosService GastosService
 
 <MudText Typo="Typo.h4" Class="mb-4">Gastos operativos</MudText>
 
 <MudCard Class="pa-4">
     <MudCardContent>
+        @* Mismo catálogo cerrado que usan Registrar y Editar: si esta lista tuviera
+           sus propios literales, el filtro podría ofrecer una categoría que ya
+           nadie puede guardar. *@
+        <MudSelect T="string" Value="filtroCategoria" ValueChanged="OnFiltroCategoriaCambiadoAsync"
+                   Label="Categoría" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
+            @foreach (var categoria in CategoriasGastoOperativo.Todos)
+            {
+                <MudSelectItem T="string" Value="@categoria">@EtiquetaCategoria(categoria)</MudSelectItem>
+            }
+        </MudSelect>
+
         <MudDataGrid T="GastoOperativoListaDto" Items="@gastos">
             <Columns>
                 <PropertyColumn Property="x => x.Categoria" Title="Categoría" />
@@ -24,6 +36,7 @@
 
 @code {
     private List<GastoOperativoListaDto> gastos = new();
+    private string? filtroCategoria;
 
     // A diferencia de Existencias de inventario (catálogo potencialmente enorme,
     // exige un filtro antes de mostrar algo), un listado de gastos operativos es
@@ -34,9 +47,28 @@
         await CargarAsync();
     }
 
+    private async Task OnFiltroCategoriaCambiadoAsync(string? valor)
+    {
+        filtroCategoria = valor;
+        await CargarAsync();
+    }
+
     private async Task CargarAsync()
     {
-        var resultado = await GastosService.ObtenerGastosAsync(new FiltrosGastoDto());
+        var resultado = await GastosService.ObtenerGastosAsync(new FiltrosGastoDto
+        {
+            Categoria = filtroCategoria
+        });
         gastos = resultado.Gastos.ToList();
     }
+
+    // Los valores internos son PascalCase sin espacios; acá solo se traducen
+    // para mostrarse. Mismo criterio que RegistrarGasto.razor/EditarGasto.razor.
+    private static string EtiquetaCategoria(string categoria) => categoria switch
+    {
+        "ServiciosBasicos" => "Servicios básicos",
+        "CompraInsumos" => "Compra de insumos",
+        "Viaticos" => "Viáticos",
+        _ => categoria
+    };
 }
