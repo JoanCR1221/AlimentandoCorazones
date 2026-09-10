@@ -19,5 +19,17 @@ namespace SIGAC.Infrastructure.Repositories
             _gastos[gasto.Id] = gasto;
             return Task.CompletedTask;
         }
+
+        public Task<GastoOperativo?> ObtenerPorIdAsync(int id)
+        {
+            _gastos.TryGetValue(id, out var gasto);
+            return Task.FromResult(gasto);
+        }
+
+        public Task ActualizarAsync(GastoOperativo gasto)
+        {
+            _gastos[gasto.Id] = gasto;
+            return Task.CompletedTask;
+        }
     }
 }
