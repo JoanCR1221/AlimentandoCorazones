@@ -211,6 +211,221 @@ namespace SIGAC.Infrastructure.Migrations
                     b.ToTable("Beneficiarios", (string)null);
                 });
 
+            modelBuilder.Entity("SIGAC.Domain.Entities.DetalleDonacionEspecie", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Cantidad")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Categoria")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<int>("DonacionEspecieId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NombreArticulo")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("UnidadMedida")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DonacionEspecieId")
+                        .HasDatabaseName("IX_DetallesDonacionEspecie_DonacionEspecie");
+
+                    b.ToTable("DetallesDonacionEspecie", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DetallesDonacionEspecie_Cantidad", "[Cantidad] > 0");
+
+                            t.HasCheckConstraint("CK_DetallesDonacionEspecie_Categoria", "[Categoria] IN ('Alimento', 'Ropa', 'Calzado', 'Equipo')");
+                        });
+                });
+
+            modelBuilder.Entity("SIGAC.Domain.Entities.DonacionDinero", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DonanteId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("Monto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Fecha");
+
+                    b.HasIndex("DonanteId", "Fecha")
+                        .HasDatabaseName("IX_DonacionesDinero_Donante_Fecha");
+
+                    b.ToTable("DonacionesDinero", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DonacionesDinero_Monto", "[Monto] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("SIGAC.Domain.Entities.DonacionEntregada", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ArticuloId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("BeneficiarioId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Cantidad")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ComunidadDestinataria")
+                        .HasMaxLength(150)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("TipoDestinatario")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BeneficiarioId")
+                        .HasDatabaseName("IX_DonacionesEntregadas_Beneficiario");
+
+                    b.HasIndex("Fecha");
+
+                    b.HasIndex("ArticuloId", "Fecha")
+                        .HasDatabaseName("IX_DonacionesEntregadas_Articulo_Fecha");
+
+                    b.ToTable("DonacionesEntregadas", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DonacionesEntregadas_Cantidad", "[Cantidad] > 0");
+
+                            t.HasCheckConstraint("CK_DonacionesEntregadas_Destinatario", "([TipoDestinatario] = 'Beneficiario' AND [BeneficiarioId] IS NOT NULL AND [ComunidadDestinataria] IS NULL) OR ([TipoDestinatario] = 'Comunidad' AND [ComunidadDestinataria] IS NOT NULL AND [ComunidadDestinataria] <> '' AND [BeneficiarioId] IS NULL)");
+
+                            t.HasCheckConstraint("CK_DonacionesEntregadas_TipoDestinatario", "[TipoDestinatario] IN ('Beneficiario', 'Comunidad')");
+                        });
+                });
+
+            modelBuilder.Entity("SIGAC.Domain.Entities.DonacionEspecie", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DonanteId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Observaciones")
+                        .HasMaxLength(500)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Fecha");
+
+                    b.HasIndex("DonanteId", "Fecha")
+                        .HasDatabaseName("IX_DonacionesEspecie_Donante_Fecha");
+
+                    b.ToTable("DonacionesEspecie", (string)null);
+                });
+
+            modelBuilder.Entity("SIGAC.Domain.Entities.Donante", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Correo")
+                        .HasMaxLength(150)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<bool>("Estado")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("FechaRegistro")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("Telefono")
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("TipoPersona")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Estado");
+
+                    b.HasIndex("Nombre")
+                        .HasDatabaseName("IX_Donantes_Nombre");
+
+                    b.ToTable("Donantes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Donantes_TipoPersona", "[TipoPersona] IN ('Física', 'Jurídica')");
+                        });
+                });
+
             modelBuilder.Entity("SIGAC.Domain.Entities.EntradaInventario", b =>
                 {
                     b.Property<int>("Id")
@@ -218,6 +433,11 @@ namespace SIGAC.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Anulada")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<int>("ArticuloId")
                         .HasColumnType("int");
@@ -234,6 +454,11 @@ namespace SIGAC.Infrastructure.Migrations
                     b.Property<int?>("GastoOperativoId")
                         .HasColumnType("int");
 
+                    b.Property<string>("MotivoAnulacion")
+                        .HasMaxLength(500)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(500)");
+
                     b.Property<string>("Observaciones")
                         .HasMaxLength(500)
                         .IsUnicode(false)
@@ -247,7 +472,13 @@ namespace SIGAC.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("DonanteId")
+                        .HasDatabaseName("IX_EntradasInventario_Donante");
+
                     b.HasIndex("Fecha");
+
+                    b.HasIndex("GastoOperativoId")
+                        .HasDatabaseName("IX_EntradasInventario_GastoOperativo");
 
                     b.HasIndex("ArticuloId", "Fecha")
                         .HasDatabaseName("IX_EntradasInventario_Articulo_Fecha");
@@ -256,7 +487,73 @@ namespace SIGAC.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("CK_EntradasInventario_Cantidad", "[Cantidad] > 0");
 
+                            t.HasCheckConstraint("CK_EntradasInventario_MotivoAnulacion", "([Anulada] = 1 AND [MotivoAnulacion] IS NOT NULL) OR ([Anulada] = 0 AND [MotivoAnulacion] IS NULL)");
+
                             t.HasCheckConstraint("CK_EntradasInventario_Origen", "[Origen] IN ('Donacion', 'Compra')");
+                        });
+                });
+
+            modelBuilder.Entity("SIGAC.Domain.Entities.GastoOperativo", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Categoria")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaRegistro")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("Monto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("MotivoAnulacion")
+                        .HasMaxLength(500)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("Responsable")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(150)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Fecha", "Categoria")
+                        .HasDatabaseName("IX_GastosOperativos_Fecha_Categoria");
+
+                    b.ToTable("GastosOperativos", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_GastosOperativos_Categoria", "[Categoria] IN ('ServiciosBasicos', 'Transporte', 'CompraInsumos', 'Salarios', 'Viaticos')");
+
+                            t.HasCheckConstraint("CK_GastosOperativos_Estado", "[Estado] IN ('Activo', 'Anulado')");
+
+                            t.HasCheckConstraint("CK_GastosOperativos_Monto", "[Monto] > 0");
+
+                            t.HasCheckConstraint("CK_GastosOperativos_MotivoAnulacion", "([Estado] = 'Anulado' AND [MotivoAnulacion] IS NOT NULL) OR ([Estado] <> 'Anulado' AND [MotivoAnulacion] IS NULL)");
                         });
                 });
 
@@ -386,6 +683,57 @@ namespace SIGAC.Infrastructure.Migrations
                     b.Navigation("Beneficiario");
                 });
 
+            modelBuilder.Entity("SIGAC.Domain.Entities.DetalleDonacionEspecie", b =>
+                {
+                    b.HasOne("SIGAC.Domain.Entities.DonacionEspecie", "DonacionEspecie")
+                        .WithMany("Detalles")
+                        .HasForeignKey("DonacionEspecieId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DonacionEspecie");
+                });
+
+            modelBuilder.Entity("SIGAC.Domain.Entities.DonacionDinero", b =>
+                {
+                    b.HasOne("SIGAC.Domain.Entities.Donante", "Donante")
+                        .WithMany()
+                        .HasForeignKey("DonanteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Donante");
+                });
+
+            modelBuilder.Entity("SIGAC.Domain.Entities.DonacionEntregada", b =>
+                {
+                    b.HasOne("SIGAC.Domain.Entities.Articulo", "Articulo")
+                        .WithMany()
+                        .HasForeignKey("ArticuloId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SIGAC.Domain.Entities.Beneficiario", "Beneficiario")
+                        .WithMany()
+                        .HasForeignKey("BeneficiarioId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Articulo");
+
+                    b.Navigation("Beneficiario");
+                });
+
+            modelBuilder.Entity("SIGAC.Domain.Entities.DonacionEspecie", b =>
+                {
+                    b.HasOne("SIGAC.Domain.Entities.Donante", "Donante")
+                        .WithMany()
+                        .HasForeignKey("DonanteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Donante");
+                });
+
             modelBuilder.Entity("SIGAC.Domain.Entities.EntradaInventario", b =>
                 {
                     b.HasOne("SIGAC.Domain.Entities.Articulo", "Articulo")
@@ -393,6 +741,16 @@ namespace SIGAC.Infrastructure.Migrations
                         .HasForeignKey("ArticuloId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("SIGAC.Domain.Entities.Donante", null)
+                        .WithMany()
+                        .HasForeignKey("DonanteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SIGAC.Domain.Entities.GastoOperativo", null)
+                        .WithMany()
+                        .HasForeignKey("GastoOperativoId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Articulo");
                 });
@@ -422,6 +780,11 @@ namespace SIGAC.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Articulo");
+                });
+
+            modelBuilder.Entity("SIGAC.Domain.Entities.DonacionEspecie", b =>
+                {
+                    b.Navigation("Detalles");
                 });
 #pragma warning restore 612, 618
         }

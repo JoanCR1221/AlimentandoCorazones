@@ -1,0 +1,102 @@
+@page "/gastos/editar/{Id:int}"
+@using SIGAC.Application.DTOs.Gastos
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@using SIGAC.Domain
+@inject IGastosService GastosService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h4" Class="mb-4">Editar gasto operativo</MudText>
+
+<EditForm Model="modelo" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <MudCard Class="pa-4">
+        <MudCardContent>
+            <MudSelect T="string" @bind-Value="modelo.Categoria" For="@(() => modelo.Categoria)" Label="Categoría" Variant="Variant.Outlined">
+                @foreach (var categoria in CategoriasGastoOperativo.Todos)
+                {
+                    <MudSelectItem T="string" Value="@categoria">@EtiquetaCategoria(categoria)</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudNumericField T="decimal" @bind-Value="modelo.Monto" For="@(() => modelo.Monto)" Label="Monto" Variant="Variant.Outlined" Class="mt-4"
+                              Min="0.01m" Format="N2" Adornment="Adornment.Start" AdornmentText="₡" />
+
+            <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
+
+            <MudTextField @bind-Value="modelo.Descripcion" For="@(() => modelo.Descripcion)" Label="Descripción" Variant="Variant.Outlined" Class="mt-4" Lines="2" />
+
+            <MudTextField @bind-Value="modelo.Responsable" For="@(() => modelo.Responsable)" Label="Responsable" Variant="Variant.Outlined" Class="mt-4" />
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+        </MudCardActions>
+    </MudCard>
+</EditForm>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private GastoOperativoEditarDto modelo = new();
+
+    private DateTime? fecha
+    {
+        get => modelo.Fecha == default ? null : modelo.Fecha;
+        set => modelo.Fecha = value ?? default;
+    }
+
+    // Todavía no existe ListadoGastos.razor (AB#2552, sin empezar): mientras
+    // tanto, un id inexistente o un guardado exitoso vuelven a Registrar, la
+    // única otra pantalla del módulo. Cuando exista el listado, este destino
+    // cambia a esa ruta.
+    protected override async Task OnInitializedAsync()
+    {
+        var datos = await GastosService.ObtenerParaEditarAsync(Id);
+        if (datos is null)
+        {
+            NavigationManager.NavigateTo("/gastos/registrar");
+            return;
+        }
+
+        modelo = datos;
+    }
+
+    // Los valores internos (los que valida el servicio y guarda la base) son
+    // PascalCase sin espacios; acá solo se traducen para mostrarse. Mismo
+    // criterio que RegistrarGasto.razor.
+    private static string EtiquetaCategoria(string categoria) => categoria switch
+    {
+        "ServiciosBasicos" => "Servicios básicos",
+        "CompraInsumos" => "Compra de insumos",
+        "Viaticos" => "Viáticos",
+        _ => categoria
+    };
+
+    // Sin redirección al guardar: todavía no existe ListadoGastos.razor
+    // (AB#2552) al que volver, así que la persona se queda en el formulario
+    // con los datos ya actualizados.
+    private async Task Guardar()
+    {
+        try
+        {
+            await GastosService.EditarGastoAsync(Id, modelo);
+            Snackbar.Add("Gasto operativo actualizado correctamente.", Severity.Success);
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (NotFoundException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo actualizar el gasto operativo. Intentá de nuevo.", Severity.Error);
+        }
+    }
+}

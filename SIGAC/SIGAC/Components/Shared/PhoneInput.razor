@@ -1,0 +1,69 @@
+@* Teléfono con selector de código de país (bandera + código, buscable,
+   Costa Rica por defecto). El código de país es solo de interfaz: lo que se
+   bindea y valida sigue siendo únicamente el número local (ver Value/
+   ValueChanged), igual que antes — no cambia cómo se guarda el teléfono. *@
+
+<div class="sigac-phone-input @Class">
+    <div class="sigac-phone-code">
+        <MudAutocomplete T="Pais" Value="_pais" ValueChanged="OnPaisChanged"
+                          SearchFunc="BuscarPaisesAsync"
+                          ToStringFunc="@(p => p is null ? string.Empty : $"{p.Bandera} +{p.CodigoTelefono}")"
+                          Label="Código" Variant="Variant.Outlined"
+                          CoerceText="true" ResetValueOnEmptyText="true" Clearable="false"
+                          aria-label="Código de país del teléfono">
+            <ItemTemplate Context="pais">
+                <div class="d-flex align-center" style="gap: 0.5rem; width: 100%;">
+                    <span>@pais.Bandera</span>
+                    <span>@pais.Nombre</span>
+                    <MudSpacer />
+                    <span class="mud-text-secondary">+@pais.CodigoTelefono</span>
+                </div>
+            </ItemTemplate>
+        </MudAutocomplete>
+    </div>
+
+    <MudTextField T="string" Value="@Value" ValueChanged="OnNumeroChangedAsync" Label="@Label"
+                  Variant="Variant.Outlined" Class="sigac-phone-number"
+                  MaxLength="MaxLength ?? int.MaxValue" HelperText="@HelperText" />
+</div>
+
+@code {
+    [Parameter]
+    public string? Value { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> ValueChanged { get; set; }
+
+    [Parameter]
+    public string Label { get; set; } = "Teléfono (opcional)";
+
+    [Parameter]
+    public int? MaxLength { get; set; }
+
+    [Parameter]
+    public string? HelperText { get; set; }
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    private Pais _pais = Paises.CostaRica;
+
+    private Task<IEnumerable<Pais>> BuscarPaisesAsync(string valor, CancellationToken token)
+    {
+        IEnumerable<Pais> resultado = string.IsNullOrWhiteSpace(valor)
+            ? Paises.Todos
+            : Paises.Todos.Where(p =>
+                p.Nombre.Contains(valor, StringComparison.OrdinalIgnoreCase)
+                || p.CodigoTelefono.Contains(valor, StringComparison.OrdinalIgnoreCase)
+                || p.Iso2.Contains(valor, StringComparison.OrdinalIgnoreCase));
+
+        return Task.FromResult(resultado);
+    }
+
+    private void OnPaisChanged(Pais pais)
+    {
+        _pais = pais ?? Paises.CostaRica;
+    }
+
+    private Task OnNumeroChangedAsync(string valor) => ValueChanged.InvokeAsync(valor);
+}

@@ -1,0 +1,97 @@
+@page "/gastos/registrar"
+@using SIGAC.Application.DTOs.Gastos
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@using SIGAC.Domain
+@inject IGastosService GastosService
+@inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
+
+<MudText Typo="Typo.h4" Class="mb-4">Registrar gasto operativo</MudText>
+
+<EditForm Model="modelo" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <MudCard Class="pa-4">
+        <MudCardContent>
+            <MudSelect T="string" @bind-Value="modelo.Categoria" For="@(() => modelo.Categoria)" Label="Categoría" Variant="Variant.Outlined">
+                @foreach (var categoria in CategoriasGastoOperativo.Todos)
+                {
+                    <MudSelectItem T="string" Value="@categoria">@EtiquetaCategoria(categoria)</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudNumericField T="decimal" @bind-Value="modelo.Monto" For="@(() => modelo.Monto)" Label="Monto" Variant="Variant.Outlined" Class="mt-4"
+                              Min="0.01m" Format="N2" Adornment="Adornment.Start" AdornmentText="₡" />
+
+            <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
+
+            <MudTextField @bind-Value="modelo.Descripcion" For="@(() => modelo.Descripcion)" Label="Descripción" Variant="Variant.Outlined" Class="mt-4" Lines="2" />
+
+            <MudTextField @bind-Value="modelo.Responsable" For="@(() => modelo.Responsable)" Label="Responsable" Variant="Variant.Outlined" Class="mt-4" />
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+        </MudCardActions>
+    </MudCard>
+</EditForm>
+
+@code {
+    private GastoOperativoCrearDto modelo = new();
+
+    private DateTime? fecha
+    {
+        get => modelo.Fecha == default ? null : modelo.Fecha;
+        set => modelo.Fecha = value ?? default;
+    }
+
+    // Los valores internos (los que valida el servicio y va a guardar la base)
+    // son PascalCase sin espacios; acá solo se traducen para mostrarse.
+    private static string EtiquetaCategoria(string categoria) => categoria switch
+    {
+        "ServiciosBasicos" => "Servicios básicos",
+        "CompraInsumos" => "Compra de insumos",
+        "Viaticos" => "Viáticos",
+        _ => categoria
+    };
+
+    private async Task Guardar()
+    {
+        try
+        {
+            var categoriaRegistrada = modelo.Categoria;
+            var gastoId = await GastosService.RegistrarGastoAsync(modelo);
+            Snackbar.Add("Gasto operativo registrado correctamente.", Severity.Success);
+
+            // CompraInsumos no crea la entrada de inventario automáticamente (AB#2501):
+            // se ofrece el enlace y la persona completa artículo/cantidad/unidad a mano.
+            if (categoriaRegistrada == CategoriasGastoOperativo.CompraInsumos)
+            {
+                Snackbar.Add(
+                    "Este gasto es una compra de insumos. ¿Deseás registrar la entrada correspondiente en inventario?",
+                    Severity.Info,
+                    config =>
+                    {
+                        config.Action = "Registrar entrada";
+                        config.ActionColor = Color.Primary;
+                        config.OnClick = _ =>
+                        {
+                            NavigationManager.NavigateTo($"/inventario/entradas/registrar?gastoOperativoId={gastoId}");
+                            return Task.CompletedTask;
+                        };
+                    });
+            }
+
+            modelo = new();
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo registrar el gasto operativo. Intentá de nuevo.", Severity.Error);
+        }
+    }
+}

@@ -9,6 +9,24 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 
+@* Clima de fondo en modo claro (From Uiverse.io by Danishrehman786): capas
+   fijas de textura, solo visibles cuando data-theme="light" (ver
+   MainLayout.razor.css). El filtro SVG "cosmic-texture" no venía incluido
+   en el CSS que se pasó, solo la clase que lo referencia; se agregó acá
+   para que .cosmic-element no quede sin efecto. *@
+<div class="sigac-clima-dia" aria-hidden="true">
+    <div class="cosmic-element"></div>
+    <div class="stars-layer"></div>
+    <div class="wind-wave"></div>
+    <div class="ice-crystal"></div>
+</div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="cosmic-texture">
+        <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" result="noise" />
+        <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0.99  0 0 0 0 0.97  0 0 0 0 0.90  0 0 0 0.12 0" />
+    </filter>
+</svg>
+
 <MudLayout>
     <MudAppBar Elevation="1" Dense="false">
         <MudIconButton Icon="@Icons.Material.Filled.Menu"
@@ -16,7 +34,10 @@
                        Edge="Edge.Start"
                        aria-label="Abrir menú de navegación"
                        OnClick="ToggleDrawer" />
-        <MudText Typo="Typo.h6" Class="ml-2">SIGAC</MudText>
+        <a href="/" class="sigac-brand" aria-label="Ir al inicio">
+            <img src="Logo.png" alt="Logo de Alimentando Corazones" class="sigac-logo" />
+            <MudText Typo="Typo.h6" Class="ml-2">SIGAC</MudText>
+        </a>
         <MudSpacer />
         <AparienciaToolbar />
     </MudAppBar>
@@ -31,7 +52,7 @@
         <NavMenu />
     </MudDrawer>
 
-    <MudMainContent Class="pa-4">
+    <MudMainContent Class="sigac-main">
         @Body
     </MudMainContent>
 </MudLayout>

@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "roboto",
+        "createdAt": "2026-09-10T04:56:26.202Z",
+        "reason": "Preexisting choice, out of scope: brief only requested palette/hand-drawn borders/shadows/logo, explicitly not typography; Roboto is MudBlazor's Material Design default already wired across every component in this app."
+      }
+    ]
+  }
+}
