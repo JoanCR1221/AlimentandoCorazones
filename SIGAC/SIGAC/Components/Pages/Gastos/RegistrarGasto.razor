@@ -12,6 +12,9 @@
                 <MudSelectItem T="string" Value="@categoria">@EtiquetaCategoria(categoria)</MudSelectItem>
             }
         </MudSelect>
+
+        <MudNumericField T="decimal" @bind-Value="modelo.Monto" Label="Monto" Variant="Variant.Outlined" Class="mt-4"
+                          Min="0.01m" Format="N2" Adornment="Adornment.Start" AdornmentText="₡" />
     </MudCardContent>
 </MudCard>
 
