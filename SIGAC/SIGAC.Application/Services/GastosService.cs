@@ -2,6 +2,7 @@ using SIGAC.Application.DTOs.Gastos;
 using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
 using SIGAC.Application.Validators;
+using SIGAC.Domain;
 using SIGAC.Domain.Entities;
 
 namespace SIGAC.Application.Services
@@ -12,10 +13,12 @@ namespace SIGAC.Application.Services
     public class GastosService : IGastosService
     {
         private readonly IGastosRepository _repository;
+        private readonly IInventarioService _inventarioService;
 
-        public GastosService(IGastosRepository repository)
+        public GastosService(IGastosRepository repository, IInventarioService inventarioService)
         {
             _repository = repository;
+            _inventarioService = inventarioService;
         }
 
         public async Task<int> RegistrarGastoAsync(GastoOperativoCrearDto dto)
@@ -143,13 +146,13 @@ namespace SIGAC.Application.Services
 
                 var motivo = GastoOperativoValidator.ValidarMotivoAnulacion(dto.MotivoAnulacion);
 
-                // AB#2573 (anular también la entrada de inventario vinculada cuando
-                // el gasto es CompraInsumos) queda pendiente a propósito: ver la nota
-                // en GastosRepositoryEnMemoria/README de Inventario. Requiere una
-                // decisión de diseño en un módulo ya entregado (EntradaInventario no
-                // tiene ningún campo de estado hoy), así que no se resuelve acá sin
-                // confirmarlo primero.
                 await _repository.AnularAsync(dto.GastoId, motivo);
+
+                // Si nunca se completó el enlace desde Registrar Entrada (AB#2501,
+                // flujo manual, no automático), AnularEntradaVinculadaAGastoAsync no
+                // hace nada: no es un error, solo no hay ninguna entrada que anular.
+                if (gasto.Categoria == CategoriasGastoOperativo.CompraInsumos)
+                    await _inventarioService.AnularEntradaVinculadaAGastoAsync(gasto.Id, motivo);
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {
