@@ -23,6 +23,7 @@ namespace SIGAC.Application.Validators
     {
         public const int LongitudMaximaDescripcion = 500;
         public const int LongitudMaximaResponsable = 150;
+        public const int LongitudMaximaMotivoAnulacion = 500;
 
         public static GastoOperativoValidado Validar(GastoOperativoCrearDto dto) =>
             Validar(dto.Categoria, dto.Monto, dto.Fecha, dto.Descripcion, dto.Responsable);
@@ -103,6 +104,20 @@ namespace SIGAC.Application.Validators
             if (normalizado.Length > LongitudMaximaResponsable)
                 throw new ValidationException(
                     $"El responsable no puede superar los {LongitudMaximaResponsable} caracteres.");
+
+            return normalizado;
+        }
+
+        public static string ValidarMotivoAnulacion(string? motivo)
+        {
+            var normalizado = TextoNormalizador.CompactarEspacios(motivo);
+
+            if (normalizado.Length == 0)
+                throw new ValidationException("El motivo de anulación es obligatorio.");
+
+            if (normalizado.Length > LongitudMaximaMotivoAnulacion)
+                throw new ValidationException(
+                    $"El motivo de anulación no puede superar los {LongitudMaximaMotivoAnulacion} caracteres.");
 
             return normalizado;
         }

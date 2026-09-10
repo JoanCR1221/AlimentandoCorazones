@@ -130,5 +130,31 @@ namespace SIGAC.Application.Services
                 throw new Exception("Error al consultar los gastos operativos.", ex);
             }
         }
+
+        public async Task AnularGastoAsync(AnulacionGastoDto dto)
+        {
+            try
+            {
+                var gasto = await _repository.ObtenerPorIdAsync(dto.GastoId)
+                    ?? throw new NotFoundException("El gasto operativo no existe.");
+
+                if (gasto.Estado == EstadoGastoOperativo.Anulado)
+                    throw new ValidationException("El gasto operativo ya está anulado.");
+
+                var motivo = GastoOperativoValidator.ValidarMotivoAnulacion(dto.MotivoAnulacion);
+
+                // AB#2573 (anular también la entrada de inventario vinculada cuando
+                // el gasto es CompraInsumos) queda pendiente a propósito: ver la nota
+                // en GastosRepositoryEnMemoria/README de Inventario. Requiere una
+                // decisión de diseño en un módulo ya entregado (EntradaInventario no
+                // tiene ningún campo de estado hoy), así que no se resuelve acá sin
+                // confirmarlo primero.
+                await _repository.AnularAsync(dto.GastoId, motivo);
+            }
+            catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
+            {
+                throw new Exception("Error al anular el gasto operativo.", ex);
+            }
+        }
     }
 }
