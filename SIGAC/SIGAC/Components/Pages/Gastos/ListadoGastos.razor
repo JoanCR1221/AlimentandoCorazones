@@ -103,6 +103,7 @@
         var motivo = (string)resultado.Data!;
 
         await GastosService.AnularGastoAsync(new AnulacionGastoDto { GastoId = gastoId, MotivoAnulacion = motivo });
+        await CargarAsync();
     }
 
     // Los valores internos son PascalCase sin espacios; acá solo se traducen
