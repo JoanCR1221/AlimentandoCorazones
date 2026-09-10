@@ -2,6 +2,132 @@
     position: relative;
 }
 
+.sigac-brand {
+    display: flex;
+    align-items: center;
+    color: inherit;
+    text-decoration: none;
+}
+
+.sigac-logo {
+    max-height: 40px;
+    height: 40px;
+    width: auto;
+    margin-left: 0.5rem;
+    flex-shrink: 0;
+    /* Cuadrado redondeado, no el radio orgánico de tarjetas/botones: en un
+       ícono de 40px ese radio asimétrico se ve deforme. */
+    border-radius: 10px;
+}
+
 #blazor-error-ui {
     color-scheme: light dark;
+}
+
+/* Clima de fondo en modo claro (From Uiverse.io by Danishrehman786). Capas
+   fixed + z-index negativo, mismo criterio que la lluvia del modo oscuro
+   (app.css): quedan ancladas al viewport, detrás de AppBar/Drawer/tarjetas,
+   sin depender del alto real de <body>. Ocultas en modo oscuro y en alto
+   contraste (display:none, no solo opacity, para no gastar ciclos de
+   animación de más cuando no se ven). */
+.sigac-clima-dia > div {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    display: none;
+}
+
+html:not([data-theme="dark"]):not([data-alto-contraste="true"]) .cosmic-element,
+html:not([data-theme="dark"]):not([data-alto-contraste="true"]) .stars-layer,
+html:not([data-theme="dark"]):not([data-alto-contraste="true"]) .wind-wave,
+html:not([data-theme="dark"]):not([data-alto-contraste="true"]) .ice-crystal {
+    display: block;
+}
+
+/* Recoloreado a pedido: con cian/blanco a la intensidad que hacía falta
+   para que se note, todo el fondo beige se lavaba a verde salvia (perdía el
+   tono cálido de la paleta SIGAC). Misma mecánica y animaciones del CSS
+   original, pero con crema/terracota de la propia paleta en vez de
+   cian/blanco — así "lighten"/"screen" empujan el fondo hacia más cálido y
+   luminoso en vez de hacia frío. */
+.cosmic-element {
+    filter: url(#cosmic-texture);
+    mix-blend-mode: lighten;
+}
+
+.stars-layer {
+    background-image: radial-gradient(#FDFBF799 1.5px, transparent 1.5px),
+        radial-gradient(#C05C4E88 1.5px, transparent 1.5px);
+    background-size: 10px 10px;
+    background-position: 0 0, 5px 5px;
+    animation: sigac-twinkle 4s infinite alternate ease-in-out;
+    opacity: 0.28;
+}
+
+.wind-wave {
+    background: repeating-linear-gradient(45deg,
+        rgba(253, 251, 247, 0.05) 0px,
+        rgba(192, 92, 78, 0.1) 1px,
+        transparent 3px);
+    background-size: 300% 300%;
+    animation: sigac-wind-shift 10s ease-in-out infinite;
+}
+
+/* xmlns corregido: el CSS que llegó traía la URL del namespace rota por un
+   autolinkeo del pegado ("://[www.w3.org/2000/svg](url)"), que hace que el
+   SVG no sea válido y la imagen no cargue. Color de las líneas cambiado de
+   cian (%2300ffff) a terracota (%23C05C4E), mismo criterio de recoloreado. */
+.ice-crystal {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><line x1='0' y1='0' x2='100' y2='100' stroke='%23C05C4E' stroke-opacity='0.3'/><line x1='100' y1='0' x2='0' y2='100' stroke='%23C05C4E' stroke-opacity='0.3'/></svg>");
+    background-size: 80px 80px;
+    animation: sigac-ice-drift 15s linear infinite;
+    mix-blend-mode: screen;
+    opacity: 0.22;
+}
+
+/* twinkle / windShift / iceDrift: el CSS pasado los usa en "animation" pero
+   nunca los define (se ve que se cortaron al copiar el snippet de Uiverse).
+   Agregados acá siguiendo lo que cada nombre sugiere. */
+@keyframes sigac-twinkle {
+    0% {
+        opacity: 0.28;
+    }
+
+    100% {
+        opacity: 0.42;
+    }
+}
+
+@keyframes sigac-wind-shift {
+    0% {
+        background-position: 0% 0%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 100%;
+    }
+}
+
+@keyframes sigac-ice-drift {
+    0% {
+        background-position: 0 0;
+    }
+
+    100% {
+        background-position: 80px 80px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .stars-layer,
+    .wind-wave,
+    .ice-crystal {
+        animation: none;
+    }
 }
