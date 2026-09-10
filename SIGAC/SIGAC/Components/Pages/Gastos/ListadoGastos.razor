@@ -1,5 +1,6 @@
 @page "/gastos"
 @using SIGAC.Application.DTOs.Gastos
+@using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces
 @using SIGAC.Domain
 @using SIGAC.Domain.Entities
@@ -103,9 +104,24 @@
 
         var motivo = (string)resultado.Data!;
 
-        await GastosService.AnularGastoAsync(new AnulacionGastoDto { GastoId = gastoId, MotivoAnulacion = motivo });
-        Snackbar.Add("Gasto operativo anulado.", Severity.Success);
-        await CargarAsync();
+        try
+        {
+            await GastosService.AnularGastoAsync(new AnulacionGastoDto { GastoId = gastoId, MotivoAnulacion = motivo });
+            Snackbar.Add("Gasto operativo anulado.", Severity.Success);
+            await CargarAsync();
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (NotFoundException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo anular el gasto operativo. Intentá de nuevo.", Severity.Error);
+        }
     }
 
     // Los valores internos son PascalCase sin espacios; acá solo se traducen
