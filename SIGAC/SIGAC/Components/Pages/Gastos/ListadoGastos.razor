@@ -2,7 +2,9 @@
 @using SIGAC.Application.DTOs.Gastos
 @using SIGAC.Application.Interfaces
 @using SIGAC.Domain
+@using SIGAC.Domain.Entities
 @inject IGastosService GastosService
+@inject IDialogService DialogService
 
 <MudText Typo="Typo.h4" Class="mb-4">Gastos operativos</MudText>
 
@@ -31,11 +33,16 @@
                 <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
                 <PropertyColumn Property="x => x.Descripcion" Title="Descripción" />
                 <PropertyColumn Property="x => x.Estado" Title="Estado" />
-                @* El botón Anular se agrega en AB#2576, junto con el diálogo de
-                   confirmación: todavía no existe AnularGastoAsync en el servicio. *@
                 <TemplateColumn Title="Acciones">
                     <CellTemplate>
                         <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/gastos/editar/{context.Item.Id}")">Editar</MudButton>
+                        @* Un gasto ya anulado no se puede volver a anular (AB#2572 lo
+                           rechaza igual del lado del servicio, pero ocultar el botón
+                           evita el viaje al servidor para un error ya previsible). *@
+                        @if (context.Item.Estado == nameof(EstadoGastoOperativo.Activo))
+                        {
+                            <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@(() => AnularAsync(context.Item.Id))">Anular</MudButton>
+                        }
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
@@ -83,6 +90,19 @@
         });
         gastos = resultado.Gastos.ToList();
         totalAcumulado = resultado.TotalAcumulado;
+    }
+
+    private async Task AnularAsync(int gastoId)
+    {
+        var dialog = await DialogService.ShowAsync<AnularGastoDialog>("Anular gasto operativo");
+        var resultado = await dialog.Result;
+
+        if (resultado is null || resultado.Canceled)
+            return;
+
+        var motivo = (string)resultado.Data!;
+
+        await GastosService.AnularGastoAsync(new AnulacionGastoDto { GastoId = gastoId, MotivoAnulacion = motivo });
     }
 
     // Los valores internos son PascalCase sin espacios; acá solo se traducen
