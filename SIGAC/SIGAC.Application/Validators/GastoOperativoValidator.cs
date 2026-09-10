@@ -27,6 +27,9 @@ namespace SIGAC.Application.Validators
         public static GastoOperativoValidado Validar(GastoOperativoCrearDto dto) =>
             Validar(dto.Categoria, dto.Monto, dto.Fecha, dto.Descripcion, dto.Responsable);
 
+        public static GastoOperativoValidado Validar(GastoOperativoEditarDto dto) =>
+            Validar(dto.Categoria, dto.Monto, dto.Fecha, dto.Descripcion, dto.Responsable);
+
         private static GastoOperativoValidado Validar(
             string? categoria, decimal monto, DateTime fecha, string? descripcion, string? responsable)
         {

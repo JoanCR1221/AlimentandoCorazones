@@ -44,5 +44,34 @@ namespace SIGAC.Application.Services
                 throw new Exception("Error al registrar el gasto operativo.", ex);
             }
         }
+
+        public async Task EditarGastoAsync(int id, GastoOperativoEditarDto dto)
+        {
+            try
+            {
+                var gasto = await _repository.ObtenerPorIdAsync(id)
+                    ?? throw new NotFoundException("El gasto operativo no existe.");
+
+                // Un gasto anulado es un registro cerrado: editarlo cambiaría el
+                // respaldo contable de una anulación ya comunicada. Para corregirlo
+                // hay que registrar uno nuevo, no reabrir el anulado.
+                if (gasto.Estado == EstadoGastoOperativo.Anulado)
+                    throw new ValidationException("No se puede editar un gasto operativo anulado.");
+
+                var datos = GastoOperativoValidator.Validar(dto);
+
+                gasto.Categoria = datos.Categoria;
+                gasto.Monto = datos.Monto;
+                gasto.Fecha = datos.Fecha;
+                gasto.Descripcion = datos.Descripcion;
+                gasto.Responsable = datos.Responsable;
+
+                await _repository.ActualizarAsync(gasto);
+            }
+            catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
+            {
+                throw new Exception("Error al editar el gasto operativo.", ex);
+            }
+        }
     }
 }
