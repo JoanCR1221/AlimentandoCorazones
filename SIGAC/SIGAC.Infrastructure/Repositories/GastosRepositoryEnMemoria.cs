@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using SIGAC.Application.DTOs.Gastos;
 using SIGAC.Application.Interfaces;
 using SIGAC.Domain.Entities;
 
@@ -30,6 +31,26 @@ namespace SIGAC.Infrastructure.Repositories
         {
             _gastos[gasto.Id] = gasto;
             return Task.CompletedTask;
+        }
+
+        // Sin paginación a propósito: el listado necesita el conjunto filtrado
+        // completo para poder sumar el total acumulado (AB#2549), no solo una
+        // página. El volumen de gastos operativos de la asociación no justifica
+        // paginar como sí hace falta en Existencias de inventario.
+        public Task<IEnumerable<GastoOperativo>> ObtenerTodosAsync(FiltrosGastoDto filtros)
+        {
+            var query = _gastos.Values.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(filtros.Categoria))
+                query = query.Where(g => g.Categoria == filtros.Categoria);
+
+            if (filtros.FechaDesde.HasValue)
+                query = query.Where(g => g.Fecha >= filtros.FechaDesde.Value.Date);
+
+            if (filtros.FechaHasta.HasValue)
+                query = query.Where(g => g.Fecha <= filtros.FechaHasta.Value.Date);
+
+            return Task.FromResult<IEnumerable<GastoOperativo>>(query.OrderByDescending(g => g.Fecha));
         }
     }
 }
