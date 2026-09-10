@@ -31,6 +31,13 @@
                 <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
                 <PropertyColumn Property="x => x.Descripcion" Title="Descripción" />
                 <PropertyColumn Property="x => x.Estado" Title="Estado" />
+                @* El botón Anular se agrega en AB#2576, junto con el diálogo de
+                   confirmación: todavía no existe AnularGastoAsync en el servicio. *@
+                <TemplateColumn Title="Acciones">
+                    <CellTemplate>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/gastos/editar/{context.Item.Id}")">Editar</MudButton>
+                    </CellTemplate>
+                </TemplateColumn>
             </Columns>
             <NoRecordsContent>
                 <MudText>No hay gastos operativos registrados.</MudText>
