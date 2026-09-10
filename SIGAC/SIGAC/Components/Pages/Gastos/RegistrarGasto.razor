@@ -3,6 +3,7 @@
 @using SIGAC.Application.Interfaces
 @using SIGAC.Domain
 @inject IGastosService GastosService
+@inject ISnackbar Snackbar
 
 <MudText Typo="Typo.h4" Class="mb-4">Registrar gasto operativo</MudText>
 
@@ -56,5 +57,8 @@
     private async Task Guardar()
     {
         await GastosService.RegistrarGastoAsync(modelo);
+        Snackbar.Add("Gasto operativo registrado correctamente.", Severity.Success);
+
+        modelo = new();
     }
 }
