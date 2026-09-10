@@ -1,9 +1,14 @@
-@page "/inventario/entradas/registrar"
+﻿@page "/inventario/entradas/registrar"
+@using SIGAC.Application.DTOs.Donaciones
+@using SIGAC.Application.DTOs.Gastos
 @using SIGAC.Application.DTOs.Inventario
 @using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces
 @using SIGAC.Domain
+@using SIGAC.Domain.Entities
 @inject IInventarioService InventarioService
+@inject IDonantesService DonantesService
+@inject IGastosService GastosService
 @inject ISnackbar Snackbar
 
 <MudText Typo="Typo.h4" Class="mb-4">Registrar entrada de inventario</MudText>
@@ -77,7 +82,7 @@
 
             <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
 
-            <MudSelect T="string" @bind-Value="modelo.Origen" For="@(() => modelo.Origen)" @bind-Value:after="OnOrigenCambiado"
+            <MudSelect T="string" @bind-Value="modelo.Origen" For="@(() => modelo.Origen)" @bind-Value:after="OnOrigenCambiadoAsync"
                        Label="Origen" Variant="Variant.Outlined" Class="mt-4">
                 <MudSelectItem T="string" Value="@("Donacion")">Donación</MudSelectItem>
                 <MudSelectItem T="string" Value="@("Compra")">Compra</MudSelectItem>
@@ -85,9 +90,23 @@
 
             @if (modelo.Origen == "Donacion")
             {
-                <MudAutocomplete T="string" Label="Donante" Variant="Variant.Outlined" Class="mt-4"
-                                  Value="donanteSeleccionado" ValueChanged="OnDonanteCambiado"
-                                  SearchFunc="BuscarDonantesAsync" Clearable="true" />
+                @* Donantes reales y solo activos. Antes esto salía de un diccionario
+                   en memoria con los ids 1 a 4 inventados: nunca correspondieron a
+                   una fila de Donantes, y desde que DonanteId es FK real cada uno de
+                   ellos rebota contra la base. Mismo buscador que
+                   RegistrarDonacionDinero.razor. *@
+                <MudAutocomplete T="DonanteListaDto" Label="Donante (opcional)" Variant="Variant.Outlined" Class="mt-4"
+                                  Value="donanteSeleccionado" ValueChanged="OnDonanteSeleccionado"
+                                  SearchFunc="BuscarDonantesActivosAsync" ToStringFunc="@(d => d?.Nombre)"
+                                  MinCharacters="1" DebounceInterval="300" Clearable="true"
+                                  HelperText="Escribí para buscar un donante ya registrado." />
+
+                @if (sinDonantesActivos)
+                {
+                    <MudAlert Severity="Severity.Info" Class="mt-2">
+                        Todavía no hay donantes activos registrados. Podés guardar la entrada sin donante, o darlo de alta primero en Donantes.
+                    </MudAlert>
+                }
             }
             else if (modelo.Origen == "Compra")
             {
@@ -99,13 +118,29 @@
                 }
                 else
                 {
-                    <MudSelect T="string" Value="gastoOperativoSeleccionado" ValueChanged="OnGastoOperativoCambiado"
-                               Label="Gasto operativo" Variant="Variant.Outlined" Class="mt-4" Clearable="true">
-                        @foreach (var gasto in GastosOperativosMock.Keys)
+                    @* Solo gastos de CompraInsumos todavía activos: son los únicos que
+                       una entrada de inventario puede respaldar. Un gasto anulado ya no
+                       representa dinero gastado, y vincularle una entrada nueva la
+                       dejaría viva colgando de él, porque la reversión de stock ocurre
+                       en el momento de anular y ese momento ya pasó. Un mismo gasto sí
+                       puede recibir varias entradas: la compra de tres artículos son
+                       tres entradas. Antes acá había tres ids inventados (1, 2 y 3). *@
+                    <MudSelect T="GastoOperativoListaDto" Value="gastoSeleccionado" ValueChanged="OnGastoOperativoCambiado"
+                               ToStringFunc="@(g => EtiquetaGasto(g))"
+                               Label="Gasto operativo (opcional)" Variant="Variant.Outlined" Class="mt-4" Clearable="true"
+                               HelperText="Vinculá la entrada al gasto de compra que la respalda.">
+                        @foreach (var gasto in gastosVinculables)
                         {
-                            <MudSelectItem T="string" Value="@gasto">@gasto</MudSelectItem>
+                            <MudSelectItem T="GastoOperativoListaDto" Value="@gasto">@EtiquetaGasto(gasto)</MudSelectItem>
                         }
                     </MudSelect>
+
+                    @if (gastosCargados && gastosVinculables.Count == 0)
+                    {
+                        <MudAlert Severity="Severity.Info" Class="mt-2">
+                            Todavía no hay gastos de compra de insumos activos. Podés guardar la entrada sin vincularla, o registrar el gasto primero en Gastos operativos.
+                        </MudAlert>
+                    }
                 }
             }
         </MudCardContent>
@@ -124,27 +159,18 @@
     [SupplyParameterFromQuery]
     public int? GastoOperativoId { get; set; }
 
-    // Mock temporal: el módulo de Donaciones todavía no existe.
-    private static readonly Dictionary<string, int> DonantesMock = new()
-    {
-        ["Empresa Alimentos del Valle"] = 1,
-        ["Supermercado La Colonia"] = 2,
-        ["Panadería San José"] = 3,
-        ["Donante anónimo"] = 4
-    };
-
-    // Mock temporal: el módulo de Gastos Operativos todavía no existe.
-    private static readonly Dictionary<string, int> GastosOperativosMock = new()
-    {
-        ["Compra de alimentos"] = 1,
-        ["Compra de insumos de limpieza"] = 2,
-        ["Compra de ropa y calzado"] = 3
-    };
-
     private EntradaInventarioCrearDto modelo = new();
     private ArticuloExistenciaDto? articuloExistente;
-    private string? donanteSeleccionado;
-    private string? gastoOperativoSeleccionado;
+    private DonanteListaDto? donanteSeleccionado;
+    private GastoOperativoListaDto? gastoSeleccionado;
+
+    // Gastos que la entrada puede respaldar. Se llena al elegir origen "Compra".
+    private List<GastoOperativoListaDto> gastosVinculables = new();
+
+    // Distingue "todavía no fui a buscarlos" de "fui y no hay ninguno": sin esta
+    // bandera, el aviso de lista vacía aparecería durante la carga.
+    private bool gastosCargados;
+    private bool sinDonantesActivos;
 
     private DateTime? fecha
     {
@@ -154,7 +180,8 @@
 
     // Sin OnInitializedAsync ni listas cacheadas de categorías/unidades: las opciones
     // de esos dos desplegables salen del catálogo cerrado en SIGAC.Domain, que se lee
-    // directo desde el marcado. No hay nada que traer del servidor al abrir.
+    // directo desde el marcado. Donantes y gastos sí vienen del servidor, pero recién
+    // al elegir el origen: al abrir la pantalla sigue sin haber nada que traer.
 
     protected override void OnInitialized()
     {
@@ -209,34 +236,91 @@
             modelo.UnidadMedida = string.Empty;
     }
 
-    private void OnOrigenCambiado()
+    // Las dos listas se traen recién al elegir el origen, no al abrir la pantalla:
+    // cada entrada usa uno solo de los dos caminos, así que cargar ambos siempre
+    // sería una consulta de más en cada visita.
+    private async Task OnOrigenCambiadoAsync()
     {
         donanteSeleccionado = null;
         modelo.DonanteId = null;
-        gastoOperativoSeleccionado = null;
+        gastoSeleccionado = null;
         modelo.GastoOperativoId = null;
+
+        if (modelo.Origen == "Donacion")
+            await VerificarSiHayDonantesActivosAsync();
+        else if (modelo.Origen == "Compra")
+            await CargarGastosVinculablesAsync();
     }
 
-    private Task<IEnumerable<string>> BuscarDonantesAsync(string valor, CancellationToken cancellationToken)
+    // Existe solo para poder avisar que la lista está vacía. Se pide una sola fila
+    // porque lo único que se mira es TotalRegistros: el buscador es por texto, así
+    // que sin este aviso "no hay ningún donante cargado" y "escribiste un nombre
+    // que no existe" se verían exactamente igual.
+    private async Task VerificarSiHayDonantesActivosAsync()
     {
-        var resultado = string.IsNullOrWhiteSpace(valor)
-            ? DonantesMock.Keys.AsEnumerable()
-            : DonantesMock.Keys.Where(d => d.Contains(valor, StringComparison.OrdinalIgnoreCase));
+        var resultado = await DonantesService.ObtenerDonantesAsync(new FiltrosDonanteDto
+        {
+            Estado = true,
+            TamanoPagina = 1
+        });
 
-        return Task.FromResult(resultado);
+        sinDonantesActivos = resultado.TotalRegistros == 0;
     }
 
-    private void OnDonanteCambiado(string? valor)
+    private async Task CargarGastosVinculablesAsync()
+    {
+        // Categoria viaja en el filtro y se resuelve en SQL. Estado se descarta acá
+        // porque FiltrosGastoDto no lo expresa; empujarlo al repositorio obligaría a
+        // tocar el backend y, según acordamos entre sesiones, sería además el
+        // disparador para revisar el índice de GastosOperativos. Sobre los gastos de
+        // una sola categoría el filtro en memoria no lo justifica.
+        var consulta = await GastosService.ObtenerGastosAsync(new FiltrosGastoDto
+        {
+            Categoria = CategoriasGastoOperativo.CompraInsumos
+        });
+
+        gastosVinculables = consulta.Gastos
+            .Where(g => g.Estado == nameof(EstadoGastoOperativo.Activo))
+            .ToList();
+
+        gastosCargados = true;
+    }
+
+    private async Task<IEnumerable<DonanteListaDto>> BuscarDonantesActivosAsync(string valor, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(valor))
+            return Array.Empty<DonanteListaDto>();
+
+        // Solo activos: desactivar un donante es justamente lo que lo saca de los
+        // desplegables, que es para lo que existe la baja lógica en IDonantesService.
+        var resultado = await DonantesService.ObtenerDonantesAsync(new FiltrosDonanteDto
+        {
+            Nombre = valor,
+            Estado = true
+        });
+
+        return resultado.Elementos;
+    }
+
+    private void OnDonanteSeleccionado(DonanteListaDto? valor)
     {
         donanteSeleccionado = valor;
-        modelo.DonanteId = valor is not null && DonantesMock.TryGetValue(valor, out var id) ? id : null;
+        modelo.DonanteId = valor?.Id;
     }
 
-    private void OnGastoOperativoCambiado(string? valor)
+    private void OnGastoOperativoCambiado(GastoOperativoListaDto? valor)
     {
-        gastoOperativoSeleccionado = valor;
-        modelo.GastoOperativoId = valor is not null && GastosOperativosMock.TryGetValue(valor, out var id) ? id : null;
+        gastoSeleccionado = valor;
+        modelo.GastoOperativoId = valor?.Id;
     }
+
+    // El id va al frente porque es lo que la persona ve en el aviso al llegar desde
+    // RegistrarGasto.razor ("gasto operativo #12"), y dos compras del mismo día por
+    // el mismo monto no se distinguirían sin él.
+    private static string EtiquetaGasto(GastoOperativoListaDto? gasto) =>
+        gasto is null
+            ? string.Empty
+            : $"#{gasto.Id} · {gasto.Fecha:dd/MM/yyyy} · ₡{gasto.Monto:N2} · {gasto.Descripcion}";
 
     private async Task Guardar()
     {
@@ -248,7 +332,13 @@
             modelo = new();
             articuloExistente = null;
             donanteSeleccionado = null;
-            gastoOperativoSeleccionado = null;
+            gastoSeleccionado = null;
+
+            // Se descarta la lista traída: al elegir origen de nuevo se vuelve a
+            // pedir, y así aparece el gasto que se haya registrado mientras tanto.
+            gastosVinculables = new();
+            gastosCargados = false;
+            sinDonantesActivos = false;
         }
         catch (ValidationException ex)
         {
