@@ -33,6 +33,9 @@ builder.Services.AddScoped<IAsistenciaService, AsistenciaService>();
 // Servicio del módulo de Control de Inventario
 builder.Services.AddScoped<IInventarioService, InventarioService>();
 
+// Servicio del módulo de Gastos Operativos
+builder.Services.AddScoped<IGastosService, GastosService>();
+
 
 // Repositorio de Beneficiarios con EF Core (reemplaza la versión temporal en memoria)
 builder.Services.AddScoped<IBeneficiariosRepository, BeneficiariosRepositoryEfCore>();
@@ -42,6 +45,10 @@ builder.Services.AddScoped<IAsistenciaRepository, AsistenciaRepositoryEfCore>();
 
 // Repositorio de Inventario con EF Core (reemplaza la versión temporal en memoria)
 builder.Services.AddScoped<IInventarioRepository, InventarioRepositoryEfCore>();
+
+// Repositorio de Gastos Operativos TEMPORAL en memoria (aún sin migrar a EF Core;
+// Base de datos: entidad, SigacDbContext y migración pendientes)
+builder.Services.AddScoped<IGastosRepository, GastosRepositoryEnMemoria>();
 
 
 var app = builder.Build();
