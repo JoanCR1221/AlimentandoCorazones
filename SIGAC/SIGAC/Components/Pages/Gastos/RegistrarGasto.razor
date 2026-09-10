@@ -17,6 +17,8 @@
                           Min="0.01m" Format="N2" Adornment="Adornment.Start" AdornmentText="₡" />
 
         <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
+
+        <MudTextField @bind-Value="modelo.Descripcion" Label="Descripción" Variant="Variant.Outlined" Class="mt-4" Lines="2" />
     </MudCardContent>
 </MudCard>
 
