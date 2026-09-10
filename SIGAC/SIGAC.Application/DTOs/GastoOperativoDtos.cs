@@ -58,4 +58,12 @@ namespace SIGAC.Application.DTOs.Gastos
     // pantalla: por eso viaja junto con la lista en vez de calcularse en el
     // frontend, que solo vería una posible futura página.
     public sealed record GastosConsultaDto(IReadOnlyList<GastoOperativoListaDto> Gastos, decimal TotalAcumulado);
+
+    public class AnulacionGastoDto
+    {
+        public int GastoId { get; set; }
+
+        [Required(ErrorMessage = "El motivo de anulación es obligatorio.")]
+        public string MotivoAnulacion { get; set; } = string.Empty;
+    }
 }
