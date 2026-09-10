@@ -19,6 +19,9 @@
             }
         </MudSelect>
 
+        <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
+                             Label="Rango de fechas" Variant="Variant.Outlined" Class="mb-4" />
+
         <MudDataGrid T="GastoOperativoListaDto" Items="@gastos">
             <Columns>
                 <PropertyColumn Property="x => x.Categoria" Title="Categoría" />
@@ -37,6 +40,7 @@
 @code {
     private List<GastoOperativoListaDto> gastos = new();
     private string? filtroCategoria;
+    private DateRange? rangoFechas;
 
     // A diferencia de Existencias de inventario (catálogo potencialmente enorme,
     // exige un filtro antes de mostrar algo), un listado de gastos operativos es
@@ -53,11 +57,19 @@
         await CargarAsync();
     }
 
+    private async Task OnRangoFechasCambiadoAsync(DateRange? valor)
+    {
+        rangoFechas = valor;
+        await CargarAsync();
+    }
+
     private async Task CargarAsync()
     {
         var resultado = await GastosService.ObtenerGastosAsync(new FiltrosGastoDto
         {
-            Categoria = filtroCategoria
+            Categoria = filtroCategoria,
+            FechaDesde = rangoFechas?.Start,
+            FechaHasta = rangoFechas?.End
         });
         gastos = resultado.Gastos.ToList();
     }
