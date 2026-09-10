@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 using SIGAC.Application.Interfaces;
 using SIGAC.Application.Services;
@@ -50,9 +50,8 @@ builder.Services.AddScoped<IAsistenciaRepository, AsistenciaRepositoryEfCore>();
 // Repositorio de Inventario con EF Core (reemplaza la versión temporal en memoria)
 builder.Services.AddScoped<IInventarioRepository, InventarioRepositoryEfCore>();
 
-// Repositorio de Gastos Operativos TEMPORAL en memoria (aún sin migrar a EF Core;
-// Base de datos: entidad, SigacDbContext y migración pendientes)
-builder.Services.AddScoped<IGastosRepository, GastosRepositoryEnMemoria>();
+// Repositorio de Gastos Operativos con EF Core (reemplaza la versión temporal en memoria)
+builder.Services.AddScoped<IGastosRepository, GastosRepositoryEfCore>();
 
 // Repositorios de Donantes y Donaciones con EF Core
 builder.Services.AddScoped<IDonantesRepository, DonantesRepositoryEfCore>();

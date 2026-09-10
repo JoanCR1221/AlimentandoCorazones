@@ -1,4 +1,4 @@
-namespace SIGAC.Domain.Entities
+﻿namespace SIGAC.Domain.Entities
 {
     public enum EstadoGastoOperativo
     {
@@ -6,11 +6,10 @@ namespace SIGAC.Domain.Entities
         Anulado
     }
 
-    // Borrador mínimo: la creación/configuración definitiva de esta entidad es
-    // tarea de "Base de datos" (AB#2489/2491/2494), todavía sin empezar. Se
-    // define acá solo para poder avanzar con el DTO/servicio/repositorio del
-    // lado de Backend mientras tanto, con el mismo criterio que Beneficiario y
-    // Articulo al principio de sus módulos.
+    // Entidad del módulo de Gastos Operativos, ya configurada en SigacDbContext
+    // y respaldada por migración (AB#2489/2491/2494). Categoria y Estado son
+    // dominios cerrados: los sostienen CategoriasGastoOperativo y los CHECK
+    // CK_GastosOperativos_Categoria / CK_GastosOperativos_Estado.
     public class GastoOperativo
     {
         public int Id { get; set; }

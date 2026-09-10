@@ -26,6 +26,9 @@ namespace SIGAC.Infrastructure.Data
         public DbSet<DetalleDonacionEspecie> DetallesDonacionEspecie { get; set; }
         public DbSet<DonacionEntregada> DonacionesEntregadas { get; set; }
 
+        // Módulo de Gastos Operativos
+        public DbSet<GastoOperativo> GastosOperativos { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -325,15 +328,30 @@ namespace SIGAC.Infrastructure.Data
                     .IsRequired(false)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // TODO (tarea 2076): FK opcional EntradaInventario -> GastoOperativo.
-                //   La entidad GastoOperativo todavía NO existe en SIGAC.Domain.Entities.
-                //   Mismo tratamiento que DonanteId: por ahora es solo int NULL.
+                // FK opcional EntradaInventario -> GastoOperativo (tarea 2076, ya activa).
                 //
-                // entity.HasOne<GastoOperativo>()
-                //     .WithMany()
-                //     .HasForeignKey(e => e.GastoOperativoId)
-                //     .IsRequired(false)
-                //     .OnDelete(DeleteBehavior.Restrict);
+                // Contraparte exacta de la FK a Donante de arriba: hasta que existió la
+                // entidad GastoOperativo, GastoOperativoId era solo una columna int NULL
+                // sin integridad referencial. Ahora la BD garantiza que una entrada por
+                // compra apunte a un gasto que existe de verdad.
+                //
+                // Nullable porque las entradas por donación no tienen gasto: el origen
+                // "Donacion" apunta a DonanteId, no acá. Las dos FK son excluyentes en
+                // la práctica, según el valor de Origen.
+                //
+                // Restrict, igual que el resto de las FK del proyecto: la entrada es el
+                // respaldo contable de la compra, así que un gasto con entradas
+                // vinculadas no se borra en duro. Se anula con Estado, y esa anulación
+                // arrastra la entrada a Anulada = true (AnularEntradaVinculadaAGastoAsync).
+                //
+                // Sin propiedad de navegación, mismo criterio que la FK a Donante:
+                // EntradaInventario pertenece al módulo de Inventario y no se le agrega
+                // una referencia a un tipo de Gastos.
+                entity.HasOne<GastoOperativo>()
+                    .WithMany()
+                    .HasForeignKey(e => e.GastoOperativoId)
+                    .IsRequired(false)
+                    .OnDelete(DeleteBehavior.Restrict);
 
                 // Índice compuesto para el historial de movimientos, que filtra por
                 // artículo y rango de fechas a la vez. Al empezar por ArticuloId, EF
@@ -354,6 +372,13 @@ namespace SIGAC.Infrastructure.Data
                 // las entradas que lo referencian).
                 entity.HasIndex(e => e.DonanteId)
                     .HasDatabaseName("IX_EntradasInventario_Donante");
+
+                // Índice de la FK a GastoOperativo, por lo mismo que el de Donante.
+                // Además de la verificación que hace Restrict al borrar, lo usa
+                // ObtenerEntradaPorGastoOperativoIdAsync, que es la consulta que
+                // corre cada vez que se anula un gasto de tipo compra.
+                entity.HasIndex(e => e.GastoOperativoId)
+                    .HasDatabaseName("IX_EntradasInventario_GastoOperativo");
 
                 // Índice suelto en Fecha: el historial también se consulta por rango
                 // de fechas sin filtrar por artículo, y ahí el compuesto no sirve
@@ -828,6 +853,93 @@ namespace SIGAC.Infrastructure.Data
                     .HasDatabaseName("IX_DonacionesEntregadas_Beneficiario");
 
                 entity.HasIndex(d => d.Fecha);
+            });
+
+            modelBuilder.Entity<GastoOperativo>(entity =>
+            {
+                // CHECK a nivel de BD: Categoria es un dominio cerrado (respalda a
+                // CategoriasGastoOperativo) y el monto de un gasto siempre es
+                // positivo, nunca cero ni negativo. Mismo criterio que el CHECK de
+                // Origen en EntradasInventario y el de Cantidad en Articulos.
+                entity.ToTable("GastosOperativos", t =>
+                {
+                    t.HasCheckConstraint(
+                        "CK_GastosOperativos_Categoria",
+                        $"[Categoria] IN ('{string.Join("', '", CategoriasGastoOperativo.Todos)}')");
+
+                    t.HasCheckConstraint(
+                        "CK_GastosOperativos_Monto",
+                        "[Monto] > 0");
+
+                    // Estado también es un dominio cerrado guardado como texto, igual
+                    // que en SolicitudesPrestamo: sin el CHECK la columna aceptaría
+                    // cualquier cadena escrita desde afuera.
+                    t.HasCheckConstraint(
+                        "CK_GastosOperativos_Estado",
+                        "[Estado] IN ('Activo', 'Anulado')");
+
+                    // Un gasto anulado tiene que decir por qué, y uno activo no puede
+                    // arrastrar un motivo de una anulación que se revirtió. La
+                    // aplicación ya lo garantiza en AnularGastoAsync; esto lo sostiene
+                    // ante updates externos.
+                    t.HasCheckConstraint(
+                        "CK_GastosOperativos_MotivoAnulacion",
+                        "([Estado] = 'Anulado' AND [MotivoAnulacion] IS NOT NULL) OR " +
+                        "([Estado] <> 'Anulado' AND [MotivoAnulacion] IS NULL)");
+                });
+
+                entity.HasKey(g => g.Id);
+
+                // Convención del proyecto: VARCHAR en lugar de NVARCHAR (IsUnicode(false)).
+                entity.Property(g => g.Categoria)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(30);
+
+                entity.Property(g => g.Monto)
+                    .IsRequired()
+                    .HasPrecision(18, 2);
+
+                // datetime2 y no "date", por lo mismo que en EntradasInventario: el
+                // listado ordena entre sí varios gastos del mismo día.
+                entity.Property(g => g.Fecha)
+                    .IsRequired();
+
+                entity.Property(g => g.Descripcion)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(500);
+
+                entity.Property(g => g.Responsable)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(150);
+
+                // Enum como texto y no como int, igual que Estado en SolicitudesPrestamo:
+                // la columna se entiende leyendo la tabla, el CHECK de arriba puede
+                // escribirse sobre valores con significado, y agregar o reordenar
+                // valores del enum no reinterpreta las filas ya guardadas.
+                entity.Property(g => g.Estado)
+                    .IsRequired()
+                    .HasConversion<string>()
+                    .IsUnicode(false)
+                    .HasMaxLength(20);
+
+                entity.Property(g => g.FechaRegistro)
+                    .IsRequired();
+
+                // Solo se llena cuando el gasto se anula.
+                entity.Property(g => g.MotivoAnulacion)
+                    .IsUnicode(false)
+                    .HasMaxLength(500);
+
+                // Compuesto (Fecha, Categoria) y no al revés: el listado siempre ordena
+                // por fecha descendente y el filtro de rango de fechas es el que más se
+                // usa, mientras que el de categoría es opcional (AB#2549). Con Fecha
+                // primero, el índice sirve tanto al filtro de rango solo como al
+                // combinado; empezando por Categoria no serviría al primero.
+                entity.HasIndex(g => new { g.Fecha, g.Categoria })
+                    .HasDatabaseName("IX_GastosOperativos_Fecha_Categoria");
             });
         }
     }

@@ -1,8 +1,9 @@
-namespace SIGAC.Domain
+﻿namespace SIGAC.Domain
 {
     // Categorías de gasto operativo válidas: lista cerrada, mismo criterio que
-    // CategoriasArticulo. La entidad todavía no tiene un CHECK que la respalde en
-    // la base (ver GastoOperativo.cs); por ahora la única barrera es esta lista.
+    // CategoriasArticulo. El CHECK CK_GastosOperativos_Categoria la respalda en la
+    // base y se genera a partir de esta misma lista, así que agregar un valor acá
+    // exige una migración que reescriba la restricción.
     public static class CategoriasGastoOperativo
     {
         public const string ServiciosBasicos = "ServiciosBasicos";
