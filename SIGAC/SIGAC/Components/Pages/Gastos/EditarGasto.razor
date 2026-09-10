@@ -7,7 +7,7 @@
 
 <MudText Typo="Typo.h4" Class="mb-4">Editar gasto operativo</MudText>
 
-<EditForm Model="modelo">
+<EditForm Model="modelo" OnValidSubmit="Guardar">
     <DataAnnotationsValidator />
     <ValidationSummary />
 
@@ -73,4 +73,9 @@
         "Viaticos" => "Viáticos",
         _ => categoria
     };
+
+    private async Task Guardar()
+    {
+        await GastosService.EditarGastoAsync(Id, modelo);
+    }
 }
