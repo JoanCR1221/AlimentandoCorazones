@@ -2,18 +2,52 @@
 @implements IDisposable
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="apariencia-toolbar">
-    <MudTooltip Text="Modo claro">
-        <MudIconButton Icon="@Icons.Material.Filled.LightMode"
-                       Color="@(Apariencia.EsOscuro ? Color.Default : Color.Inherit)"
-                       aria-label="Activar modo claro"
-                       OnClick="@(() => Apariencia.SetEsOscuroAsync(false))" />
-    </MudTooltip>
-    <MudTooltip Text="Modo oscuro">
-        <MudIconButton Icon="@Icons.Material.Filled.DarkMode"
-                       Color="@(Apariencia.EsOscuro ? Color.Inherit : Color.Default)"
-                       aria-label="Activar modo oscuro"
-                       OnClick="@(() => Apariencia.SetEsOscuroAsync(true))" />
-    </MudTooltip>
+    <label class="switch" title="@(Apariencia.EsOscuro ? "Modo oscuro" : "Modo claro")">
+        <input id="input" type="checkbox" checked="@Apariencia.EsOscuro" @onchange="OnEsOscuroChangedAsync"
+               aria-label="Alternar modo claro u oscuro" />
+        <div class="slider round">
+            <div class="sun-moon">
+                <svg id="moon-dot-1" class="moon-dot" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" /></svg>
+                <svg id="moon-dot-2" class="moon-dot" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" /></svg>
+                <svg id="moon-dot-3" class="moon-dot" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" /></svg>
+
+                <svg id="light-ray-1" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" /></svg>
+                <svg id="light-ray-2" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" /></svg>
+                <svg id="light-ray-3" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" /></svg>
+
+                <svg id="cloud-1" class="cloud-dark" viewBox="0 0 64 34">
+                    <ellipse cx="20" cy="22" rx="14" ry="10" /><ellipse cx="34" cy="14" rx="12" ry="10" />
+                    <ellipse cx="46" cy="22" rx="14" ry="10" /><rect x="12" y="20" width="42" height="12" rx="6" />
+                </svg>
+                <svg id="cloud-2" class="cloud-dark" viewBox="0 0 64 34">
+                    <ellipse cx="20" cy="22" rx="14" ry="10" /><ellipse cx="34" cy="14" rx="12" ry="10" />
+                    <ellipse cx="46" cy="22" rx="14" ry="10" /><rect x="12" y="20" width="42" height="12" rx="6" />
+                </svg>
+                <svg id="cloud-3" class="cloud-dark" viewBox="0 0 64 34">
+                    <ellipse cx="20" cy="22" rx="14" ry="10" /><ellipse cx="34" cy="14" rx="12" ry="10" />
+                    <ellipse cx="46" cy="22" rx="14" ry="10" /><rect x="12" y="20" width="42" height="12" rx="6" />
+                </svg>
+                <svg id="cloud-4" class="cloud-light" viewBox="0 0 64 34">
+                    <ellipse cx="20" cy="22" rx="14" ry="10" /><ellipse cx="34" cy="14" rx="12" ry="10" />
+                    <ellipse cx="46" cy="22" rx="14" ry="10" /><rect x="12" y="20" width="42" height="12" rx="6" />
+                </svg>
+                <svg id="cloud-5" class="cloud-light" viewBox="0 0 64 34">
+                    <ellipse cx="20" cy="22" rx="14" ry="10" /><ellipse cx="34" cy="14" rx="12" ry="10" />
+                    <ellipse cx="46" cy="22" rx="14" ry="10" /><rect x="12" y="20" width="42" height="12" rx="6" />
+                </svg>
+                <svg id="cloud-6" class="cloud-light" viewBox="0 0 64 34">
+                    <ellipse cx="20" cy="22" rx="14" ry="10" /><ellipse cx="34" cy="14" rx="12" ry="10" />
+                    <ellipse cx="46" cy="22" rx="14" ry="10" /><rect x="12" y="20" width="42" height="12" rx="6" />
+                </svg>
+            </div>
+            <div class="stars">
+                <svg id="star-1" class="star" viewBox="0 0 24 24"><path d="M12 0 L14.5 9.5 L24 12 L14.5 14.5 L12 24 L9.5 14.5 L0 12 L9.5 9.5 Z" /></svg>
+                <svg id="star-2" class="star" viewBox="0 0 24 24"><path d="M12 0 L14.5 9.5 L24 12 L14.5 14.5 L12 24 L9.5 14.5 L0 12 L9.5 9.5 Z" /></svg>
+                <svg id="star-3" class="star" viewBox="0 0 24 24"><path d="M12 0 L14.5 9.5 L24 12 L14.5 14.5 L12 24 L9.5 14.5 L0 12 L9.5 9.5 Z" /></svg>
+                <svg id="star-4" class="star" viewBox="0 0 24 24"><path d="M12 0 L14.5 9.5 L24 12 L14.5 14.5 L12 24 L9.5 14.5 L0 12 L9.5 9.5 Z" /></svg>
+            </div>
+        </div>
+    </label>
 
     <div class="d-inline-flex" style="position: relative;">
         <MudIconButton Icon="@Icons.Material.Filled.AccessibilityNew"
@@ -26,7 +60,7 @@
                     AnchorOrigin="Origin.BottomRight"
                     TransformOrigin="Origin.TopRight"
                     Class="mt-1">
-            <MudPaper Class="pa-3" Elevation="8" Style="min-width: 15rem;">
+            <MudPaper Class="pa-3" Elevation="8" Style="min-width: 16rem;">
                 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
                     <MudText Typo="Typo.subtitle2">Lectura</MudText>
                     <MudIconButton Icon="@Icons.Material.Filled.Close"
@@ -44,26 +78,14 @@
                            Class="mb-3"
                            aria-label="Alternar alto contraste" />
 
-                <MudText Typo="Typo.caption" Class="mb-1 mud-text-secondary">Tamaño de letra</MudText>
-                <MudButtonGroup Size="Size.Small" Color="Color.Primary">
-                    <MudButton Variant="@(Apariencia.EscalaFuente == EscalaFuente.Pequena ? Variant.Filled : Variant.Outlined)"
-                               Disabled="@(Apariencia.EscalaFuente == EscalaFuente.Pequena)"
-                               OnClick="@(() => SetEscalaAsync(EscalaFuente.Pequena))"
-                               aria-label="Reducir tamaño de letra">
-                        A−
-                    </MudButton>
-                    <MudButton Variant="@(Apariencia.EscalaFuente == EscalaFuente.Normal ? Variant.Filled : Variant.Outlined)"
-                               OnClick="@(() => SetEscalaAsync(EscalaFuente.Normal))"
-                               aria-label="Tamaño de letra normal">
-                        A
-                    </MudButton>
-                    <MudButton Variant="@(Apariencia.EscalaFuente == EscalaFuente.Grande ? Variant.Filled : Variant.Outlined)"
-                               Disabled="@(Apariencia.EscalaFuente == EscalaFuente.Grande)"
-                               OnClick="@(() => SetEscalaAsync(EscalaFuente.Grande))"
-                               aria-label="Aumentar tamaño de letra">
-                        A+
-                    </MudButton>
-                </MudButtonGroup>
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">Tamaño de letra</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Apariencia.TamanoFuente%</MudText>
+                </MudStack>
+                <MudSlider T="int" Value="Apariencia.TamanoFuente" ValueChanged="SetTamanoFuenteAsync"
+                           Min="AparienciaService.TamanoFuenteMinimo" Max="AparienciaService.TamanoFuenteMaximo"
+                           Step="5" Color="Color.Primary" Class="mt-1"
+                           aria-label="Ajustar tamaño de letra" />
             </MudPaper>
         </MudPopover>
     </div>
@@ -87,9 +109,17 @@
         await Apariencia.SetAltoContrasteAsync(valor);
     }
 
-    private async Task SetEscalaAsync(EscalaFuente escala)
+    private async Task OnEsOscuroChangedAsync(ChangeEventArgs e)
     {
-        await Apariencia.SetEscalaFuenteAsync(escala);
+        if (e.Value is bool esOscuro)
+        {
+            await Apariencia.SetEsOscuroAsync(esOscuro);
+        }
+    }
+
+    private async Task SetTamanoFuenteAsync(int porcentaje)
+    {
+        await Apariencia.SetTamanoFuenteAsync(porcentaje);
     }
 
     public void Dispose()

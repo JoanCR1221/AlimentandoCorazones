@@ -1,0 +1,93 @@
+@page "/donaciones/historial"
+@using SIGAC.Application.DTOs
+@using SIGAC.Application.DTOs.Donaciones
+@using SIGAC.Application.Interfaces
+@inject IDonantesService DonantesService
+@inject IDonacionesService DonacionesService
+
+<MudText Typo="Typo.h4" Class="mb-4">Historial de donaciones</MudText>
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        @* Sin filtrar por Estado: una consulta de historial también tiene que
+           poder encontrar donaciones de un donante que hoy está inactivo. *@
+        <MudAutocomplete T="DonanteListaDto" Label="Donante" Variant="Variant.Outlined" Class="mb-4"
+                          Value="donanteSeleccionado" ValueChanged="OnDonanteCambiadoAsync"
+                          SearchFunc="BuscarDonantesAsync" ToStringFunc="@(d => d?.Nombre)" Clearable="true" />
+
+        <MudSelect T="string" Value="filtroTipoDonacion" ValueChanged="OnTipoDonacionCambiadoAsync"
+                   Label="Tipo de donación" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
+            <MudSelectItem T="string" Value="@("Dinero")">Dinero</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Especie")">Especie</MudSelectItem>
+        </MudSelect>
+
+        <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
+                             Label="Rango de fechas" Variant="Variant.Outlined" Class="mb-4" />
+
+        <MudText Typo="Typo.subtitle1" Class="mb-4">
+            Total en dinero del período: @resultado.TotalDinero.ToString("N2")
+        </MudText>
+
+        <MudDataGrid T="HistorialDonacionDto" Items="@resultado.Donaciones">
+            <Columns>
+                <PropertyColumn Property="x => x.TipoDonacion" Title="Tipo" />
+                <PropertyColumn Property="x => x.NombreDonante" Title="Donante" />
+                <TemplateColumn Title="Monto">
+                    <CellTemplate>@(context.Item.Monto?.ToString("N2") ?? "—")</CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.Descripcion" Title="Descripción" />
+                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
+            </Columns>
+            <NoRecordsContent>
+                <MudText>No hay donaciones registradas para los filtros seleccionados.</MudText>
+            </NoRecordsContent>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private HistorialDonacionesResultadoDto resultado = new();
+    private DonanteListaDto? donanteSeleccionado;
+    private string? filtroTipoDonacion;
+    private DateRange? rangoFechas;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarAsync();
+    }
+
+    private async Task<IEnumerable<DonanteListaDto>> BuscarDonantesAsync(string valor, CancellationToken cancellationToken)
+    {
+        var resultado = await DonantesService.ObtenerDonantesAsync(new FiltrosDonanteDto { Nombre = valor });
+        return resultado.Elementos;
+    }
+
+    private async Task OnDonanteCambiadoAsync(DonanteListaDto? valor)
+    {
+        donanteSeleccionado = valor;
+        await CargarAsync();
+    }
+
+    private async Task OnTipoDonacionCambiadoAsync(string? valor)
+    {
+        filtroTipoDonacion = valor;
+        await CargarAsync();
+    }
+
+    private async Task OnRangoFechasCambiadoAsync(DateRange? valor)
+    {
+        rangoFechas = valor;
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        resultado = await DonacionesService.ObtenerHistorialDonacionesAsync(new FiltrosHistorialDonacionDto
+        {
+            DonanteId = donanteSeleccionado?.Id,
+            TipoDonacion = filtroTipoDonacion,
+            FechaDesde = rangoFechas?.Start,
+            FechaHasta = rangoFechas?.End
+        });
+    }
+}

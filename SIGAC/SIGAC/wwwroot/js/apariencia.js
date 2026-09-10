@@ -17,7 +17,9 @@ export function saveSettings(key, settings) {
 
 export function applyAppearance(settings) {
     const html = document.documentElement;
-    html.setAttribute('data-escala', settings.escala ?? 'normal');
+    // Estilo directo y no una clase con pasos fijos: el control deslizante
+    // admite cualquier valor del rango, no solo tres tamaños predefinidos.
+    html.style.fontSize = (settings.tamanoFuente ?? 100) + '%';
     html.setAttribute('data-alto-contraste', settings.altoContraste ? 'true' : 'false');
     html.setAttribute('data-theme', settings.esOscuro ? 'dark' : 'light');
     html.lang = 'es';

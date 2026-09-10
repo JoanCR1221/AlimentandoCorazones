@@ -1,0 +1,142 @@
+@page "/donaciones/dinero/registrar"
+@using SIGAC.Application.DTOs
+@using SIGAC.Application.DTOs.Donaciones
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@using SIGAC.Domain
+@inject IDonantesService DonantesService
+@inject IDonacionesService DonacionesService
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h4" Class="mb-4">Registrar donación en dinero</MudText>
+
+<EditForm Model="modelo" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <MudCard Class="pa-4">
+        <MudCardContent>
+            @* Buscador de donante ya registrado. Se deshabilita mientras el panel de
+               "donante nuevo" está abierto: los dos caminos son excluyentes, igual
+               que Donante existente / Donante nuevo en el servicio. *@
+            <MudAutocomplete T="DonanteListaDto" Label="Donante" Variant="Variant.Outlined"
+                              Value="donanteSeleccionado" ValueChanged="OnDonanteSeleccionadoAsync"
+                              SearchFunc="BuscarDonantesActivosAsync" ToStringFunc="@(d => d?.Nombre)"
+                              MinCharacters="1" DebounceInterval="300" Clearable="true"
+                              Disabled="panelNuevoDonanteAbierto"
+                              HelperText="Escribí para buscar un donante ya registrado." />
+
+            <MudExpansionPanels Class="mt-4">
+                <MudExpansionPanel Text="Registrar donante nuevo" Expanded="panelNuevoDonanteAbierto" ExpandedChanged="OnPanelNuevoDonanteCambiadoAsync">
+                    <MudTextField @bind-Value="nuevoDonante.Nombre" Label="Nombre" Variant="Variant.Outlined" />
+                    <MudSelect T="string" @bind-Value="nuevoDonante.TipoPersona" Label="Tipo de persona" Variant="Variant.Outlined" Class="mt-4">
+                        @foreach (var tipo in TiposPersonaDonante.Todos)
+                        {
+                            <MudSelectItem T="string" Value="@tipo">@tipo</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <PhoneInput @bind-Value="nuevoDonante.Telefono" Label="Teléfono (opcional)" Class="mt-4" />
+                    <MudTextField @bind-Value="nuevoDonante.Correo" Label="Correo (opcional)" Variant="Variant.Outlined" Class="mt-4" />
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+
+            <MudNumericField T="decimal" @bind-Value="modelo.Monto" For="@(() => modelo.Monto)" Label="Monto" Variant="Variant.Outlined" Class="mt-4" Min="0.01M" Format="N2" />
+            <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
+            <MudTextField @bind-Value="modelo.Observaciones" Label="Observaciones (opcional)" Variant="Variant.Outlined" Class="mt-4" Lines="2" />
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+        </MudCardActions>
+    </MudCard>
+</EditForm>
+
+@code {
+    private DonacionDineroCrearDto modelo = new();
+    private DonanteListaDto? donanteSeleccionado;
+    private bool panelNuevoDonanteAbierto;
+    private NuevoDonanteDto nuevoDonante = new();
+
+    private DateTime? fecha
+    {
+        get => modelo.Fecha == default ? null : modelo.Fecha;
+        set => modelo.Fecha = value ?? default;
+    }
+
+    protected override void OnInitialized()
+    {
+        modelo.Fecha = DateTime.Today;
+    }
+
+    private async Task<IEnumerable<DonanteListaDto>> BuscarDonantesActivosAsync(string valor, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(valor))
+            return Array.Empty<DonanteListaDto>();
+
+        // Solo donantes activos: el servicio rechaza una donación a nombre de uno
+        // inactivo, así que ofrecerlo acá solo llevaría a un error al guardar.
+        var resultado = await DonantesService.ObtenerDonantesAsync(new FiltrosDonanteDto
+        {
+            Nombre = valor,
+            Estado = true
+        });
+
+        return resultado.Elementos;
+    }
+
+    private Task OnDonanteSeleccionadoAsync(DonanteListaDto? valor)
+    {
+        donanteSeleccionado = valor;
+
+        // Elegir un donante existente cierra el panel de alta: los dos caminos son
+        // excluyentes y esto evita mandar los dos al mismo tiempo.
+        if (valor is not null && panelNuevoDonanteAbierto)
+        {
+            panelNuevoDonanteAbierto = false;
+            nuevoDonante = new();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnPanelNuevoDonanteCambiadoAsync(bool abierto)
+    {
+        panelNuevoDonanteAbierto = abierto;
+
+        // Al revés: abrir el panel de alta limpia el donante ya elegido.
+        if (abierto)
+        {
+            donanteSeleccionado = null;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task Guardar()
+    {
+        modelo.DonanteId = panelNuevoDonanteAbierto ? null : donanteSeleccionado?.Id;
+        modelo.NuevoDonante = panelNuevoDonanteAbierto ? nuevoDonante : null;
+
+        try
+        {
+            await DonacionesService.RegistrarDonacionDineroAsync(modelo);
+            Snackbar.Add("Donación registrada correctamente.", Severity.Success);
+
+            modelo = new() { Fecha = DateTime.Today };
+            donanteSeleccionado = null;
+            panelNuevoDonanteAbierto = false;
+            nuevoDonante = new();
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (NotFoundException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo registrar la donación. Intentá de nuevo.", Severity.Error);
+        }
+    }
+}

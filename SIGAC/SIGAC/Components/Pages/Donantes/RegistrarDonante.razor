@@ -1,0 +1,61 @@
+@page "/donantes/registrar"
+@using SIGAC.Application.DTOs.Donaciones
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@using SIGAC.Domain
+@inject IDonantesService DonantesService
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h4" Class="mb-4">Registrar donante</MudText>
+
+<EditForm Model="modelo" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <MudCard Class="pa-4">
+        <MudCardContent>
+            <MudTextField @bind-Value="modelo.Nombre" For="@(() => modelo.Nombre)" Label="Nombre" Variant="Variant.Outlined"
+                          HelperText="Persona física o razón social." />
+
+            @* Lista cerrada: la fuente es SIGAC.Domain.TiposPersonaDonante, no la pantalla. *@
+            <MudSelect @bind-Value="modelo.TipoPersona" For="@(() => modelo.TipoPersona)" Label="Tipo de persona" Variant="Variant.Outlined" Class="mt-4">
+                @foreach (var tipo in TiposPersonaDonante.Todos)
+                {
+                    <MudSelectItem T="string" Value="@tipo">@tipo</MudSelectItem>
+                }
+            </MudSelect>
+
+            <PhoneInput @bind-Value="modelo.Telefono" Label="Teléfono (opcional)" Class="mt-4" />
+            <MudTextField @bind-Value="modelo.Correo" For="@(() => modelo.Correo)" Label="Correo (opcional)" Variant="Variant.Outlined" Class="mt-4" />
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+        </MudCardActions>
+    </MudCard>
+</EditForm>
+
+@code {
+    private DonanteCrearDto modelo = new();
+
+    private async Task Guardar()
+    {
+        try
+        {
+            await DonantesService.RegistrarDonanteAsync(modelo);
+            Snackbar.Add("Donante registrado correctamente.", Severity.Success);
+            modelo = new();
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (DuplicateException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo registrar el donante. Intentá de nuevo.", Severity.Error);
+        }
+    }
+}

@@ -1,0 +1,152 @@
+@page "/donaciones/entregas/registrar"
+@using SIGAC.Application.DTOs
+@using SIGAC.Application.DTOs.Beneficiarios
+@using SIGAC.Application.DTOs.Donaciones
+@using SIGAC.Application.DTOs.Inventario
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@using SIGAC.Domain
+@inject IInventarioService InventarioService
+@inject IBeneficiariosService BeneficiariosService
+@inject IDonacionesService DonacionesService
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h4" Class="mb-4">Registrar entrega de donación</MudText>
+
+<EditForm Model="modelo" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <MudCard Class="pa-4">
+        <MudCardContent>
+            @* Sin restricción de categoría, a diferencia de Solicitar Préstamo: acá se
+               entrega en forma definitiva cualquier artículo que haya entrado como
+               donación (alimento, ropa, calzado o equipo), no solo Equipo. *@
+            <MudAutocomplete T="ArticuloExistenciaDto" Label="Artículo" Variant="Variant.Outlined"
+                              Value="articuloSeleccionado" ValueChanged="OnArticuloCambiado"
+                              SearchFunc="BuscarArticulosAsync" MinCharacters="1" DebounceInterval="300"
+                              ToStringFunc="@(a => a is null ? null : $"{a.Nombre} (stock: {a.StockActual} {a.UnidadMedida})")"
+                              HelperText="Escribí para buscar el artículo a entregar." />
+
+            <MudNumericField T="int" @bind-Value="modelo.Cantidad" For="@(() => modelo.Cantidad)" Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
+            <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
+
+            @* Lista cerrada: la fuente es SIGAC.Domain.TiposDestinatarioDonacion. *@
+            <MudSelect T="string" @bind-Value="modelo.TipoDestinatario" @bind-Value:after="OnTipoDestinatarioCambiado"
+                       Label="Tipo de destinatario" Variant="Variant.Outlined" Class="mt-4">
+                @foreach (var tipo in TiposDestinatarioDonacion.Todos)
+                {
+                    <MudSelectItem T="string" Value="@tipo">@tipo</MudSelectItem>
+                }
+            </MudSelect>
+
+            @if (modelo.TipoDestinatario == TiposDestinatarioDonacion.Beneficiario)
+            {
+                <MudAutocomplete T="BeneficiarioListaDto" Label="Beneficiario" Variant="Variant.Outlined" Class="mt-4"
+                                  Value="beneficiarioSeleccionado" ValueChanged="OnBeneficiarioCambiado"
+                                  SearchFunc="BuscarBeneficiariosActivosAsync" ToStringFunc="@(b => b?.NombreCompleto)"
+                                  MinCharacters="FiltrosBeneficiarioDto.MinimoCaracteresBusqueda"
+                                  HelperText="@($"Escribí al menos {FiltrosBeneficiarioDto.MinimoCaracteresBusqueda} caracteres para buscar.")" />
+            }
+            else if (modelo.TipoDestinatario == TiposDestinatarioDonacion.Comunidad)
+            {
+                <MudTextField @bind-Value="modelo.ComunidadDestinataria" For="@(() => modelo.ComunidadDestinataria)"
+                              Label="Comunidad destinataria" Variant="Variant.Outlined" Class="mt-4" />
+            }
+
+            <MudTextField @bind-Value="modelo.Observaciones" Label="Observaciones (opcional)" Variant="Variant.Outlined" Class="mt-4" Lines="2" />
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+        </MudCardActions>
+    </MudCard>
+</EditForm>
+
+@code {
+    private DonacionEntregadaCrearDto modelo = new();
+    private ArticuloExistenciaDto? articuloSeleccionado;
+    private BeneficiarioListaDto? beneficiarioSeleccionado;
+
+    private DateTime? fecha
+    {
+        get => modelo.Fecha == default ? null : modelo.Fecha;
+        set => modelo.Fecha = value ?? default;
+    }
+
+    protected override void OnInitialized()
+    {
+        modelo.Fecha = DateTime.Today;
+    }
+
+    private async Task<IEnumerable<ArticuloExistenciaDto>> BuscarArticulosAsync(string valor, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(valor))
+            return Array.Empty<ArticuloExistenciaDto>();
+
+        var resultado = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto { Nombre = valor });
+        return resultado.Elementos;
+    }
+
+    private void OnArticuloCambiado(ArticuloExistenciaDto? valor)
+    {
+        articuloSeleccionado = valor;
+        modelo.ArticuloId = valor?.Id ?? 0;
+    }
+
+    private async Task<IEnumerable<BeneficiarioListaDto>> BuscarBeneficiariosActivosAsync(string valor, CancellationToken cancellationToken)
+    {
+        if ((valor?.Trim().Length ?? 0) < FiltrosBeneficiarioDto.MinimoCaracteresBusqueda)
+            return Array.Empty<BeneficiarioListaDto>();
+
+        // Solo activos: el servicio rechaza una entrega a nombre de un beneficiario
+        // inactivo, así que ofrecerlo acá solo llevaría a un error al guardar.
+        var resultado = await BeneficiariosService.ObtenerBeneficiariosAsync(new FiltrosBeneficiarioDto
+        {
+            Nombre = valor,
+            Estado = true
+        });
+
+        return resultado.Elementos;
+    }
+
+    private void OnBeneficiarioCambiado(BeneficiarioListaDto? valor)
+    {
+        beneficiarioSeleccionado = valor;
+        modelo.BeneficiarioId = valor?.Id;
+    }
+
+    // Los dos campos de destinatario son excluyentes: cambiar el tipo limpia el
+    // que ya no corresponde, mismo criterio que OnOrigenCambiado en
+    // RegistrarEntradaInventario con Donante/Gasto Operativo.
+    private void OnTipoDestinatarioCambiado()
+    {
+        beneficiarioSeleccionado = null;
+        modelo.BeneficiarioId = null;
+        modelo.ComunidadDestinataria = null;
+    }
+
+    private async Task Guardar()
+    {
+        try
+        {
+            await DonacionesService.RegistrarDonacionEntregadaAsync(modelo);
+            Snackbar.Add("Entrega registrada correctamente.", Severity.Success);
+
+            modelo = new() { Fecha = DateTime.Today };
+            articuloSeleccionado = null;
+            beneficiarioSeleccionado = null;
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (NotFoundException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo registrar la entrega. Intentá de nuevo.", Severity.Error);
+        }
+    }
+}

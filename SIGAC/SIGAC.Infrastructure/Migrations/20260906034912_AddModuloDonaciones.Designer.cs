@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SIGAC.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using SIGAC.Infrastructure.Data;
 namespace SIGAC.Infrastructure.Migrations
 {
     [DbContext(typeof(SigacDbContext))]
-    partial class SigacDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260906034912_AddModuloDonaciones")]
+    partial class AddModuloDonaciones
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -434,11 +437,6 @@ namespace SIGAC.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<bool>("Anulada")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
-
                     b.Property<int>("ArticuloId")
                         .HasColumnType("int");
 
@@ -453,11 +451,6 @@ namespace SIGAC.Infrastructure.Migrations
 
                     b.Property<int?>("GastoOperativoId")
                         .HasColumnType("int");
-
-                    b.Property<string>("MotivoAnulacion")
-                        .HasMaxLength(500)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(500)");
 
                     b.Property<string>("Observaciones")
                         .HasMaxLength(500)

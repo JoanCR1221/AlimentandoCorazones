@@ -1,0 +1,60 @@
+@page "/configuracion"
+@inject AparienciaService Apariencia
+@implements IDisposable
+
+<PageTitle>Configuraciones — SIGAC</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Configuraciones</MudText>
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        <MudText Typo="Typo.h6" Class="mb-1">Apariencia</MudText>
+        <MudText Typo="Typo.body2" Class="mb-4 mud-text-secondary">
+            Elegí cómo se ve SIGAC en esta computadora.
+        </MudText>
+
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+            <div>
+                <MudText Typo="Typo.subtitle1">Modo oscuro</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Reduce el brillo de la pantalla.</MudText>
+            </div>
+            <MudSwitch T="bool" Value="Apariencia.EsOscuro" ValueChanged="Apariencia.SetEsOscuroAsync"
+                       Color="Color.Primary" aria-label="Alternar modo oscuro" />
+        </MudStack>
+
+        <MudDivider Class="mb-4" />
+
+        <MudText Typo="Typo.subtitle1">Tamaño de letra</MudText>
+        <MudText Typo="Typo.body2" Class="mb-2 mud-text-secondary">
+            Ajustá qué tan grande se ve el texto en toda la aplicación.
+        </MudText>
+
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">@AparienciaService.TamanoFuenteMinimo%</MudText>
+            <MudText Typo="Typo.body1" Color="Color.Primary">@Apariencia.TamanoFuente%</MudText>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">@AparienciaService.TamanoFuenteMaximo%</MudText>
+        </MudStack>
+        <MudSlider T="int" Value="Apariencia.TamanoFuente" ValueChanged="Apariencia.SetTamanoFuenteAsync"
+                   Min="AparienciaService.TamanoFuenteMinimo" Max="AparienciaService.TamanoFuenteMaximo"
+                   Step="5" Color="Color.Primary" Class="mb-4"
+                   aria-label="Ajustar tamaño de letra" />
+
+        <MudPaper Class="pa-4" Outlined="true">
+            <MudText Typo="Typo.body1">
+                Así se ve el texto con este tamaño: «María González, beneficiaria activa del comedor».
+            </MudText>
+        </MudPaper>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Apariencia.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        Apariencia.OnChange -= StateHasChanged;
+    }
+}
