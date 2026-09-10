@@ -18,6 +18,8 @@
 
         <MudNumericField T="decimal" @bind-Value="modelo.Monto" Label="Monto" Variant="Variant.Outlined" Class="mt-4"
                           Min="0.01m" Format="N2" Adornment="Adornment.Start" AdornmentText="₡" />
+
+        <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
     </MudCardContent>
 </MudCard>
 
@@ -26,6 +28,12 @@
     public int Id { get; set; }
 
     private GastoOperativoEditarDto modelo = new();
+
+    private DateTime? fecha
+    {
+        get => modelo.Fecha == default ? null : modelo.Fecha;
+        set => modelo.Fecha = value ?? default;
+    }
 
     // Todavía no existe ListadoGastos.razor (AB#2552, sin empezar): mientras
     // tanto, un id inexistente o un guardado exitoso vuelven a Registrar, la
