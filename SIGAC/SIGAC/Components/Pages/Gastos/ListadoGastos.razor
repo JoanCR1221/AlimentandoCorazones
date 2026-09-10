@@ -1,5 +1,7 @@
 @page "/gastos"
 @using SIGAC.Application.DTOs.Gastos
+@using SIGAC.Application.Interfaces
+@inject IGastosService GastosService
 
 <MudText Typo="Typo.h4" Class="mb-4">Gastos operativos</MudText>
 
@@ -11,4 +13,19 @@
 
 @code {
     private List<GastoOperativoListaDto> gastos = new();
+
+    // A diferencia de Existencias de inventario (catálogo potencialmente enorme,
+    // exige un filtro antes de mostrar algo), un listado de gastos operativos es
+    // chico y funciona como un registro contable: se ve todo al abrir, y los
+    // filtros solo acotan lo que ya está a la vista.
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        var resultado = await GastosService.ObtenerGastosAsync(new FiltrosGastoDto());
+        gastos = resultado.Gastos.ToList();
+    }
 }
