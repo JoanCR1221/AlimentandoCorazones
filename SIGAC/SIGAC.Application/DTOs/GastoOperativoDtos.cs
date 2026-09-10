@@ -35,4 +35,15 @@ namespace SIGAC.Application.DTOs.Gastos
         [Required(ErrorMessage = "El responsable es obligatorio.")]
         public string Responsable { get; set; } = string.Empty;
     }
+
+    public class GastoOperativoListaDto
+    {
+        public int Id { get; set; }
+        public string Categoria { get; set; } = string.Empty;
+        public decimal Monto { get; set; }
+        public DateTime Fecha { get; set; }
+        public string Descripcion { get; set; } = string.Empty;
+        public string Responsable { get; set; } = string.Empty;
+        public string Estado { get; set; } = string.Empty;
+    }
 }
