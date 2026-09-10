@@ -46,4 +46,11 @@ namespace SIGAC.Application.DTOs.Gastos
         public string Responsable { get; set; } = string.Empty;
         public string Estado { get; set; } = string.Empty;
     }
+
+    public class FiltrosGastoDto
+    {
+        public string? Categoria { get; set; }
+        public DateTime? FechaDesde { get; set; }
+        public DateTime? FechaHasta { get; set; }
+    }
 }
