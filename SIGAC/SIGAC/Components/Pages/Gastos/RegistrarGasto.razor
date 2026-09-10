@@ -15,11 +15,19 @@
 
         <MudNumericField T="decimal" @bind-Value="modelo.Monto" Label="Monto" Variant="Variant.Outlined" Class="mt-4"
                           Min="0.01m" Format="N2" Adornment="Adornment.Start" AdornmentText="₡" />
+
+        <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
     </MudCardContent>
 </MudCard>
 
 @code {
     private GastoOperativoCrearDto modelo = new();
+
+    private DateTime? fecha
+    {
+        get => modelo.Fecha == default ? null : modelo.Fecha;
+        set => modelo.Fecha = value ?? default;
+    }
 
     // Los valores internos (los que valida el servicio y va a guardar la base)
     // son PascalCase sin espacios; acá solo se traducen para mostrarse.
