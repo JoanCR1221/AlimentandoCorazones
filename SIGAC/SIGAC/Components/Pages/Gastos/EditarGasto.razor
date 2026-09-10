@@ -1,5 +1,7 @@
 @page "/gastos/editar/{Id:int}"
 @using SIGAC.Application.DTOs.Gastos
+@using SIGAC.Application.Interfaces
+@inject IGastosService GastosService
 
 <MudText Typo="Typo.h4" Class="mb-4">Editar gasto operativo</MudText>
 
