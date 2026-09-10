@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SIGAC.Application.DTOs.Gastos;
 using SIGAC.Application.Interfaces;
 using SIGAC.Domain.Entities;
@@ -48,10 +48,31 @@ namespace SIGAC.Infrastructure.Repositories
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
 
-            // La entidad viene de otro contexto (el de ObtenerPorIdAsync), así que
-            // este no la está siguiendo: hay que adjuntarla y marcarla modificada
-            // para que EF Core genere el UPDATE.
-            context.GastosOperativos.Update(gasto);
+            var existente = await context.GastosOperativos
+                .FirstOrDefaultAsync(g => g.Id == gasto.Id);
+
+            if (existente is null)
+                return;
+
+            // Campo por campo y no Update(), por el mismo motivo que en
+            // ActualizarDonanteAsync y ActualizarArticuloAsync: Update() marcaría
+            // TODAS las columnas como modificadas y reescribiría también Estado y
+            // MotivoAnulacion con lo que trajera la entidad desprendida.
+            //
+            // Esos dos se mueven por otro camino (AnularAsync), así que una anulación
+            // hecha entre la lectura y el guardado quedaría pisada: el UPDATE llevaría
+            // Estado = Activo y MotivoAnulacion = NULL, el gasto se des-anularía solo
+            // y el motivo desaparecería sin rastro. CK_GastosOperativos_MotivoAnulacion
+            // no puede atrapar eso, porque esa combinación es válida por diseño.
+            //
+            // FechaRegistro queda fuera por lo mismo que en Donantes: es un dato
+            // histórico que la edición no corrige.
+            existente.Categoria = gasto.Categoria;
+            existente.Monto = gasto.Monto;
+            existente.Fecha = gasto.Fecha;
+            existente.Descripcion = gasto.Descripcion;
+            existente.Responsable = gasto.Responsable;
+
             await context.SaveChangesAsync();
         }
 
