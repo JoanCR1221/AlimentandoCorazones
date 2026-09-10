@@ -52,5 +52,16 @@ namespace SIGAC.Infrastructure.Repositories
 
             return Task.FromResult<IEnumerable<GastoOperativo>>(query.OrderByDescending(g => g.Fecha));
         }
+
+        public Task AnularAsync(int id, string motivo)
+        {
+            if (_gastos.TryGetValue(id, out var gasto))
+            {
+                gasto.Estado = EstadoGastoOperativo.Anulado;
+                gasto.MotivoAnulacion = motivo;
+            }
+
+            return Task.CompletedTask;
+        }
     }
 }

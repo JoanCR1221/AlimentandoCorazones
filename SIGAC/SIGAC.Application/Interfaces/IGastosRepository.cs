@@ -9,5 +9,6 @@ namespace SIGAC.Application.Interfaces
         Task<GastoOperativo?> ObtenerPorIdAsync(int id);
         Task ActualizarAsync(GastoOperativo gasto);
         Task<IEnumerable<GastoOperativo>> ObtenerTodosAsync(FiltrosGastoDto filtros);
+        Task AnularAsync(int id, string motivo);
     }
 }
