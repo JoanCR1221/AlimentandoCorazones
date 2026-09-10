@@ -5,6 +5,7 @@
 @using SIGAC.Domain
 @inject IGastosService GastosService
 @inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
 
 <MudText Typo="Typo.h4" Class="mb-4">Registrar gasto operativo</MudText>
 
@@ -59,8 +60,28 @@
     {
         try
         {
-            await GastosService.RegistrarGastoAsync(modelo);
+            var categoriaRegistrada = modelo.Categoria;
+            var gastoId = await GastosService.RegistrarGastoAsync(modelo);
             Snackbar.Add("Gasto operativo registrado correctamente.", Severity.Success);
+
+            // CompraInsumos no crea la entrada de inventario automáticamente (AB#2501):
+            // se ofrece el enlace y la persona completa artículo/cantidad/unidad a mano.
+            if (categoriaRegistrada == CategoriasGastoOperativo.CompraInsumos)
+            {
+                Snackbar.Add(
+                    "Este gasto es una compra de insumos. ¿Deseás registrar la entrada correspondiente en inventario?",
+                    Severity.Info,
+                    config =>
+                    {
+                        config.Action = "Registrar entrada";
+                        config.ActionColor = Color.Primary;
+                        config.OnClick = _ =>
+                        {
+                            NavigationManager.NavigateTo($"/inventario/entradas/registrar?gastoOperativoId={gastoId}");
+                            return Task.CompletedTask;
+                        };
+                    });
+            }
 
             modelo = new();
         }

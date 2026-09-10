@@ -91,13 +91,22 @@
             }
             else if (modelo.Origen == "Compra")
             {
-                <MudSelect T="string" Value="gastoOperativoSeleccionado" ValueChanged="OnGastoOperativoCambiado"
-                           Label="Gasto operativo" Variant="Variant.Outlined" Class="mt-4" Clearable="true">
-                    @foreach (var gasto in GastosOperativosMock.Keys)
-                    {
-                        <MudSelectItem T="string" Value="@gasto">@gasto</MudSelectItem>
-                    }
-                </MudSelect>
+                @if (GastoOperativoId.HasValue && modelo.GastoOperativoId == GastoOperativoId)
+                {
+                    <MudAlert Severity="Severity.Info" Class="mt-4">
+                        Esta entrada quedará vinculada al gasto operativo #@GastoOperativoId que acabás de registrar.
+                    </MudAlert>
+                }
+                else
+                {
+                    <MudSelect T="string" Value="gastoOperativoSeleccionado" ValueChanged="OnGastoOperativoCambiado"
+                               Label="Gasto operativo" Variant="Variant.Outlined" Class="mt-4" Clearable="true">
+                        @foreach (var gasto in GastosOperativosMock.Keys)
+                        {
+                            <MudSelectItem T="string" Value="@gasto">@gasto</MudSelectItem>
+                        }
+                    </MudSelect>
+                }
             }
         </MudCardContent>
         <MudCardActions>
@@ -107,6 +116,14 @@
 </EditForm>
 
 @code {
+    // Llega desde RegistrarGasto.razor cuando se registra un gasto CompraInsumos
+    // (AB#2501): la persona decide desde ahí si quiere completar la entrada, así
+    // que acá solo se recibe el Id y se preselecciona el origen. No se crea ni
+    // vincula nada automáticamente si el usuario llega sin este parámetro.
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public int? GastoOperativoId { get; set; }
+
     // Mock temporal: el módulo de Donaciones todavía no existe.
     private static readonly Dictionary<string, int> DonantesMock = new()
     {
@@ -138,6 +155,15 @@
     // Sin OnInitializedAsync ni listas cacheadas de categorías/unidades: las opciones
     // de esos dos desplegables salen del catálogo cerrado en SIGAC.Domain, que se lee
     // directo desde el marcado. No hay nada que traer del servidor al abrir.
+
+    protected override void OnInitialized()
+    {
+        if (GastoOperativoId.HasValue)
+        {
+            modelo.Origen = "Compra";
+            modelo.GastoOperativoId = GastoOperativoId;
+        }
+    }
 
     private async Task<IEnumerable<string>> BuscarNombresArticuloAsync(string valor, CancellationToken cancellationToken)
     {

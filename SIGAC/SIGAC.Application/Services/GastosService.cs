@@ -18,7 +18,7 @@ namespace SIGAC.Application.Services
             _repository = repository;
         }
 
-        public async Task RegistrarGastoAsync(GastoOperativoCrearDto dto)
+        public async Task<int> RegistrarGastoAsync(GastoOperativoCrearDto dto)
         {
             try
             {
@@ -36,6 +36,8 @@ namespace SIGAC.Application.Services
                 };
 
                 await _repository.AgregarAsync(gasto);
+
+                return gasto.Id;
             }
             catch (Exception ex) when (ex is not ValidationException)
             {

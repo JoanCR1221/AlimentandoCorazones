@@ -4,6 +4,9 @@ namespace SIGAC.Application.Interfaces
 {
     public interface IGastosService
     {
-        Task RegistrarGastoAsync(GastoOperativoCrearDto dto);
+        // Devuelve el Id del gasto recién creado: RegistrarGasto.razor lo necesita
+        // para ofrecer el enlace a "Registrar Entrada" cuando la categoría es
+        // CompraInsumos (ver AB#2501), con el gasto ya identificado en la URL.
+        Task<int> RegistrarGastoAsync(GastoOperativoCrearDto dto);
     }
 }
