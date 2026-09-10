@@ -263,6 +263,16 @@ namespace SIGAC.Infrastructure.Data
                     t.HasCheckConstraint(
                         "CK_EntradasInventario_Cantidad",
                         "[Cantidad] > 0");
+
+                    // Una entrada anulada tiene que decir por qué, y una vigente no
+                    // puede arrastrar el motivo de una anulación que se revirtió. La
+                    // aplicación ya lo garantiza en AnularEntradaConStockAsync; esto
+                    // lo sostiene ante updates externos. Mismo criterio que
+                    // CK_GastosOperativos_MotivoAnulacion.
+                    t.HasCheckConstraint(
+                        "CK_EntradasInventario_MotivoAnulacion",
+                        "([Anulada] = 1 AND [MotivoAnulacion] IS NOT NULL) OR " +
+                        "([Anulada] = 0 AND [MotivoAnulacion] IS NULL)");
                 });
 
                 entity.HasKey(e => e.Id);
