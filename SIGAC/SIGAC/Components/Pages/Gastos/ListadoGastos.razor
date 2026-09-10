@@ -7,7 +7,18 @@
 
 <MudCard Class="pa-4">
     <MudCardContent>
-
+        <MudDataGrid T="GastoOperativoListaDto" Items="@gastos">
+            <Columns>
+                <PropertyColumn Property="x => x.Categoria" Title="Categoría" />
+                <PropertyColumn Property="x => x.Monto" Title="Monto" Format="N2" />
+                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
+                <PropertyColumn Property="x => x.Descripcion" Title="Descripción" />
+                <PropertyColumn Property="x => x.Estado" Title="Estado" />
+            </Columns>
+            <NoRecordsContent>
+                <MudText>No hay gastos operativos registrados.</MudText>
+            </NoRecordsContent>
+        </MudDataGrid>
     </MudCardContent>
 </MudCard>
 
