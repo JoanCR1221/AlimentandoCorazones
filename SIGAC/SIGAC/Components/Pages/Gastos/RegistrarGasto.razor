@@ -1,14 +1,30 @@
 @page "/gastos/registrar"
 @using SIGAC.Application.DTOs.Gastos
+@using SIGAC.Domain
 
 <MudText Typo="Typo.h4" Class="mb-4">Registrar gasto operativo</MudText>
 
 <MudCard Class="pa-4">
     <MudCardContent>
-
+        <MudSelect T="string" @bind-Value="modelo.Categoria" Label="Categoría" Variant="Variant.Outlined">
+            @foreach (var categoria in CategoriasGastoOperativo.Todos)
+            {
+                <MudSelectItem T="string" Value="@categoria">@EtiquetaCategoria(categoria)</MudSelectItem>
+            }
+        </MudSelect>
     </MudCardContent>
 </MudCard>
 
 @code {
     private GastoOperativoCrearDto modelo = new();
+
+    // Los valores internos (los que valida el servicio y va a guardar la base)
+    // son PascalCase sin espacios; acá solo se traducen para mostrarse.
+    private static string EtiquetaCategoria(string categoria) => categoria switch
+    {
+        "ServiciosBasicos" => "Servicios básicos",
+        "CompraInsumos" => "Compra de insumos",
+        "Viaticos" => "Viáticos",
+        _ => categoria
+    };
 }
