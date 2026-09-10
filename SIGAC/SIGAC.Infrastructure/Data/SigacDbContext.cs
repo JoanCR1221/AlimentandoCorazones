@@ -276,6 +276,14 @@ namespace SIGAC.Infrastructure.Data
                     .IsUnicode(false)
                     .HasMaxLength(500);
 
+                entity.Property(e => e.Anulada)
+                    .IsRequired()
+                    .HasDefaultValue(false);
+
+                entity.Property(e => e.MotivoAnulacion)
+                    .IsUnicode(false)
+                    .HasMaxLength(500);
+
                 // Relación FK obligatoria con Articulo. Restrict impide borrar un
                 // artículo que tenga historial de entradas: el movimiento es el
                 // respaldo contable de la donación o la compra y no puede quedar huérfano.
