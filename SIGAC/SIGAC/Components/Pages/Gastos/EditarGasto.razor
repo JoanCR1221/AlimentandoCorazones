@@ -1,5 +1,6 @@
 @page "/gastos/editar/{Id:int}"
 @using SIGAC.Application.DTOs.Gastos
+@using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces
 @using SIGAC.Domain
 @inject IGastosService GastosService
@@ -80,7 +81,22 @@
     // con los datos ya actualizados.
     private async Task Guardar()
     {
-        await GastosService.EditarGastoAsync(Id, modelo);
-        Snackbar.Add("Gasto operativo actualizado correctamente.", Severity.Success);
+        try
+        {
+            await GastosService.EditarGastoAsync(Id, modelo);
+            Snackbar.Add("Gasto operativo actualizado correctamente.", Severity.Success);
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (NotFoundException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo actualizar el gasto operativo. Intentá de nuevo.", Severity.Error);
+        }
     }
 }
