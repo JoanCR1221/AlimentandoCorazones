@@ -188,6 +188,26 @@ namespace SIGAC.Infrastructure.Migrations
                 table: "Donantes",
                 column: "Nombre");
 
+            // Limpieza previa obligatoria: hasta esta migración, DonanteId era una
+            // columna int NULL sin integridad referencial, y el desplegable de
+            // RegistrarEntradaInventario la llenaba desde DonantesMock, un
+            // diccionario de ids inventados (2, 3, 4...) que nunca correspondieron a
+            // una fila real. Donantes se acaba de crear vacía, así que CUALQUIER
+            // DonanteId no nulo apunta a un donante inexistente y hace fallar el
+            // ALTER TABLE de abajo con el error 547.
+            //
+            // Se anulan las referencias en vez de borrar las entradas: la columna es
+            // nullable, la entrada de inventario es el respaldo contable del
+            // movimiento y su cantidad ya está sumada al StockActual del artículo.
+            // Borrarlas descuadraría el stock y podría dejar salidas sin respaldo.
+            // Lo que se pierde es solo la identidad del donante, que en estas filas
+            // nunca fue un dato real.
+            migrationBuilder.Sql(@"
+                UPDATE EntradasInventario
+                SET DonanteId = NULL
+                WHERE DonanteId IS NOT NULL
+                  AND NOT EXISTS (SELECT 1 FROM Donantes d WHERE d.Id = EntradasInventario.DonanteId);");
+
             migrationBuilder.AddForeignKey(
                 name: "FK_EntradasInventario_Donantes_DonanteId",
                 table: "EntradasInventario",

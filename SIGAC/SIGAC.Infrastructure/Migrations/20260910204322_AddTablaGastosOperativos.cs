@@ -45,6 +45,23 @@ namespace SIGAC.Infrastructure.Migrations
                 table: "GastosOperativos",
                 columns: new[] { "Fecha", "Categoria" });
 
+            // Misma limpieza previa que en AddModuloDonaciones y por la misma causa:
+            // hasta esta migración GastoOperativoId era una columna int NULL sin
+            // integridad referencial, y el desplegable de RegistrarEntradaInventario
+            // la llenaba desde GastosOperativosMock, un diccionario de ids inventados
+            // (1, 2, 3). GastosOperativos se acaba de crear vacía, así que cualquier
+            // GastoOperativoId no nulo apunta a un gasto inexistente y haría fallar el
+            // ALTER TABLE de abajo con el error 547.
+            //
+            // Se anulan las referencias en vez de borrar las entradas, por lo mismo:
+            // la columna es nullable y la entrada ya tiene su cantidad sumada al
+            // StockActual del artículo.
+            migrationBuilder.Sql(@"
+                UPDATE EntradasInventario
+                SET GastoOperativoId = NULL
+                WHERE GastoOperativoId IS NOT NULL
+                  AND NOT EXISTS (SELECT 1 FROM GastosOperativos g WHERE g.Id = EntradasInventario.GastoOperativoId);");
+
             migrationBuilder.AddForeignKey(
                 name: "FK_EntradasInventario_GastosOperativos_GastoOperativoId",
                 table: "EntradasInventario",
