@@ -28,133 +28,54 @@ html, body {
     --sigac-radius-surface: 30px 6px 30px 6px / 6px 30px 6px 30px;
 }
 
-/* Fondo animado de "lluvia" en modo oscuro (From Uiverse.io by
-   SelfMadeSystem, adaptado). Va directo en <body>, que ya es el elemento
-   donde MudBlazor pinta Background (ver AparienciaService.ConstruirTema);
-   así se ve detrás de AppBar/Drawer/tarjetas, que son opacos, sin tocar el
-   layout de Blazor. --c pasa del celeste del demo original a un tono cálido
-   de la paleta, mismo criterio que en el switch y en los botones. Fuera del
-   modo alto contraste a propósito, y respeta "reducir movimiento" del SO. */
+/* Fondo de "papel cuadriculado" en modo oscuro (From Uiverse.io by
+   chris_6688), reemplaza la lluvia animada anterior. Va directo en <body>
+   (mismo motivo que antes: ahí pinta MudBlazor el Background del tema, y
+   queda detrás de AppBar/Drawer/tarjetas sin tocar el layout de Blazor).
+   Se omite overflow:hidden del .container original: en <body> eso
+   recortaría el scroll de cualquier página más larga que la pantalla
+   (tablas, formularios largos). #121212 (gris neutro) se cambió por
+   #2A2420, el mismo marrón oscuro que ya usa el tema — la cuadrícula/puntos
+   en blanco quedan igual, son casi imperceptibles (3-7% de opacidad) así
+   que el matiz exacto no se nota. Estática, sin animación: no hace falta
+   guardar contra prefers-reduced-motion. */
 html[data-theme="dark"]:not([data-alto-contraste="true"]) body {
     position: relative;
-    --c: #D9805F;
     background-color: #2A2420;
-    background-image: radial-gradient(4px 100px at 0px 235px, var(--c), #0000),
-        radial-gradient(4px 100px at 300px 235px, var(--c), #0000),
-        radial-gradient(1.5px 1.5px at 150px 117.5px, var(--c) 100%, #0000 150%),
-        radial-gradient(4px 100px at 0px 252px, var(--c), #0000),
-        radial-gradient(4px 100px at 300px 252px, var(--c), #0000),
-        radial-gradient(1.5px 1.5px at 150px 126px, var(--c) 100%, #0000 150%),
-        radial-gradient(4px 100px at 0px 150px, var(--c), #0000),
-        radial-gradient(4px 100px at 300px 150px, var(--c), #0000),
-        radial-gradient(1.5px 1.5px at 150px 75px, var(--c) 100%, #0000 150%),
-        radial-gradient(4px 100px at 0px 253px, var(--c), #0000),
-        radial-gradient(4px 100px at 300px 253px, var(--c), #0000),
-        radial-gradient(1.5px 1.5px at 150px 126.5px, var(--c) 100%, #0000 150%),
-        radial-gradient(4px 100px at 0px 204px, var(--c), #0000),
-        radial-gradient(4px 100px at 300px 204px, var(--c), #0000),
-        radial-gradient(1.5px 1.5px at 150px 102px, var(--c) 100%, #0000 150%),
-        radial-gradient(4px 100px at 0px 134px, var(--c), #0000),
-        radial-gradient(4px 100px at 300px 134px, var(--c), #0000),
-        radial-gradient(1.5px 1.5px at 150px 67px, var(--c) 100%, #0000 150%),
-        radial-gradient(4px 100px at 0px 179px, var(--c), #0000),
-        radial-gradient(4px 100px at 300px 179px, var(--c), #0000),
-        radial-gradient(1.5px 1.5px at 150px 89.5px, var(--c) 100%, #0000 150%),
-        radial-gradient(4px 100px at 0px 299px, var(--c), #0000),
-        radial-gradient(4px 100px at 300px 299px, var(--c), #0000),
-        radial-gradient(1.5px 1.5px at 150px 149.5px, var(--c) 100%, #0000 150%),
-        radial-gradient(4px 100px at 0px 215px, var(--c), #0000),
-        radial-gradient(4px 100px at 300px 215px, var(--c), #0000),
-        radial-gradient(1.5px 1.5px at 150px 107.5px, var(--c) 100%, #0000 150%),
-        radial-gradient(4px 100px at 0px 281px, var(--c), #0000),
-        radial-gradient(4px 100px at 300px 281px, var(--c), #0000),
-        radial-gradient(1.5px 1.5px at 150px 140.5px, var(--c) 100%, #0000 150%),
-        radial-gradient(4px 100px at 0px 158px, var(--c), #0000),
-        radial-gradient(4px 100px at 300px 158px, var(--c), #0000),
-        radial-gradient(1.5px 1.5px at 150px 79px, var(--c) 100%, #0000 150%),
-        radial-gradient(4px 100px at 0px 210px, var(--c), #0000),
-        radial-gradient(4px 100px at 300px 210px, var(--c), #0000),
-        radial-gradient(1.5px 1.5px at 150px 105px, var(--c) 100%, #0000 150%);
-    background-size: 300px 235px, 300px 235px, 300px 235px,
-        300px 252px, 300px 252px, 300px 252px,
-        300px 150px, 300px 150px, 300px 150px,
-        300px 253px, 300px 253px, 300px 253px,
-        300px 204px, 300px 204px, 300px 204px,
-        300px 134px, 300px 134px, 300px 134px,
-        300px 179px, 300px 179px, 300px 179px,
-        300px 299px, 300px 299px, 300px 299px,
-        300px 215px, 300px 215px, 300px 215px,
-        300px 281px, 300px 281px, 300px 281px,
-        300px 158px, 300px 158px, 300px 158px,
-        300px 210px, 300px 210px, 300px 210px;
-    animation: sigac-lluvia 150s linear infinite;
+    background-image:
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.05) 1px, transparent 0),
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 0),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 0);
+    background-size: 40px 40px, 20px 20px, 20px 20px;
+}
+
+html[data-theme="dark"]:not([data-alto-contraste="true"]) body::before {
+    content: "";
+    /* fixed + z-index negativo por la misma razón que el resto de estos
+       fondos: <body> puede medir menos que la página real (AppBar/Drawer
+       son fixed y no suman a su alto "auto"), y sin esto quedaría encima de
+       tarjetas/drawer en vez de detrás. */
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: repeating-linear-gradient(45deg,
+        transparent,
+        transparent 10px,
+        rgba(255, 255, 255, 0.03) 10px,
+        rgba(255, 255, 255, 0.03) 20px);
+    opacity: 0.8;
 }
 
 html[data-theme="dark"]:not([data-alto-contraste="true"]) body::after {
     content: "";
-    /* fixed, no absolute: el alto real de <body> (459px en un caso que
-       revisé) queda corto contra el alto real de la página (694px+, porque
-       AppBar/Drawer son fixed y no suman a la altura "auto" de body) — con
-       absolute + inset:0 la trama de puntos se cortaba ahí y dejaba ver la
-       lluvia "pelada" más abajo. Fixed cubre siempre el viewport completo,
-       sin depender de ese cálculo; al ser una textura chica que se repite
-       (8x8px) no se nota que no se desplaza con el scroll. */
     position: fixed;
     inset: 0;
-    /* Negativo, no 1 como en el CSS original: ahí el navegador lo pintaba
-       encima de todo .mud-layout (que no declara su propio z-index), tapando
-       drawer y tarjetas. En negativo queda detrás de cualquier contenido
-       normal y solo por delante del fondo animado del propio <body>. */
     z-index: -1;
     pointer-events: none;
-    /* brightness(6) del original volvía la trama de puntos un moiré duro que
-       competía con el texto real de la página (esto no es un panel
-       decorativo puro, es el fondo de toda la app). Bajado a 1.4 y los
-       puntos a semitransparentes: queda como grano sutil, no como cuadrícula
-       encima del contenido. */
-    backdrop-filter: blur(1em) brightness(1.4);
-    background-image: radial-gradient(circle at 50% 50%, #0000 0, #0000 2px, rgba(0, 0, 0, 0.35) 2px);
-    background-size: 8px 8px;
-}
-
-@keyframes sigac-lluvia {
-    0% {
-        background-position:
-            0px 220px, 3px 220px, 151.5px 337.5px,
-            25px 24px, 28px 24px, 176.5px 150px,
-            50px 16px, 53px 16px, 201.5px 91px,
-            75px 224px, 78px 224px, 226.5px 350.5px,
-            100px 19px, 103px 19px, 251.5px 121px,
-            125px 120px, 128px 120px, 276.5px 187px,
-            150px 31px, 153px 31px, 301.5px 120.5px,
-            175px 235px, 178px 235px, 326.5px 384.5px,
-            200px 121px, 203px 121px, 351.5px 228.5px,
-            225px 224px, 228px 224px, 376.5px 364.5px,
-            250px 26px, 253px 26px, 401.5px 105px,
-            275px 75px, 278px 75px, 426.5px 180px;
-    }
-
-    to {
-        background-position:
-            0px 6800px, 3px 6800px, 151.5px 6917.5px,
-            25px 13632px, 28px 13632px, 176.5px 13758px,
-            50px 5416px, 53px 5416px, 201.5px 5491px,
-            75px 17175px, 78px 17175px, 226.5px 17301.5px,
-            100px 5119px, 103px 5119px, 251.5px 5221px,
-            125px 8428px, 128px 8428px, 276.5px 8495px,
-            150px 9876px, 153px 9876px, 301.5px 9965.5px,
-            175px 13391px, 178px 13391px, 326.5px 13540.5px,
-            200px 14741px, 203px 14741px, 351.5px 14848.5px,
-            225px 18770px, 228px 18770px, 376.5px 18910.5px,
-            250px 5082px, 253px 5082px, 401.5px 5161px,
-            275px 6375px, 278px 6375px, 426.5px 6480px;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    html[data-theme="dark"]:not([data-alto-contraste="true"]) body {
-        animation: none;
-    }
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+    background-size: 60px 60px;
+    opacity: 0.6;
 }
 
 /* Tarjeta "vidrio esmerilado" (From Uiverse.io by SteveBloX), a pedido,
