@@ -32,7 +32,7 @@
                             <MudSelectItem T="string" Value="@tipo">@tipo</MudSelectItem>
                         }
                     </MudSelect>
-                    <MudTextField @bind-Value="nuevoDonante.Telefono" Label="Teléfono (opcional)" Variant="Variant.Outlined" Class="mt-4" />
+                    <PhoneInput @bind-Value="nuevoDonante.Telefono" Label="Teléfono (opcional)" Class="mt-4" />
                     <MudTextField @bind-Value="nuevoDonante.Correo" Label="Correo (opcional)" Variant="Variant.Outlined" Class="mt-4" />
                 </MudExpansionPanel>
             </MudExpansionPanels>

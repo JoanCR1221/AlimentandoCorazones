@@ -1,0 +1,29 @@
+.sigac-phone-input {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+}
+
+.sigac-phone-code {
+    flex: 0 0 auto;
+    width: 11.75rem;
+}
+
+.sigac-phone-code ::deep .mud-input-control {
+    width: 100%;
+}
+
+.sigac-phone-number {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+@media (max-width: 480px) {
+    .sigac-phone-input {
+        flex-direction: column;
+    }
+
+    .sigac-phone-code {
+        width: 100%;
+    }
+}

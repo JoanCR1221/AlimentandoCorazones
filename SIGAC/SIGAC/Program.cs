@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 using SIGAC.Application.Interfaces;
 using SIGAC.Application.Services;
@@ -33,6 +33,9 @@ builder.Services.AddScoped<IAsistenciaService, AsistenciaService>();
 // Servicio del módulo de Control de Inventario
 builder.Services.AddScoped<IInventarioService, InventarioService>();
 
+// Servicio del módulo de Gastos Operativos
+builder.Services.AddScoped<IGastosService, GastosService>();
+
 // Servicios del módulo de Gestión de Donaciones
 builder.Services.AddScoped<IDonantesService, DonantesService>();
 builder.Services.AddScoped<IDonacionesService, DonacionesService>();
@@ -46,6 +49,9 @@ builder.Services.AddScoped<IAsistenciaRepository, AsistenciaRepositoryEfCore>();
 
 // Repositorio de Inventario con EF Core (reemplaza la versión temporal en memoria)
 builder.Services.AddScoped<IInventarioRepository, InventarioRepositoryEfCore>();
+
+// Repositorio de Gastos Operativos con EF Core (reemplaza la versión temporal en memoria)
+builder.Services.AddScoped<IGastosRepository, GastosRepositoryEfCore>();
 
 // Repositorios de Donantes y Donaciones con EF Core
 builder.Services.AddScoped<IDonantesRepository, DonantesRepositoryEfCore>();

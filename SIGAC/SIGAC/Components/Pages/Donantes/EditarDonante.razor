@@ -24,7 +24,7 @@
                 }
             </MudSelect>
 
-            <MudTextField @bind-Value="modelo.Telefono" Label="Teléfono (opcional)" Variant="Variant.Outlined" Class="mt-4" />
+            <PhoneInput @bind-Value="modelo.Telefono" Label="Teléfono (opcional)" Class="mt-4" />
             <MudTextField @bind-Value="modelo.Correo" For="@(() => modelo.Correo)" Label="Correo (opcional)" Variant="Variant.Outlined" Class="mt-4" />
         </MudCardContent>
         <MudCardActions>

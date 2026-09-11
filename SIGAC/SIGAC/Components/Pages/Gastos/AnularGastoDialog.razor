@@ -1,0 +1,20 @@
+<MudDialog>
+    <DialogContent>
+        <MudTextField @bind-Value="motivo" Label="Motivo de anulación" Variant="Variant.Outlined" Lines="3" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancelar">Cancelar</MudButton>
+        <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="Confirmar" Disabled="@string.IsNullOrWhiteSpace(motivo)">Anular</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string? motivo;
+
+    private void Cancelar() => MudDialog.Cancel();
+
+    private void Confirmar() => MudDialog.Close(DialogResult.Ok(motivo));
+}

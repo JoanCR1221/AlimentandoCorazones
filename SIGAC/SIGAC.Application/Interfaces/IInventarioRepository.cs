@@ -73,6 +73,7 @@ namespace SIGAC.Application.Interfaces
 
         // Consultas de movimientos
         Task<IEnumerable<EntradaInventario>> ObtenerEntradasAsync(int? articuloId, DateTime? desde, DateTime? hasta);
+
         Task<IEnumerable<SalidaInventario>> ObtenerSalidasAsync(int? articuloId, DateTime? desde, DateTime? hasta);
 
         // Préstamos

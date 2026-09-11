@@ -124,15 +124,27 @@ public sealed class AparienciaService : IAsyncDisposable
     {
         if (AltoContraste)
         {
+            // Misma paleta artesanal de SIGAC (terracota/marrón), pero llevada
+            // al extremo de contraste que este modo exige: fondo/texto casi
+            // blanco puro / negro puro (no el crema #FDFBF7 ni el marrón
+            // #3E332E de los temas normales, que rinden menos contraste) y el
+            // terracota oscurecido a un tono "oxblood" para que el texto
+            // blanco del AppBar llegue a AAA (7:1), no solo AA (4.5:1) como
+            // en el tema claro normal. Radios rectos y sin animaciones se
+            // mantienen intactos (ver app.css / MainLayout.razor.css, todo
+            // guardado con :not([data-alto-contraste="true"])).
             return new MudTheme
             {
                 PaletteLight = new PaletteLight
                 {
-                    Primary = "#004D40",
-                    Secondary = "#1A237E",
-                    AppbarBackground = "#004D40",
+                    // #6B3226 con texto blanco da 9.95:1 (el #A8503F del tema
+                    // normal solo llega a 5.57:1: alcanza para AA, no para el
+                    // AAA que busca este modo).
+                    Primary = "#6B3226",
+                    Secondary = "#3E332E",
+                    AppbarBackground = "#6B3226",
                     AppbarText = "#FFFFFF",
-                    Background = "#FFFFFF",
+                    Background = "#FFFCF8",
                     Surface = "#FFFFFF",
                     TextPrimary = "#000000",
                     TextSecondary = "#000000",
@@ -141,26 +153,26 @@ public sealed class AparienciaService : IAsyncDisposable
                     Divider = "#000000",
                     ActionDefault = "#000000",
                     TableLines = "#000000",
-                    TableStriped = "#F0F0F0",
-                    TableHover = "#E8E8E8"
+                    TableStriped = "#F5EDE4",
+                    TableHover = "#EDE0D2"
                 },
                 PaletteDark = new PaletteDark
                 {
-                    Primary = "#80CBC4",
-                    Secondary = "#9FA8DA",
-                    AppbarBackground = "#000000",
+                    Primary = "#FFAB91",
+                    Secondary = "#D7CCC0",
+                    AppbarBackground = "#0D0906",
                     AppbarText = "#FFFFFF",
-                    Background = "#000000",
-                    Surface = "#121212",
+                    Background = "#0D0906",
+                    Surface = "#161009",
                     TextPrimary = "#FFFFFF",
                     TextSecondary = "#FFFFFF",
-                    TextDisabled = "#BDBDBD",
+                    TextDisabled = "#C4B8AC",
                     LinesDefault = "#FFFFFF",
                     Divider = "#FFFFFF",
                     ActionDefault = "#FFFFFF",
                     TableLines = "#FFFFFF",
-                    TableStriped = "#1A1A1A",
-                    TableHover = "#2A2A2A"
+                    TableStriped = "#1F1710",
+                    TableHover = "#2C2018"
                 },
                 LayoutProperties = new LayoutProperties
                 {
@@ -174,45 +186,57 @@ public sealed class AparienciaService : IAsyncDisposable
         {
             PaletteLight = new PaletteLight
             {
-                // Colores del logo de Alimentando Corazones: verde esmeralda,
-                // naranja y verde lima.
-                Primary = "#00A88E",
-                Secondary = "#F58220",
-                Tertiary = "#A6CE39",
-                // Esmeralda un punto más profundo que Primary (mismo matiz y
-                // saturación, luminosidad 26% en vez de 33%): con #00A88E el texto
-                // blanco de la barra daba 3.00:1, por debajo del 4.5:1 que pide
-                // WCAG AA para texto normal. Con este tono llega a 4.51:1.
-                AppbarBackground = "#008672",
+                // Paleta artesanal (hand-drawn) de Alimentando Corazones:
+                // terracota, beige cálido y papel crema.
+                // #A8503F en vez del #C05C4E pedido para Primary/AppbarBackground:
+                // con texto blanco encima (AppBar, botón principal) #C05C4E da
+                // 4.30:1, por debajo del 4.5:1 que pide WCAG AA para texto normal.
+                // Con este tono llega a 5.57:1. El #C05C4E literal se conserva
+                // para el borde/texto de los botones secundarios (ver app.css,
+                // .mud-button-outlined-primary), donde el texto no es blanco y
+                // no hay problema de contraste.
+                Primary = "#A8503F",
+                Secondary = "#7A685D",
+                AppbarBackground = "#A8503F",
                 AppbarText = "#FFFFFF",
-                Background = "#F5F5F0",
-                Surface = "#FFFFFF",
-                TextPrimary = "#1A1A1A",
-                TextSecondary = "#424242",
-                DrawerBackground = "#FFFFFF",
-                DrawerText = "#1A1A1A",
-                DrawerIcon = "#00A88E"
+                Background = "#E6D7C3",
+                Surface = "#FDFBF7",
+                TextPrimary = "#3E332E",
+                TextSecondary = "#6B5C52",
+                DrawerBackground = "#FDFBF7",
+                DrawerText = "#3E332E",
+                DrawerIcon = "#A8503F",
+                LinesDefault = "#7A685D",
+                LinesInputs = "#7A685D",
+                Divider = "#7A685D",
+                TableLines = "#7A685D"
             },
             PaletteDark = new PaletteDark
             {
-                // Versiones más claras y suaves de los mismos colores: los tonos
-                // vivos del logo resultan demasiado intensos sobre fondo oscuro.
-                Primary = "#4DD0B1",
-                Secondary = "#FFA35C",
-                Tertiary = "#C5E17A",
-                AppbarBackground = "#00695C",
+                // Misma paleta artesanal en tonos oscuros. La imagen de
+                // referencia solo mostraba el tema claro; este modo oscuro
+                // extiende la misma estética en vez de dejarlo desactualizado
+                // con los colores del logo anterior. #B85A45 da 4.58:1 con
+                // texto blanco, igual criterio de contraste que en claro.
+                Primary = "#B85A45",
+                Secondary = "#A99C8E",
+                AppbarBackground = "#B85A45",
                 AppbarText = "#FFFFFF",
-                Background = "#121212",
-                Surface = "#1E1E1E",
-                TextPrimary = "#F5F5F5",
-                TextSecondary = "#BDBDBD",
-                DrawerBackground = "#1E1E1E",
-                DrawerText = "#F5F5F5",
-                DrawerIcon = "#4DD0B1"
+                Background = "#2A2420",
+                Surface = "#362F29",
+                TextPrimary = "#F0E6DA",
+                TextSecondary = "#C9BBAE",
+                DrawerBackground = "#362F29",
+                DrawerText = "#F0E6DA",
+                DrawerIcon = "#B85A45",
+                LinesDefault = "#5B4F45",
+                LinesInputs = "#5B4F45",
+                Divider = "#5B4F45",
+                TableLines = "#5B4F45"
             },
             LayoutProperties = new LayoutProperties
             {
-                DefaultBorderRadius = "8px",
+                DefaultBorderRadius = "12px",
                 AppbarHeight = "64px"
             }
         };

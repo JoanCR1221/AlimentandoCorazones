@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SIGAC.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using SIGAC.Infrastructure.Data;
 namespace SIGAC.Infrastructure.Migrations
 {
     [DbContext(typeof(SigacDbContext))]
-    partial class SigacDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260910204322_AddTablaGastosOperativos")]
+    partial class AddTablaGastosOperativos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -486,8 +489,6 @@ namespace SIGAC.Infrastructure.Migrations
                     b.ToTable("EntradasInventario", null, t =>
                         {
                             t.HasCheckConstraint("CK_EntradasInventario_Cantidad", "[Cantidad] > 0");
-
-                            t.HasCheckConstraint("CK_EntradasInventario_MotivoAnulacion", "([Anulada] = 1 AND [MotivoAnulacion] IS NOT NULL) OR ([Anulada] = 0 AND [MotivoAnulacion] IS NULL)");
 
                             t.HasCheckConstraint("CK_EntradasInventario_Origen", "[Origen] IN ('Donacion', 'Compra')");
                         });
