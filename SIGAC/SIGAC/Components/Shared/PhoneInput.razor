@@ -10,6 +10,7 @@
                           ToStringFunc="@(p => p is null ? string.Empty : $"{p.Bandera} +{p.CodigoTelefono}")"
                           Label="Código" Variant="Variant.Outlined"
                           CoerceText="true" ResetValueOnEmptyText="true" Clearable="false"
+                          OpenOnFocus="true" SelectOnActivation="true"
                           aria-label="Código de país del teléfono">
             <ItemTemplate Context="pais">
                 <div class="d-flex align-center" style="gap: 0.5rem; width: 100%;">
@@ -50,7 +51,14 @@
 
     private Task<IEnumerable<Pais>> BuscarPaisesAsync(string valor, CancellationToken token)
     {
-        IEnumerable<Pais> resultado = string.IsNullOrWhiteSpace(valor)
+        // Al enfocar sin haber tocado nada, MudBlazor busca con el texto que
+        // ya muestra el campo (el país actualmente elegido, formateado por
+        // ToStringFunc) en vez de una cadena vacía — efecto de CoerceText.
+        // Ningún país tiene ese emoji+código en su nombre, así que sin este
+        // caso especial la lista salía vacía al hacer foco/clic y solo
+        // aparecía después de tipear (que sí dispara una búsqueda real).
+        var formateado = $"{_pais.Bandera} +{_pais.CodigoTelefono}";
+        IEnumerable<Pais> resultado = string.IsNullOrWhiteSpace(valor) || valor == formateado
             ? Paises.Todos
             : Paises.Todos.Where(p =>
                 p.Nombre.Contains(valor, StringComparison.OrdinalIgnoreCase)
