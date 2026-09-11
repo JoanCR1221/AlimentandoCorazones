@@ -72,6 +72,24 @@
             </MudStack>
         </MudCard>
     </MudItem>
+
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard Class="pa-4" Style="height: 100%;">
+            <MudStack Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Receipt" Color="Color.Success" Size="Size.Large" />
+                <MudText Typo="Typo.h6">Gastos Operativos</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Registre y consulte los gastos operativos de la asociación.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Success" Href="/gastos" Class="mt-2">
+                    Ver gastos
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Success" Href="/gastos/registrar">
+                    Registrar gasto
+                </MudButton>
+            </MudStack>
+        </MudCard>
+    </MudItem>
 </MudGrid>
 
 @code {

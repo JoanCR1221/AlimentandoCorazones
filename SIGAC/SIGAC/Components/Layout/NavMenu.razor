@@ -1,4 +1,4 @@
-﻿@inject NavigationManager Navigation
+@inject NavigationManager Navigation
 @implements IDisposable
 
 <MudNavMenu Class="pa-2">
@@ -80,6 +80,18 @@
         </MudNavLink>
     </MudNavGroup>
 
+    <MudNavGroup Title="Gastos Operativos"
+                 Icon="@Icons.Material.Filled.Receipt"
+                 Expanded="_gastosExpandido"
+                 ExpandedChanged="OnGastosExpandedChanged">
+        <MudNavLink Href="/gastos" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.ReceiptLong">
+            Ver Gastos
+        </MudNavLink>
+        <MudNavLink Href="/gastos/registrar" Icon="@Icons.Material.Filled.PostAdd">
+            Registrar Gasto
+        </MudNavLink>
+    </MudNavGroup>
+
     <MudDivider Class="my-2" />
 
     <MudNavLink Href="/configuracion" Icon="@Icons.Material.Filled.Settings">
@@ -92,6 +104,7 @@
     private bool _asistenciaExpandido;
     private bool _inventarioExpandido;
     private bool _donacionesExpandido;
+    private bool _gastosExpandido;
 
     protected override void OnInitialized()
     {
@@ -100,6 +113,7 @@
         _asistenciaExpandido = EstaEnAsistencia();
         _inventarioExpandido = EstaEnInventario();
         _donacionesExpandido = EstaEnDonaciones();
+        _gastosExpandido = EstaEnGastos();
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
@@ -108,14 +122,17 @@
         var expandirAsistencia = EstaEnAsistencia();
         var expandirInventario = EstaEnInventario();
         var expandirDonaciones = EstaEnDonaciones();
+        var expandirGastos = EstaEnGastos();
 
         if (_beneficiariosExpandido != expandirBeneficiarios || _asistenciaExpandido != expandirAsistencia
-            || _inventarioExpandido != expandirInventario || _donacionesExpandido != expandirDonaciones)
+            || _inventarioExpandido != expandirInventario || _donacionesExpandido != expandirDonaciones
+            || _gastosExpandido != expandirGastos)
         {
             _beneficiariosExpandido = expandirBeneficiarios;
             _asistenciaExpandido = expandirAsistencia;
             _inventarioExpandido = expandirInventario;
             _donacionesExpandido = expandirDonaciones;
+            _gastosExpandido = expandirGastos;
             InvokeAsync(StateHasChanged);
         }
     }
@@ -153,6 +170,12 @@
         return ruta.StartsWith("donantes", StringComparison.OrdinalIgnoreCase)
             || (ruta.StartsWith("donaciones", StringComparison.OrdinalIgnoreCase)
                 && !ruta.StartsWith("donaciones/entregas", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private bool EstaEnGastos()
+    {
+        var ruta = Navigation.ToBaseRelativePath(Navigation.Uri);
+        return ruta.StartsWith("gastos", StringComparison.OrdinalIgnoreCase);
     }
 
     private void OnBeneficiariosExpandedChanged(bool expandido)
@@ -196,6 +219,17 @@
         if (expandido && !EstaEnDonaciones())
         {
             Navigation.NavigateTo("/donantes");
+        }
+    }
+
+    private void OnGastosExpandedChanged(bool expandido)
+    {
+        _gastosExpandido = expandido;
+
+        // Al abrir el grupo, ir al listado; Registrar aparece debajo.
+        if (expandido && !EstaEnGastos())
+        {
+            Navigation.NavigateTo("/gastos");
         }
     }
 
