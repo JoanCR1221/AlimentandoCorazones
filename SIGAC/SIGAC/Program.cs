@@ -40,6 +40,9 @@ builder.Services.AddScoped<IGastosService, GastosService>();
 builder.Services.AddScoped<IDonantesService, DonantesService>();
 builder.Services.AddScoped<IDonacionesService, DonacionesService>();
 
+// Servicio del módulo de Gestión de Proyectos
+builder.Services.AddScoped<IProyectosService, ProyectosService>();
+
 
 // Repositorio de Beneficiarios con EF Core (reemplaza la versión temporal en memoria)
 builder.Services.AddScoped<IBeneficiariosRepository, BeneficiariosRepositoryEfCore>();
@@ -56,6 +59,9 @@ builder.Services.AddScoped<IGastosRepository, GastosRepositoryEfCore>();
 // Repositorios de Donantes y Donaciones con EF Core
 builder.Services.AddScoped<IDonantesRepository, DonantesRepositoryEfCore>();
 builder.Services.AddScoped<IDonacionesRepository, DonacionesRepositoryEfCore>();
+
+// Repositorio de Proyectos Comunitarios con EF Core
+builder.Services.AddScoped<IProyectosRepository, ProyectosRepositoryEfCore>();
 
 
 var app = builder.Build();

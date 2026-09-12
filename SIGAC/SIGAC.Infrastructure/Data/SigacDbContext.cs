@@ -29,6 +29,10 @@ namespace SIGAC.Infrastructure.Data
         // Módulo de Gastos Operativos
         public DbSet<GastoOperativo> GastosOperativos { get; set; }
 
+        // Módulo de Gestión de Proyectos
+        public DbSet<ProyectoComunitario> ProyectosComunitarios { get; set; }
+        public DbSet<ParticipanteProyecto> ParticipantesProyecto { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -953,6 +957,130 @@ namespace SIGAC.Infrastructure.Data
                 // combinado; empezando por Categoria no serviría al primero.
                 entity.HasIndex(g => new { g.Fecha, g.Categoria })
                     .HasDatabaseName("IX_GastosOperativos_Fecha_Categoria");
+            });
+
+            modelBuilder.Entity<ProyectoComunitario>(entity =>
+            {
+                entity.ToTable("ProyectosComunitarios", t =>
+                {
+                    // Enum cerrado, mismo criterio que CK_GastosOperativos_Estado.
+                    t.HasCheckConstraint(
+                        "CK_ProyectosComunitarios_Estado",
+                        "[Estado] IN ('Planificado', 'EnCurso', 'Finalizado', 'Cancelado')");
+
+                    t.HasCheckConstraint(
+                        "CK_ProyectosComunitarios_Fechas",
+                        "[FechaEstimadaFin] >= [FechaInicio]");
+
+                    // Espejo de CK_GastosOperativos_MotivoAnulacion: FechaFinalizacionReal
+                    // solo tiene sentido junto a Estado = Finalizado. La aplicación ya lo
+                    // garantiza en FinalizarAsync; esto lo sostiene ante updates externos.
+                    t.HasCheckConstraint(
+                        "CK_ProyectosComunitarios_FechaFinalizacionReal",
+                        "([Estado] = 'Finalizado' AND [FechaFinalizacionReal] IS NOT NULL) OR " +
+                        "([Estado] <> 'Finalizado' AND [FechaFinalizacionReal] IS NULL)");
+                });
+
+                entity.HasKey(p => p.Id);
+
+                // Convención del proyecto: VARCHAR en lugar de NVARCHAR (IsUnicode(false)).
+                entity.Property(p => p.Nombre)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(150);
+
+                entity.Property(p => p.Descripcion)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(500);
+
+                entity.Property(p => p.FechaInicio)
+                    .IsRequired();
+
+                entity.Property(p => p.FechaEstimadaFin)
+                    .IsRequired();
+
+                // Solo se llena al finalizar.
+                entity.Property(p => p.FechaFinalizacionReal);
+
+                // Enum como texto y no como int, igual que Estado en GastoOperativo:
+                // la columna se entiende leyendo la tabla y el CHECK de arriba puede
+                // escribirse sobre valores con significado.
+                entity.Property(p => p.Estado)
+                    .IsRequired()
+                    .HasConversion<string>()
+                    .IsUnicode(false)
+                    .HasMaxLength(20);
+
+                entity.Property(p => p.FechaRegistro)
+                    .IsRequired();
+
+                // Campo de filtro frecuente: el listado filtra por estado (historia 4).
+                entity.HasIndex(p => p.Estado);
+
+                entity.HasIndex(p => p.FechaInicio);
+            });
+
+            modelBuilder.Entity<ParticipanteProyecto>(entity =>
+            {
+                entity.ToTable("ParticipantesProyecto", t =>
+                {
+                    // Exclusión mutua del participante, mismo criterio que
+                    // CK_DonacionesEntregadas_Destinatario: EsBeneficiario decide cuál
+                    // de los dos grupos de campos debe estar lleno y cuál en NULL.
+                    t.HasCheckConstraint(
+                        "CK_ParticipantesProyecto_Discriminador",
+                        "([EsBeneficiario] = 1 AND [BeneficiarioId] IS NOT NULL " +
+                        "AND [NombreExterno] IS NULL AND [ContactoExterno] IS NULL) OR " +
+                        "([EsBeneficiario] = 0 AND [BeneficiarioId] IS NULL " +
+                        "AND [NombreExterno] IS NOT NULL AND [NombreExterno] <> '')");
+                });
+
+                entity.HasKey(p => p.Id);
+
+                entity.Property(p => p.EsBeneficiario)
+                    .IsRequired();
+
+                entity.Property(p => p.NombreExterno)
+                    .IsUnicode(false)
+                    .HasMaxLength(150);
+
+                entity.Property(p => p.ContactoExterno)
+                    .IsUnicode(false)
+                    .HasMaxLength(150);
+
+                entity.Property(p => p.FechaRegistro)
+                    .IsRequired();
+
+                // Cascade: un participante es un detalle del proyecto (igual que
+                // DetalleDonacionEspecie lo es de DonacionEspecie), no un dato maestro
+                // independiente al que haya que preservar si el proyecto se borra.
+                entity.HasOne(p => p.Proyecto)
+                    .WithMany(pr => pr.Participantes)
+                    .HasForeignKey(p => p.ProyectoId)
+                    .IsRequired()
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // FK opcional con Beneficiario. Restrict, igual que en
+                // DonacionesEntregadas: un beneficiario con participaciones
+                // registradas se desactiva, no se borra.
+                entity.HasOne(p => p.Beneficiario)
+                    .WithMany()
+                    .HasForeignKey(p => p.BeneficiarioId)
+                    .IsRequired(false)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Compuesto empezando por ProyectoId: sirve tanto a "listar los
+                // participantes de un proyecto" como a ExisteParticipanteAsync, y hace
+                // de índice de esa FK.
+                entity.HasIndex(p => new { p.ProyectoId, p.BeneficiarioId })
+                    .HasDatabaseName("IX_ParticipantesProyecto_Proyecto_Beneficiario");
+
+                // Índice suelto de la FK a Beneficiario: responde "en qué proyectos ha
+                // participado esta persona", la consulta desde la ficha del
+                // beneficiario, igual que IX_DonacionesEntregadas_Beneficiario.
+                entity.HasIndex(p => p.BeneficiarioId)
+                    .HasDatabaseName("IX_ParticipantesProyecto_Beneficiario");
             });
         }
     }
