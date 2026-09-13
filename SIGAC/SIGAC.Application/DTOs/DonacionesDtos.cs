@@ -24,6 +24,7 @@ namespace SIGAC.Application.DTOs.Donaciones
         public const int TipoDestinatario = 20;
         public const int ComunidadDestinataria = 150;
         public const int Observaciones = 500;
+        public const int Moneda = 20;
     }
 
     // ----------------------------------------------------------------------
@@ -174,6 +175,12 @@ namespace SIGAC.Application.DTOs.Donaciones
         [Range(0.01, double.MaxValue, ErrorMessage = "El monto debe ser mayor a 0.")]
         public decimal Monto { get; set; }
 
+        // Valor del catálogo cerrado TiposMoneda. Sin ella, un Monto de 100 no
+        // dice si son 100 colones o 100 dólares.
+        [Required(ErrorMessage = "La moneda es obligatoria.")]
+        [StringLength(LongitudesDonaciones.Moneda)]
+        public string Moneda { get; set; } = string.Empty;
+
         // Fecha queda sin [Required]: DateTime no-nullable siempre "tiene valor"
         // para DataAnnotations, así que la validación no dispararía nunca.
         public DateTime Fecha { get; set; }
@@ -290,6 +297,10 @@ namespace SIGAC.Application.DTOs.Donaciones
         // como "donó cero colones", que es otra cosa.
         public decimal? Monto { get; set; }
 
+        // Nullable por la misma razón que Monto: una fila de especie no tiene
+        // moneda porque no tiene monto que expresar en ninguna.
+        public string? Moneda { get; set; }
+
         // Resumen legible de lo donado, que es lo único que las dos clases de
         // donación pueden mostrar en la misma columna: en especie, el detalle
         // ("3 Arroz, 2 Frijoles"); en dinero, las observaciones.
@@ -321,9 +332,12 @@ namespace SIGAC.Application.DTOs.Donaciones
     {
         public List<HistorialDonacionDto> Donaciones { get; set; } = new();
 
-        // Solo suma las donaciones de dinero: las de especie no tienen monto (no se
-        // valorizan los artículos donados), así que no hay nada que sumar de ellas.
-        public decimal TotalDinero { get; set; }
+        // Un total POR MONEDA y no un solo decimal: desde que el monto declara en
+        // qué moneda vino, sumar colones con dólares en un único número dejaría de
+        // representar nada. Solo cubre las donaciones de dinero: las de especie no
+        // tienen monto (no se valorizan los artículos donados), así que no hay
+        // nada que sumar de ellas.
+        public List<MontoPorMonedaDto> TotalesPorMoneda { get; set; } = new();
     }
 
     public class HistorialDonacionEntregadaDto

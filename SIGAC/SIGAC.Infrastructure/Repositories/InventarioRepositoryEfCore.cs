@@ -149,18 +149,35 @@ namespace SIGAC.Infrastructure.Repositories
                 consulta = consulta.Where(a => a.Categoria == categoriaFiltro);
             }
 
+            if (filtros.SoloStockBajo)
+            {
+                // Misma condición que ArticuloExistenciaDto.StockBajo en el servicio
+                // (StockActual <= StockMinimo), pero evaluada en SQL: acá SÍ importa,
+                // porque decide qué filas trae la página en vez de solo cómo se pinta
+                // una fila ya traída.
+                consulta = consulta.Where(a => a.StockActual <= a.StockMinimo);
+            }
+
             // Consulta 1: cuántos artículos cumplen los filtros, para que la grilla
             // sepa cuántas páginas hay.
             var total = await consulta.CountAsync();
 
-            // Consulta 2: solo la página pedida. ToListAsync obligatorio: el contexto
-            // se libera al salir del método y un IQueryable diferido explotaría al
-            // recorrerlo desde la página.
-            var elementos = await consulta
-                .OrderBy(a => a.Nombre)
-                .Skip(filtros.PaginaEfectiva * filtros.TamanoPaginaEfectivo)
-                .Take(filtros.TamanoPaginaEfectivo)
-                .ToListAsync();
+            // De menor a mayor stock cuando se pidió "solo stock bajo": el objetivo
+            // de esa búsqueda es reponer, y lo más urgente (lo que queda menos) tiene
+            // que aparecer primero. Sin ese filtro se mantiene el orden alfabético de
+            // siempre, que es el que sirve para ubicar un artículo puntual.
+            var elementos = filtros.SoloStockBajo
+                ? await consulta
+                    .OrderBy(a => a.StockActual)
+                    .ThenBy(a => a.Nombre)
+                    .Skip(filtros.PaginaEfectiva * filtros.TamanoPaginaEfectivo)
+                    .Take(filtros.TamanoPaginaEfectivo)
+                    .ToListAsync()
+                : await consulta
+                    .OrderBy(a => a.Nombre)
+                    .Skip(filtros.PaginaEfectiva * filtros.TamanoPaginaEfectivo)
+                    .Take(filtros.TamanoPaginaEfectivo)
+                    .ToListAsync();
 
             return new ResultadoPaginado<Articulo>(elementos, total);
         }

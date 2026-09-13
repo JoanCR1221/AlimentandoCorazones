@@ -1,4 +1,5 @@
-﻿using SIGAC.Application.DTOs.Gastos;
+﻿using SIGAC.Application.DTOs;
+using SIGAC.Application.DTOs.Gastos;
 using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
 using SIGAC.Application.Validators;
@@ -28,6 +29,7 @@ namespace SIGAC.Application.Services
                 {
                     Categoria = datos.Categoria,
                     Monto = datos.Monto,
+                    Moneda = datos.Moneda,
                     Fecha = datos.Fecha,
                     Descripcion = datos.Descripcion,
                     Responsable = datos.Responsable,
@@ -57,6 +59,7 @@ namespace SIGAC.Application.Services
                 {
                     Categoria = gasto.Categoria,
                     Monto = gasto.Monto,
+                    Moneda = gasto.Moneda,
                     Fecha = gasto.Fecha,
                     Descripcion = gasto.Descripcion,
                     Responsable = gasto.Responsable
@@ -85,6 +88,7 @@ namespace SIGAC.Application.Services
 
                 gasto.Categoria = datos.Categoria;
                 gasto.Monto = datos.Monto;
+                gasto.Moneda = datos.Moneda;
                 gasto.Fecha = datos.Fecha;
                 gasto.Descripcion = datos.Descripcion;
                 gasto.Responsable = datos.Responsable;
@@ -109,6 +113,7 @@ namespace SIGAC.Application.Services
                         Id = g.Id,
                         Categoria = g.Categoria,
                         Monto = g.Monto,
+                        Moneda = g.Moneda,
                         Fecha = g.Fecha,
                         Descripcion = g.Descripcion,
                         Responsable = g.Responsable,
@@ -116,14 +121,18 @@ namespace SIGAC.Application.Services
                     })
                     .ToList();
 
-                // El total acumulado excluye los anulados: un gasto anulado ya no
-                // representa dinero efectivamente gastado, así que sumarlo
-                // distorsionaría el total del período consultado.
-                var totalAcumulado = lista
+                // Un total por cada moneda presente, no un solo decimal: sumar
+                // colones con dólares en un único número no representaría nada.
+                // Excluye los anulados: un gasto anulado ya no representa dinero
+                // efectivamente gastado, así que sumarlo distorsionaría el total del
+                // período consultado.
+                var totalesPorMoneda = lista
                     .Where(g => g.Estado == nameof(EstadoGastoOperativo.Activo))
-                    .Sum(g => g.Monto);
+                    .GroupBy(g => g.Moneda)
+                    .Select(g => new MontoPorMonedaDto(g.Key, g.Sum(x => x.Monto)))
+                    .ToList();
 
-                return new GastosConsultaDto(lista, totalAcumulado);
+                return new GastosConsultaDto(lista, totalesPorMoneda);
             }
             catch (Exception ex)
             {

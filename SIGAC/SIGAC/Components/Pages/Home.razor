@@ -1,21 +1,14 @@
 ﻿@page "/"
 @using SIGAC.Application.Interfaces
-@implements IDisposable
 @inject IInventarioService InventarioService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
 
 <PageTitle>Inicio — SIGAC</PageTitle>
 
 <MudText Typo="Typo.body1" Class="mb-6 mud-text-secondary">
-    Sistema de Gestión Alimentando Corazones. 
+    Sistema de Gestión Alimentando Corazones.
 </MudText>
-
-@if (mostrarAlertaStockBajo)
-{
-    <MudAlert Severity="Severity.Warning" Class="mb-6" Icon="@Icons.Material.Filled.Warning">
-        Hay @articulosStockBajo artículo@(articulosStockBajo == 1 ? "" : "s") con stock bajo.
-        <MudLink Href="/inventario/existencias" Class="ml-1">Ver existencias</MudLink>
-    </MudAlert>
-}
 
 <MudGrid Spacing="3">
     <MudItem xs="12" sm="6" md="4">
@@ -75,6 +68,51 @@
     <MudItem xs="12" sm="6" md="4">
         <MudCard Class="pa-4" Style="height: 100%;">
             <MudStack Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.VolunteerActivism" Color="Color.Warning" Size="Size.Large" />
+                <MudText Typo="Typo.h6">Donaciones</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Consulte el historial de donaciones recibidas y registre donantes, dinero o artículos donados.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Warning" Href="/donaciones/historial" Class="mt-2">
+                    Ver donaciones
+                </MudButton>
+                @* MudMenu y no un MudButton: "registrar una donación" son en
+                   realidad dos formularios distintos (dinero y especie, ver
+                   RegistrarDonacionDinero.razor / RegistrarDonacionEspecie.razor),
+                   y un solo botón no puede llevar a los dos.
+
+                   Activador propio (ActivatorContent) y no el Label por
+                   defecto de MudMenu: su FullWidth solo iguala el ancho del
+                   panel desplegable, no el del botón activador, así que con
+                   el activador por defecto este botón quedaba más angosto que
+                   "Registrar entrada"/"Registrar gasto" de las demás tarjetas.
+                   Un MudButton propio con FullWidth sí ocupa el 100% de SU
+                   contenedor, pero ese contenedor es el <div class="mud-menu">
+                   que MudMenu renderiza, y ese div no se estira solo dentro del
+                   MudStack (a diferencia de un <a>/MudButton suelto, que sí es
+                   un hijo flex directo). Sin el Style de acá, "Registrar
+                   dinero/artículo" medía 239px contra los 302px de "Ver
+                   donaciones": el 100% del botón interno se calculaba sobre un
+                   wrapper que ya había nacido angosto. *@
+                <MudMenu Style="width:100%;">
+                    <ActivatorContent Context="menu">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Warning" FullWidth="true"
+                                   OnClick="@(e => menu.ToggleAsync(e))">
+                            Registrar dinero/artículo
+                        </MudButton>
+                    </ActivatorContent>
+                    <ChildContent>
+                        <MudMenuItem Href="/donaciones/dinero/registrar">Donación en dinero</MudMenuItem>
+                        <MudMenuItem Href="/donaciones/especie/registrar">Donación en artículos</MudMenuItem>
+                    </ChildContent>
+                </MudMenu>
+            </MudStack>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="4">
+        <MudCard Class="pa-4" Style="height: 100%;">
+            <MudStack Spacing="2">
                 <MudIcon Icon="@Icons.Material.Filled.Receipt" Color="Color.Success" Size="Size.Large" />
                 <MudText Typo="Typo.h6">Gastos Operativos</MudText>
                 <MudText Typo="Typo.body2" Class="mud-text-secondary">
@@ -92,38 +130,44 @@
 </MudGrid>
 
 @code {
-    private int articulosStockBajo;
-    private bool mostrarAlertaStockBajo;
-    private readonly CancellationTokenSource _cts = new();
-
     protected override async Task OnInitializedAsync()
     {
-        articulosStockBajo = await InventarioService.ContarArticulosStockBajoAsync();
-        mostrarAlertaStockBajo = articulosStockBajo > 0;
+        var articulosStockBajo = await InventarioService.ContarArticulosStockBajoAsync();
 
-        if (mostrarAlertaStockBajo)
+        if (articulosStockBajo > 0)
         {
-            // Fire-and-forget deliberado: la carga de la página no debe esperar
-            // 4 segundos para terminar. El CancellationTokenSource evita que el
-            // callback dispare StateHasChanged sobre un componente ya desmontado
-            // si el usuario navega a otra pantalla antes de que se cumpla el plazo.
-            _ = OcultarAlertaStockBajoAsync();
+            // Notificación (Snackbar) y no un MudAlert fijo en la página: se
+            // muestra y se retira sola, sin el temporizador manual que antes
+            // hacía falta para ocultar el aviso a los pocos segundos.
+            Snackbar.Add(
+                $"Hay {articulosStockBajo} artículo{(articulosStockBajo == 1 ? "" : "s")} con stock bajo.",
+                Severity.Warning,
+                config =>
+                {
+                    // Más corta que el default de MudBlazor (5000ms): es un aviso
+                    // informativo con acción propia, no algo que deba quedarse en
+                    // pantalla tanto tiempo como un error o una confirmación.
+                    config.VisibleStateDuration = 2500;
+
+                    // RequireInteraction explícito en false: por defecto, MudBlazor
+                    // exige cierre manual en CUALQUIER snackbar que tenga Action (ver
+                    // MudBlazor.CommonSnackbarOptions.RequireInteraction), así que sin
+                    // esto VisibleStateDuration de arriba no tendría ningún efecto y
+                    // la notificación se quedaría en pantalla hasta que alguien la
+                    // cierre a mano.
+                    config.RequireInteraction = false;
+                    config.Action = "Ver existencias";
+                    config.ActionColor = Color.Inherit;
+                    config.OnClick = _ =>
+                    {
+                        // stockBajo=true: ExistenciasInventario.razor lo lee para activar
+                        // de entrada el interruptor "Solo artículos con stock bajo", así
+                        // que tocar la notificación muestra ya esos artículos y no una
+                        // pantalla en blanco a la espera de que alguien busque algo.
+                        Navigation.NavigateTo("/inventario/existencias?stockBajo=true");
+                        return Task.CompletedTask;
+                    };
+                });
         }
     }
-
-    private async Task OcultarAlertaStockBajoAsync()
-    {
-        try
-        {
-            await Task.Delay(TimeSpan.FromSeconds(4), _cts.Token);
-            mostrarAlertaStockBajo = false;
-            await InvokeAsync(StateHasChanged);
-        }
-        catch (TaskCanceledException)
-        {
-            // El componente se desmontó antes de los 4 segundos: no hay nada que actualizar.
-        }
-    }
-
-    public void Dispose() => _cts.Cancel();
 }

@@ -1,3 +1,4 @@
+using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Donaciones;
 using SIGAC.Application.DTOs.Inventario;
 using SIGAC.Application.Exceptions;
@@ -82,6 +83,14 @@ namespace SIGAC.Application.Services
                 if (dto.Monto <= 0)
                     throw new ValidationException("El monto debe ser mayor a 0.");
 
+                var moneda = TextoNormalizador.CompactarEspacios(dto.Moneda);
+                if (!TiposMoneda.EsValido(moneda))
+                {
+                    throw new ValidationException(
+                        $"La moneda '{moneda}' no es válida. " +
+                        $"Valores válidos: {string.Join(", ", TiposMoneda.Todos)}.");
+                }
+
                 // Misma regla que RegistrarEntradaAsync de Inventario: la donación se
                 // registra el día en que ocurre, una fecha futura no representa nada
                 // recibido todavía.
@@ -93,6 +102,7 @@ namespace SIGAC.Application.Services
                 {
                     DonanteId = donanteId,
                     Monto = dto.Monto,
+                    Moneda = moneda,
                     Fecha = dto.Fecha,
                     Observaciones = dto.Observaciones
                 };
@@ -259,7 +269,10 @@ namespace SIGAC.Application.Services
                 if (dto.Cantidad <= 0)
                     throw new ValidationException("La cantidad debe ser mayor a 0.");
 
-                ValidarFechaNoFutura(dto.Fecha, "la entrega");
+                // A diferencia de las donaciones recibidas, una entrega sí puede
+                // programarse con fecha futura (coordinar de antemano cuándo se
+                // hará la entrega física), así que acá no se llama a
+                // ValidarFechaNoFutura.
 
                 if (!TiposDestinatarioDonacion.EsValido(dto.TipoDestinatario))
                 {
@@ -362,6 +375,7 @@ namespace SIGAC.Application.Services
                     TipoDonacion = TipoDonacionDinero,
                     NombreDonante = d.Donante?.Nombre ?? string.Empty,
                     Monto = d.Monto,
+                    Moneda = d.Moneda,
                     // En dinero no hay artículos que describir: lo único que aporta
                     // contexto son las observaciones.
                     Descripcion = d.Observaciones ?? string.Empty,
@@ -373,9 +387,10 @@ namespace SIGAC.Application.Services
                     Id = d.Id,
                     TipoDonacion = TipoDonacionEspecie,
                     NombreDonante = d.Donante?.Nombre ?? string.Empty,
-                    // Monto queda en null: las donaciones en especie no se valorizan.
-                    // Un 0 se leería como "donó cero colones", que es otra cosa.
+                    // Monto y Moneda quedan en null: las donaciones en especie no se
+                    // valorizan. Un 0 se leería como "donó cero colones", que es otra cosa.
                     Monto = null,
+                    Moneda = null,
                     Descripcion = DescribirDetalles(d),
                     Fecha = d.Fecha
                 }));
@@ -390,11 +405,16 @@ namespace SIGAC.Application.Services
                         .ThenByDescending(d => d.Id)
                         .ToList(),
 
-                    // Solo el dinero: no hay nada que sumar de las de especie.
+                    // Un total por cada moneda presente, no un solo decimal: sumar
+                    // colones con dólares en un único número no representaría nada.
+                    // Solo el dinero aporta términos a la suma; especie no tiene monto.
                     // Se calcula sobre TODAS las filas que cumplen el filtro, que es
                     // el motivo por el que el total viaja en el resultado y no lo
                     // deduce la grilla de lo que muestra.
-                    TotalDinero = enDinero.Sum(d => d.Monto)
+                    TotalesPorMoneda = enDinero
+                        .GroupBy(d => d.Moneda)
+                        .Select(g => new MontoPorMonedaDto(g.Key, g.Sum(d => d.Monto)))
+                        .ToList()
                 };
             }
             catch (Exception ex)

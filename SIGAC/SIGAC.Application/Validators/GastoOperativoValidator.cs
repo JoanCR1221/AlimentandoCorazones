@@ -9,6 +9,7 @@ namespace SIGAC.Application.Validators
     public sealed record GastoOperativoValidado(
         string Categoria,
         decimal Monto,
+        string Moneda,
         DateTime Fecha,
         string Descripcion,
         string Responsable);
@@ -28,17 +29,18 @@ namespace SIGAC.Application.Validators
         public const int LongitudMaximaMotivoAnulacion = 500;
 
         public static GastoOperativoValidado Validar(GastoOperativoCrearDto dto) =>
-            Validar(dto.Categoria, dto.Monto, dto.Fecha, dto.Descripcion, dto.Responsable);
+            Validar(dto.Categoria, dto.Monto, dto.Moneda, dto.Fecha, dto.Descripcion, dto.Responsable);
 
         public static GastoOperativoValidado Validar(GastoOperativoEditarDto dto) =>
-            Validar(dto.Categoria, dto.Monto, dto.Fecha, dto.Descripcion, dto.Responsable);
+            Validar(dto.Categoria, dto.Monto, dto.Moneda, dto.Fecha, dto.Descripcion, dto.Responsable);
 
         private static GastoOperativoValidado Validar(
-            string? categoria, decimal monto, DateTime fecha, string? descripcion, string? responsable)
+            string? categoria, decimal monto, string? moneda, DateTime fecha, string? descripcion, string? responsable)
         {
             return new GastoOperativoValidado(
                 ValidarCategoria(categoria),
                 ValidarMonto(monto),
+                ValidarMoneda(moneda),
                 ValidarFecha(fecha),
                 ValidarDescripcion(descripcion),
                 ValidarResponsable(responsable));
@@ -56,6 +58,26 @@ namespace SIGAC.Application.Validators
                 throw new ValidationException(
                     $"La categoría '{normalizada}' no es válida. " +
                     $"Categorías válidas: {string.Join(", ", CategoriasGastoOperativo.Todos)}.");
+            }
+
+            return normalizada;
+        }
+
+        // Se elige de una lista en la pantalla, no se teclea, pero se comprueba
+        // igual contra el catálogo cerrado: mismo criterio que
+        // DonanteValidator.ValidarTipoPersona.
+        public static string ValidarMoneda(string? moneda)
+        {
+            var normalizada = TextoNormalizador.CompactarEspacios(moneda);
+
+            if (normalizada.Length == 0)
+                throw new ValidationException("La moneda es obligatoria.");
+
+            if (!TiposMoneda.EsValido(normalizada))
+            {
+                throw new ValidationException(
+                    $"La moneda '{normalizada}' no es válida. " +
+                    $"Valores válidos: {string.Join(", ", TiposMoneda.Todos)}.");
             }
 
             return normalizada;

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SIGAC.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using SIGAC.Infrastructure.Data;
 namespace SIGAC.Infrastructure.Migrations
 {
     [DbContext(typeof(SigacDbContext))]
-    partial class SigacDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260912050528_AddModuloProyectos")]
+    partial class AddModuloProyectos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -270,14 +273,6 @@ namespace SIGAC.Infrastructure.Migrations
                     b.Property<DateTime>("Fecha")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Moneda")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(20)")
-                        .HasDefaultValue("Colones");
-
                     b.Property<decimal>("Monto")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -296,8 +291,6 @@ namespace SIGAC.Infrastructure.Migrations
 
                     b.ToTable("DonacionesDinero", null, t =>
                         {
-                            t.HasCheckConstraint("CK_DonacionesDinero_Moneda", "[Moneda] IN ('Colones', 'Dólares', 'Euros')");
-
                             t.HasCheckConstraint("CK_DonacionesDinero_Monto", "[Monto] > 0");
                         });
                 });
@@ -535,14 +528,6 @@ namespace SIGAC.Infrastructure.Migrations
                     b.Property<DateTime>("FechaRegistro")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Moneda")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(20)")
-                        .HasDefaultValue("Colones");
-
                     b.Property<decimal>("Monto")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -568,8 +553,6 @@ namespace SIGAC.Infrastructure.Migrations
                             t.HasCheckConstraint("CK_GastosOperativos_Categoria", "[Categoria] IN ('ServiciosBasicos', 'Transporte', 'CompraInsumos', 'Salarios', 'Viaticos')");
 
                             t.HasCheckConstraint("CK_GastosOperativos_Estado", "[Estado] IN ('Activo', 'Anulado')");
-
-                            t.HasCheckConstraint("CK_GastosOperativos_Moneda", "[Moneda] IN ('Colones', 'Dólares', 'Euros')");
 
                             t.HasCheckConstraint("CK_GastosOperativos_Monto", "[Monto] > 0");
 
