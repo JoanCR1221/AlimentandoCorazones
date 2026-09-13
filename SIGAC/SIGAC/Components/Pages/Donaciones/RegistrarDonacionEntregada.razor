@@ -19,26 +19,18 @@
 
     <MudCard Class="pa-4">
         <MudCardContent>
-            @* Sin restricción de categoría, a diferencia de Solicitar Préstamo: acá se
-               entrega en forma definitiva cualquier artículo que haya entrado como
-               donación (alimento, ropa, calzado o equipo), no solo Equipo. *@
-            <MudAutocomplete T="ArticuloExistenciaDto" Label="Artículo" Variant="Variant.Outlined"
-                              Value="articuloSeleccionado" ValueChanged="OnArticuloCambiado"
-                              SearchFunc="BuscarArticulosAsync" MinCharacters="1" DebounceInterval="300"
-                              ToStringFunc="@(a => a is null ? null : $"{a.Nombre} (stock: {a.StockActual} {a.UnidadMedida})")"
-                              HelperText="Escribí para buscar el artículo a entregar." />
-
-            <MudNumericField T="int" @bind-Value="modelo.Cantidad" For="@(() => modelo.Cantidad)" Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
-            <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
-
             @* Lista cerrada: la fuente es SIGAC.Domain.TiposDestinatarioDonacion. *@
             <MudSelect T="string" @bind-Value="modelo.TipoDestinatario" @bind-Value:after="OnTipoDestinatarioCambiado"
-                       Label="Tipo de destinatario" Variant="Variant.Outlined" Class="mt-4">
+                       Label="Tipo de destinatario" Variant="Variant.Outlined">
                 @foreach (var tipo in TiposDestinatarioDonacion.Todos)
                 {
                     <MudSelectItem T="string" Value="@tipo">@tipo</MudSelectItem>
                 }
             </MudSelect>
+
+            @* Sin MaxDate: a diferencia del resto de SIGAC, una entrega puede
+               coordinarse con antelación para una fecha futura. *@
+            <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" />
 
             @if (modelo.TipoDestinatario == TiposDestinatarioDonacion.Beneficiario)
             {
@@ -50,11 +42,42 @@
             }
             else if (modelo.TipoDestinatario == TiposDestinatarioDonacion.Comunidad)
             {
-                <MudTextField @bind-Value="modelo.ComunidadDestinataria" For="@(() => modelo.ComunidadDestinataria)"
+                <MudTextField @bind-Value="modelo.ComunidadDestinataria"
                               Label="Comunidad destinataria" Variant="Variant.Outlined" Class="mt-4" />
             }
 
             <MudTextField @bind-Value="modelo.Observaciones" Label="Observaciones (opcional)" Variant="Variant.Outlined" Class="mt-4" Lines="2" />
+
+            <MudText Typo="Typo.h6" Class="mt-6 mb-2">Artículos a entregar</MudText>
+
+            @* Sin restricción de categoría, a diferencia de Solicitar Préstamo: acá se
+               entrega en forma definitiva cualquier artículo que haya entrado como
+               donación (alimento, ropa, calzado o equipo), no solo Equipo. Varias
+               líneas comparten fecha, destinatario y observaciones: son la misma
+               entrega física, solo que con más de un artículo. *@
+            @for (var i = 0; i < lineas.Count; i++)
+            {
+                var indice = i;
+                var linea = lineas[indice];
+
+                <MudPaper Class="pa-4 mb-3" Outlined="true">
+                    <MudAutocomplete T="ArticuloExistenciaDto" Label="Artículo" Variant="Variant.Outlined"
+                                      Value="linea.Articulo" ValueChanged="@(valor => OnArticuloCambiado(indice, valor))"
+                                      SearchFunc="BuscarArticulosAsync" MinCharacters="1" DebounceInterval="300"
+                                      ToStringFunc="@(a => a is null ? null : $"{a.Nombre} (stock: {a.StockActual} {a.UnidadMedida})")"
+                                      HelperText="Escribí para buscar el artículo a entregar." />
+
+                    <MudNumericField T="int" @bind-Value="linea.Cantidad" Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
+
+                    <MudButton Variant="Variant.Text" Color="Color.Error" Class="mt-2"
+                               Disabled="lineas.Count == 1"
+                               OnClick="@(() => EliminarArticulo(indice))">
+                        Quitar artículo
+                    </MudButton>
+                </MudPaper>
+            }
+
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="AgregarArticulo">Agregar artículo</MudButton>
         </MudCardContent>
         <MudCardActions>
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
@@ -63,8 +86,35 @@
 </EditForm>
 
 @code {
-    private DonacionEntregadaCrearDto modelo = new();
-    private ArticuloExistenciaDto? articuloSeleccionado;
+    // Encabezado de la entrega: fecha, destinatario y observaciones son comunes a
+    // todos los artículos entregados en el mismo acto, aunque cada uno termine
+    // siendo una fila propia de DonacionEntregada. Es un tipo propio de la
+    // pantalla y no DonacionEntregadaCrearDto reutilizado, porque ese DTO sigue
+    // representando UNA fila (con su propio ArticuloId y Cantidad) y reusarlo acá
+    // dejaría esos dos campos siempre en 0, lo que el [Range(1,...)] del DTO
+    // real rechazaría en cada envío.
+    private sealed class EncabezadoEntregaDto
+    {
+        public DateTime Fecha { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "El tipo de destinatario es obligatorio.")]
+        public string TipoDestinatario { get; set; } = string.Empty;
+
+        public int? BeneficiarioId { get; set; }
+        public string? ComunidadDestinataria { get; set; }
+        public string? Observaciones { get; set; }
+    }
+
+    // Una línea de la entrega: qué artículo y cuánto. Mismo par que llevaba el
+    // DTO original, ahora repetido una vez por artículo.
+    private sealed class LineaEntrega
+    {
+        public ArticuloExistenciaDto? Articulo { get; set; }
+        public int Cantidad { get; set; }
+    }
+
+    private EncabezadoEntregaDto modelo = new();
+    private List<LineaEntrega> lineas = new();
     private BeneficiarioListaDto? beneficiarioSeleccionado;
 
     private DateTime? fecha
@@ -76,6 +126,7 @@
     protected override void OnInitialized()
     {
         modelo.Fecha = DateTime.Today;
+        lineas.Add(new LineaEntrega());
     }
 
     private async Task<IEnumerable<ArticuloExistenciaDto>> BuscarArticulosAsync(string valor, CancellationToken cancellationToken)
@@ -87,10 +138,9 @@
         return resultado.Elementos;
     }
 
-    private void OnArticuloCambiado(ArticuloExistenciaDto? valor)
+    private void OnArticuloCambiado(int indice, ArticuloExistenciaDto? valor)
     {
-        articuloSeleccionado = valor;
-        modelo.ArticuloId = valor?.Id ?? 0;
+        lineas[indice].Articulo = valor;
     }
 
     private async Task<IEnumerable<BeneficiarioListaDto>> BuscarBeneficiariosActivosAsync(string valor, CancellationToken cancellationToken)
@@ -125,28 +175,87 @@
         modelo.ComunidadDestinataria = null;
     }
 
+    private void AgregarArticulo()
+    {
+        lineas.Add(new LineaEntrega());
+    }
+
+    private void EliminarArticulo(int indice)
+    {
+        // Siempre queda al menos una línea: una entrega sin artículos no entrega
+        // nada, mismo mínimo que exige Donación en especie.
+        if (lineas.Count > 1)
+            lineas.RemoveAt(indice);
+    }
+
     private async Task Guardar()
     {
+        if (lineas.Any(l => l.Articulo is null))
+        {
+            Snackbar.Add("Seleccioná un artículo en cada línea.", Severity.Warning);
+            return;
+        }
+
+        if (lineas.Any(l => l.Cantidad <= 0))
+        {
+            Snackbar.Add("La cantidad debe ser mayor a 0 en cada línea.", Severity.Warning);
+            return;
+        }
+
+        // Cada línea se registra con su propia llamada al servicio: cada una hace
+        // su propio descuento de stock atómico (ver DonacionesService), así que no
+        // hay una sola transacción que abarque varios artículos a la vez. Se
+        // procesan en orden y se corta en el primer error para que el mensaje
+        // final diga con precisión cuántas ya quedaron hechas.
+        var registradas = 0;
+
         try
         {
-            await DonacionesService.RegistrarDonacionEntregadaAsync(modelo);
-            Snackbar.Add("Entrega registrada correctamente.", Severity.Success);
+            foreach (var linea in lineas)
+            {
+                var dto = new DonacionEntregadaCrearDto
+                {
+                    ArticuloId = linea.Articulo!.Id,
+                    Cantidad = linea.Cantidad,
+                    Fecha = modelo.Fecha,
+                    TipoDestinatario = modelo.TipoDestinatario,
+                    BeneficiarioId = modelo.BeneficiarioId,
+                    ComunidadDestinataria = modelo.ComunidadDestinataria,
+                    Observaciones = modelo.Observaciones
+                };
+
+                await DonacionesService.RegistrarDonacionEntregadaAsync(dto);
+                registradas++;
+            }
+
+            Snackbar.Add(registradas == 1
+                ? "Entrega registrada correctamente."
+                : $"Se registraron {registradas} entregas correctamente.", Severity.Success);
 
             modelo = new() { Fecha = DateTime.Today };
-            articuloSeleccionado = null;
+            lineas = new() { new LineaEntrega() };
             beneficiarioSeleccionado = null;
         }
         catch (ValidationException ex)
         {
-            Snackbar.Add(ex.Message, Severity.Warning);
+            Snackbar.Add(ConAvisoDeProgreso(ex.Message, registradas), Severity.Warning);
         }
         catch (NotFoundException ex)
         {
-            Snackbar.Add(ex.Message, Severity.Warning);
+            Snackbar.Add(ConAvisoDeProgreso(ex.Message, registradas), Severity.Warning);
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo registrar la entrega. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add(ConAvisoDeProgreso("No se pudo registrar la entrega. Intentá de nuevo.", registradas), Severity.Error);
         }
     }
+
+    // Si ya se habían registrado líneas antes de que una fallara, esas entregas
+    // quedaron hechas de verdad (stock descontado y entrega guardada) y no hay
+    // que reintentarlas: el mensaje lo deja explícito para no descontar el mismo
+    // artículo dos veces.
+    private static string ConAvisoDeProgreso(string mensaje, int registradas) =>
+        registradas == 0
+            ? mensaje
+            : $"{mensaje} Ya se habían registrado {registradas} artículo(s) de esta entrega antes del error; no los volvás a registrar.";
 }

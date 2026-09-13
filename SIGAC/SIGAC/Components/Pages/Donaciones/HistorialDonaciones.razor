@@ -2,6 +2,7 @@
 @using SIGAC.Application.DTOs
 @using SIGAC.Application.DTOs.Donaciones
 @using SIGAC.Application.Interfaces
+@using SIGAC.Domain
 @inject IDonantesService DonantesService
 @inject IDonacionesService DonacionesService
 
@@ -24,8 +25,21 @@
         <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
                              Label="Rango de fechas" Variant="Variant.Outlined" Class="mb-4" />
 
+        @* Un total por moneda y no un solo número: desde que el monto declara en
+           qué moneda vino, sumar colones con dólares en una sola cifra no
+           representaría nada. Cuando el período no tiene ninguna donación en
+           dinero, la lista queda vacía y no se muestra nada acá. *@
         <MudText Typo="Typo.subtitle1" Class="mb-4">
-            Total en dinero del período: @resultado.TotalDinero.ToString("N2")
+            Total en dinero del período:
+            @if (resultado.TotalesPorMoneda.Count == 0)
+            {
+                @:—
+            }
+            else
+            {
+                @string.Join("  ·  ", resultado.TotalesPorMoneda.Select(
+                    t => $"{TiposMoneda.Simbolo(t.Moneda)} {t.Total:N2}"))
+            }
         </MudText>
 
         <MudDataGrid T="HistorialDonacionDto" Items="@resultado.Donaciones">
@@ -33,7 +47,11 @@
                 <PropertyColumn Property="x => x.TipoDonacion" Title="Tipo" />
                 <PropertyColumn Property="x => x.NombreDonante" Title="Donante" />
                 <TemplateColumn Title="Monto">
-                    <CellTemplate>@(context.Item.Monto?.ToString("N2") ?? "—")</CellTemplate>
+                    <CellTemplate>
+                        @(context.Item.Monto is null
+                            ? "—"
+                            : $"{TiposMoneda.Simbolo(context.Item.Moneda)} {context.Item.Monto:N2}")
+                    </CellTemplate>
                 </TemplateColumn>
                 <PropertyColumn Property="x => x.Descripcion" Title="Descripción" />
                 <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />

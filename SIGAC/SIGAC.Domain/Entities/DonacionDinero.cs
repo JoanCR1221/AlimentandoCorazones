@@ -13,6 +13,11 @@ namespace SIGAC.Domain.Entities
         public Donante? Donante { get; set; }
 
         public decimal Monto { get; set; }
+
+        // Valor del catálogo cerrado TiposMoneda ("Colones", "Dólares", "Euros").
+        // Sin ella, un monto de 100 no dice si son 100 colones o 100 dólares.
+        public string Moneda { get; set; } = string.Empty;
+
         public DateTime Fecha { get; set; }
         public string? Observaciones { get; set; }
     }

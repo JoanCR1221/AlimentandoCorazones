@@ -22,8 +22,15 @@
                 }
             </MudSelect>
 
+            <MudSelect T="string" @bind-Value="modelo.Moneda" For="@(() => modelo.Moneda)" Label="Moneda" Variant="Variant.Outlined" Class="mt-4">
+                @foreach (var moneda in TiposMoneda.Todos)
+                {
+                    <MudSelectItem T="string" Value="@moneda">@moneda</MudSelectItem>
+                }
+            </MudSelect>
+
             <MudNumericField T="decimal" @bind-Value="modelo.Monto" For="@(() => modelo.Monto)" Label="Monto" Variant="Variant.Outlined" Class="mt-4"
-                              Min="0.01m" Format="N2" Adornment="Adornment.Start" AdornmentText="₡" />
+                              Min="0.01m" Format="N2" Adornment="Adornment.Start" AdornmentText="@TiposMoneda.Simbolo(modelo.Moneda)" />
 
             <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
 

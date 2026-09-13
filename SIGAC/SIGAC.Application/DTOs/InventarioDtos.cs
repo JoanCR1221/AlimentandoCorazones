@@ -74,6 +74,13 @@ namespace SIGAC.Application.DTOs.Inventario
         public string? Nombre { get; set; }
         public string? Categoria { get; set; }
 
+        // Cuenta como filtro por sí solo, igual que Nombre y Categoria: activarlo
+        // sin ningún otro criterio tiene que mostrar igual los artículos con poco
+        // stock, que es exactamente el caso de uso (entrar a reponer, no a buscar
+        // un artículo puntual). Cuando está activo, el repositorio además ordena
+        // de menor a mayor stock en vez de por nombre: lo más urgente primero.
+        public bool SoloStockBajo { get; set; }
+
         // Base 0, igual que el índice de página de la grilla. El repositorio la
         // resuelve en SQL con Skip/Take: nunca se traen los registros anteriores.
         public int Pagina { get; set; }

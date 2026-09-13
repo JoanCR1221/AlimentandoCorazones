@@ -13,39 +13,111 @@
 
 <MudCard Class="pa-4">
     <MudCardContent>
-        <MudAutocomplete T="ArticuloExistenciaDto" Label="Artículo" Variant="Variant.Outlined" Class="mb-4"
-                          Value="articuloSeleccionado" ValueChanged="OnArticuloCambiadoAsync"
-                          SearchFunc="BuscarArticulosAsync" ToStringFunc="@(a => a?.Nombre)" Clearable="true" />
-
-        <MudSelect T="string" Value="filtroTipoDestinatario" ValueChanged="OnTipoDestinatarioCambiadoAsync"
-                   Label="Tipo de destinatario" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
-            @foreach (var tipo in TiposDestinatarioDonacion.Todos)
-            {
-                <MudSelectItem T="string" Value="@tipo">@tipo</MudSelectItem>
-            }
-        </MudSelect>
-
-        @* Complementa al filtro de tipo sin depender de él: sirve para ver "qué se
-           le ha entregado a esta persona" aunque no se haya elegido "Beneficiario" arriba. *@
-        <MudAutocomplete T="BeneficiarioListaDto" Label="Beneficiario" Variant="Variant.Outlined" Class="mb-4"
-                          Value="beneficiarioSeleccionado" ValueChanged="OnBeneficiarioCambiadoAsync"
-                          SearchFunc="BuscarBeneficiariosAsync" ToStringFunc="@(b => b?.NombreCompleto)" Clearable="true" />
-
-        <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
-                             Label="Rango de fechas" Variant="Variant.Outlined" Class="mb-4" />
+        @* En grilla y no apilados a lo alto: son cuatro filtros independientes,
+           y uno por fila dejaba la tarjeta larga sin motivo. Beneficiario va
+           primero, junto con el mismo orden que ahora tiene la grilla de abajo:
+           es el dato por el que más se entra a este historial ("qué se le ha
+           entregado a esta persona"). *@
+        <MudGrid Spacing="3" Class="mb-2">
+            <MudItem xs="12" sm="6" md="3">
+                <MudAutocomplete T="BeneficiarioListaDto" Label="Beneficiario" Variant="Variant.Outlined"
+                                  Value="beneficiarioSeleccionado" ValueChanged="OnBeneficiarioCambiadoAsync"
+                                  SearchFunc="BuscarBeneficiariosAsync" ToStringFunc="@(b => b?.NombreCompleto)" Clearable="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="string" Value="filtroTipoDestinatario" ValueChanged="OnTipoDestinatarioCambiadoAsync"
+                           Label="Tipo de destinatario" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var tipo in TiposDestinatarioDonacion.Todos)
+                    {
+                        <MudSelectItem T="string" Value="@tipo">@tipo</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudAutocomplete T="ArticuloExistenciaDto" Label="Artículo" Variant="Variant.Outlined"
+                                  Value="articuloSeleccionado" ValueChanged="OnArticuloCambiadoAsync"
+                                  SearchFunc="BuscarArticulosAsync" ToStringFunc="@(a => a?.Nombre)" Clearable="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
+                                     Label="Rango de fechas" Variant="Variant.Outlined" />
+            </MudItem>
+        </MudGrid>
 
         <MudText Typo="Typo.subtitle1" Class="mb-4">
-            Total entregado del período: @resultado.TotalEntregado
+            Total entregado del período: <b>@resultado.TotalEntregado</b>
         </MudText>
 
-        <MudDataGrid T="HistorialDonacionEntregadaDto" Items="@resultado.Entregas">
+        @* Destinatario primero: es el dato que responde "a quién se le entregó",
+           que es la razón más común para abrir este historial. El tipo pasa a
+           ser un chip en vez de una columna de texto plano, para distinguir
+           Beneficiario/Comunidad de un vistazo.
+
+           Filas agrupadas por (destinatario, fecha): una entrega con varios
+           artículos (ver RegistrarDonacionEntregada.razor) queda hoy como una
+           fila de DonacionEntregada por artículo, y sin agrupar el mismo
+           destinatario aparecía repetido una vez por cada uno. La columna
+           Artículo muestra "N artículos" con el detalle en un tooltip cuando
+           hay más de uno, en vez de una fila por artículo. *@
+        <MudDataGrid T="FilaHistorialEntrega" Items="@FilasAgrupadas">
             <Columns>
-                <PropertyColumn Property="x => x.Articulo" Title="Artículo" />
-                <PropertyColumn Property="x => x.Cantidad" Title="Cantidad" />
-                <PropertyColumn Property="x => x.UnidadMedida" Title="Unidad" />
-                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
-                <PropertyColumn Property="x => x.TipoDestinatario" Title="Tipo" />
                 <PropertyColumn Property="x => x.NombreDestinatario" Title="Destinatario" />
+                <TemplateColumn Title="Tipo">
+                    <CellTemplate>
+                        @if (context.Item.TipoDestinatario == TiposDestinatarioDonacion.Beneficiario)
+                        {
+                            <MudChip T="string" Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Person">Beneficiario</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Secondary" Size="Size.Small" Icon="@Icons.Material.Filled.People">Comunidad</MudChip>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Artículo">
+                    <CellTemplate>
+                        @if (context.Item.Articulos.Count == 1)
+                        {
+                            @context.Item.Articulos[0].Articulo
+                        }
+                        else
+                        {
+                            @* Chip y no texto subrayado: mismo lenguaje visual que la
+                               columna Tipo, en vez de una convención propia inventada
+                               para esta sola columna. ShowOnClick además de ShowOnHover
+                               (que ya viene activado por defecto): en pantallas táctiles
+                               no hay "asomar el cursor". *@
+                            <MudTooltip ShowOnClick="true" Arrow="true">
+                                <ChildContent>
+                                    <MudChip T="string" Variant="Variant.Outlined" Color="Color.Warning" Size="Size.Small"
+                                             Icon="@Icons.Material.Filled.Inventory">
+                                        @context.Item.Articulos.Count artículos
+                                    </MudChip>
+                                </ChildContent>
+                                <TooltipContent>
+                                    <MudStack Spacing="1">
+                                        @foreach (var articulo in context.Item.Articulos)
+                                        {
+                                            <MudText Typo="Typo.body2">@articulo.Cantidad @articulo.UnidadMedida de @articulo.Articulo</MudText>
+                                        }
+                                    </MudStack>
+                                </TooltipContent>
+                            </MudTooltip>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Cantidad">
+                    <CellTemplate>
+                        @* En blanco y no una suma cuando hay varios artículos: mezclar
+                           cantidades de unidades de medida distintas (kilos con pares de
+                           zapatos) en un solo número no representaría nada. El detalle
+                           real está en el tooltip de la columna Artículo. *@
+                        @(context.Item.Articulos.Count == 1
+                            ? $"{context.Item.Articulos[0].Cantidad} {context.Item.Articulos[0].UnidadMedida}"
+                            : "—")
+                    </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
                 <PropertyColumn Property="x => x.Observaciones" Title="Observaciones" />
             </Columns>
             <NoRecordsContent>
@@ -56,11 +128,50 @@
 </MudCard>
 
 @code {
+    // Una fila visual del historial: agrupa las entregas que comparten
+    // destinatario y fecha, porque una sola entrega con varios artículos hoy
+    // se guarda como una fila de DonacionEntregada por artículo (ver
+    // RegistrarDonacionEntregada.razor). Es un tipo de la pantalla y no un DTO
+    // del servicio: la agrupación es puramente de presentación, los filtros y
+    // el total siguen calculándose sobre las filas reales sin agrupar.
+    private sealed class FilaHistorialEntrega
+    {
+        public string TipoDestinatario { get; set; } = string.Empty;
+        public string NombreDestinatario { get; set; } = string.Empty;
+        public DateTime Fecha { get; set; }
+        public string? Observaciones { get; set; }
+        public List<HistorialDonacionEntregadaDto> Articulos { get; set; } = new();
+    }
+
     private HistorialEntregasResultadoDto resultado = new();
     private ArticuloExistenciaDto? articuloSeleccionado;
     private string? filtroTipoDestinatario;
     private BeneficiarioListaDto? beneficiarioSeleccionado;
     private DateRange? rangoFechas;
+
+    // Mismas filas que resultado.Entregas, agrupadas para mostrar. El grupo es
+    // (TipoDestinatario, NombreDestinatario, Fecha): dos entregas al mismo
+    // destinatario en fechas distintas son eventos distintos y no se combinan;
+    // el filtro de artículo sigue aplicándose ANTES de agrupar (en el
+    // servicio), así que filtrar por un artículo puede dejar un grupo con
+    // menos artículos de los que esa entrega tuvo en realidad, pero nunca
+    // mezcla entregas que no cumplen el filtro.
+    private List<FilaHistorialEntrega> FilasAgrupadas =>
+        resultado.Entregas
+            .GroupBy(e => (e.TipoDestinatario, e.NombreDestinatario, e.Fecha))
+            .Select(g => new FilaHistorialEntrega
+            {
+                TipoDestinatario = g.Key.TipoDestinatario,
+                NombreDestinatario = g.Key.NombreDestinatario,
+                Fecha = g.Key.Fecha,
+                // Las líneas de una misma entrega comparten observaciones (es
+                // un solo campo por envío en el formulario): tomar la primera
+                // alcanza y evita repetir el mismo texto una vez por artículo.
+                Observaciones = g.First().Observaciones,
+                Articulos = g.ToList()
+            })
+            .OrderByDescending(f => f.Fecha)
+            .ToList();
 
     protected override async Task OnInitializedAsync()
     {

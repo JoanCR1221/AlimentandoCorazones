@@ -22,8 +22,18 @@
                 }
             </MudSelect>
 
+            @* Lista cerrada: la fuente es SIGAC.Domain.TiposMoneda. Va antes que
+               Monto para que el símbolo de esa caja ya esté correcto cuando la
+               persona empieza a escribir el número. *@
+            <MudSelect T="string" @bind-Value="modelo.Moneda" For="@(() => modelo.Moneda)" Label="Moneda" Variant="Variant.Outlined" Class="mt-4">
+                @foreach (var moneda in TiposMoneda.Todos)
+                {
+                    <MudSelectItem T="string" Value="@moneda">@moneda</MudSelectItem>
+                }
+            </MudSelect>
+
             <MudNumericField T="decimal" @bind-Value="modelo.Monto" For="@(() => modelo.Monto)" Label="Monto" Variant="Variant.Outlined" Class="mt-4"
-                              Min="0.01m" Format="N2" Adornment="Adornment.Start" AdornmentText="₡" />
+                              Min="0.01m" Format="N2" Adornment="Adornment.Start" AdornmentText="@TiposMoneda.Simbolo(modelo.Moneda)" />
 
             <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
 
@@ -44,6 +54,11 @@
     {
         get => modelo.Fecha == default ? null : modelo.Fecha;
         set => modelo.Fecha = value ?? default;
+    }
+
+    protected override void OnInitialized()
+    {
+        modelo.Moneda = TiposMoneda.Colones;
     }
 
     // Los valores internos (los que valida el servicio y va a guardar la base)
@@ -83,7 +98,7 @@
                     });
             }
 
-            modelo = new();
+            modelo = new() { Moneda = TiposMoneda.Colones };
         }
         catch (ValidationException ex)
         {

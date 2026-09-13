@@ -643,9 +643,15 @@ namespace SIGAC.Infrastructure.Data
                 // CHECK a nivel de BD: registrar una donación de cero o negativa no
                 // significa nada. Mismo criterio que CK_EntradasInventario_Cantidad.
                 entity.ToTable("DonacionesDinero", t =>
+                {
                     t.HasCheckConstraint(
                         "CK_DonacionesDinero_Monto",
-                        "[Monto] > 0"));
+                        "[Monto] > 0");
+
+                    t.HasCheckConstraint(
+                        "CK_DonacionesDinero_Moneda",
+                        $"[Moneda] IN ('{string.Join("', '", TiposMoneda.Todos)}')");
+                });
 
                 entity.HasKey(d => d.Id);
 
@@ -658,6 +664,16 @@ namespace SIGAC.Infrastructure.Data
                 entity.Property(d => d.Monto)
                     .IsRequired()
                     .HasPrecision(18, 2);
+
+                // Con valor por defecto 'Colones': las donaciones ya guardadas antes de
+                // este campo se registraron todas en colones (era la única moneda que
+                // manejaba el sistema), así que la columna nueva las completa con el
+                // valor que ya representaban en la práctica, en vez de dejarlas en NULL.
+                entity.Property(d => d.Moneda)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(20)
+                    .HasDefaultValue(TiposMoneda.Colones);
 
                 // datetime2 y no "date", por lo mismo que en EntradasInventario: el
                 // historial ordena entre sí varias donaciones del mismo día.
@@ -888,6 +904,10 @@ namespace SIGAC.Infrastructure.Data
                         "CK_GastosOperativos_Monto",
                         "[Monto] > 0");
 
+                    t.HasCheckConstraint(
+                        "CK_GastosOperativos_Moneda",
+                        $"[Moneda] IN ('{string.Join("', '", TiposMoneda.Todos)}')");
+
                     // Estado también es un dominio cerrado guardado como texto, igual
                     // que en SolicitudesPrestamo: sin el CHECK la columna aceptaría
                     // cualquier cadena escrita desde afuera.
@@ -916,6 +936,16 @@ namespace SIGAC.Infrastructure.Data
                 entity.Property(g => g.Monto)
                     .IsRequired()
                     .HasPrecision(18, 2);
+
+                // Con valor por defecto 'Colones', mismo motivo que en DonacionDinero:
+                // todo gasto registrado antes de este campo se pagó en colones (la
+                // única moneda que manejaba el sistema hasta ahora, de ahí el símbolo
+                // ₡ fijo que traían los formularios).
+                entity.Property(g => g.Moneda)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(20)
+                    .HasDefaultValue(TiposMoneda.Colones);
 
                 // datetime2 y no "date", por lo mismo que en EntradasInventario: el
                 // listado ordena entre sí varios gastos del mismo día.

@@ -1,4 +1,5 @@
 @page "/gastos"
+@using SIGAC.Application.DTOs
 @using SIGAC.Application.DTOs.Gastos
 @using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces
@@ -26,12 +27,27 @@
         <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
                              Label="Rango de fechas" Variant="Variant.Outlined" Class="mb-4" />
 
-        <MudText Typo="Typo.h6" Class="mb-4">Total acumulado: ₡@totalAcumulado.ToString("N2")</MudText>
+        @* Un total por moneda y no un solo número: sumar colones con dólares en
+           una sola cifra no representaría nada. *@
+        <MudText Typo="Typo.h6" Class="mb-4">
+            Total acumulado:
+            @if (totalesPorMoneda.Count == 0)
+            {
+                @:—
+            }
+            else
+            {
+                @string.Join("  ·  ", totalesPorMoneda.Select(
+                    t => $"{TiposMoneda.Simbolo(t.Moneda)} {t.Total:N2}"))
+            }
+        </MudText>
 
         <MudDataGrid T="GastoOperativoListaDto" Items="@gastos">
             <Columns>
                 <PropertyColumn Property="x => x.Categoria" Title="Categoría" />
-                <PropertyColumn Property="x => x.Monto" Title="Monto" Format="N2" />
+                <TemplateColumn Title="Monto">
+                    <CellTemplate>@TiposMoneda.Simbolo(context.Item.Moneda) @context.Item.Monto.ToString("N2")</CellTemplate>
+                </TemplateColumn>
                 <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
                 <PropertyColumn Property="x => x.Descripcion" Title="Descripción" />
                 <PropertyColumn Property="x => x.Estado" Title="Estado" />
@@ -57,7 +73,7 @@
 
 @code {
     private List<GastoOperativoListaDto> gastos = new();
-    private decimal totalAcumulado;
+    private IReadOnlyList<MontoPorMonedaDto> totalesPorMoneda = Array.Empty<MontoPorMonedaDto>();
     private string? filtroCategoria;
     private DateRange? rangoFechas;
 
@@ -91,7 +107,7 @@
             FechaHasta = rangoFechas?.End
         });
         gastos = resultado.Gastos.ToList();
-        totalAcumulado = resultado.TotalAcumulado;
+        totalesPorMoneda = resultado.TotalesPorMoneda;
     }
 
     private async Task AnularAsync(int gastoId)
