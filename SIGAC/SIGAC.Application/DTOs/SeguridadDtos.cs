@@ -79,6 +79,24 @@ namespace SIGAC.Application.DTOs.Seguridad
         public string ConfirmarPassword { get; set; } = string.Empty;
     }
 
+    // Un switch del panel de permisos: la clave, el módulo que la agrupa, el texto
+    // que ve el administrador y si está encendida (no revocada) para ese usuario.
+    public class PermisoUsuarioDto
+    {
+        public string Permiso { get; set; } = string.Empty;
+        public string Modulo { get; set; } = string.Empty;
+        public string Descripcion { get; set; } = string.Empty;
+        public bool Habilitado { get; set; }
+    }
+
+    // Lo que manda el panel al guardar: solo las claves apagadas. Reemplaza el
+    // conjunto completo de revocaciones del usuario.
+    public class ActualizarPermisosDto
+    {
+        public string UsuarioId { get; set; } = string.Empty;
+        public List<string> PermisosRevocados { get; set; } = new();
+    }
+
     // Restablecimiento por un administrador: asigna una contraseña temporal a otro
     // usuario, que después la cambia desde Configuración.
     public class RestablecerPasswordDto

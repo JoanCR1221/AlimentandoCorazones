@@ -34,5 +34,14 @@ namespace SIGAC.Application.Interfaces
         // De otro usuario, por un administrador: asigna una contraseña temporal y
         // levanta el bloqueo por intentos fallidos si lo hubiera.
         Task RestablecerPasswordAsync(RestablecerPasswordDto dto);
+
+        // Los permisos del rol del usuario, cada uno marcado como habilitado o
+        // revocado, en el orden del catálogo (Permisos.Definiciones). Un
+        // Administrador devuelve todos habilitados y no admite cambios.
+        Task<IReadOnlyList<PermisoUsuarioDto>> ObtenerPermisosAsync(string usuarioId);
+
+        // Reemplaza las revocaciones del usuario. Solo se puede revocar lo que
+        // su rol incluye; un Administrador se rechaza. Cierra su sesión activa.
+        Task ActualizarPermisosAsync(ActualizarPermisosDto dto);
     }
 }

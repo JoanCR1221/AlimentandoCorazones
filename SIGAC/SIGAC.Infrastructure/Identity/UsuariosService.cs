@@ -21,6 +21,7 @@ namespace SIGAC.Infrastructure.Identity
 
         private readonly UserManager<UsuarioSigac> _userManager;
         private readonly IUsuarioActual _usuarioActual;
+        private readonly IPermisosRepository _permisos;
 
         // El MISMO SigacDbContext scoped que usa el UserStore por dentro (los dos
         // salen del contenedor en el mismo scope). Eso es lo que permite abrir una
@@ -33,10 +34,12 @@ namespace SIGAC.Infrastructure.Identity
         public UsuariosService(
             UserManager<UsuarioSigac> userManager,
             IUsuarioActual usuarioActual,
+            IPermisosRepository permisos,
             SigacDbContext context)
         {
             _userManager = userManager;
             _usuarioActual = usuarioActual;
+            _permisos = permisos;
             _context = context;
         }
 
@@ -354,6 +357,80 @@ namespace SIGAC.Infrastructure.Identity
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {
                 throw new Exception("Error al restablecer la contraseña.", ex);
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Permisos por usuario
+        // ------------------------------------------------------------------
+
+        public async Task<IReadOnlyList<PermisoUsuarioDto>> ObtenerPermisosAsync(string usuarioId)
+        {
+            try
+            {
+                var usuario = await ObtenerOFallarAsync(usuarioId);
+                var rol = (await _userManager.GetRolesAsync(usuario)).FirstOrDefault();
+
+                var delRol = new HashSet<string>(PermisosPorRol.Obtener(rol), StringComparer.Ordinal);
+                var efectivos = new HashSet<string>(
+                    PermisosPorRol.CalcularEfectivos(rol, await _permisos.ObtenerRevocadosAsync(usuario.Id)),
+                    StringComparer.Ordinal);
+
+                // Solo los permisos que el rol incluye: un switch para algo que el rol
+                // no tiene no se podría encender nunca y confundiría.
+                return Permisos.Definiciones
+                    .Where(p => delRol.Contains(p.Clave))
+                    .Select(p => new PermisoUsuarioDto
+                    {
+                        Permiso = p.Clave,
+                        Modulo = p.Modulo,
+                        Descripcion = p.Descripcion,
+                        Habilitado = efectivos.Contains(p.Clave)
+                    })
+                    .ToList();
+            }
+            catch (Exception ex) when (ex is not NotFoundException)
+            {
+                throw new Exception("Error al consultar los permisos del usuario.", ex);
+            }
+        }
+
+        public async Task ActualizarPermisosAsync(ActualizarPermisosDto dto)
+        {
+            try
+            {
+                var usuario = await ObtenerOFallarAsync(dto.UsuarioId);
+                var rol = (await _userManager.GetRolesAsync(usuario)).FirstOrDefault();
+
+                if (!PermisosPorRol.AdmiteRevocaciones(rol))
+                    throw new ValidationException(
+                        "Los permisos de un Administrador no se pueden recortar. Si necesita menos acceso, cambiale el rol.");
+
+                var revocados = (dto.PermisosRevocados ?? new List<string>())
+                    .Where(p => !string.IsNullOrWhiteSpace(p))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
+
+                var desconocidos = revocados.Where(p => !Permisos.EsValido(p)).ToList();
+                if (desconocidos.Count > 0)
+                    throw new ValidationException("Hay permisos que no existen: " + string.Join(", ", desconocidos) + ".");
+
+                // Se rechaza la petición entera y no se filtra en silencio: si la
+                // pantalla mandó algo fuera del rol, algo está desincronizado.
+                var fueraDelRol = PermisosPorRol.RevocacionesInvalidas(rol, revocados);
+                if (fueraDelRol.Count > 0)
+                    throw new ValidationException(
+                        $"El rol {rol} no incluye estos permisos, así que no se pueden quitar: {string.Join(", ", fueraDelRol)}.");
+
+                // Primero el stamp y después las revocaciones: si lo segundo falla,
+                // el usuario solo tiene que volver a entrar; al revés, seguiría con
+                // claims viejos hasta que venza la cookie.
+                Exigir(await _userManager.UpdateSecurityStampAsync(usuario));
+                await _permisos.ReemplazarRevocadosAsync(usuario.Id, revocados);
+            }
+            catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
+            {
+                throw new Exception("Error al actualizar los permisos del usuario.", ex);
             }
         }
 
