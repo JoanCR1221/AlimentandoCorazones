@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 using SIGAC.Application.Interfaces;
@@ -193,5 +194,18 @@ app.MapStaticAssets()
     .AllowAnonymous();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+// Cierre de sesión (AB#2752). Endpoint mínimo y no un método de servicio:
+// SignOutAsync tiene que borrar la cookie en la respuesta HTTP, y dentro del
+// circuito interactivo de Blazor la respuesta ya se envió. Es POST con token
+// antiforgery (lo valida el middleware por el parámetro [FromForm]) para que un
+// enlace externo no pueda cerrarle la sesión a alguien.
+app.MapPost("/cuenta/logout", async (
+    SignInManager<UsuarioSigac> signInManager,
+    [FromForm] string? origen) =>
+{
+    await signInManager.SignOutAsync();
+    return TypedResults.LocalRedirect("/login");
+});
 
 app.Run();

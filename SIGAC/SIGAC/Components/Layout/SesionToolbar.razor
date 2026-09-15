@@ -1,0 +1,44 @@
+@inject IDialogService DialogService
+
+@* Nombre y rol del usuario en sesión, y el botón de cerrar sesión (AB#2755).
+   Siempre visible para cualquier usuario autenticado; en las páginas públicas
+   (login) no se renderiza porque usan otro layout. *@
+<AuthorizeView>
+    <Authorized>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="sesion-toolbar">
+            <MudStack Spacing="0" Class="sesion-datos d-none d-sm-flex">
+                <MudText Typo="Typo.body2" Class="sesion-nombre">
+                    @NombreDe(context.User)
+                </MudText>
+                <MudText Typo="Typo.caption" Class="sesion-rol">
+                    @RolDe(context.User)
+                </MudText>
+            </MudStack>
+
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Inherit"
+                       StartIcon="@Icons.Material.Filled.Logout"
+                       aria-label="Cerrar sesión"
+                       OnClick="ConfirmarCierreAsync">
+                Cerrar sesión
+            </MudButton>
+        </MudStack>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    private static string NombreDe(System.Security.Claims.ClaimsPrincipal usuario) =>
+        usuario.FindFirst(SIGAC.Infrastructure.Identity.ClaimsSigac.Nombre)?.Value
+        ?? usuario.Identity?.Name
+        ?? string.Empty;
+
+    private static string RolDe(System.Security.Claims.ClaimsPrincipal usuario) =>
+        usuario.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? string.Empty;
+
+    // Confirmación con MudDialog (AB#2758). El POST real lo hace el formulario
+    // que vive dentro del diálogo: no hay nada que "conectar" desde acá.
+    private Task ConfirmarCierreAsync() =>
+        DialogService.ShowAsync<CerrarSesionDialog>(
+            "Cerrar sesión",
+            new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
+}

@@ -1,0 +1,29 @@
+@* Confirmación antes de cerrar sesión (AB#2758). El botón de confirmar es un
+   submit de un <form> POST normal hacia /cuenta/logout, con token antiforgery:
+   así el cierre sale del navegador como una navegación completa y el endpoint
+   puede borrar la cookie, cosa que desde el circuito interactivo no se puede. *@
+<MudDialog>
+    <DialogContent>
+        <MudText>¿Querés cerrar la sesión? Vas a volver a la pantalla de inicio de sesión.</MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Cancelar">Cancelar</MudButton>
+        <form method="post" action="/cuenta/logout" class="d-inline">
+            <AntiforgeryToken />
+            <input type="hidden" name="origen" value="dialogo" />
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Logout">
+                Sí, cerrar sesión
+            </MudButton>
+        </form>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance Dialogo { get; set; } = default!;
+
+    private void Cancelar() => Dialogo.Cancel();
+}
