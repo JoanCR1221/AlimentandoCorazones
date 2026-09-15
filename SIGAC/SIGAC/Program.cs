@@ -1,8 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 using SIGAC.Application.Interfaces;
 using SIGAC.Application.Services;
 using SIGAC.Infrastructure.Data;
+using SIGAC.Infrastructure.Identity;
 using SIGAC.Infrastructure.Repositories;
 using SIGAC.Components;
 using SIGAC.Services;
@@ -25,6 +27,64 @@ builder.Services.AddMudServices();
 // repositorio pide un contexto nuevo y de corta vida por operación.
 builder.Services.AddDbContextFactory<SigacDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("SigacDb")));
+
+// ---- Autenticación y usuarios (ASP.NET Identity) ----
+//
+// AddIdentityCore + AddIdentityCookies en vez de AddIdentity: es la combinación
+// que usa la plantilla oficial de Blazor Web App. AddIdentity arrastra los
+// redireccionamientos de las Razor Pages de Identity, que acá no existen.
+builder.Services.AddCascadingAuthenticationState();
+
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultScheme = IdentityConstants.ApplicationScheme;
+        options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
+    })
+    .AddIdentityCookies();
+
+builder.Services.AddIdentityCore<UsuarioSigac>(options =>
+    {
+        // El correo es el nombre de usuario: no puede repetirse.
+        options.User.RequireUniqueEmail = true;
+
+        // Reglas de contraseña (AB#1215): 8 caracteres con mayúscula, minúscula,
+        // número y símbolo. Es lo que pide la política de seguridad del documento
+        // de visión (OWASP), y el mensaje de la pantalla las repite tal cual.
+        options.Password.RequiredLength = 8;
+        options.Password.RequireUppercase = true;
+        options.Password.RequireLowercase = true;
+        options.Password.RequireDigit = true;
+        options.Password.RequireNonAlphanumeric = true;
+
+        // Bloqueo temporal tras intentos fallidos, para frenar adivinación de
+        // contraseñas desde la LAN. La desactivación de un usuario usa el mismo
+        // mecanismo con LockoutEnd = MaxValue (ver UsuariosService).
+        options.Lockout.AllowedForNewUsers = true;
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+
+        // Sin confirmación por correo: el sistema no tiene internet ni servidor de
+        // correo, y las cuentas las crea un administrador en persona.
+        options.SignIn.RequireConfirmedAccount = false;
+        options.SignIn.RequireConfirmedEmail = false;
+    })
+    .AddRoles<IdentityRole>()
+    .AddEntityFrameworkStores<SigacDbContext>()
+    .AddSignInManager()
+    .AddDefaultTokenProviders();
+
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/login";
+    options.AccessDeniedPath = "/acceso-denegado";
+    options.LogoutPath = "/cuenta/logout";
+
+    // Una jornada de trabajo. Deslizante: mientras se use, no vence.
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+    options.SlidingExpiration = true;
+});
+
+builder.Services.AddAuthorization();
 
 // Servicios del módulo de Beneficiarios y Asistencia
 builder.Services.AddScoped<IBeneficiariosService, BeneficiariosService>();
@@ -66,6 +126,11 @@ builder.Services.AddScoped<IProyectosRepository, ProyectosRepositoryEfCore>();
 
 var app = builder.Build();
 
+// Administrador inicial (AB#921): solo actúa cuando no existe ningún
+// Administrador activo, con las credenciales de la sección AdministradorInicial
+// de appsettings.json. Falla al arrancar, con mensaje claro, si faltan.
+await SeedSeguridad.CrearAdministradorInicialAsync(app.Services, app.Configuration);
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
@@ -75,6 +140,11 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
+
+// Antes de UseAntiforgery y de MapRazorComponents: la cookie de sesión tiene
+// que estar leída para que [Authorize] y AuthorizeView sepan quién es el usuario.
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.UseAntiforgery();
 
