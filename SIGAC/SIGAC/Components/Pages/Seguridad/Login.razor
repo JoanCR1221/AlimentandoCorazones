@@ -79,12 +79,21 @@
     {
         Entrada ??= new LoginDto();
 
-        // Con sesión abierta el login no tiene sentido: directo al inicio
-        // (o a donde venía), sin volver a pedir credenciales.
+        // Con sesión abierta y vigente el login no tiene sentido: directo al
+        // inicio (o a donde venía). Si la cookie existe pero ya no vale (cambió
+        // la contraseña, el rol o el estado y el security stamp no coincide) se
+        // cierra acá mismo, cosa que en render estático sí se puede, y se muestra
+        // el formulario: así "cambiar contraseña" puede mandar a /login sin
+        // esperar al intervalo de revalidación.
         if (HttpContext.User.Identity?.IsAuthenticated == true)
         {
-            Navigation.NavigateTo(DestinoSeguro());
-            return;
+            if (await SesionSigueVigenteAsync())
+            {
+                Navigation.NavigateTo(DestinoSeguro());
+                return;
+            }
+
+            await SignInManager.SignOutAsync();
         }
 
         // Al entrar por GET se limpia cualquier cookie externa a medias, igual
@@ -129,6 +138,21 @@
         mensajeError = resultado.IsLockedOut
             ? "Demasiados intentos fallidos. Esperá 15 minutos e intentá de nuevo."
             : MensajeCredenciales;
+    }
+
+    // Misma comprobación que RevalidacionSesionProvider, pero sobre la cookie
+    // que llega en esta petición.
+    private async Task<bool> SesionSigueVigenteAsync()
+    {
+        var usuario = await UserManager.GetUserAsync(HttpContext.User);
+
+        if (usuario is null || !usuario.Estado)
+            return false;
+
+        var stampEnCookie = HttpContext.User.FindFirst(UserManager.Options.ClaimsIdentity.SecurityStampClaimType)?.Value;
+        var stampEnBase = await UserManager.GetSecurityStampAsync(usuario);
+
+        return stampEnCookie == stampEnBase;
     }
 
     // Solo rutas relativas dentro del sitio: un ReturnUrl absoluto o con "//"
