@@ -31,15 +31,19 @@ namespace SIGAC.Infrastructure.Identity
         // transacción no cubriría a UserManager.
         private readonly SigacDbContext _context;
 
+        private readonly IBitacoraService _bitacora;
+
         public UsuariosService(
             UserManager<UsuarioSigac> userManager,
             IUsuarioActual usuarioActual,
             IPermisosRepository permisos,
+            IBitacoraService bitacora,
             SigacDbContext context)
         {
             _userManager = userManager;
             _usuarioActual = usuarioActual;
             _permisos = permisos;
+            _bitacora = bitacora;
             _context = context;
         }
 
@@ -76,6 +80,11 @@ namespace SIGAC.Infrastructure.Identity
                 Exigir(await _userManager.AddToRoleAsync(usuario, RolesSistema.PorDefecto));
 
                 await transaccion.CommitAsync();
+
+                // Después del commit: la bitácora escribe por su propia conexión y no
+                // debe quedar atada a esta transacción.
+                await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Seguridad,
+                    $"Usuario {usuario.Nombre} ({usuario.Email}), rol {RolesSistema.PorDefecto}");
             }
             catch (Exception ex) when (ex is not ValidationException and not DuplicateException)
             {
@@ -228,6 +237,9 @@ namespace SIGAC.Infrastructure.Identity
                 Exigir(await _userManager.UpdateSecurityStampAsync(usuario));
 
                 await transaccion.CommitAsync();
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.CambiarRol, ModulosSistema.Seguridad,
+                    $"Usuario {usuario.Nombre} ({usuario.Email}): {rolActual ?? "sin rol"} -> {dto.NuevoRol}");
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {
@@ -255,6 +267,9 @@ namespace SIGAC.Infrastructure.Identity
                 usuario.LockoutEnd = null;
                 Exigir(await _userManager.UpdateAsync(usuario));
                 Exigir(await _userManager.ResetAccessFailedCountAsync(usuario));
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Activar, ModulosSistema.Seguridad,
+                    $"Usuario {usuario.Nombre} ({usuario.Email})");
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {
@@ -290,6 +305,9 @@ namespace SIGAC.Infrastructure.Identity
                 Exigir(await _userManager.UpdateSecurityStampAsync(usuario));
 
                 await transaccion.CommitAsync();
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Desactivar, ModulosSistema.Seguridad,
+                    $"Usuario {usuario.Nombre} ({usuario.Email})");
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {
@@ -321,6 +339,9 @@ namespace SIGAC.Infrastructure.Identity
                 // ChangePasswordAsync ya actualiza el security stamp: la sesión se
                 // cierra y hay que volver a entrar con la contraseña nueva.
                 Exigir(await _userManager.ChangePasswordAsync(usuario, dto.PasswordActual, dto.PasswordNueva));
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.CambiarPassword, ModulosSistema.Seguridad,
+                    "Cambio de la propia contraseña");
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {
@@ -343,6 +364,9 @@ namespace SIGAC.Infrastructure.Identity
                 // genera y consume el token en el mismo paso.
                 var token = await _userManager.GeneratePasswordResetTokenAsync(usuario);
                 Exigir(await _userManager.ResetPasswordAsync(usuario, token, dto.PasswordTemporal));
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.RestablecerPassword, ModulosSistema.Seguridad,
+                    $"Contraseña temporal asignada a {usuario.Nombre} ({usuario.Email})");
 
                 // Si el motivo del restablecimiento fue un bloqueo por intentos
                 // fallidos, se levanta acá mismo. No toca a un usuario desactivado:
@@ -427,6 +451,10 @@ namespace SIGAC.Infrastructure.Identity
                 // claims viejos hasta que venza la cookie.
                 Exigir(await _userManager.UpdateSecurityStampAsync(usuario));
                 await _permisos.ReemplazarRevocadosAsync(usuario.Id, revocados);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.CambiarPermisos, ModulosSistema.Seguridad,
+                    $"Usuario {usuario.Nombre} ({usuario.Email}): " +
+                    (revocados.Count == 0 ? "sin permisos revocados" : "revocados " + string.Join(", ", revocados)));
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {

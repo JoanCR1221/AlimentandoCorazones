@@ -168,6 +168,11 @@ builder.Services.AddScoped<IProyectosRepository, ProyectosRepositoryEfCore>();
 // PermisosClaimsPrincipalFactory al iniciar sesión y el panel de permisos.
 builder.Services.AddScoped<IPermisosRepository, PermisosRepositoryEfCore>();
 
+// Bitácora de acciones (AB#2773): la escriben todos los servicios y las piezas
+// de seguridad; la lee la pantalla /bitacora.
+builder.Services.AddScoped<IBitacoraRepository, BitacoraRepositoryEfCore>();
+builder.Services.AddScoped<IBitacoraService, BitacoraService>();
+
 
 var app = builder.Build();
 
@@ -207,9 +212,25 @@ app.MapRazorComponents<App>()
 // antiforgery (lo valida el middleware por el parámetro [FromForm]) para que un
 // enlace externo no pueda cerrarle la sesión a alguien.
 app.MapPost("/cuenta/logout", async (
+    HttpContext http,
     SignInManager<UsuarioSigac> signInManager,
+    IBitacoraService bitacora,
     [FromForm] string? origen) =>
 {
+    // Los datos salen de los claims de la petición (acá no hay
+    // AuthenticationStateProvider) y se registran ANTES de borrar la cookie.
+    var usuario = http.User;
+    if (usuario.Identity?.IsAuthenticated == true)
+    {
+        await bitacora.RegistrarDeUsuarioAsync(
+            usuario.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value,
+            usuario.FindFirst(ClaimsSigac.Nombre)?.Value ?? usuario.Identity.Name ?? string.Empty,
+            usuario.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value,
+            AccionesBitacora.CerrarSesion,
+            ModulosSistema.Seguridad,
+            usuario.Identity.Name);
+    }
+
     await signInManager.SignOutAsync();
     return TypedResults.LocalRedirect("/login");
 });

@@ -5,10 +5,12 @@
 @using Microsoft.AspNetCore.Authentication
 @using Microsoft.AspNetCore.Identity
 @using SIGAC.Application.DTOs.Seguridad
+@using SIGAC.Application.Interfaces
 @using SIGAC.Infrastructure.Identity
 @inject SignInManager<UsuarioSigac> SignInManager
 @inject UserManager<UsuarioSigac> UserManager
 @inject NavigationManager Navigation
+@inject IBitacoraService Bitacora
 
 @* Página en render ESTÁTICO ([ExcludeFromInteractiveRouting]): el formulario
    hace un POST real y el handler corre antes de que la respuesta empiece, que
@@ -108,18 +110,23 @@
         var usuario = await UserManager.FindByEmailAsync(correo);
 
         // Mismo mensaje que para contraseña incorrecta: no se confirma si un
-        // correo existe o no.
+        // correo existe o no. En la bitácora sí queda el correo intentado, para
+        // detectar intentos repetidos contra una cuenta.
         if (usuario is null)
         {
+            await RegistrarIntentoFallidoAsync(null, correo, null, "Correo no registrado");
             mensajeError = MensajeCredenciales;
             return;
         }
+
+        var rol = (await UserManager.GetRolesAsync(usuario)).FirstOrDefault();
 
         // Un usuario desactivado tiene LockoutEnd en MaxValue y Identity lo
         // rechazaría como "bloqueado"; se distingue antes para dar el mensaje
         // que pide el PBI 1947 y no confundirlo con el bloqueo temporal.
         if (!usuario.Estado)
         {
+            await RegistrarIntentoFallidoAsync(usuario.Id, usuario.Nombre, rol, "Usuario desactivado");
             mensajeError = "Tu usuario está desactivado. Contactá a un administrador.";
             return;
         }
@@ -131,14 +138,32 @@
 
         if (resultado.Succeeded)
         {
+            // Datos explícitos: la cookie recién se escribió y HttpContext.User
+            // todavía es el anónimo de esta petición.
+            await Bitacora.RegistrarDeUsuarioAsync(
+                usuario.Id, usuario.Nombre, rol,
+                AccionesBitacora.IniciarSesion, ModulosSistema.Seguridad, correo);
+
             Navigation.NavigateTo(DestinoSeguro());
             return;
         }
 
-        mensajeError = resultado.IsLockedOut
-            ? "Demasiados intentos fallidos. Esperá 15 minutos e intentá de nuevo."
-            : MensajeCredenciales;
+        if (resultado.IsLockedOut)
+        {
+            await RegistrarIntentoFallidoAsync(usuario.Id, usuario.Nombre, rol, "Bloqueado por intentos fallidos");
+            mensajeError = $"Demasiados intentos fallidos. Esperá {ReglasUsuario.MinutosBloqueo} minutos e intentá de nuevo.";
+            return;
+        }
+
+        await RegistrarIntentoFallidoAsync(usuario.Id, usuario.Nombre, rol, "Contraseña incorrecta");
+        mensajeError = MensajeCredenciales;
     }
+
+    private Task RegistrarIntentoFallidoAsync(string? usuarioId, string nombre, string? rol, string motivo) =>
+        Bitacora.RegistrarDeUsuarioAsync(
+            usuarioId, nombre, rol,
+            AccionesBitacora.IniciarSesionFallido, ModulosSistema.Seguridad,
+            $"{motivo}. Correo: {Entrada.Correo.Trim()}");
 
     // Misma comprobación que RevalidacionSesionProvider, pero sobre la cookie
     // que llega en esta petición.

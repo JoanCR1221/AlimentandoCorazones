@@ -1,4 +1,6 @@
+@using SIGAC.Application.Interfaces
 @inject NavigationManager Navigation
+@inject IBitacoraService Bitacora
 
 @* Mensaje de "no tenés permiso" (AB de fase 4). Componente compartido porque se
    muestra en dos situaciones distintas: como página propia (/acceso-denegado,
@@ -42,4 +44,28 @@
 
     private string RutaSolicitada =>
         Ruta ?? "/" + Navigation.ToBaseRelativePath(Navigation.Uri);
+
+    // El intento queda en la bitácora (PBI 1949: detectar accesos no
+    // autorizados). En OnAfterRender y no en OnInitialized: la página
+    // /acceso-denegado se prerenderiza y después pasa a interactiva, y con
+    // OnInitialized el mismo intento quedaría registrado dos veces.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        try
+        {
+            await Bitacora.RegistrarAsync(
+                AccionesBitacora.AccesoDenegado,
+                ModulosSistema.Seguridad,
+                $"Intento de acceso a {RutaSolicitada}");
+        }
+        catch (Exception)
+        {
+            // No hay nada útil que mostrarle al usuario acá: la pantalla ya le
+            // dice que no tiene permiso, y un fallo al anotar el intento no debe
+            // reemplazar ese mensaje.
+        }
+    }
 }
