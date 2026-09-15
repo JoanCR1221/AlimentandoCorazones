@@ -1,4 +1,5 @@
 @page "/inventario/existencias"
+@attribute [Authorize(Policy = Permisos.Inventario.VerExistencias)]
 @using SIGAC.Application.DTOs.Inventario
 @using SIGAC.Application.Interfaces
 @using SIGAC.Domain
@@ -47,7 +48,9 @@
                 </TemplateColumn>
                 <TemplateColumn Title="Acciones">
                     <CellTemplate>
-                        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/inventario/articulos/editar/{context.Item.Id}")">Editar</MudButton>
+                        <AuthorizeView Policy="@Permisos.Inventario.EditarArticulo" Context="auth">
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/inventario/articulos/editar/{context.Item.Id}")">Editar</MudButton>
+                        </AuthorizeView>
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>

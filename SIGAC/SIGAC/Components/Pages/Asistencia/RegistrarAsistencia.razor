@@ -1,4 +1,5 @@
 ﻿@page "/asistencia/registrar"
+@attribute [Authorize(Policy = Permisos.Asistencia.Registrar)]
 @using SIGAC.Application.DTOs.Asistencia
 @using SIGAC.Application.DTOs.Beneficiarios
 @using SIGAC.Application.Exceptions

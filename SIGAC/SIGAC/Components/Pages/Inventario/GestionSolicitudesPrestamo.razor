@@ -1,4 +1,5 @@
 @page "/inventario/prestamos/gestionar"
+@attribute [Authorize(Policy = Permisos.Inventario.GestionarSolicitudes)]
 @using SIGAC.Application.DTOs.Inventario
 @using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces

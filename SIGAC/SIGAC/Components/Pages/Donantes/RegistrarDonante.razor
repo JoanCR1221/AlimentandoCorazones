@@ -1,4 +1,5 @@
 @page "/donantes/registrar"
+@attribute [Authorize(Policy = Permisos.Donaciones.RegistrarDonante)]
 @using SIGAC.Application.DTOs.Donaciones
 @using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces

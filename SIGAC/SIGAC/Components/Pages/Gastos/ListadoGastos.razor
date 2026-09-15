@@ -1,4 +1,5 @@
 @page "/gastos"
+@attribute [Authorize(Policy = Permisos.Gastos.Ver)]
 @using SIGAC.Application.DTOs
 @using SIGAC.Application.DTOs.Gastos
 @using SIGAC.Application.Exceptions
@@ -53,13 +54,17 @@
                 <PropertyColumn Property="x => x.Estado" Title="Estado" />
                 <TemplateColumn Title="Acciones">
                     <CellTemplate>
-                        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/gastos/editar/{context.Item.Id}")">Editar</MudButton>
+                        <AuthorizeView Policy="@Permisos.Gastos.Editar" Context="auth">
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/gastos/editar/{context.Item.Id}")">Editar</MudButton>
+                        </AuthorizeView>
                         @* Un gasto ya anulado no se puede volver a anular (AB#2572 lo
                            rechaza igual del lado del servicio, pero ocultar el botón
                            evita el viaje al servidor para un error ya previsible). *@
                         @if (context.Item.Estado == nameof(EstadoGastoOperativo.Activo))
                         {
-                            <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@(() => AnularAsync(context.Item.Id))">Anular</MudButton>
+                            <AuthorizeView Policy="@Permisos.Gastos.Anular" Context="auth">
+                                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@(() => AnularAsync(context.Item.Id))">Anular</MudButton>
+                            </AuthorizeView>
                         }
                     </CellTemplate>
                 </TemplateColumn>
