@@ -172,7 +172,7 @@
         </MudItem>
     }
 
-    @if (Tiene(Permisos.Seguridad.GestionarUsuarios))
+    @if (Tiene(Permisos.Seguridad.GestionarUsuarios) || Tiene(Permisos.Seguridad.VerBitacora))
     {
         <MudItem xs="12" sm="6" md="4">
             <MudCard Class="pa-4" Style="height: 100%;">
@@ -180,14 +180,23 @@
                     <MudIcon Icon="@Icons.Material.Filled.Security" Color="Color.Error" Size="Size.Large" />
                     <MudText Typo="Typo.h6">Seguridad</MudText>
                     <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                        Administre los usuarios del sistema, sus roles y sus permisos.
+                        Administre los usuarios del sistema, sus roles y sus permisos, y consulte la bitácora.
                     </MudText>
-                    <MudButton Variant="Variant.Filled" Color="Color.Error" Href="/usuarios" Class="mt-2">
-                        Ver usuarios
-                    </MudButton>
-                    <MudButton Variant="Variant.Outlined" Color="Color.Error" Href="/usuarios/registrar">
-                        Registrar usuario
-                    </MudButton>
+                    @if (Tiene(Permisos.Seguridad.GestionarUsuarios))
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Error" Href="/usuarios" Class="mt-2">
+                            Ver usuarios
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Error" Href="/usuarios/registrar">
+                            Registrar usuario
+                        </MudButton>
+                    }
+                    @if (Tiene(Permisos.Seguridad.VerBitacora))
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Error" Href="/bitacora">
+                            Ver bitácora
+                        </MudButton>
+                    }
                 </MudStack>
             </MudCard>
         </MudItem>
