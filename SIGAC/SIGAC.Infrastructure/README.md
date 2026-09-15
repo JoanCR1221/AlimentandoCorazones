@@ -9,7 +9,7 @@ Cómo funciona la persistencia del Sistema de Gestión Alimentando Corazones: el
 | `SIGAC.Domain` | Entidades (`Beneficiario`, `AsistenciaComedor`, `Articulo`, ...) y reglas del negocio (`ReglasBeneficiario`, `TiemposComida`, `TiposDocumento`). No conoce EF Core ni SQL Server. |
 | `SIGAC.Application` | Interfaces de repositorio (`IBeneficiariosRepository`, `IInventarioRepository`, ...), servicios y DTOs. Define **qué** se necesita de la base, no **cómo**. |
 | `SIGAC.Infrastructure` | `SigacDbContext` con todo el mapeo Fluent API, las migraciones y los repositorios EF Core que implementan aquellas interfaces. |
-| `SIGAC` | Presentación (Blazor Server). Solo registra los repositorios en `Program.cs`; no toca la base directamente. |
+| `SIGAC` | Presentación (Blazor Server). En `Program.cs` registra los repositorios y servicios, configura ASP.NET Identity (cookies, reglas de contraseña y bloqueo, una policy de autorización por permiso) y crea el administrador inicial al arrancar (`SeedSeguridad`); no toca la base directamente. |
 
 Las entidades del dominio están limpias de anotaciones: **todo el mapeo se declara en `Data/SigacDbContext.cs`** con Fluent API. Si buscás por qué una columna tiene cierto largo o cierto índice, está ahí y está comentado.
 
@@ -25,9 +25,16 @@ La cadena vive en `SIGAC/appsettings.json` bajo la clave `SigacDb`. **Ese archiv
   "AllowedHosts": "*",
   "ConnectionStrings": {
     "SigacDb": "Server=TU-SERVIDOR\\SQLEXPRESS;Database=SIGAC;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true"
+  },
+  "AdministradorInicial": {
+    "Correo": "admin@alimentandocorazones.local",
+    "Nombre": "Administrador inicial",
+    "Password": "CambiarEsta.Clave1!"
   }
 }
 ```
+
+**La sección `AdministradorInicial` es obligatoria en una base nueva.** Como solo un administrador puede crear usuarios, al arrancar la aplicación `SeedSeguridad` crea ese usuario si todavía no existe ningún Administrador activo; si falta la sección, la aplicación no arranca y lo dice en el mensaje. Una vez que hay un administrador activo la sección se ignora, así que la contraseña que pongas acá solo sirve para el primer ingreso: cambiala desde Configuración apenas entres. Tiene que cumplir las reglas del sistema (8 caracteres con mayúscula, minúscula, número y símbolo). Por eso `appsettings.example.json` está en el repositorio y `appsettings.json` no.
 
 > **Al desplegar en Ubuntu**, `Trusted_Connection=True` no sirve: la autenticación integrada de Windows no existe ahí. Hay que pasar a autenticación SQL (`User Id=...;Password=...`) y tomar la cadena de una variable de entorno o un gestor de secretos, no de un archivo en el repositorio.
 
@@ -125,8 +132,10 @@ Se aplican a todas las tablas por igual:
 | `Cantidad` | `int` | > 0 |
 | `Fecha` | `datetime2` | |
 | `Origen` | `varchar(20)` | `'Donacion'` o `'Compra'` |
-| `DonanteId` | `int` | opcional, **sin FK todavía** |
-| `GastoOperativoId` | `int` | opcional, **sin FK todavía** |
+| `DonanteId` | `int` | opcional, FK → `Donantes`, Restrict (desde `AddModuloDonaciones`) |
+| `GastoOperativoId` | `int` | opcional, FK → `GastosOperativos`, Restrict (desde `AddTablaGastosOperativos`) |
+| `Anulada` | `bit` | se anula (no se borra) cuando el gasto vinculado se anula |
+| `MotivoAnulacion` | `varchar(500)` | obligatorio si `Anulada`, NULL si no (`CK_EntradasInventario_MotivoAnulacion`) |
 | `Observaciones` | `varchar(500)` | opcional |
 
 - `CK_EntradasInventario_Origen` y `CK_EntradasInventario_Cantidad`.
@@ -265,7 +274,7 @@ Decisiones que conviene conocer antes de tocar `InventarioRepositoryEfCore`:
 ## Detalles que confunden la primera vez
 
 - **`Restrict` aparece como `NO_ACTION` en SQL Server.** Si inspeccionás `sys.foreign_keys` vas a ver `NO_ACTION` en el `delete_referential_action_desc`. Es correcto: EF Core traduce así su `DeleteBehavior.Restrict`, y el borrado igual se rechaza.
-- **`sqlcmd` no puede escribir en tablas con índice filtrado** salvo que le pases `-I`. Conecta con `QUOTED_IDENTIFIER OFF` por defecto y SQL Server exige `ON` para modificar esas tablas. Afecta a `Beneficiarios` y a `SalidasInventario`. La aplicación no tiene el problema: `SqlClient` siempre lo pone en `ON`.
+- **`sqlcmd` no puede escribir en tablas con índice filtrado** salvo que le pases `-I`. Conecta con `QUOTED_IDENTIFIER OFF` por defecto y SQL Server exige `ON` para modificar esas tablas. Afecta a `Beneficiarios`, `Articulos` (por `UX_Articulos_Codigo`), `SalidasInventario` y `AspNetUsers` (por el `UserNameIndex` de Identity). La aplicación no tiene el problema: `SqlClient` siempre lo pone en `ON`.
 - **Dos `NULL` no son iguales para un índice único de SQL Server.** Por eso hay columnas que se guardan como cadena vacía y por eso los índices que deben ignorar los nulos van filtrados. Es la razón detrás de varias decisiones que si no parecerían arbitrarias.
 
 ## Pendiente
