@@ -1,8 +1,11 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 using SIGAC.Application.Interfaces;
 using SIGAC.Application.Services;
+using SIGAC.Domain;
 using SIGAC.Infrastructure.Data;
 using SIGAC.Infrastructure.Identity;
 using SIGAC.Infrastructure.Repositories;
@@ -71,7 +74,22 @@ builder.Services.AddIdentityCore<UsuarioSigac>(options =>
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<SigacDbContext>()
     .AddSignInManager()
+    // Claims propios en la cookie: nombre para mostrar y un claim por permiso
+    // efectivo (rol menos revocados).
+    .AddClaimsPrincipalFactory<PermisosClaimsPrincipalFactory>()
     .AddDefaultTokenProviders();
+
+// La cookie se revalida contra el security stamp cada minuto también en las
+// cargas de página completas (el provider de Blazor cubre solo el circuito).
+// Default: 30 minutos, demasiado para "el cambio se refleja de inmediato".
+builder.Services.Configure<SecurityStampValidatorOptions>(options =>
+    options.ValidationInterval = TimeSpan.FromMinutes(1));
+
+// Dentro del circuito interactivo, lo mismo cada minuto.
+builder.Services.AddScoped<AuthenticationStateProvider, RevalidacionSesionProvider>();
+
+// Quién tiene la sesión, para la bitácora y para "nadie se modifica a sí mismo".
+builder.Services.AddScoped<IUsuarioActual, UsuarioActual>();
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
@@ -84,7 +102,23 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.SlidingExpiration = true;
 });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // Una policy por permiso del catálogo, con el mismo nombre que la clave:
+    // [Authorize(Policy = Permisos.Gastos.Anular)] y
+    // <AuthorizeView Policy="@Permisos.Gastos.Anular"> exigen el claim
+    // correspondiente en la cookie. Agregar un permiso a Permisos.Definiciones
+    // lo registra acá solo, sin tocar este archivo.
+    foreach (var permiso in Permisos.Todos)
+        options.AddPolicy(permiso, policy => policy.RequireClaim(ClaimsSigac.Permiso, permiso));
+
+    // Todo lo que no diga lo contrario exige sesión: cualquier página o endpoint
+    // nuevo nace protegido. Lo público (Login, Acceso denegado, No encontrado,
+    // Error) se marca con [AllowAnonymous] explícitamente.
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
 
 // Servicios del módulo de Beneficiarios y Asistencia
 builder.Services.AddScoped<IBeneficiariosService, BeneficiariosService>();
@@ -123,6 +157,10 @@ builder.Services.AddScoped<IDonacionesRepository, DonacionesRepositoryEfCore>();
 // Repositorio de Proyectos Comunitarios con EF Core
 builder.Services.AddScoped<IProyectosRepository, ProyectosRepositoryEfCore>();
 
+// Repositorio de permisos revocados por usuario (módulo de seguridad). Lo usa
+// PermisosClaimsPrincipalFactory al iniciar sesión y el panel de permisos.
+builder.Services.AddScoped<IPermisosRepository, PermisosRepositoryEfCore>();
+
 
 var app = builder.Build();
 
@@ -148,7 +186,11 @@ app.UseAuthorization();
 
 app.UseAntiforgery();
 
-app.MapStaticAssets();
+// Los assets estáticos (CSS, JS, logo, fuentes de MudBlazor) tienen que servirse
+// sin sesión: la página de Login los necesita. Sin esto, el FallbackPolicy los
+// redirigiría al login y la pantalla saldría sin estilos.
+app.MapStaticAssets()
+    .AllowAnonymous();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
