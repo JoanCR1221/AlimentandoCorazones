@@ -10,13 +10,16 @@ namespace SIGAC.Application.Services
     {
         private readonly IAsistenciaRepository _asistenciaRepository;
         private readonly IBeneficiariosRepository _beneficiariosRepository;
+        private readonly IBitacoraService _bitacora;
 
         public AsistenciaService(
             IAsistenciaRepository asistenciaRepository,
-            IBeneficiariosRepository beneficiariosRepository)
+            IBeneficiariosRepository beneficiariosRepository,
+            IBitacoraService bitacora)
         {
             _asistenciaRepository = asistenciaRepository;
             _beneficiariosRepository = beneficiariosRepository;
+            _bitacora = bitacora;
         }
 
         public async Task RegistrarAsistenciaAsync(AsistenciaCrearDto dto)
@@ -72,6 +75,9 @@ namespace SIGAC.Application.Services
                 };
 
                 await _asistenciaRepository.AgregarAsync(asistencia);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Asistencia,
+                    $"{beneficiario.NombreCompleto} (#{beneficiario.Id}), {fecha:dd/MM/yyyy}, {dto.TiempoComida}");
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException and not DuplicateException)
             {

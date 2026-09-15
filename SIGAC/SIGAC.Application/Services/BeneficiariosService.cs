@@ -13,10 +13,12 @@ namespace SIGAC.Application.Services
     public class BeneficiariosService : IBeneficiariosService
     {
         private readonly IBeneficiariosRepository _repository;
+        private readonly IBitacoraService _bitacora;
 
-        public BeneficiariosService(IBeneficiariosRepository repository)
+        public BeneficiariosService(IBeneficiariosRepository repository, IBitacoraService bitacora)
         {
             _repository = repository;
+            _bitacora = bitacora;
         }
 
         public async Task RegistrarBeneficiarioAsync(BeneficiarioCrearDto dto)
@@ -61,6 +63,9 @@ namespace SIGAC.Application.Services
                 };
 
                 await _repository.AgregarAsync(beneficiario);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Beneficiarios,
+                    $"Beneficiario #{beneficiario.Id}: {beneficiario.NombreCompleto}");
             }
             catch (Exception ex) when (ex is not ValidationException and not DuplicateException)
             {
@@ -137,6 +142,9 @@ namespace SIGAC.Application.Services
                 beneficiario.TipoDocumentoOtro = datos.TipoDocumentoOtro;
 
                 await _repository.ActualizarAsync(beneficiario);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Editar, ModulosSistema.Beneficiarios,
+                    $"Beneficiario #{beneficiario.Id}: {beneficiario.NombreCompleto}");
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException and not DuplicateException)
             {
@@ -185,10 +193,15 @@ namespace SIGAC.Application.Services
         {
             try
             {
-                _ = await _repository.ObtenerPorIdAsync(id)
+                var beneficiario = await _repository.ObtenerPorIdAsync(id)
                     ?? throw new NotFoundException("El beneficiario no existe.");
 
                 await _repository.CambiarEstadoAsync(id, estado);
+
+                await _bitacora.RegistrarAsync(
+                    estado ? AccionesBitacora.Activar : AccionesBitacora.Desactivar,
+                    ModulosSistema.Beneficiarios,
+                    $"Beneficiario #{id}: {beneficiario.NombreCompleto}");
             }
             catch (Exception ex) when (ex is not NotFoundException)
             {

@@ -2,6 +2,7 @@
 using SIGAC.Application.DTOs.Gastos;
 using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
+using SIGAC.Domain;
 using SIGAC.Application.Validators;
 using SIGAC.Domain.Entities;
 
@@ -13,10 +14,12 @@ namespace SIGAC.Application.Services
     public class GastosService : IGastosService
     {
         private readonly IGastosRepository _repository;
+        private readonly IBitacoraService _bitacora;
 
-        public GastosService(IGastosRepository repository)
+        public GastosService(IGastosRepository repository, IBitacoraService bitacora)
         {
             _repository = repository;
+            _bitacora = bitacora;
         }
 
         public async Task<int> RegistrarGastoAsync(GastoOperativoCrearDto dto)
@@ -38,6 +41,9 @@ namespace SIGAC.Application.Services
                 };
 
                 await _repository.AgregarAsync(gasto);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Gastos,
+                    $"Gasto #{gasto.Id}: {gasto.Categoria}, {gasto.Monto:N2} {gasto.Moneda}, {gasto.Descripcion}");
 
                 return gasto.Id;
             }
@@ -94,6 +100,9 @@ namespace SIGAC.Application.Services
                 gasto.Responsable = datos.Responsable;
 
                 await _repository.ActualizarAsync(gasto);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Editar, ModulosSistema.Gastos,
+                    $"Gasto #{gasto.Id}: {gasto.Categoria}, {gasto.Monto:N2} {gasto.Moneda}, {gasto.Descripcion}");
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {
@@ -159,6 +168,9 @@ namespace SIGAC.Application.Services
                 // ninguna: el enlace de AB#2501 es manual, así que un gasto de compra
                 // sin entrada cargada es válido y no es un error.
                 await _repository.AnularConEntradasVinculadasAsync(dto.GastoId, motivo);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Anular, ModulosSistema.Gastos,
+                    $"Gasto #{gasto.Id}: {gasto.Descripcion}. Motivo: {motivo}");
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {

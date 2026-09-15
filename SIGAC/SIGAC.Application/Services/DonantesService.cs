@@ -2,6 +2,7 @@ using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Donaciones;
 using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
+using SIGAC.Domain;
 using SIGAC.Application.Validators;
 using SIGAC.Domain.Entities;
 
@@ -12,10 +13,12 @@ namespace SIGAC.Application.Services
     public class DonantesService : IDonantesService
     {
         private readonly IDonantesRepository _repository;
+        private readonly IBitacoraService _bitacora;
 
-        public DonantesService(IDonantesRepository repository)
+        public DonantesService(IDonantesRepository repository, IBitacoraService bitacora)
         {
             _repository = repository;
+            _bitacora = bitacora;
         }
 
         public async Task RegistrarDonanteAsync(DonanteCrearDto dto)
@@ -45,6 +48,9 @@ namespace SIGAC.Application.Services
                 };
 
                 await _repository.AgregarAsync(donante);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Donaciones,
+                    $"Donante #{donante.Id}: {donante.Nombre} ({donante.TipoPersona})");
             }
             catch (Exception ex) when (ex is not ValidationException and not DuplicateException)
             {
@@ -93,6 +99,9 @@ namespace SIGAC.Application.Services
                 // tampoco los reescribe (copia campo por campo), así que una
                 // desactivación hecha entre la lectura y el guardado no se pierde.
                 await _repository.ActualizarAsync(donante);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Editar, ModulosSistema.Donaciones,
+                    $"Donante #{donante.Id}: {donante.Nombre}");
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException and not DuplicateException)
             {
@@ -140,10 +149,15 @@ namespace SIGAC.Application.Services
                 // Se comprueba la existencia antes de delegar: CambiarEstadoAsync del
                 // repositorio sale en silencio si el id no existe, así que sin este
                 // chequeo desactivar un donante borrado se vería como un éxito.
-                _ = await _repository.ObtenerPorIdAsync(id)
+                var donante = await _repository.ObtenerPorIdAsync(id)
                     ?? throw new NotFoundException("El donante no existe.");
 
                 await _repository.CambiarEstadoAsync(id, estado);
+
+                await _bitacora.RegistrarAsync(
+                    estado ? AccionesBitacora.Activar : AccionesBitacora.Desactivar,
+                    ModulosSistema.Donaciones,
+                    $"Donante #{id}: {donante.Nombre}");
             }
             catch (Exception ex) when (ex is not NotFoundException)
             {
