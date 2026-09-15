@@ -17,10 +17,22 @@
 </head>
 
 <body>
-    <Routes @rendermode="InteractiveServer" />
+    @* Render mode por página y no global: las páginas marcadas con
+       [ExcludeFromInteractiveRouting] (Login) se renderizan en modo estático,
+       que es el único donde SignInManager puede escribir la cookie de sesión.
+       Todo lo demás sigue siendo InteractiveServer como antes. *@
+    <Routes @rendermode="PageRenderMode" />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
 </body>
 
 </html>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    private IComponentRenderMode? PageRenderMode =>
+        HttpContext.AcceptsInteractiveRouting() ? InteractiveServer : null;
+}

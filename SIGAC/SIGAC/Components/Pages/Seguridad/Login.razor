@@ -1,0 +1,148 @@
+@page "/login"
+@layout LoginLayout
+@attribute [AllowAnonymous]
+@attribute [ExcludeFromInteractiveRouting]
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Identity
+@using SIGAC.Application.DTOs.Seguridad
+@using SIGAC.Infrastructure.Identity
+@inject SignInManager<UsuarioSigac> SignInManager
+@inject UserManager<UsuarioSigac> UserManager
+@inject NavigationManager Navigation
+
+@* Página en render ESTÁTICO ([ExcludeFromInteractiveRouting]): el formulario
+   hace un POST real y el handler corre antes de que la respuesta empiece, que
+   es la única forma en que SignInManager puede escribir la cookie. Por eso
+   usa EditForm + InputText y no MudTextField: los componentes de MudBlazor
+   necesitan el circuito interactivo, que acá no existe. *@
+
+<PageTitle>Iniciar sesión — SIGAC</PageTitle>
+
+<section class="login-tarjeta" aria-labelledby="login-titulo">
+    <header class="login-encabezado">
+        <img src="Logo.png" alt="Logo de Alimentando Corazones" class="login-logo" />
+        <h1 id="login-titulo" class="login-titulo">SIGAC</h1>
+        <p class="login-subtitulo">Sistema de Gestión Alimentando Corazones</p>
+    </header>
+
+    <EditForm Model="Entrada" method="post" OnValidSubmit="IniciarSesionAsync" FormName="login" Enhance="false">
+        <DataAnnotationsValidator />
+
+        @if (mensajeError is not null)
+        {
+            <div class="login-error" role="alert">
+                <span aria-hidden="true">⚠</span>
+                <span>@mensajeError</span>
+            </div>
+        }
+
+        <div class="login-campo">
+            <label for="correo">Correo</label>
+            <InputText id="correo" @bind-Value="Entrada.Correo" type="email"
+                       autocomplete="username" autofocus class="login-entrada"
+                       placeholder="nombre@ejemplo.com" />
+            <ValidationMessage For="() => Entrada.Correo" class="login-validacion" />
+        </div>
+
+        <div class="login-campo">
+            <label for="password">Contraseña</label>
+            <InputText id="password" @bind-Value="Entrada.Password" type="password"
+                       autocomplete="current-password" class="login-entrada" />
+            <ValidationMessage For="() => Entrada.Password" class="login-validacion" />
+        </div>
+
+        <button type="submit" class="login-boton">Iniciar sesión</button>
+    </EditForm>
+
+    <p class="login-ayuda">
+        Si olvidaste tu contraseña, pedile a un administrador que la restablezca.
+    </p>
+</section>
+
+@code {
+    private const string MensajeCredenciales = "Correo o contraseña incorrectos.";
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    // Sin inicializador (BL0008): el binding del POST puede pisar la propiedad
+    // con null; se asegura en OnInitializedAsync.
+    [SupplyParameterFromForm]
+    private LoginDto Entrada { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    private string? mensajeError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Entrada ??= new LoginDto();
+
+        // Con sesión abierta el login no tiene sentido: directo al inicio
+        // (o a donde venía), sin volver a pedir credenciales.
+        if (HttpContext.User.Identity?.IsAuthenticated == true)
+        {
+            Navigation.NavigateTo(DestinoSeguro());
+            return;
+        }
+
+        // Al entrar por GET se limpia cualquier cookie externa a medias, igual
+        // que en la plantilla oficial. Sin efecto si no hay ninguna.
+        if (HttpMethods.IsGet(HttpContext.Request.Method))
+            await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
+    }
+
+    private async Task IniciarSesionAsync()
+    {
+        var correo = Entrada.Correo.Trim();
+        var usuario = await UserManager.FindByEmailAsync(correo);
+
+        // Mismo mensaje que para contraseña incorrecta: no se confirma si un
+        // correo existe o no.
+        if (usuario is null)
+        {
+            mensajeError = MensajeCredenciales;
+            return;
+        }
+
+        // Un usuario desactivado tiene LockoutEnd en MaxValue y Identity lo
+        // rechazaría como "bloqueado"; se distingue antes para dar el mensaje
+        // que pide el PBI 1947 y no confundirlo con el bloqueo temporal.
+        if (!usuario.Estado)
+        {
+            mensajeError = "Tu usuario está desactivado. Contactá a un administrador.";
+            return;
+        }
+
+        // lockoutOnFailure: cada intento fallido cuenta para el bloqueo temporal
+        // de 15 minutos configurado en Program.cs.
+        var resultado = await SignInManager.PasswordSignInAsync(
+            usuario, Entrada.Password, isPersistent: false, lockoutOnFailure: true);
+
+        if (resultado.Succeeded)
+        {
+            Navigation.NavigateTo(DestinoSeguro());
+            return;
+        }
+
+        mensajeError = resultado.IsLockedOut
+            ? "Demasiados intentos fallidos. Esperá 15 minutos e intentá de nuevo."
+            : MensajeCredenciales;
+    }
+
+    // Solo rutas relativas dentro del sitio: un ReturnUrl absoluto o con "//"
+    // permitiría mandar al usuario a otro dominio después de autenticarse.
+    private string DestinoSeguro()
+    {
+        if (string.IsNullOrWhiteSpace(ReturnUrl)
+            || !ReturnUrl.StartsWith('/')
+            || ReturnUrl.StartsWith("//")
+            || ReturnUrl.StartsWith("/login", StringComparison.OrdinalIgnoreCase))
+        {
+            return "/";
+        }
+
+        return ReturnUrl;
+    }
+}

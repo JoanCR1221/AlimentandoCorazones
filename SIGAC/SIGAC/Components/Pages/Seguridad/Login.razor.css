@@ -1,0 +1,118 @@
+/* Paleta artesanal de SIGAC (ver AparienciaService y app.css): tarjeta crema
+   con borde marrón, radio orgánico, terracota #A8503F para el botón (5.57:1
+   con texto blanco, el mismo que usa el AppBar). */
+.login-tarjeta {
+    background-color: #FDFBF7;
+    border: 2px solid #7A685D;
+    border-radius: 30px 6px 30px 6px / 6px 30px 6px 30px;
+    box-shadow: 3px 3px 0 rgba(122, 104, 93, 0.25);
+    padding: 2rem 1.75rem;
+}
+
+.login-encabezado {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.login-logo {
+    height: 72px;
+    width: auto;
+    border-radius: 14px;
+    margin-bottom: 0.5rem;
+}
+
+.login-titulo {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 500;
+    color: #A8503F;
+}
+
+.login-subtitulo {
+    margin: 0.25rem 0 0;
+    color: #6B5C52;
+    font-size: 0.95rem;
+}
+
+.login-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 1rem;
+}
+
+.login-campo label {
+    font-weight: 500;
+    color: #3E332E;
+}
+
+/* ::deep porque el <input> lo renderiza InputText (componente hijo) y no
+   recibe el atributo de aislamiento de CSS de esta página. */
+::deep .login-entrada {
+    font: inherit;
+    padding: 0.65rem 0.8rem;
+    border: 1.5px solid #7A685D;
+    border-radius: 10px;
+    background-color: #FFFFFF;
+    color: #3E332E;
+}
+
+::deep .login-entrada:focus {
+    outline: 3px solid rgba(168, 80, 63, 0.35);
+    border-color: #A8503F;
+}
+
+::deep .login-entrada.invalid {
+    border-color: #B3261E;
+}
+
+/* La clase de ValidationMessage se aplica al <div> que genera Blazor. */
+::deep .login-validacion,
+::deep .validation-message {
+    color: #B3261E;
+    font-size: 0.85rem;
+}
+
+.login-error {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    padding: 0.75rem 0.9rem;
+    margin-bottom: 1rem;
+    border: 1.5px solid #B3261E;
+    border-radius: 10px;
+    background-color: #FCEBE9;
+    color: #7A1C14;
+}
+
+.login-boton {
+    width: 100%;
+    font: inherit;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    padding: 0.75rem 1rem;
+    margin-top: 0.5rem;
+    border: 2px solid #7A685D;
+    border-radius: 30px 6px 30px 6px / 6px 30px 6px 30px;
+    background-color: #A8503F;
+    color: #FFFFFF;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 rgba(122, 104, 93, 0.25);
+}
+
+.login-boton:hover {
+    background-color: #934536;
+}
+
+.login-boton:focus-visible {
+    outline: 3px solid rgba(168, 80, 63, 0.45);
+    outline-offset: 2px;
+}
+
+.login-ayuda {
+    margin: 1.25rem 0 0;
+    text-align: center;
+    font-size: 0.85rem;
+    color: #6B5C52;
+}
