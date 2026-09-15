@@ -1,6 +1,21 @@
-﻿<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+@* AuthorizeRouteView y no RouteView: evalúa el [Authorize(Policy)] de cada
+   página también en la navegación dentro del circuito (la cookie solo protege
+   las cargas completas). Sin sesión, al login; con sesión pero sin el permiso,
+   la pantalla de acceso denegado en el lugar de la página. *@
+<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
     <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+            <NotAuthorized>
+                @if (context.User.Identity?.IsAuthenticated == true)
+                {
+                    <AccesoDenegadoContenido />
+                }
+                else
+                {
+                    <RedirectALogin />
+                }
+            </NotAuthorized>
+        </AuthorizeRouteView>
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
 </Router>

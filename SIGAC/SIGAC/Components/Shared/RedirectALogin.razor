@@ -1,0 +1,13 @@
+@inject NavigationManager Navigation
+
+@* Sin sesión dentro del circuito interactivo (por ejemplo, la cookie venció
+   mientras la pestaña seguía abierta): se va al login con carga completa,
+   conservando la ruta para volver después de autenticarse. Carga completa
+   porque Login se renderiza en modo estático y no participa del circuito. *@
+@code {
+    protected override void OnInitialized()
+    {
+        var ruta = "/" + Navigation.ToBaseRelativePath(Navigation.Uri);
+        Navigation.NavigateTo($"/login?ReturnUrl={Uri.EscapeDataString(ruta)}", forceLoad: true);
+    }
+}
