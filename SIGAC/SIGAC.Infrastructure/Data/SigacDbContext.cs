@@ -1,10 +1,18 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using SIGAC.Domain;
 using SIGAC.Domain.Entities;
+using SIGAC.Infrastructure.Identity;
 
 namespace SIGAC.Infrastructure.Data
 {
-    public class SigacDbContext : DbContext
+    // Hereda de IdentityDbContext<UsuarioSigac> y no de DbContext desde el módulo
+    // de seguridad: así las siete tablas de ASP.NET Identity (AspNetUsers,
+    // AspNetRoles, AspNetUserRoles, AspNetUserClaims, AspNetRoleClaims,
+    // AspNetUserLogins, AspNetUserTokens) viven en la misma base y las mismas
+    // migraciones que el resto del sistema. Un segundo contexto solo para
+    // usuarios obligaría a dos cadenas de migraciones y dos historiales.
+    public class SigacDbContext : IdentityDbContext<UsuarioSigac>
     {
         public SigacDbContext(DbContextOptions<SigacDbContext> options) : base(options)
         {
@@ -35,7 +43,36 @@ namespace SIGAC.Infrastructure.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            // Configura las siete tablas de Identity con sus defaults: nombres
+            // AspNet*, clave string (GUID), nvarchar(256) en UserName/Email y
+            // nvarchar(450) en las claves. Es la única excepción a las convenciones
+            // de abajo (varchar, nombres en español, claves int) y es deliberada:
+            // pelear con el esquema del framework complica cada actualización de
+            // Identity a cambio de nada que el usuario vea.
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<UsuarioSigac>(entity =>
+            {
+                // Solo las columnas propias siguen la convención del proyecto. Las
+                // heredadas (Email, PasswordHash, SecurityStamp, LockoutEnd...) quedan
+                // como las define Identity.
+                entity.Property(u => u.Nombre)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(150);
+
+                entity.Property(u => u.Estado)
+                    .IsRequired();
+
+                entity.Property(u => u.FechaRegistro)
+                    .IsRequired();
+
+                // El listado de usuarios filtra por estado, igual que el de
+                // beneficiarios. Identity ya indexa NormalizedUserName (único) y
+                // NormalizedEmail.
+                entity.HasIndex(u => u.Estado)
+                    .HasDatabaseName("IX_AspNetUsers_Estado");
+            });
 
             modelBuilder.Entity<Beneficiario>(entity =>
             {
