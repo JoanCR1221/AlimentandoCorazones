@@ -54,7 +54,7 @@ builder.Services.AddIdentityCore<UsuarioSigac>(options =>
         // Reglas de contraseña (AB#1215): 8 caracteres con mayúscula, minúscula,
         // número y símbolo. Es lo que pide la política de seguridad del documento
         // de visión (OWASP), y el mensaje de la pantalla las repite tal cual.
-        options.Password.RequiredLength = 8;
+        options.Password.RequiredLength = ReglasUsuario.LongitudMinimaPassword;
         options.Password.RequireUppercase = true;
         options.Password.RequireLowercase = true;
         options.Password.RequireDigit = true;
@@ -64,8 +64,8 @@ builder.Services.AddIdentityCore<UsuarioSigac>(options =>
         // contraseñas desde la LAN. La desactivación de un usuario usa el mismo
         // mecanismo con LockoutEnd = MaxValue (ver UsuariosService).
         options.Lockout.AllowedForNewUsers = true;
-        options.Lockout.MaxFailedAccessAttempts = 5;
-        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+        options.Lockout.MaxFailedAccessAttempts = ReglasUsuario.MaximoIntentosFallidos;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(ReglasUsuario.MinutosBloqueo);
 
         // Sin confirmación por correo: el sistema no tiene internet ni servidor de
         // correo, y las cuentas las crea un administrador en persona.
@@ -78,7 +78,13 @@ builder.Services.AddIdentityCore<UsuarioSigac>(options =>
     // Claims propios en la cookie: nombre para mostrar y un claim por permiso
     // efectivo (rol menos revocados).
     .AddClaimsPrincipalFactory<PermisosClaimsPrincipalFactory>()
+    // Mensajes de error de Identity en español y en lenguaje simple.
+    .AddErrorDescriber<ErroresIdentityEs>()
     .AddDefaultTokenProviders();
+
+// Gestión de usuarios (registrar, listar, rol, estado, contraseñas). Vive en
+// Infrastructure porque usa UserManager; Application solo conoce la interfaz.
+builder.Services.AddScoped<IUsuariosService, UsuariosService>();
 
 // La cookie se revalida contra el security stamp cada minuto también en las
 // cargas de página completas (el provider de Blazor cubre solo el circuito).
