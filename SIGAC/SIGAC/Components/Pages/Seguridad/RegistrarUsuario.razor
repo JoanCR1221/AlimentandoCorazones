@@ -1,0 +1,93 @@
+@page "/usuarios/registrar"
+@attribute [Authorize(Policy = Permisos.Seguridad.GestionarUsuarios)]
+@using SIGAC.Application.DTOs.Seguridad
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@inject IUsuariosService UsuariosService
+@inject ISnackbar Snackbar
+
+<PageTitle>Registrar usuario — SIGAC</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Registrar usuario</MudText>
+
+<EditForm Model="modelo" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <MudCard Class="pa-4">
+        <MudCardContent>
+            @* El rol no se elige acá: todo usuario nuevo nace como Asistente y el
+               rol se eleva después desde el listado, solo por un administrador. *@
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+                El usuario nuevo queda con el rol <strong>@RolesSistema.PorDefecto</strong>
+                (solo puede registrar asistencia y entradas de inventario). Si necesita más acceso,
+                cambiale el rol desde el listado de usuarios después de crearlo.
+            </MudAlert>
+
+            <MudTextField @bind-Value="modelo.Nombre" For="@(() => modelo.Nombre)"
+                          Label="Nombre completo" Variant="Variant.Outlined"
+                          MaxLength="ReglasUsuario.LongitudMaximaNombre"
+                          HelperText="Como se va a mostrar en el sistema y en la bitácora." />
+
+            <MudTextField @bind-Value="modelo.Correo" For="@(() => modelo.Correo)"
+                          Label="Correo" Variant="Variant.Outlined" Class="mt-4"
+                          InputType="InputType.Email" MaxLength="ReglasUsuario.LongitudMaximaCorreo"
+                          HelperText="Es el nombre de usuario para iniciar sesión. No puede repetirse." />
+
+            <MudTextField @bind-Value="modelo.Password" For="@(() => modelo.Password)"
+                          Label="Contraseña" Variant="Variant.Outlined" Class="mt-4"
+                          InputType="@(mostrarPassword ? InputType.Text : InputType.Password)"
+                          Adornment="Adornment.End"
+                          AdornmentIcon="@(mostrarPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                          AdornmentAriaLabel="Mostrar u ocultar la contraseña"
+                          OnAdornmentClick="@(() => mostrarPassword = !mostrarPassword)"
+                          HelperText="@ReglasUsuario.DescripcionReglasPassword" />
+
+            <MudTextField @bind-Value="modelo.ConfirmarPassword" For="@(() => modelo.ConfirmarPassword)"
+                          Label="Repetir contraseña" Variant="Variant.Outlined" Class="mt-4"
+                          InputType="@(mostrarPassword ? InputType.Text : InputType.Password)" />
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                       Disabled="guardando">
+                @(guardando ? "Guardando..." : "Registrar usuario")
+            </MudButton>
+            <MudButton Variant="Variant.Text" Href="/usuarios" Class="ml-2">Ver listado</MudButton>
+        </MudCardActions>
+    </MudCard>
+</EditForm>
+
+@code {
+    private UsuarioCrearDto modelo = new();
+    private bool guardando;
+    private bool mostrarPassword;
+
+    private async Task Guardar()
+    {
+        guardando = true;
+
+        try
+        {
+            await UsuariosService.RegistrarUsuarioAsync(modelo);
+            Snackbar.Add($"Usuario registrado como {RolesSistema.PorDefecto}. Ya puede iniciar sesión.", Severity.Success);
+            modelo = new();
+            mostrarPassword = false;
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (DuplicateException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo registrar el usuario. Intentá de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+}
