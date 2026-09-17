@@ -1,0 +1,13 @@
+@page "/acceso-denegado"
+@attribute [AllowAnonymous]
+
+@* Destino de AccessDeniedPath (Program.cs): la cookie manda acá cuando una
+   carga completa de página exige un permiso que el usuario no tiene, con la
+   ruta original en ReturnUrl. AllowAnonymous para que nunca pueda entrar en
+   bucle con el propio login. *@
+<AccesoDenegadoContenido Ruta="@ReturnUrl" />
+
+@code {
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+}

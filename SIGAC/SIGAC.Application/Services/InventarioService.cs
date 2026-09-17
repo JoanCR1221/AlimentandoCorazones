@@ -11,10 +11,12 @@ namespace SIGAC.Application.Services
     public class InventarioService : IInventarioService
     {
         private readonly IInventarioRepository _repository;
+        private readonly IBitacoraService _bitacora;
 
-        public InventarioService(IInventarioRepository repository)
+        public InventarioService(IInventarioRepository repository, IBitacoraService bitacora)
         {
             _repository = repository;
+            _bitacora = bitacora;
         }
 
         public async Task RegistrarEntradaAsync(EntradaInventarioCrearDto dto)
@@ -111,6 +113,10 @@ namespace SIGAC.Application.Services
                 // Una sola llamada: crear el artículo (si hace falta), insertar la
                 // entrada y sumar el stock son todo-o-nada.
                 await _repository.RegistrarEntradaConStockAsync(entrada, articuloNuevo);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Inventario,
+                    $"Entrada de {entrada.Cantidad} de '{nombreArticulo}' ({entrada.Origen})" +
+                    (articuloNuevo is not null ? ", artículo nuevo" : string.Empty));
             }
             catch (Exception ex) when (ex is not ValidationException and not DuplicateException)
             {
@@ -151,6 +157,9 @@ namespace SIGAC.Application.Services
                 // todo-o-nada. Antes eran dos guardados independientes y una falla al
                 // descontar dejaba la salida ya registrada, inflando el stock real.
                 await _repository.RegistrarSalidaConStockAsync(salida);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Entregar, ModulosSistema.Inventario,
+                    $"Salida por donación de {salida.Cantidad} (artículo #{salida.ArticuloId}) a {salida.ComunidadDestinataria}");
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {
@@ -261,6 +270,9 @@ namespace SIGAC.Application.Services
                 articulo.StockMinimo = datos.StockMinimo;
 
                 await _repository.ActualizarArticuloAsync(articulo);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Editar, ModulosSistema.Inventario,
+                    $"Artículo #{articulo.Id}: {articulo.Nombre}");
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException and not DuplicateException)
             {
@@ -283,6 +295,9 @@ namespace SIGAC.Application.Services
                         "No se puede eliminar: el artículo tiene entradas, salidas o solicitudes de préstamo registradas. Podés editarlo, pero no borrarlo.");
 
                 await _repository.EliminarArticuloAsync(id);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Eliminar, ModulosSistema.Inventario,
+                    $"Artículo #{id}");
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {
@@ -405,6 +420,10 @@ namespace SIGAC.Application.Services
                 };
 
                 await _repository.AgregarSolicitudPrestamoAsync(solicitud);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Inventario,
+                    $"Solicitud de préstamo #{solicitud.Id}: {solicitud.Cantidad} (artículo #{solicitud.ArticuloId}) " +
+                    $"para {solicitud.Actividad}, solicita {solicitud.Solicitante}");
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {
@@ -465,6 +484,9 @@ namespace SIGAC.Application.Services
                 // Si el último fallaba, el préstamo quedaba entregado y descontado con
                 // la solicitud todavía en Pendiente, lista para aprobarse otra vez.
                 await _repository.AprobarPrestamoConStockAsync(solicitud, salida);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Aprobar, ModulosSistema.Inventario,
+                    $"Solicitud de préstamo #{solicitud.Id}: {solicitud.Cantidad} (artículo #{solicitud.ArticuloId}) para {solicitud.Actividad}");
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {
@@ -493,6 +515,9 @@ namespace SIGAC.Application.Services
                 solicitud.MotivoRechazo = dto.MotivoRechazo;
 
                 await _repository.ActualizarSolicitudAsync(solicitud);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Rechazar, ModulosSistema.Inventario,
+                    $"Solicitud de préstamo #{solicitud.Id}: {solicitud.Cantidad} (artículo #{solicitud.ArticuloId}). Motivo: {solicitud.MotivoRechazo}");
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {

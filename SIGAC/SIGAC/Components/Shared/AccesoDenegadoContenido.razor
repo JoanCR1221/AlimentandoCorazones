@@ -1,0 +1,71 @@
+@using SIGAC.Application.Interfaces
+@inject NavigationManager Navigation
+@inject IBitacoraService Bitacora
+
+@* Mensaje de "no tenés permiso" (AB de fase 4). Componente compartido porque se
+   muestra en dos situaciones distintas: como página propia (/acceso-denegado,
+   a donde manda la cookie en una carga completa) y como contenido del
+   NotAuthorized de AuthorizeRouteView (navegación dentro del circuito). En las
+   dos el usuario está autenticado: lo que le falta es el permiso de la ruta. *@
+<PageTitle>Acceso denegado — SIGAC</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+    <MudCard Class="pa-4">
+        <MudCardContent>
+            <MudStack Spacing="3" AlignItems="AlignItems.Center">
+                <MudIcon Icon="@Icons.Material.Filled.Block" Color="Color.Error" Style="font-size: 4rem;" />
+                <MudText Typo="Typo.h5">Acceso denegado</MudText>
+                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Lock">
+                    No tenés permiso para entrar a esta parte del sistema.
+                    Si creés que deberías tenerlo, pedíselo a un administrador.
+                </MudAlert>
+                @if (!string.IsNullOrEmpty(RutaSolicitada))
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                        Ruta solicitada: <code>@RutaSolicitada</code>
+                    </MudText>
+                }
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Este intento queda registrado en la bitácora del sistema.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/" StartIcon="@Icons.Material.Filled.Home">
+                    Ir al inicio
+                </MudButton>
+            </MudStack>
+        </MudCardContent>
+    </MudCard>
+</MudContainer>
+
+@code {
+    // Ruta a la que se intentó entrar. Si no se pasa, se toma la actual (caso
+    // NotAuthorized: la URL ya es la de la página protegida).
+    [Parameter]
+    public string? Ruta { get; set; }
+
+    private string RutaSolicitada =>
+        Ruta ?? "/" + Navigation.ToBaseRelativePath(Navigation.Uri);
+
+    // El intento queda en la bitácora (PBI 1949: detectar accesos no
+    // autorizados). En OnAfterRender y no en OnInitialized: la página
+    // /acceso-denegado se prerenderiza y después pasa a interactiva, y con
+    // OnInitialized el mismo intento quedaría registrado dos veces.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        try
+        {
+            await Bitacora.RegistrarAsync(
+                AccionesBitacora.AccesoDenegado,
+                ModulosSistema.Seguridad,
+                $"Intento de acceso a {RutaSolicitada}");
+        }
+        catch (Exception)
+        {
+            // No hay nada útil que mostrarle al usuario acá: la pantalla ya le
+            // dice que no tiene permiso, y un fallo al anotar el intento no debe
+            // reemplazar ese mensaje.
+        }
+    }
+}

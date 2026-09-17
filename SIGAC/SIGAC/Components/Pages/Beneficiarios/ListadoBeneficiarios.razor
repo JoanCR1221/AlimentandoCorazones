@@ -1,4 +1,5 @@
 ﻿@page "/beneficiarios"
+@attribute [Authorize(Policy = Permisos.Beneficiarios.Ver)]
 @using SIGAC.Application.DTOs
 @using SIGAC.Application.DTOs.Beneficiarios
 @using SIGAC.Application.Interfaces
@@ -59,15 +60,22 @@
                 </TemplateColumn>
                 <TemplateColumn Title="Acciones">
                     <CellTemplate>
-                        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/beneficiarios/editar/{context.Item.Id}")">Editar</MudButton>
-                        @if (context.Item.Estado)
-                        {
-                            <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.NombreCompleto, false))">Desactivar</MudButton>
-                        }
-                        else
-                        {
-                            <MudButton Variant="Variant.Text" Color="Color.Success" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.NombreCompleto, true))">Activar</MudButton>
-                        }
+                        @* Cada acción solo si el usuario tiene su permiso (fase 4 del
+                           módulo de seguridad). Context="auth" para no pisar el
+                           context de la celda. *@
+                        <AuthorizeView Policy="@Permisos.Beneficiarios.Editar" Context="auth">
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/beneficiarios/editar/{context.Item.Id}")">Editar</MudButton>
+                        </AuthorizeView>
+                        <AuthorizeView Policy="@Permisos.Beneficiarios.CambiarEstado" Context="auth">
+                            @if (context.Item.Estado)
+                            {
+                                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.NombreCompleto, false))">Desactivar</MudButton>
+                            }
+                            else
+                            {
+                                <MudButton Variant="Variant.Text" Color="Color.Success" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.NombreCompleto, true))">Activar</MudButton>
+                            }
+                        </AuthorizeView>
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>

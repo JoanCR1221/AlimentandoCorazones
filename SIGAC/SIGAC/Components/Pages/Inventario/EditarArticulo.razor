@@ -1,4 +1,5 @@
 @page "/inventario/articulos/editar/{Id:int}"
+@attribute [Authorize(Policy = Permisos.Inventario.EditarArticulo)]
 @using SIGAC.Application.DTOs.Inventario
 @using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces

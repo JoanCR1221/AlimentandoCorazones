@@ -1,0 +1,57 @@
+@* Cambio de rol (AB#2715): muestra el rol actual y pide el nuevo. Devuelve el
+   rol elegido como string; el servicio aplica las reglas (último administrador,
+   no a uno mismo) y el listado muestra el resultado. *@
+<MudDialog>
+    <DialogContent>
+        <MudText Class="mb-2">
+            <strong>@NombreUsuario</strong> tiene actualmente el rol
+            <strong>@(RolActual ?? "sin rol")</strong>.
+        </MudText>
+
+        <MudSelect T="string" @bind-Value="nuevoRol" Label="Nuevo rol" Variant="Variant.Outlined" Class="mt-2">
+            @foreach (var rol in RolesSistema.Todos.Where(r => r != RolActual))
+            {
+                <MudSelectItem T="string" Value="@rol">@rol</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudText Typo="Typo.body2" Class="mt-3 mud-text-secondary">
+            @DescribirRol(nuevoRol)
+        </MudText>
+
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" Class="mt-3">
+            Si el usuario tiene una sesión abierta, se cierra en menos de un minuto y entra con el rol nuevo.
+            Los permisos que se le hubieran quitado uno a uno se pierden: el rol nuevo arranca completo.
+        </MudAlert>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancelar">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Confirmar"
+                   Disabled="@string.IsNullOrEmpty(nuevoRol)">Cambiar rol</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public string NombreUsuario { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? RolActual { get; set; }
+
+    private string? nuevoRol;
+
+    private static string DescribirRol(string? rol) => rol switch
+    {
+        RolesSistema.Administrador => "Acceso total, incluida la gestión de usuarios y la bitácora. No admite recortes de permisos.",
+        RolesSistema.Colaborador => "Beneficiarios, asistencia, inventario, donaciones y gastos. Sin acceso a usuarios ni bitácora.",
+        RolesSistema.Asistente => "Solo registra asistencia y entradas de inventario, sin consultar nada.",
+        _ => "Elegí el rol nuevo."
+    };
+
+    private void Cancelar() => MudDialog.Cancel();
+
+    private void Confirmar() => MudDialog.Close(DialogResult.Ok(nuevoRol));
+}

@@ -1,0 +1,198 @@
+@page "/usuarios/{Id}/permisos"
+@attribute [Authorize(Policy = Permisos.Seguridad.GestionarUsuarios)]
+@using SIGAC.Application.DTOs.Seguridad
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@inject IUsuariosService UsuariosService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject NavigationManager Navigation
+
+<PageTitle>Permisos del usuario — SIGAC</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Permisos del usuario</MudText>
+
+@if (cargando)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-4" />
+}
+else if (usuario is null)
+{
+    <MudAlert Severity="Severity.Warning">El usuario no existe.</MudAlert>
+    <MudButton Variant="Variant.Text" Href="/usuarios" Class="mt-2">Volver al listado</MudButton>
+}
+else
+{
+    <MudCard Class="pa-4 mb-4">
+        <MudCardContent>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Wrap="Wrap.Wrap">
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.h6">@usuario.Nombre</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@usuario.Correo</MudText>
+                </MudStack>
+                <MudChip T="string" Color="Color.Primary" Icon="@Icons.Material.Filled.Badge">@(usuario.Rol ?? "sin rol")</MudChip>
+            </MudStack>
+        </MudCardContent>
+    </MudCard>
+
+    @if (!admiteCambios)
+    {
+        @* Un Administrador siempre tiene todo (PermisosPorRol.AdmiteRevocaciones):
+           el panel se muestra solo como referencia y no se puede editar. *@
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+            El rol <strong>@RolesSistema.Administrador</strong> tiene acceso total y sus permisos no se pueden recortar.
+            Si esta persona necesita menos acceso, cambiale el rol desde el listado de usuarios.
+        </MudAlert>
+    }
+    else
+    {
+        <MudText Typo="Typo.body2" Class="mb-4 mud-text-secondary">
+            Apagá lo que esta persona no deba usar. Lo apagado desaparece del menú y de los botones,
+            y la dirección de esa pantalla muestra "Acceso denegado". Si tiene una sesión abierta,
+            se cierra en menos de un minuto para aplicar el cambio.
+        </MudText>
+    }
+
+    <MudExpansionPanels MultiExpansion="true" Class="mb-4">
+        @foreach (var modulo in permisos.GroupBy(p => p.Modulo))
+        {
+            <MudExpansionPanel Expanded="true">
+                <TitleContent>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudText Typo="Typo.subtitle1">@modulo.Key</MudText>
+                        <MudChip T="string" Size="Size.Small" Color="@(modulo.All(p => p.Habilitado) ? Color.Success : Color.Warning)">
+                            @modulo.Count(p => p.Habilitado) de @modulo.Count() habilitados
+                        </MudChip>
+                    </MudStack>
+                </TitleContent>
+                <ChildContent>
+                    @foreach (var permiso in modulo)
+                    {
+                        <MudSwitch T="bool" @bind-Value="permiso.Habilitado" Color="Color.Success"
+                                   Disabled="@(!admiteCambios || guardando)"
+                                   Label="@permiso.Descripcion"
+                                   aria-label="@permiso.Descripcion"
+                                   Class="d-block my-1" />
+                    }
+                </ChildContent>
+            </MudExpansionPanel>
+        }
+    </MudExpansionPanels>
+
+    <MudStack Row="true" Spacing="2">
+        @if (admiteCambios)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ConfirmarGuardarAsync"
+                       Disabled="@(guardando || !HayCambios)" StartIcon="@Icons.Material.Filled.Save">
+                @(guardando ? "Guardando..." : "Guardar permisos")
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="Restaurar"
+                       Disabled="@(guardando || !HayCambios)">
+                Deshacer cambios
+            </MudButton>
+        }
+        <MudButton Variant="Variant.Text" Href="/usuarios">Volver al listado</MudButton>
+    </MudStack>
+}
+
+@code {
+    [Parameter]
+    public string Id { get; set; } = string.Empty;
+
+    private UsuarioListaDto? usuario;
+    private List<PermisoUsuarioDto> permisos = new();
+
+    // Estado tal como vino del servidor, para saber si hay cambios y para
+    // "Deshacer" sin volver a consultar.
+    private Dictionary<string, bool> original = new();
+
+    private bool cargando = true;
+    private bool guardando;
+    private bool admiteCambios;
+
+    private bool HayCambios => permisos.Any(p => original.TryGetValue(p.Permiso, out var h) && h != p.Habilitado);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            usuario = await UsuariosService.ObtenerPorIdAsync(Id);
+
+            if (usuario is not null)
+            {
+                permisos = (await UsuariosService.ObtenerPermisosAsync(Id)).ToList();
+                original = permisos.ToDictionary(p => p.Permiso, p => p.Habilitado);
+                admiteCambios = PermisosPorRol.AdmiteRevocaciones(usuario.Rol);
+            }
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudieron cargar los permisos. Intentá de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private void Restaurar()
+    {
+        foreach (var permiso in permisos)
+        {
+            if (original.TryGetValue(permiso.Permiso, out var habilitado))
+                permiso.Habilitado = habilitado;
+        }
+    }
+
+    private async Task ConfirmarGuardarAsync()
+    {
+        var apagados = permisos.Count(p => !p.Habilitado);
+
+        var confirmado = await DialogService.ShowMessageBoxAsync(
+            "Guardar permisos",
+            apagados == 0
+                ? $"{usuario!.Nombre} va a tener todos los permisos de su rol. Si tiene una sesión abierta, se cierra para aplicar el cambio."
+                : $"{usuario!.Nombre} va a quedar sin {apagados} permiso{(apagados == 1 ? "" : "s")} de su rol. Si tiene una sesión abierta, se cierra para aplicar el cambio.",
+            yesText: "Guardar",
+            cancelText: "Cancelar");
+
+        if (confirmado != true)
+            return;
+
+        await GuardarAsync();
+    }
+
+    private async Task GuardarAsync()
+    {
+        guardando = true;
+
+        try
+        {
+            await UsuariosService.ActualizarPermisosAsync(new ActualizarPermisosDto
+            {
+                UsuarioId = Id,
+                PermisosRevocados = permisos.Where(p => !p.Habilitado).Select(p => p.Permiso).ToList()
+            });
+
+            original = permisos.ToDictionary(p => p.Permiso, p => p.Habilitado);
+            Snackbar.Add($"Permisos de {usuario!.Nombre} guardados.", Severity.Success);
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (NotFoundException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+            Navigation.NavigateTo("/usuarios");
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudieron guardar los permisos. Intentá de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+}

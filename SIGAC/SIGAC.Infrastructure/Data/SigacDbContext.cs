@@ -1,10 +1,18 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using SIGAC.Domain;
 using SIGAC.Domain.Entities;
+using SIGAC.Infrastructure.Identity;
 
 namespace SIGAC.Infrastructure.Data
 {
-    public class SigacDbContext : DbContext
+    // Hereda de IdentityDbContext<UsuarioSigac> y no de DbContext desde el módulo
+    // de seguridad: así las siete tablas de ASP.NET Identity (AspNetUsers,
+    // AspNetRoles, AspNetUserRoles, AspNetUserClaims, AspNetRoleClaims,
+    // AspNetUserLogins, AspNetUserTokens) viven en la misma base y las mismas
+    // migraciones que el resto del sistema. Un segundo contexto solo para
+    // usuarios obligaría a dos cadenas de migraciones y dos historiales.
+    public class SigacDbContext : IdentityDbContext<UsuarioSigac>
     {
         public SigacDbContext(DbContextOptions<SigacDbContext> options) : base(options)
         {
@@ -33,9 +41,165 @@ namespace SIGAC.Infrastructure.Data
         public DbSet<ProyectoComunitario> ProyectosComunitarios { get; set; }
         public DbSet<ParticipanteProyecto> ParticipantesProyecto { get; set; }
 
+        // Módulo de Gestión de autenticación y seguridad. Los DbSet de usuarios y
+        // roles (Users, Roles, UserRoles...) los aporta IdentityDbContext.
+        public DbSet<PermisoRevocadoUsuario> PermisosRevocados { get; set; }
+        public DbSet<BitacoraAccion> Bitacora { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            // Configura las siete tablas de Identity con sus defaults: nombres
+            // AspNet*, clave string (GUID), nvarchar(256) en UserName/Email y
+            // nvarchar(450) en las claves. Es la única excepción a las convenciones
+            // de abajo (varchar, nombres en español, claves int) y es deliberada:
+            // pelear con el esquema del framework complica cada actualización de
+            // Identity a cambio de nada que el usuario vea.
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<UsuarioSigac>(entity =>
+            {
+                // Solo las columnas propias siguen la convención del proyecto. Las
+                // heredadas (Email, PasswordHash, SecurityStamp, LockoutEnd...) quedan
+                // como las define Identity.
+                entity.Property(u => u.Nombre)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(150);
+
+                entity.Property(u => u.Estado)
+                    .IsRequired();
+
+                entity.Property(u => u.FechaRegistro)
+                    .IsRequired();
+
+                // El listado de usuarios filtra por estado, igual que el de
+                // beneficiarios. Identity ya indexa NormalizedUserName (único) y
+                // NormalizedEmail.
+                entity.HasIndex(u => u.Estado)
+                    .HasDatabaseName("IX_AspNetUsers_Estado");
+            });
+
+            modelBuilder.Entity<PermisoRevocadoUsuario>(entity =>
+            {
+                entity.ToTable("PermisosRevocados");
+
+                entity.HasKey(p => p.Id);
+
+                // Misma longitud que la clave de AspNetUsers (nvarchar(450)): es la
+                // FK, así que tiene que coincidir en tipo y largo con la columna que
+                // referencia, aunque rompa la convención varchar del proyecto.
+                entity.Property(p => p.UsuarioId)
+                    .IsRequired()
+                    .HasMaxLength(450);
+
+                // Sin CHECK a propósito (ver Permisos): una clave nueva por pantalla
+                // no debe exigir migración. La validez la garantiza el servicio.
+                entity.Property(p => p.Permiso)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(100);
+
+                entity.Property(p => p.FechaRegistro)
+                    .IsRequired();
+
+                // Restrict, igual que el resto de las FK del proyecto: los usuarios
+                // se desactivan, no se borran, y si alguien borrara uno desde afuera
+                // sus revocaciones no deben desaparecer en silencio.
+                entity.HasOne<UsuarioSigac>()
+                    .WithMany()
+                    .HasForeignKey(p => p.UsuarioId)
+                    .IsRequired()
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Un permiso se revoca una sola vez por usuario. Único y no filtrado:
+                // ninguna de las dos columnas admite NULL. Empieza por UsuarioId
+                // porque la consulta siempre es "los revocados de este usuario", y
+                // así hace también de índice de la FK.
+                entity.HasIndex(p => new { p.UsuarioId, p.Permiso })
+                    .IsUnique()
+                    .HasDatabaseName("UX_PermisosRevocados_Usuario_Permiso");
+            });
+
+            modelBuilder.Entity<BitacoraAccion>(entity =>
+            {
+                entity.ToTable("Bitacora", t =>
+                {
+                    // Dominios cerrados respaldados en la base, mismo criterio que
+                    // CK_GastosOperativos_Categoria. Rol admite NULL (login fallido).
+                    t.HasCheckConstraint(
+                        "CK_Bitacora_Accion",
+                        $"[Accion] IN ('{string.Join("', '", AccionesBitacora.Todas)}')");
+
+                    t.HasCheckConstraint(
+                        "CK_Bitacora_Modulo",
+                        $"[Modulo] IN ('{string.Join("', '", ModulosSistema.Todos)}')");
+
+                    t.HasCheckConstraint(
+                        "CK_Bitacora_Rol",
+                        $"[Rol] IS NULL OR [Rol] IN ('{string.Join("', '", RolesSistema.Todos)}')");
+                });
+
+                entity.HasKey(b => b.Id);
+
+                // Nullable y con el largo de la clave de AspNetUsers, por lo mismo que
+                // en PermisosRevocados.
+                entity.Property(b => b.UsuarioId)
+                    .HasMaxLength(450);
+
+                // Convención del proyecto: VARCHAR en lugar de NVARCHAR (IsUnicode(false)).
+                // 256 y no 150: en un login fallido acá va el correo intentado, y el
+                // correo de Identity admite hasta 256.
+                entity.Property(b => b.NombreUsuario)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(256);
+
+                entity.Property(b => b.Rol)
+                    .IsUnicode(false)
+                    .HasMaxLength(30);
+
+                entity.Property(b => b.Accion)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(30);
+
+                entity.Property(b => b.Modulo)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(30);
+
+                entity.Property(b => b.Detalle)
+                    .IsUnicode(false)
+                    .HasMaxLength(500);
+
+                // datetime2 con hora: varias acciones caen el mismo día y el listado
+                // las ordena entre sí, igual que los movimientos de inventario.
+                entity.Property(b => b.Fecha)
+                    .IsRequired();
+
+                // FK opcional a AspNetUsers con Restrict: la bitácora es historial y
+                // sobrevive a cualquier cambio en el usuario. Sin navegación: la fila
+                // ya lleva NombreUsuario y Rol copiados al momento de la acción.
+                entity.HasOne<UsuarioSigac>()
+                    .WithMany()
+                    .HasForeignKey(b => b.UsuarioId)
+                    .IsRequired(false)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Fecha primero: el listado siempre ordena por fecha descendente y el
+                // rango de fechas es el filtro que más se usa (mismo razonamiento que
+                // IX_GastosOperativos_Fecha_Categoria).
+                entity.HasIndex(b => b.Fecha)
+                    .HasDatabaseName("IX_Bitacora_Fecha");
+
+                // Filtros del listado por usuario y por módulo. El de UsuarioId hace
+                // además de índice de la FK.
+                entity.HasIndex(b => b.UsuarioId)
+                    .HasDatabaseName("IX_Bitacora_Usuario");
+
+                entity.HasIndex(b => b.Modulo)
+                    .HasDatabaseName("IX_Bitacora_Modulo");
+            });
 
             modelBuilder.Entity<Beneficiario>(entity =>
             {

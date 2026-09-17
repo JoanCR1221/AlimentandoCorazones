@@ -1,0 +1,197 @@
+@page "/login"
+@layout LoginLayout
+@attribute [AllowAnonymous]
+@attribute [ExcludeFromInteractiveRouting]
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Identity
+@using SIGAC.Application.DTOs.Seguridad
+@using SIGAC.Application.Interfaces
+@using SIGAC.Infrastructure.Identity
+@inject SignInManager<UsuarioSigac> SignInManager
+@inject UserManager<UsuarioSigac> UserManager
+@inject NavigationManager Navigation
+@inject IBitacoraService Bitacora
+
+@* Página en render ESTÁTICO ([ExcludeFromInteractiveRouting]): el formulario
+   hace un POST real y el handler corre antes de que la respuesta empiece, que
+   es la única forma en que SignInManager puede escribir la cookie. Por eso
+   usa EditForm + InputText y no MudTextField: los componentes de MudBlazor
+   necesitan el circuito interactivo, que acá no existe. *@
+
+<PageTitle>Iniciar sesión — SIGAC</PageTitle>
+
+<section class="login-tarjeta" aria-labelledby="login-titulo">
+    <header class="login-encabezado">
+        <img src="Logo.png" alt="Logo de Alimentando Corazones" class="login-logo" />
+        <h1 id="login-titulo" class="login-titulo">SIGAC</h1>
+        <p class="login-subtitulo">Sistema de Gestión Alimentando Corazones</p>
+    </header>
+
+    <EditForm Model="Entrada" method="post" OnValidSubmit="IniciarSesionAsync" FormName="login" Enhance="false">
+        <DataAnnotationsValidator />
+
+        @if (mensajeError is not null)
+        {
+            <div class="login-error" role="alert">
+                <span aria-hidden="true">⚠</span>
+                <span>@mensajeError</span>
+            </div>
+        }
+
+        <div class="login-campo">
+            <label for="correo">Correo</label>
+            <InputText id="correo" @bind-Value="Entrada.Correo" type="email"
+                       autocomplete="username" autofocus class="login-entrada"
+                       placeholder="nombre@ejemplo.com" />
+            <ValidationMessage For="() => Entrada.Correo" class="login-validacion" />
+        </div>
+
+        <div class="login-campo">
+            <label for="password">Contraseña</label>
+            <InputText id="password" @bind-Value="Entrada.Password" type="password"
+                       autocomplete="current-password" class="login-entrada" />
+            <ValidationMessage For="() => Entrada.Password" class="login-validacion" />
+        </div>
+
+        <button type="submit" class="login-boton">Iniciar sesión</button>
+    </EditForm>
+
+    <p class="login-ayuda">
+        Si olvidaste tu contraseña, pedile a un administrador que la restablezca.
+    </p>
+</section>
+
+@code {
+    private const string MensajeCredenciales = "Correo o contraseña incorrectos.";
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    // Sin inicializador (BL0008): el binding del POST puede pisar la propiedad
+    // con null; se asegura en OnInitializedAsync.
+    [SupplyParameterFromForm]
+    private LoginDto Entrada { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    private string? mensajeError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Entrada ??= new LoginDto();
+
+        // Con sesión abierta y vigente el login no tiene sentido: directo al
+        // inicio (o a donde venía). Si la cookie existe pero ya no vale (cambió
+        // la contraseña, el rol o el estado y el security stamp no coincide) se
+        // cierra acá mismo, cosa que en render estático sí se puede, y se muestra
+        // el formulario: así "cambiar contraseña" puede mandar a /login sin
+        // esperar al intervalo de revalidación.
+        if (HttpContext.User.Identity?.IsAuthenticated == true)
+        {
+            if (await SesionSigueVigenteAsync())
+            {
+                Navigation.NavigateTo(DestinoSeguro());
+                return;
+            }
+
+            await SignInManager.SignOutAsync();
+        }
+
+        // Al entrar por GET se limpia cualquier cookie externa a medias, igual
+        // que en la plantilla oficial. Sin efecto si no hay ninguna.
+        if (HttpMethods.IsGet(HttpContext.Request.Method))
+            await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
+    }
+
+    private async Task IniciarSesionAsync()
+    {
+        var correo = Entrada.Correo.Trim();
+        var usuario = await UserManager.FindByEmailAsync(correo);
+
+        // Mismo mensaje que para contraseña incorrecta: no se confirma si un
+        // correo existe o no. En la bitácora sí queda el correo intentado, para
+        // detectar intentos repetidos contra una cuenta.
+        if (usuario is null)
+        {
+            await RegistrarIntentoFallidoAsync(null, correo, null, "Correo no registrado");
+            mensajeError = MensajeCredenciales;
+            return;
+        }
+
+        var rol = (await UserManager.GetRolesAsync(usuario)).FirstOrDefault();
+
+        // Un usuario desactivado tiene LockoutEnd en MaxValue y Identity lo
+        // rechazaría como "bloqueado"; se distingue antes para dar el mensaje
+        // que pide el PBI 1947 y no confundirlo con el bloqueo temporal.
+        if (!usuario.Estado)
+        {
+            await RegistrarIntentoFallidoAsync(usuario.Id, usuario.Nombre, rol, "Usuario desactivado");
+            mensajeError = "Tu usuario está desactivado. Contactá a un administrador.";
+            return;
+        }
+
+        // lockoutOnFailure: cada intento fallido cuenta para el bloqueo temporal
+        // de 15 minutos configurado en Program.cs.
+        var resultado = await SignInManager.PasswordSignInAsync(
+            usuario, Entrada.Password, isPersistent: false, lockoutOnFailure: true);
+
+        if (resultado.Succeeded)
+        {
+            // Datos explícitos: la cookie recién se escribió y HttpContext.User
+            // todavía es el anónimo de esta petición.
+            await Bitacora.RegistrarDeUsuarioAsync(
+                usuario.Id, usuario.Nombre, rol,
+                AccionesBitacora.IniciarSesion, ModulosSistema.Seguridad, correo);
+
+            Navigation.NavigateTo(DestinoSeguro());
+            return;
+        }
+
+        if (resultado.IsLockedOut)
+        {
+            await RegistrarIntentoFallidoAsync(usuario.Id, usuario.Nombre, rol, "Bloqueado por intentos fallidos");
+            mensajeError = $"Demasiados intentos fallidos. Esperá {ReglasUsuario.MinutosBloqueo} minutos e intentá de nuevo.";
+            return;
+        }
+
+        await RegistrarIntentoFallidoAsync(usuario.Id, usuario.Nombre, rol, "Contraseña incorrecta");
+        mensajeError = MensajeCredenciales;
+    }
+
+    private Task RegistrarIntentoFallidoAsync(string? usuarioId, string nombre, string? rol, string motivo) =>
+        Bitacora.RegistrarDeUsuarioAsync(
+            usuarioId, nombre, rol,
+            AccionesBitacora.IniciarSesionFallido, ModulosSistema.Seguridad,
+            $"{motivo}. Correo: {Entrada.Correo.Trim()}");
+
+    // Misma comprobación que RevalidacionSesionProvider, pero sobre la cookie
+    // que llega en esta petición.
+    private async Task<bool> SesionSigueVigenteAsync()
+    {
+        var usuario = await UserManager.GetUserAsync(HttpContext.User);
+
+        if (usuario is null || !usuario.Estado)
+            return false;
+
+        var stampEnCookie = HttpContext.User.FindFirst(UserManager.Options.ClaimsIdentity.SecurityStampClaimType)?.Value;
+        var stampEnBase = await UserManager.GetSecurityStampAsync(usuario);
+
+        return stampEnCookie == stampEnBase;
+    }
+
+    // Solo rutas relativas dentro del sitio: un ReturnUrl absoluto o con "//"
+    // permitiría mandar al usuario a otro dominio después de autenticarse.
+    private string DestinoSeguro()
+    {
+        if (string.IsNullOrWhiteSpace(ReturnUrl)
+            || !ReturnUrl.StartsWith('/')
+            || ReturnUrl.StartsWith("//")
+            || ReturnUrl.StartsWith("/login", StringComparison.OrdinalIgnoreCase))
+        {
+            return "/";
+        }
+
+        return ReturnUrl;
+    }
+}

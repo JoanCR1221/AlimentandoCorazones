@@ -9,7 +9,7 @@ Cómo funciona la persistencia del Sistema de Gestión Alimentando Corazones: el
 | `SIGAC.Domain` | Entidades (`Beneficiario`, `AsistenciaComedor`, `Articulo`, ...) y reglas del negocio (`ReglasBeneficiario`, `TiemposComida`, `TiposDocumento`). No conoce EF Core ni SQL Server. |
 | `SIGAC.Application` | Interfaces de repositorio (`IBeneficiariosRepository`, `IInventarioRepository`, ...), servicios y DTOs. Define **qué** se necesita de la base, no **cómo**. |
 | `SIGAC.Infrastructure` | `SigacDbContext` con todo el mapeo Fluent API, las migraciones y los repositorios EF Core que implementan aquellas interfaces. |
-| `SIGAC` | Presentación (Blazor Server). Solo registra los repositorios en `Program.cs`; no toca la base directamente. |
+| `SIGAC` | Presentación (Blazor Server). En `Program.cs` registra los repositorios y servicios, configura ASP.NET Identity (cookies, reglas de contraseña y bloqueo, una policy de autorización por permiso) y crea el administrador inicial al arrancar (`SeedSeguridad`); no toca la base directamente. |
 
 Las entidades del dominio están limpias de anotaciones: **todo el mapeo se declara en `Data/SigacDbContext.cs`** con Fluent API. Si buscás por qué una columna tiene cierto largo o cierto índice, está ahí y está comentado.
 
@@ -25,9 +25,16 @@ La cadena vive en `SIGAC/appsettings.json` bajo la clave `SigacDb`. **Ese archiv
   "AllowedHosts": "*",
   "ConnectionStrings": {
     "SigacDb": "Server=TU-SERVIDOR\\SQLEXPRESS;Database=SIGAC;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true"
+  },
+  "AdministradorInicial": {
+    "Correo": "admin@alimentandocorazones.local",
+    "Nombre": "Administrador inicial",
+    "Password": "CambiarEsta.Clave1!"
   }
 }
 ```
+
+**La sección `AdministradorInicial` es obligatoria en una base nueva.** Como solo un administrador puede crear usuarios, al arrancar la aplicación `SeedSeguridad` crea ese usuario si todavía no existe ningún Administrador activo; si falta la sección, la aplicación no arranca y lo dice en el mensaje. Una vez que hay un administrador activo la sección se ignora, así que la contraseña que pongas acá solo sirve para el primer ingreso: cambiala desde Configuración apenas entres. Tiene que cumplir las reglas del sistema (8 caracteres con mayúscula, minúscula, número y símbolo). Por eso `appsettings.example.json` está en el repositorio y `appsettings.json` no.
 
 > **Al desplegar en Ubuntu**, `Trusted_Connection=True` no sirve: la autenticación integrada de Windows no existe ahí. Hay que pasar a autenticación SQL (`User Id=...;Password=...`) y tomar la cadena de una variable de entorno o un gestor de secretos, no de un archivo en el repositorio.
 
@@ -125,8 +132,10 @@ Se aplican a todas las tablas por igual:
 | `Cantidad` | `int` | > 0 |
 | `Fecha` | `datetime2` | |
 | `Origen` | `varchar(20)` | `'Donacion'` o `'Compra'` |
-| `DonanteId` | `int` | opcional, **sin FK todavía** |
-| `GastoOperativoId` | `int` | opcional, **sin FK todavía** |
+| `DonanteId` | `int` | opcional, FK → `Donantes`, Restrict (desde `AddModuloDonaciones`) |
+| `GastoOperativoId` | `int` | opcional, FK → `GastosOperativos`, Restrict (desde `AddTablaGastosOperativos`) |
+| `Anulada` | `bit` | se anula (no se borra) cuando el gasto vinculado se anula |
+| `MotivoAnulacion` | `varchar(500)` | obligatorio si `Anulada`, NULL si no (`CK_EntradasInventario_MotivoAnulacion`) |
 | `Observaciones` | `varchar(500)` | opcional |
 
 - `CK_EntradasInventario_Origen` y `CK_EntradasInventario_Cantidad`.
@@ -183,6 +192,19 @@ La asistencia es del día: no importa a qué hora comió alguien, y `date` hace 
 
 Esto tiene una consecuencia al filtrar por rango: el límite superior se compara como **"menor que el día siguiente"**, nunca como "menor o igual que la fecha hasta". Comparar contra la medianoche del último día dejaría fuera todos los movimientos de esa jornada.
 
+### Módulo de seguridad: `AspNetUsers`, `PermisosRevocados` y `Bitacora`
+
+`SigacDbContext` hereda de `IdentityDbContext<UsuarioSigac>`, así que las siete tablas de ASP.NET Identity (`AspNetUsers`, `AspNetRoles`, `AspNetUserRoles`, `AspNetUserClaims`, `AspNetRoleClaims`, `AspNetUserLogins`, `AspNetUserTokens`) viven en la misma base y la misma cadena de migraciones que el resto.
+
+**Son la única excepción a las convenciones de arriba, y es deliberada:** conservan sus nombres en inglés, la clave `string` (GUID, `nvarchar(450)`) y `nvarchar(256)` en correo y nombre de usuario, tal como las genera el framework. Pelear con ese esquema complica cada actualización de Identity a cambio de nada que el usuario vea. Solo las columnas propias de `AspNetUsers` siguen la convención: `Nombre` (`varchar(150)`), `Estado` (`bit`, baja lógica) y `FechaRegistro`. Los tres roles (`Administrador`, `Colaborador`, `Asistente`) se siembran en la migración con ids fijos; el administrador inicial NO, porque su hash de contraseña se genera en tiempo de ejecución (ver `SeedSeguridad`).
+
+| Tabla | Columnas | |
+|---|---|---|
+| `PermisosRevocados` | `Id`, `UsuarioId` (`nvarchar(450)`, FK → `AspNetUsers`, Restrict), `Permiso` (`varchar(100)`), `FechaRegistro` | Solo lo que el administrador le quitó a un usuario; los permisos efectivos son los del rol menos estas filas. `UX_PermisosRevocados_Usuario_Permiso` (único). **Sin CHECK sobre `Permiso` a propósito:** una pantalla nueva agrega una clave al catálogo `Permisos` y no debe exigir migración; la validez la garantiza el servicio. |
+| `Bitacora` | `Id`, `UsuarioId` (nullable, FK → `AspNetUsers`, Restrict), `NombreUsuario` (`varchar(256)`), `Rol` (nullable), `Accion`, `Modulo`, `Detalle` (`varchar(500)`), `Fecha` (`datetime2`) | `CK_Bitacora_Accion`, `CK_Bitacora_Modulo` y `CK_Bitacora_Rol` sobre los catálogos `AccionesBitacora`, `ModulosSistema` y `RolesSistema`. `UsuarioId` admite NULL porque un inicio de sesión fallido con un correo inexistente no tiene usuario. Índices por `Fecha`, `UsuarioId` y `Modulo`. |
+
+**`Bitacora` es de solo inserción.** El repositorio no expone actualizar ni borrar, y el trigger `TR_Bitacora_SoloInsercion` (`INSTEAD OF UPDATE, DELETE`, con `THROW`) rechaza cualquier modificación desde cualquier conexión, incluida la de un sysadmin. Es un trigger y no un `REVOKE`/`DENY` porque los permisos se otorgan a un login concreto y en desarrollo la aplicación entra con la cuenta de Windows del desarrollador, a quien no se le puede denegar nada.
+
 ## Migraciones
 
 En orden cronológico:
@@ -199,6 +221,15 @@ En orden cronológico:
 | `20260828001822_AddTablaArticulosYEntradasInventario` | Tablas `Articulos` y `EntradasInventario`. |
 | `20260828001907_AddTablaSalidasInventarioYSolicitudesPrestamo` | Tablas `SalidasInventario` y `SolicitudesPrestamo`. |
 | `20260901010731_AddCodigoYUbicacionArticulo` | Agrega `Codigo` (único, filtrado) y `Ubicacion` a `Articulos`. |
+| `20260904001746_AddFechaResolucionSolicitudPrestamo` | Agrega `FechaResolucion` a `SolicitudesPrestamo`. |
+| `20260906034912_AddModuloDonaciones` | Tablas `Donantes`, `DonacionesDinero`, `DonacionesEspecie`, `DetallesDonacionEspecie` y `DonacionesEntregadas`; crea la FK de `EntradasInventario.DonanteId` limpiando antes las referencias huérfanas. |
+| `20260910091925_AddAnulacionEntradaInventario` | Agrega `Anulada` y `MotivoAnulacion` a `EntradasInventario`. |
+| `20260910204322_AddTablaGastosOperativos` | Tabla `GastosOperativos` y FK de `EntradasInventario.GastoOperativoId`. |
+| `20260910210635_AddCheckMotivoAnulacionEntradaInventario` | CHECK de coherencia `Anulada`/`MotivoAnulacion`. |
+| `20260912050528_AddModuloProyectos` | Tablas `ProyectosComunitarios` y `ParticipantesProyecto`. |
+| `20260913072504_AddMonedaADonacionesYGastos` | Agrega `Moneda` (con CHECK y default `Colones`) a `DonacionesDinero` y `GastosOperativos`. |
+| `20260915091630_AddTablaUsuariosIdentity` | Las siete tablas de ASP.NET Identity, con `Nombre`, `Estado` y `FechaRegistro` en `AspNetUsers`, y el seed de los tres roles. |
+| `20260915092029_AddTablasPermisosRevocadosYBitacora` | Tablas `PermisosRevocados` y `Bitacora`, y el trigger `TR_Bitacora_SoloInsercion`. |
 
 Varias de estas migraciones llevan bloques `migrationBuilder.Sql(...)` que **arreglan los datos ya guardados** antes de apretar una restricción. Es deliberado: no alcanza con cambiar el esquema si las filas existentes no cumplen la regla nueva.
 
@@ -227,7 +258,7 @@ dotnet ef migrations script --idempotent --project SIGAC.Infrastructure --startu
 
 ## Repositorios
 
-Los tres siguen el mismo patrón: reciben `IDbContextFactory<SigacDbContext>`, cada método abre su propio contexto con `await using`, las lecturas van con `AsNoTracking()` y se materializan con `ToListAsync()` antes de devolver (el contexto se libera al salir del método, así que un `IQueryable` diferido explotaría al recorrerlo desde la página).
+Todos siguen el mismo patrón (la excepción es `UsuariosService`, en `Identity/`, que usa el `SigacDbContext` scoped que comparte con `UserManager` para poder abrir transacciones que cubran a los dos): reciben `IDbContextFactory<SigacDbContext>`, cada método abre su propio contexto con `await using`, las lecturas van con `AsNoTracking()` y se materializan con `ToListAsync()` antes de devolver (el contexto se libera al salir del método, así que un `IQueryable` diferido explotaría al recorrerlo desde la página).
 
 Los filtros se componen sobre el `IQueryable` para que viajen a la base como `WHERE`. Nada de LINQ to Objects: filtrar en memoria obligaría a traerse la tabla entera.
 
@@ -243,9 +274,9 @@ Decisiones que conviene conocer antes de tocar `InventarioRepositoryEfCore`:
 ## Detalles que confunden la primera vez
 
 - **`Restrict` aparece como `NO_ACTION` en SQL Server.** Si inspeccionás `sys.foreign_keys` vas a ver `NO_ACTION` en el `delete_referential_action_desc`. Es correcto: EF Core traduce así su `DeleteBehavior.Restrict`, y el borrado igual se rechaza.
-- **`sqlcmd` no puede escribir en tablas con índice filtrado** salvo que le pases `-I`. Conecta con `QUOTED_IDENTIFIER OFF` por defecto y SQL Server exige `ON` para modificar esas tablas. Afecta a `Beneficiarios` y a `SalidasInventario`. La aplicación no tiene el problema: `SqlClient` siempre lo pone en `ON`.
+- **`sqlcmd` no puede escribir en tablas con índice filtrado** salvo que le pases `-I`. Conecta con `QUOTED_IDENTIFIER OFF` por defecto y SQL Server exige `ON` para modificar esas tablas. Afecta a `Beneficiarios`, `Articulos` (por `UX_Articulos_Codigo`), `SalidasInventario` y `AspNetUsers` (por el `UserNameIndex` de Identity). La aplicación no tiene el problema: `SqlClient` siempre lo pone en `ON`.
 - **Dos `NULL` no son iguales para un índice único de SQL Server.** Por eso hay columnas que se guardan como cadena vacía y por eso los índices que deben ignorar los nulos van filtrados. Es la razón detrás de varias decisiones que si no parecerían arbitrarias.
 
 ## Pendiente
 
-- **`EntradaInventario.DonanteId` y `GastoOperativoId` no tienen FK.** Las entidades `Donante` y `GastoOperativo` todavía no existen en el dominio, así que hoy son columnas `int NULL` sin integridad referencial: se puede guardar un id que no corresponda a nada. La configuración está escrita y comentada con un `TODO` en `SigacDbContext`, lista para descomentar y generar una migración cuando esas entidades se creen.
+- **Login SQL propio para producción.** Hoy la aplicación entra con la cuenta de Windows del desarrollador (`Trusted_Connection=True`), que es sysadmin. Al instalar en la asociación conviene crear un login SQL con permisos limitados (lectura/escritura sobre las tablas, sin `ALTER`) y ponerlo en la cadena de conexión. El trigger de `Bitacora` protege la tabla igual, pero un login acotado es la segunda red.

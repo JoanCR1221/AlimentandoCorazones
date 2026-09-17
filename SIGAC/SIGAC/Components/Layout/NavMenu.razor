@@ -1,6 +1,14 @@
+@using System.Security.Claims
+@using SIGAC.Infrastructure.Identity
 @inject NavigationManager Navigation
 @implements IDisposable
 
+@* Menú definido como datos (grupos → enlaces con su permiso) y no como seis
+   bloques repetidos: cada enlace se muestra solo si la cookie del usuario trae
+   el claim de su permiso (AB#1218), un grupo sin enlaces visibles desaparece
+   entero, y "al abrir el grupo, ir a su primera pantalla" lleva al primer
+   enlace que el usuario SÍ puede ver. Los permisos vienen de la cookie
+   (PermisosClaimsPrincipalFactory): no hay consultas a la base al navegar. *@
 <MudNavMenu Class="pa-2">
     <MudText Typo="Typo.subtitle2" Class="px-4 py-2 mud-text-secondary">Navegación</MudText>
 
@@ -8,262 +16,217 @@
         Inicio
     </MudNavLink>
 
-    <MudNavGroup Title="Beneficiarios"
-                 Icon="@Icons.Material.Filled.People"
-                 Expanded="_beneficiariosExpandido"
-                 ExpandedChanged="OnBeneficiariosExpandedChanged">
-        <MudNavLink Href="/beneficiarios" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.People">
-            Ver Beneficiarios
-        </MudNavLink>
-        <MudNavLink Href="/beneficiarios/registrar" Icon="@Icons.Material.Filled.PersonAdd">
-            Registrar Beneficiario
-        </MudNavLink>
-        <MudNavLink Href="/donaciones/entregas/registrar" Icon="@Icons.Material.Filled.LocalShipping">
-            Entregar Donación
-        </MudNavLink>
-        <MudNavLink Href="/donaciones/entregas/historial" Icon="@Icons.Material.Filled.History">
-            Historial de Entregas
-        </MudNavLink>
-    </MudNavGroup>
-
-    <MudNavGroup Title="Asistencia"
-                 Icon="@Icons.Material.Filled.Restaurant"
-                 Expanded="_asistenciaExpandido"
-                 ExpandedChanged="OnAsistenciaExpandedChanged">
-        <MudNavLink Href="/asistencia/historial" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.History">
-            Ver Asistencia
-        </MudNavLink>
-        <MudNavLink Href="/asistencia/registrar" Icon="@Icons.Material.Filled.Restaurant">
-            Agregar Asistencia
-        </MudNavLink>
-    </MudNavGroup>
-
-    <MudNavGroup Title="Inventario"
-                 Icon="@Icons.Material.Filled.Inventory"
-                 Expanded="_inventarioExpandido"
-                 ExpandedChanged="OnInventarioExpandedChanged">
-        <MudNavLink Href="/inventario/existencias" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Inventory2">
-            Ver Existencias
-        </MudNavLink>
-        <MudNavLink Href="/inventario/entradas/registrar" Icon="@Icons.Material.Filled.AddBox">
-            Registrar Entrada
-        </MudNavLink>
-        <MudNavLink Href="/inventario/prestamos/solicitar" Icon="@Icons.Material.Filled.Handshake">
-            Solicitar Préstamo
-        </MudNavLink>
-        <MudNavLink Href="/inventario/prestamos/gestionar" Icon="@Icons.Material.Filled.FactCheck">
-            Gestionar Solicitudes
-        </MudNavLink>
-        <MudNavLink Href="/inventario/movimientos/historial" Icon="@Icons.Material.Filled.History">
-            Historial de Movimientos
-        </MudNavLink>
-    </MudNavGroup>
-
-    <MudNavGroup Title="Donaciones"
-                 Icon="@Icons.Material.Filled.VolunteerActivism"
-                 Expanded="_donacionesExpandido"
-                 ExpandedChanged="OnDonacionesExpandedChanged">
-        <MudNavLink Href="/donantes" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.People">
-            Ver Donantes
-        </MudNavLink>
-        <MudNavLink Href="/donantes/registrar" Icon="@Icons.Material.Filled.PersonAdd">
-            Registrar Donante
-        </MudNavLink>
-        <MudNavLink Href="/donaciones/dinero/registrar" Icon="@Icons.Material.Filled.AttachMoney">
-            Donación en Dinero
-        </MudNavLink>
-        <MudNavLink Href="/donaciones/especie/registrar" Icon="@Icons.Material.Filled.Redeem">
-            Donación en Especie
-        </MudNavLink>
-        <MudNavLink Href="/donaciones/historial" Icon="@Icons.Material.Filled.History">
-            Historial de Donaciones
-        </MudNavLink>
-    </MudNavGroup>
-
-    <MudNavGroup Title="Gastos Operativos"
-                 Icon="@Icons.Material.Filled.Receipt"
-                 Expanded="_gastosExpandido"
-                 ExpandedChanged="OnGastosExpandedChanged">
-        <MudNavLink Href="/gastos" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.ReceiptLong">
-            Ver Gastos
-        </MudNavLink>
-        <MudNavLink Href="/gastos/registrar" Icon="@Icons.Material.Filled.PostAdd">
-            Registrar Gasto
-        </MudNavLink>
-    </MudNavGroup>
-
-    <MudNavGroup Title="Proyectos"
-                 Icon="@Icons.Material.Filled.Groups"
-                 Expanded="_proyectosExpandido"
-                 ExpandedChanged="OnProyectosExpandedChanged">
-        <MudNavLink Href="/proyectos" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Groups">
-            Ver Proyectos
-        </MudNavLink>
-        <MudNavLink Href="/proyectos/registrar" Icon="@Icons.Material.Filled.AddCircle">
-            Registrar Proyecto
-        </MudNavLink>
-    </MudNavGroup>
+    @foreach (var grupo in gruposVisibles)
+    {
+        <MudNavGroup Title="@grupo.Titulo"
+                     Icon="@grupo.Icono"
+                     Expanded="grupo.Expandido"
+                     ExpandedChanged="@(expandido => OnExpandedChanged(grupo, expandido))">
+            @foreach (var enlace in grupo.EnlacesVisibles)
+            {
+                <MudNavLink Href="@enlace.Href" Match="@enlace.Match" Icon="@enlace.Icono">
+                    @enlace.Titulo
+                </MudNavLink>
+            }
+        </MudNavGroup>
+    }
 
     <MudDivider Class="my-2" />
 
+    @* Para todos: acá vive el cambio de la propia contraseña y la apariencia. *@
     <MudNavLink Href="/configuracion" Icon="@Icons.Material.Filled.Settings">
         Configuraciones
     </MudNavLink>
 </MudNavMenu>
 
 @code {
-    private bool _beneficiariosExpandido;
-    private bool _asistenciaExpandido;
-    private bool _inventarioExpandido;
-    private bool _donacionesExpandido;
-    private bool _gastosExpandido;
-    private bool _proyectosExpandido;
+    [CascadingParameter]
+    private Task<AuthenticationState>? EstadoAutenticacion { get; set; }
 
-    protected override void OnInitialized()
+    private sealed record Enlace(string Titulo, string Href, string Icono, string Permiso, NavLinkMatch Match = NavLinkMatch.Prefix);
+
+    private sealed class Grupo
+    {
+        public required string Titulo { get; init; }
+        public required string Icono { get; init; }
+
+        // Rutas (relativas, sin barra inicial) que "pertenecen" al grupo, para
+        // expandirlo al navegar. Excluidos permite que /donaciones/entregas/...
+        // cuente para Beneficiarios y no para Donaciones.
+        public required string[] Prefijos { get; init; }
+        public string[] Excluidos { get; init; } = Array.Empty<string>();
+
+        public required IReadOnlyList<Enlace> Enlaces { get; init; }
+        public IReadOnlyList<Enlace> EnlacesVisibles { get; set; } = Array.Empty<Enlace>();
+        public bool Expandido { get; set; }
+    }
+
+    private List<Grupo> gruposVisibles = new();
+
+    // Instancias nuevas por componente: Expandido y EnlacesVisibles son estado
+    // propio de cada circuito y no pueden compartirse en un static.
+    private static List<Grupo> CrearGrupos() => new()
+    {
+        new Grupo
+        {
+            Titulo = "Beneficiarios",
+            Icono = Icons.Material.Filled.People,
+            // "Entregar Donación" e "Historial de Entregas" viven acá aunque su
+            // ruta siga siendo /donaciones/entregas/...: son la salida de una
+            // donación hacia un beneficiario o una comunidad, no el alta de la
+            // donación en sí.
+            Prefijos = new[] { "beneficiarios", "donaciones/entregas" },
+            Enlaces = new[]
+            {
+                new Enlace("Ver Beneficiarios", "/beneficiarios", Icons.Material.Filled.People, Permisos.Beneficiarios.Ver, NavLinkMatch.All),
+                new Enlace("Registrar Beneficiario", "/beneficiarios/registrar", Icons.Material.Filled.PersonAdd, Permisos.Beneficiarios.Registrar),
+                new Enlace("Entregar Donación", "/donaciones/entregas/registrar", Icons.Material.Filled.LocalShipping, Permisos.Donaciones.RegistrarEntrega),
+                new Enlace("Historial de Entregas", "/donaciones/entregas/historial", Icons.Material.Filled.History, Permisos.Donaciones.VerEntregas)
+            }
+        },
+        new Grupo
+        {
+            Titulo = "Asistencia",
+            Icono = Icons.Material.Filled.Restaurant,
+            Prefijos = new[] { "asistencia" },
+            Enlaces = new[]
+            {
+                new Enlace("Ver Asistencia", "/asistencia/historial", Icons.Material.Filled.History, Permisos.Asistencia.Ver, NavLinkMatch.All),
+                new Enlace("Agregar Asistencia", "/asistencia/registrar", Icons.Material.Filled.Restaurant, Permisos.Asistencia.Registrar)
+            }
+        },
+        new Grupo
+        {
+            Titulo = "Inventario",
+            Icono = Icons.Material.Filled.Inventory,
+            Prefijos = new[] { "inventario" },
+            Enlaces = new[]
+            {
+                new Enlace("Ver Existencias", "/inventario/existencias", Icons.Material.Filled.Inventory2, Permisos.Inventario.VerExistencias, NavLinkMatch.All),
+                new Enlace("Registrar Entrada", "/inventario/entradas/registrar", Icons.Material.Filled.AddBox, Permisos.Inventario.RegistrarEntrada),
+                new Enlace("Solicitar Préstamo", "/inventario/prestamos/solicitar", Icons.Material.Filled.Handshake, Permisos.Inventario.SolicitarPrestamo),
+                new Enlace("Gestionar Solicitudes", "/inventario/prestamos/gestionar", Icons.Material.Filled.FactCheck, Permisos.Inventario.GestionarSolicitudes),
+                new Enlace("Historial de Movimientos", "/inventario/movimientos/historial", Icons.Material.Filled.History, Permisos.Inventario.VerMovimientos)
+            }
+        },
+        new Grupo
+        {
+            Titulo = "Donaciones",
+            Icono = Icons.Material.Filled.VolunteerActivism,
+            // Donantes y Donaciones son pantallas del mismo grupo con rutas
+            // separadas; donaciones/entregas se excluye porque es de Beneficiarios.
+            Prefijos = new[] { "donantes", "donaciones" },
+            Excluidos = new[] { "donaciones/entregas" },
+            Enlaces = new[]
+            {
+                new Enlace("Ver Donantes", "/donantes", Icons.Material.Filled.People, Permisos.Donaciones.VerDonantes, NavLinkMatch.All),
+                new Enlace("Registrar Donante", "/donantes/registrar", Icons.Material.Filled.PersonAdd, Permisos.Donaciones.RegistrarDonante),
+                new Enlace("Donación en Dinero", "/donaciones/dinero/registrar", Icons.Material.Filled.AttachMoney, Permisos.Donaciones.RegistrarDinero),
+                new Enlace("Donación en Especie", "/donaciones/especie/registrar", Icons.Material.Filled.Redeem, Permisos.Donaciones.RegistrarEspecie),
+                new Enlace("Historial de Donaciones", "/donaciones/historial", Icons.Material.Filled.History, Permisos.Donaciones.VerHistorial)
+            }
+        },
+        new Grupo
+        {
+            Titulo = "Gastos Operativos",
+            Icono = Icons.Material.Filled.Receipt,
+            Prefijos = new[] { "gastos" },
+            Enlaces = new[]
+            {
+                new Enlace("Ver Gastos", "/gastos", Icons.Material.Filled.ReceiptLong, Permisos.Gastos.Ver, NavLinkMatch.All),
+                new Enlace("Registrar Gasto", "/gastos/registrar", Icons.Material.Filled.PostAdd, Permisos.Gastos.Registrar)
+            }
+        },
+        new Grupo
+        {
+            Titulo = "Proyectos",
+            Icono = Icons.Material.Filled.Groups,
+            Prefijos = new[] { "proyectos" },
+            Enlaces = new[]
+            {
+                new Enlace("Ver Proyectos", "/proyectos", Icons.Material.Filled.Groups, Permisos.Proyectos.Ver, NavLinkMatch.All),
+                new Enlace("Registrar Proyecto", "/proyectos/registrar", Icons.Material.Filled.AddCircle, Permisos.Proyectos.Registrar)
+            }
+        },
+        new Grupo
+        {
+            Titulo = "Seguridad",
+            Icono = Icons.Material.Filled.Security,
+            Prefijos = new[] { "usuarios", "bitacora" },
+            Enlaces = new[]
+            {
+                new Enlace("Ver Usuarios", "/usuarios", Icons.Material.Filled.ManageAccounts, Permisos.Seguridad.GestionarUsuarios, NavLinkMatch.All),
+                new Enlace("Registrar Usuario", "/usuarios/registrar", Icons.Material.Filled.PersonAdd, Permisos.Seguridad.GestionarUsuarios),
+                new Enlace("Bitácora", "/bitacora", Icons.Material.Filled.History, Permisos.Seguridad.VerBitacora)
+            }
+        }
+    };
+
+    protected override async Task OnInitializedAsync()
     {
         Navigation.LocationChanged += OnLocationChanged;
-        _beneficiariosExpandido = EstaEnBeneficiarios();
-        _asistenciaExpandido = EstaEnAsistencia();
-        _inventarioExpandido = EstaEnInventario();
-        _donacionesExpandido = EstaEnDonaciones();
-        _gastosExpandido = EstaEnGastos();
-        _proyectosExpandido = EstaEnProyectos();
+
+        var usuario = EstadoAutenticacion is null
+            ? new ClaimsPrincipal(new ClaimsIdentity())
+            : (await EstadoAutenticacion).User;
+
+        var grupos = CrearGrupos();
+
+        foreach (var grupo in grupos)
+        {
+            grupo.EnlacesVisibles = grupo.Enlaces
+                .Where(e => usuario.HasClaim(ClaimsSigac.Permiso, e.Permiso))
+                .ToList();
+        }
+
+        gruposVisibles = grupos.Where(g => g.EnlacesVisibles.Count > 0).ToList();
+        SincronizarExpansion();
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        var expandirBeneficiarios = EstaEnBeneficiarios();
-        var expandirAsistencia = EstaEnAsistencia();
-        var expandirInventario = EstaEnInventario();
-        var expandirDonaciones = EstaEnDonaciones();
-        var expandirGastos = EstaEnGastos();
-        var expandirProyectos = EstaEnProyectos();
-
-        if (_beneficiariosExpandido != expandirBeneficiarios || _asistenciaExpandido != expandirAsistencia
-            || _inventarioExpandido != expandirInventario || _donacionesExpandido != expandirDonaciones
-            || _gastosExpandido != expandirGastos || _proyectosExpandido != expandirProyectos)
-        {
-            _beneficiariosExpandido = expandirBeneficiarios;
-            _asistenciaExpandido = expandirAsistencia;
-            _inventarioExpandido = expandirInventario;
-            _donacionesExpandido = expandirDonaciones;
-            _gastosExpandido = expandirGastos;
-            _proyectosExpandido = expandirProyectos;
+        if (SincronizarExpansion())
             InvokeAsync(StateHasChanged);
-        }
     }
 
-    private bool EstaEnBeneficiarios()
+    // Expande el grupo de la ruta actual y contrae los demás. Devuelve si algo
+    // cambió, para no re-renderizar en vano.
+    private bool SincronizarExpansion()
     {
         var ruta = Navigation.ToBaseRelativePath(Navigation.Uri);
+        var cambio = false;
 
-        // "Entregar Donación" e "Historial de Entregas" viven acá aunque su ruta
-        // siga siendo /donaciones/entregas/...: son la salida de una donación
-        // hacia un beneficiario o una comunidad, no el alta de la donación en sí.
-        return ruta.StartsWith("beneficiarios", StringComparison.OrdinalIgnoreCase)
-            || ruta.StartsWith("donaciones/entregas", StringComparison.OrdinalIgnoreCase);
+        foreach (var grupo in gruposVisibles)
+        {
+            var expandir = EstaEn(grupo, ruta);
+
+            if (grupo.Expandido != expandir)
+            {
+                grupo.Expandido = expandir;
+                cambio = true;
+            }
+        }
+
+        return cambio;
     }
 
-    private bool EstaEnAsistencia()
+    private static bool EstaEn(Grupo grupo, string ruta)
     {
+        if (grupo.Excluidos.Any(x => ruta.StartsWith(x, StringComparison.OrdinalIgnoreCase)))
+            return false;
+
+        return grupo.Prefijos.Any(p => ruta.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+    }
+
+    // Al abrir el grupo, ir a su primera pantalla visible; el resto aparece debajo.
+    private void OnExpandedChanged(Grupo grupo, bool expandido)
+    {
+        grupo.Expandido = expandido;
+
         var ruta = Navigation.ToBaseRelativePath(Navigation.Uri);
-        return ruta.StartsWith("asistencia", StringComparison.OrdinalIgnoreCase);
-    }
 
-    private bool EstaEnInventario()
-    {
-        var ruta = Navigation.ToBaseRelativePath(Navigation.Uri);
-        return ruta.StartsWith("inventario", StringComparison.OrdinalIgnoreCase);
-    }
-
-    // Dos prefijos y no uno: Donantes y Donaciones son pantallas del mismo grupo
-    // de navegación pero con rutas separadas ("/donantes/..." y "/donaciones/...").
-    // Excluye donaciones/entregas a propósito: esas dos pantallas se mudaron al
-    // grupo Beneficiarios (ver EstaEnBeneficiarios), aunque la ruta no cambió.
-    private bool EstaEnDonaciones()
-    {
-        var ruta = Navigation.ToBaseRelativePath(Navigation.Uri);
-        return ruta.StartsWith("donantes", StringComparison.OrdinalIgnoreCase)
-            || (ruta.StartsWith("donaciones", StringComparison.OrdinalIgnoreCase)
-                && !ruta.StartsWith("donaciones/entregas", StringComparison.OrdinalIgnoreCase));
-    }
-
-    private bool EstaEnGastos()
-    {
-        var ruta = Navigation.ToBaseRelativePath(Navigation.Uri);
-        return ruta.StartsWith("gastos", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private bool EstaEnProyectos()
-    {
-        var ruta = Navigation.ToBaseRelativePath(Navigation.Uri);
-        return ruta.StartsWith("proyectos", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private void OnBeneficiariosExpandedChanged(bool expandido)
-    {
-        _beneficiariosExpandido = expandido;
-
-        // Al abrir el grupo, ir al listado; Registrar aparece debajo.
-        if (expandido && !EstaEnBeneficiarios())
-        {
-            Navigation.NavigateTo("/beneficiarios");
-        }
-    }
-
-    private void OnAsistenciaExpandedChanged(bool expandido)
-    {
-        _asistenciaExpandido = expandido;
-
-        // Al abrir el grupo, ir al historial; Agregar aparece debajo.
-        if (expandido && !EstaEnAsistencia())
-        {
-            Navigation.NavigateTo("/asistencia/historial");
-        }
-    }
-
-    private void OnInventarioExpandedChanged(bool expandido)
-    {
-        _inventarioExpandido = expandido;
-
-        // Al abrir el grupo, ir a existencias; Registrar entrada aparece debajo.
-        if (expandido && !EstaEnInventario())
-        {
-            Navigation.NavigateTo("/inventario/existencias");
-        }
-    }
-
-    private void OnDonacionesExpandedChanged(bool expandido)
-    {
-        _donacionesExpandido = expandido;
-
-        // Al abrir el grupo, ir al listado de donantes; el resto aparece debajo.
-        if (expandido && !EstaEnDonaciones())
-        {
-            Navigation.NavigateTo("/donantes");
-        }
-    }
-
-    private void OnGastosExpandedChanged(bool expandido)
-    {
-        _gastosExpandido = expandido;
-
-        // Al abrir el grupo, ir al listado; Registrar aparece debajo.
-        if (expandido && !EstaEnGastos())
-        {
-            Navigation.NavigateTo("/gastos");
-        }
-    }
-
-    private void OnProyectosExpandedChanged(bool expandido)
-    {
-        _proyectosExpandido = expandido;
-
-        // Al abrir el grupo, ir al listado; Registrar aparece debajo.
-        if (expandido && !EstaEnProyectos())
-        {
-            Navigation.NavigateTo("/proyectos");
-        }
+        if (expandido && !EstaEn(grupo, ruta) && grupo.EnlacesVisibles.Count > 0)
+            Navigation.NavigateTo(grupo.EnlacesVisibles[0].Href);
     }
 
     public void Dispose()

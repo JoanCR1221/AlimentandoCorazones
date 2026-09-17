@@ -1,0 +1,277 @@
+@page "/usuarios"
+@attribute [Authorize(Policy = Permisos.Seguridad.GestionarUsuarios)]
+@using System.Security.Claims
+@using SIGAC.Application.DTOs.Seguridad
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@inject IUsuariosService UsuariosService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Usuarios — SIGAC</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Usuarios del sistema</MudText>
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        <MudTextField T="string" Value="filtroTexto" ValueChanged="OnFiltroTextoCambiado" Immediate="true" DebounceInterval="300"
+                      Label="Buscar por nombre o correo" Variant="Variant.Outlined" Class="mb-4" />
+        @* Lista cerrada: la fuente es SIGAC.Domain.RolesSistema, no la pantalla. *@
+        <MudSelect T="string" Value="filtroRol" ValueChanged="OnFiltroRolCambiado" Label="Rol" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
+            @foreach (var rol in RolesSistema.Todos)
+            {
+                <MudSelectItem T="string" Value="@rol">@rol</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect T="bool?" Value="filtroEstado" ValueChanged="OnFiltroEstadoCambiado" Label="Estado" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
+            <MudSelectItem T="bool?" Value="true">Activo</MudSelectItem>
+            <MudSelectItem T="bool?" Value="false">Inactivo</MudSelectItem>
+        </MudSelect>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/usuarios/registrar"
+                   StartIcon="@Icons.Material.Filled.PersonAdd" Class="mb-4">
+            Registrar usuario
+        </MudButton>
+
+        @* Items y no ServerData: el listado completo cabe en memoria (decenas de
+           usuarios) y el filtrado ya lo hace el servicio en SQL. *@
+        <MudDataGrid T="UsuarioListaDto" Items="@usuarios" Loading="cargando"
+                     SortMode="SortMode.None" Filterable="false" Dense="true">
+            <Columns>
+                <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
+                <PropertyColumn Property="x => x.Correo" Title="Correo" />
+                <PropertyColumn Property="x => x.Rol" Title="Rol" />
+                <TemplateColumn Title="Estado">
+                    <CellTemplate>
+                        @if (!context.Item.Estado)
+                        {
+                            <MudChip T="string" Color="Color.Default" Size="Size.Small" Icon="@Icons.Material.Filled.Block">Inactivo</MudChip>
+                        }
+                        else if (context.Item.BloqueadoTemporalmente)
+                        {
+                            <MudChip T="string" Color="Color.Warning" Size="Size.Small" Icon="@Icons.Material.Filled.Lock"
+                                     title="@($"Demasiados intentos fallidos. El bloqueo dura {ReglasUsuario.MinutosBloqueo} minutos; restablecer la contraseña lo levanta.")">
+                                Bloqueado temporalmente
+                            </MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Success" Size="Size.Small" Icon="@Icons.Material.Filled.CheckCircle">Activo</MudChip>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.FechaRegistro" Title="Registrado" Format="dd/MM/yyyy" />
+                <TemplateColumn Title="Acciones">
+                    <CellTemplate>
+                        @{
+                            // El servicio rechaza igual estas acciones sobre uno mismo;
+                            // deshabilitarlas evita mostrar un error que ya se conoce.
+                            var esElMismo = context.Item.Id == idUsuarioActual;
+                        }
+                        @* Un menú por fila y no cuatro botones: la columna no cabe en
+                           pantallas angostas y las acciones son poco frecuentes. *@
+                        <MudMenu Label="Acciones" Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                 EndIcon="@Icons.Material.Filled.KeyboardArrowDown"
+                                 AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft"
+                                 aria-label="@($"Acciones para {context.Item.Nombre}")">
+                            <MudMenuItem Icon="@Icons.Material.Filled.SwapHoriz" Disabled="esElMismo"
+                                         OnClick="@(() => CambiarRolAsync(context.Item))">
+                                Cambiar rol
+                            </MudMenuItem>
+                            <MudMenuItem Icon="@Icons.Material.Filled.Tune"
+                                         Href="@($"/usuarios/{context.Item.Id}/permisos")"
+                                         Disabled="@(!PermisosPorRol.AdmiteRevocaciones(context.Item.Rol))">
+                                Permisos
+                            </MudMenuItem>
+                            <MudMenuItem Icon="@Icons.Material.Filled.LockReset" Disabled="esElMismo"
+                                         OnClick="@(() => RestablecerPasswordAsync(context.Item))">
+                                Restablecer contraseña
+                            </MudMenuItem>
+                            <MudDivider />
+                            @if (context.Item.Estado)
+                            {
+                                <MudMenuItem Icon="@Icons.Material.Filled.Block" IconColor="Color.Error" Disabled="esElMismo"
+                                             OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item, false))">
+                                    Desactivar
+                                </MudMenuItem>
+                            }
+                            else
+                            {
+                                <MudMenuItem Icon="@Icons.Material.Filled.CheckCircle" IconColor="Color.Success"
+                                             OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item, true))">
+                                    Activar
+                                </MudMenuItem>
+                            }
+                            @if (esElMismo)
+                            {
+                                <MudDivider />
+                                <MudMenuItem Disabled="true">Tu propio usuario: cambiá tu contraseña desde Configuración.</MudMenuItem>
+                            }
+                        </MudMenu>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+            <NoRecordsContent>
+                <MudText>No hay usuarios que coincidan con los filtros.</MudText>
+            </NoRecordsContent>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? EstadoAutenticacion { get; set; }
+
+    private IReadOnlyList<UsuarioListaDto> usuarios = Array.Empty<UsuarioListaDto>();
+    private bool cargando = true;
+    private string? idUsuarioActual;
+
+    private string? filtroTexto;
+    private string? filtroRol;
+    private bool? filtroEstado;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (EstadoAutenticacion is not null)
+        {
+            var estado = await EstadoAutenticacion;
+            idUsuarioActual = estado.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        }
+
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        cargando = true;
+
+        try
+        {
+            usuarios = await UsuariosService.ObtenerUsuariosAsync(new FiltrosUsuarioDto
+            {
+                Texto = filtroTexto,
+                Rol = filtroRol,
+                Estado = filtroEstado
+            });
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudieron cargar los usuarios. Intentá de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task OnFiltroTextoCambiado(string? valor)
+    {
+        filtroTexto = valor;
+        await CargarAsync();
+    }
+
+    private async Task OnFiltroRolCambiado(string? valor)
+    {
+        filtroRol = valor;
+        await CargarAsync();
+    }
+
+    private async Task OnFiltroEstadoCambiado(bool? valor)
+    {
+        filtroEstado = valor;
+        await CargarAsync();
+    }
+
+    private async Task CambiarRolAsync(UsuarioListaDto usuario)
+    {
+        var parametros = new DialogParameters<CambiarRolDialog>
+        {
+            { d => d.NombreUsuario, usuario.Nombre },
+            { d => d.RolActual, usuario.Rol }
+        };
+
+        var dialogo = await DialogService.ShowAsync<CambiarRolDialog>("Cambiar rol", parametros);
+        var resultado = await dialogo.Result;
+
+        if (resultado is null || resultado.Canceled || resultado.Data is not string nuevoRol)
+            return;
+
+        await EjecutarAsync(
+            () => UsuariosService.CambiarRolAsync(new CambioRolDto { UsuarioId = usuario.Id, NuevoRol = nuevoRol }),
+            $"Rol de {usuario.Nombre} cambiado a {nuevoRol}. Su sesión se cierra en menos de un minuto.",
+            "No se pudo cambiar el rol. Intentá de nuevo.");
+    }
+
+    private async Task ConfirmarCambioEstadoAsync(UsuarioListaDto usuario, bool activar)
+    {
+        var pregunta = activar
+            ? $"¿Seguro que querés activar a {usuario.Nombre}? Va a poder iniciar sesión de inmediato."
+            : $"¿Seguro que querés desactivar a {usuario.Nombre}? No va a poder iniciar sesión y, si tiene una sesión abierta, se cierra en menos de un minuto. Su historial se conserva.";
+
+        var confirmado = await DialogService.ShowMessageBoxAsync(
+            "Confirmar",
+            pregunta,
+            yesText: activar ? "Activar" : "Desactivar",
+            cancelText: "Cancelar");
+
+        if (confirmado != true)
+            return;
+
+        await EjecutarAsync(
+            () => activar ? UsuariosService.ActivarUsuarioAsync(usuario.Id) : UsuariosService.DesactivarUsuarioAsync(usuario.Id),
+            activar ? "Usuario activado." : "Usuario desactivado.",
+            "No se pudo actualizar el estado del usuario. Intentá de nuevo.");
+    }
+
+    private async Task RestablecerPasswordAsync(UsuarioListaDto usuario)
+    {
+        var parametros = new DialogParameters<RestablecerPasswordDialog>
+        {
+            { d => d.NombreUsuario, usuario.Nombre }
+        };
+
+        var dialogo = await DialogService.ShowAsync<RestablecerPasswordDialog>("Restablecer contraseña", parametros);
+        var resultado = await dialogo.Result;
+
+        if (resultado is null || resultado.Canceled || resultado.Data is not RestablecerPasswordDto dto)
+            return;
+
+        dto.UsuarioId = usuario.Id;
+
+        await EjecutarAsync(
+            () => UsuariosService.RestablecerPasswordAsync(dto),
+            $"Contraseña de {usuario.Nombre} restablecida. Indicale que la cambie desde Configuración al entrar.",
+            "No se pudo restablecer la contraseña. Intentá de nuevo.");
+    }
+
+    // Un solo lugar para el patrón "ejecutar, avisar, recargar": las cuatro
+    // acciones del listado distinguen los mismos tipos de error.
+    private async Task EjecutarAsync(Func<Task> accion, string mensajeExito, string mensajeError)
+    {
+        try
+        {
+            await accion();
+            Snackbar.Add(mensajeExito, Severity.Success);
+            await CargarAsync();
+        }
+        catch (UltimoAdministradorException ex)
+        {
+            // Mensaje específico (AB de fase 3): no es un error de datos, es una
+            // regla del sistema que el administrador tiene que resolver antes.
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (NotFoundException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+            await CargarAsync();
+        }
+        catch (Exception)
+        {
+            Snackbar.Add(mensajeError, Severity.Error);
+        }
+    }
+}

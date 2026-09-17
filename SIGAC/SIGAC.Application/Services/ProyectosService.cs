@@ -1,6 +1,7 @@
 using SIGAC.Application.DTOs.Proyectos;
 using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
+using SIGAC.Domain;
 using SIGAC.Application.Validators;
 using SIGAC.Domain.Entities;
 
@@ -14,13 +15,16 @@ namespace SIGAC.Application.Services
     {
         private readonly IProyectosRepository _repository;
         private readonly IBeneficiariosRepository _beneficiariosRepository;
+        private readonly IBitacoraService _bitacora;
 
         public ProyectosService(
             IProyectosRepository repository,
-            IBeneficiariosRepository beneficiariosRepository)
+            IBeneficiariosRepository beneficiariosRepository,
+            IBitacoraService bitacora)
         {
             _repository = repository;
             _beneficiariosRepository = beneficiariosRepository;
+            _bitacora = bitacora;
         }
 
         public async Task<int> RegistrarProyectoAsync(ProyectoCrearDto dto)
@@ -40,6 +44,9 @@ namespace SIGAC.Application.Services
                 };
 
                 await _repository.AgregarAsync(proyecto);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Proyectos,
+                    $"Proyecto #{proyecto.Id}: {proyecto.Nombre}");
 
                 return proyecto.Id;
             }
@@ -73,6 +80,9 @@ namespace SIGAC.Application.Services
                 proyecto.Estado = estado;
 
                 await _repository.ActualizarAsync(proyecto);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Editar, ModulosSistema.Proyectos,
+                    $"Proyecto #{proyecto.Id}: {proyecto.Nombre} ({proyecto.Estado})");
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {
@@ -118,6 +128,9 @@ namespace SIGAC.Application.Services
                     throw new ValidationException("No se puede finalizar un proyecto cancelado.");
 
                 await _repository.FinalizarAsync(id);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Finalizar, ModulosSistema.Proyectos,
+                    $"Proyecto #{id}: {proyecto.Nombre}");
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {
@@ -166,6 +179,10 @@ namespace SIGAC.Application.Services
                 };
 
                 await _repository.AgregarParticipanteAsync(participante);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Proyectos,
+                    $"Participante en proyecto #{dto.ProyectoId}: " +
+                    (participante.EsBeneficiario ? $"beneficiario #{participante.BeneficiarioId}" : participante.NombreExterno));
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {

@@ -28,4 +28,13 @@
             BeneficiarioId = beneficiarioId;
         }
     }
+
+    // Caso particular de ValidationException del módulo de seguridad: la
+    // operación dejaría al sistema sin ningún Administrador activo (quitarle el
+    // rol o desactivar al único que queda). Se distingue para que la pantalla
+    // muestre un mensaje específico y no el genérico de validación.
+    public class UltimoAdministradorException : ValidationException
+    {
+        public UltimoAdministradorException(string mensaje) : base(mensaje) { }
+    }
 }

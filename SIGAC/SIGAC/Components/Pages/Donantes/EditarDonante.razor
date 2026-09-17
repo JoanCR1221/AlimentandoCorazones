@@ -1,4 +1,5 @@
 @page "/donantes/editar/{Id:int}"
+@attribute [Authorize(Policy = Permisos.Donaciones.EditarDonante)]
 @using SIGAC.Application.DTOs.Donaciones
 @using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces

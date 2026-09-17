@@ -1,0 +1,196 @@
+@page "/bitacora"
+@attribute [Authorize(Policy = Permisos.Seguridad.VerBitacora)]
+@using SIGAC.Application.DTOs
+@using SIGAC.Application.DTOs.Bitacora
+@using SIGAC.Application.DTOs.Seguridad
+@using SIGAC.Application.Interfaces
+@inject IBitacoraService BitacoraService
+@inject IUsuariosService UsuariosService
+@inject ISnackbar Snackbar
+
+<PageTitle>Bitácora — SIGAC</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Bitácora de acciones</MudText>
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        <MudText Typo="Typo.body2" Class="mb-4 mud-text-secondary">
+            Registro de todo lo que se hizo en el sistema: quién, qué, en qué módulo y cuándo.
+            Es de solo lectura: ninguna fila se puede editar ni borrar.
+        </MudText>
+
+        <MudGrid Spacing="2" Class="mb-4">
+            <MudItem xs="12" md="4">
+                @* Autocompletado sobre la lista completa de usuarios (decenas, no
+                   miles): filtra en memoria por nombre o correo. *@
+                <MudAutocomplete T="UsuarioListaDto" Value="filtroUsuario" ValueChanged="OnFiltroUsuarioCambiado"
+                                 SearchFunc="BuscarUsuariosAsync" ToStringFunc="@(u => u is null ? string.Empty : $"{u.Nombre} ({u.Correo})")"
+                                 Label="Usuario" Variant="Variant.Outlined" Clearable="true" ResetValueOnEmptyText="true"
+                                 CoerceText="false" MaxItems="20" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="2">
+                <MudSelect T="string" Value="filtroRol" ValueChanged="OnFiltroRolCambiado" Label="Rol" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var rol in RolesSistema.Todos)
+                    {
+                        <MudSelectItem T="string" Value="@rol">@rol</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="2">
+                <MudSelect T="string" Value="filtroModulo" ValueChanged="OnFiltroModuloCambiado" Label="Módulo" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var modulo in ModulosSistema.Todos)
+                    {
+                        <MudSelectItem T="string" Value="@modulo">@modulo</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiado"
+                                    Label="Rango de fechas" Variant="Variant.Outlined" Clearable="true"
+                                    DateFormat="dd/MM/yyyy" MaxDate="DateTime.Today" />
+            </MudItem>
+        </MudGrid>
+
+        @* ServerData: la bitácora crece con cada operación del sistema, así que
+           siempre se pide una página por vez. HierarchyColumn para desplegar el
+           detalle completo de una fila sin ensanchar la tabla. *@
+        <MudDataGrid T="BitacoraAccionDto" @ref="grilla"
+                     ServerData="CargarPaginaAsync"
+                     RowsPerPage="FiltrosBitacoraDto.TamanoPaginaPredeterminado"
+                     SortMode="SortMode.None" Filterable="false" Dense="true">
+            <Columns>
+                <HierarchyColumn T="BitacoraAccionDto" ButtonDisabledFunc="@(x => string.IsNullOrEmpty(x.Detalle))" />
+                <PropertyColumn Property="x => x.Fecha" Title="Fecha y hora" Format="dd/MM/yyyy HH:mm" />
+                <PropertyColumn Property="x => x.NombreUsuario" Title="Usuario" />
+                <PropertyColumn Property="x => x.Rol" Title="Rol" />
+                <PropertyColumn Property="x => x.Accion" Title="Acción" />
+                <PropertyColumn Property="x => x.Modulo" Title="Módulo" />
+                <TemplateColumn Title="Detalle">
+                    <CellTemplate>
+                        <span title="@context.Item.Detalle">@Resumir(context.Item.Detalle)</span>
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+            <ChildRowContent>
+                <MudText Typo="Typo.body2" Class="pa-2" Style="white-space: pre-wrap;">@context.Item.Detalle</MudText>
+            </ChildRowContent>
+            <NoRecordsContent>
+                <MudText>No hay acciones registradas que coincidan con los filtros.</MudText>
+            </NoRecordsContent>
+            <PagerContent>
+                <MudDataGridPager T="BitacoraAccionDto"
+                                  PageSizeOptions="@(new[] { FiltrosBitacoraDto.TamanoPaginaPredeterminado, 50, FiltrosBitacoraDto.TamanoPaginaMaximo })" />
+            </PagerContent>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private const int LargoResumenDetalle = 70;
+
+    private MudDataGrid<BitacoraAccionDto>? grilla;
+
+    private IReadOnlyList<UsuarioListaDto> usuarios = Array.Empty<UsuarioListaDto>();
+
+    private UsuarioListaDto? filtroUsuario;
+    private string? filtroRol;
+    private string? filtroModulo;
+    private DateRange? rangoFechas;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            usuarios = await UsuariosService.ObtenerUsuariosAsync(new FiltrosUsuarioDto());
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo cargar la lista de usuarios para el filtro.", Severity.Warning);
+        }
+    }
+
+    private async Task<GridData<BitacoraAccionDto>> CargarPaginaAsync(
+        GridState<BitacoraAccionDto> estado, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var resultado = await BitacoraService.ObtenerBitacoraAsync(new FiltrosBitacoraDto
+            {
+                UsuarioId = filtroUsuario?.Id,
+                Rol = filtroRol,
+                Modulo = filtroModulo,
+                FechaDesde = rangoFechas?.Start,
+                FechaHasta = rangoFechas?.End,
+                Pagina = estado.Page,
+                TamanoPagina = estado.PageSize
+            });
+
+            return new GridData<BitacoraAccionDto>
+            {
+                Items = resultado.Elementos,
+                TotalItems = resultado.TotalRegistros
+            };
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo cargar la bitácora. Intentá de nuevo.", Severity.Error);
+            return new GridData<BitacoraAccionDto> { Items = Array.Empty<BitacoraAccionDto>(), TotalItems = 0 };
+        }
+    }
+
+    private Task<IEnumerable<UsuarioListaDto>> BuscarUsuariosAsync(string? texto, CancellationToken cancellationToken)
+    {
+        IEnumerable<UsuarioListaDto> coincidencias = string.IsNullOrWhiteSpace(texto)
+            ? usuarios
+            : usuarios.Where(u =>
+                u.Nombre.Contains(texto, StringComparison.OrdinalIgnoreCase)
+                || u.Correo.Contains(texto, StringComparison.OrdinalIgnoreCase));
+
+        return Task.FromResult(coincidencias);
+    }
+
+    private async Task OnFiltroUsuarioCambiado(UsuarioListaDto? valor)
+    {
+        filtroUsuario = valor;
+        await RecargarAsync();
+    }
+
+    private async Task OnFiltroRolCambiado(string? valor)
+    {
+        filtroRol = valor;
+        await RecargarAsync();
+    }
+
+    private async Task OnFiltroModuloCambiado(string? valor)
+    {
+        filtroModulo = valor;
+        await RecargarAsync();
+    }
+
+    private async Task OnRangoFechasCambiado(DateRange? valor)
+    {
+        rangoFechas = valor;
+        await RecargarAsync();
+    }
+
+    // Al cambiar un filtro se vuelve a la primera página (mismo criterio que
+    // ListadoBeneficiarios): la página actual puede no existir con el filtro nuevo.
+    private async Task RecargarAsync()
+    {
+        if (grilla is null)
+            return;
+
+        if (grilla.CurrentPage != 0)
+            grilla.NavigateTo(Page.First);
+        else
+            await grilla.ReloadServerData();
+    }
+
+    private static string Resumir(string? detalle)
+    {
+        if (string.IsNullOrEmpty(detalle))
+            return string.Empty;
+
+        return detalle.Length <= LargoResumenDetalle ? detalle : detalle[..LargoResumenDetalle] + "…";
+    }
+}

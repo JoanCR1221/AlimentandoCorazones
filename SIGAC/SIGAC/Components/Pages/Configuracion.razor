@@ -1,5 +1,11 @@
 @page "/configuracion"
+@using SIGAC.Application.DTOs.Seguridad
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
 @inject AparienciaService Apariencia
+@inject IUsuariosService UsuariosService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
 @implements IDisposable
 
 <PageTitle>Configuraciones — SIGAC</PageTitle>
@@ -47,10 +53,80 @@
     </MudCardContent>
 </MudCard>
 
+@* Cambio de la propia contraseña: para cualquier usuario autenticado, sin
+   permiso especial. Al cambiarla Identity renueva el security stamp, así que
+   la sesión se cierra y hay que volver a entrar con la nueva. *@
+<MudCard Class="pa-4 mt-4">
+    <MudCardContent>
+        <MudText Typo="Typo.h6" Class="mb-1">Contraseña</MudText>
+        <MudText Typo="Typo.body2" Class="mb-4 mud-text-secondary">
+            Cambiá tu contraseña de acceso a SIGAC. Después del cambio vas a tener que iniciar sesión de nuevo.
+        </MudText>
+
+        <EditForm Model="cambioPassword" OnValidSubmit="CambiarPasswordAsync">
+            <DataAnnotationsValidator />
+
+            <MudTextField @bind-Value="cambioPassword.PasswordActual" For="@(() => cambioPassword.PasswordActual)"
+                          Label="Contraseña actual" Variant="Variant.Outlined"
+                          InputType="@(mostrarPassword ? InputType.Text : InputType.Password)" />
+
+            <MudTextField @bind-Value="cambioPassword.PasswordNueva" For="@(() => cambioPassword.PasswordNueva)"
+                          Label="Contraseña nueva" Variant="Variant.Outlined" Class="mt-4"
+                          InputType="@(mostrarPassword ? InputType.Text : InputType.Password)"
+                          Adornment="Adornment.End"
+                          AdornmentIcon="@(mostrarPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                          AdornmentAriaLabel="Mostrar u ocultar las contraseñas"
+                          OnAdornmentClick="@(() => mostrarPassword = !mostrarPassword)"
+                          HelperText="@ReglasUsuario.DescripcionReglasPassword" />
+
+            <MudTextField @bind-Value="cambioPassword.ConfirmarPassword" For="@(() => cambioPassword.ConfirmarPassword)"
+                          Label="Repetir contraseña nueva" Variant="Variant.Outlined" Class="mt-4"
+                          InputType="@(mostrarPassword ? InputType.Text : InputType.Password)" />
+
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="mt-4"
+                       Disabled="cambiandoPassword">
+                @(cambiandoPassword ? "Cambiando..." : "Cambiar contraseña")
+            </MudButton>
+        </EditForm>
+    </MudCardContent>
+</MudCard>
+
 @code {
+    private CambioPasswordDto cambioPassword = new();
+    private bool cambiandoPassword;
+    private bool mostrarPassword;
+
     protected override void OnInitialized()
     {
         Apariencia.OnChange += StateHasChanged;
+    }
+
+    private async Task CambiarPasswordAsync()
+    {
+        cambiandoPassword = true;
+
+        try
+        {
+            await UsuariosService.CambiarPasswordAsync(cambioPassword);
+            cambioPassword = new();
+
+            // La cookie ya no vale (cambió el security stamp): se manda al login
+            // con una carga completa para que el usuario entre con la nueva.
+            Snackbar.Add("Contraseña cambiada. Iniciá sesión de nuevo con la contraseña nueva.", Severity.Success);
+            Navigation.NavigateTo("/login", forceLoad: true);
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo cambiar la contraseña. Intentá de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            cambiandoPassword = false;
+        }
     }
 
     public void Dispose()

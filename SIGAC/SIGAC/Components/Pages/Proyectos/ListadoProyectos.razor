@@ -1,4 +1,5 @@
 @page "/proyectos"
+@attribute [Authorize(Policy = Permisos.Proyectos.Ver)]
 @using SIGAC.Application.DTOs.Proyectos
 @using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces
@@ -49,12 +50,20 @@
                            con el botón Anular de un gasto ya anulado. *@
                         @if (!EsEstadoTerminal(context.Item.Estado))
                         {
-                            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/proyectos/editar/{context.Item.Id}")">Editar</MudButton>
-                            <MudButton Variant="Variant.Text" Color="Color.Secondary" Href="@($"/proyectos/{context.Item.Id}/participantes/registrar")">Participantes</MudButton>
+                            @* Cada acción solo si el usuario tiene su permiso (módulo de
+                               seguridad). Context="auth" para no pisar el context de la celda. *@
+                            <AuthorizeView Policy="@Permisos.Proyectos.Editar" Context="auth">
+                                <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/proyectos/editar/{context.Item.Id}")">Editar</MudButton>
+                            </AuthorizeView>
+                            <AuthorizeView Policy="@Permisos.Proyectos.RegistrarParticipante" Context="auth">
+                                <MudButton Variant="Variant.Text" Color="Color.Secondary" Href="@($"/proyectos/{context.Item.Id}/participantes/registrar")">Participantes</MudButton>
+                            </AuthorizeView>
                             @* Cancelado no aparece acá aunque también sea terminal:
                                un proyecto cancelado no se finaliza (el servicio lo
                                rechaza), se queda cancelado. *@
-                            <MudButton Variant="Variant.Text" Color="Color.Success" OnClick="@(() => FinalizarAsync(context.Item.Id, context.Item.Nombre))">Finalizar</MudButton>
+                            <AuthorizeView Policy="@Permisos.Proyectos.Finalizar" Context="auth">
+                                <MudButton Variant="Variant.Text" Color="Color.Success" OnClick="@(() => FinalizarAsync(context.Item.Id, context.Item.Nombre))">Finalizar</MudButton>
+                            </AuthorizeView>
                         }
                     </CellTemplate>
                 </TemplateColumn>

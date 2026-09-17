@@ -60,16 +60,20 @@ namespace SIGAC.Application.Services
         // paso.
         private readonly IBeneficiariosRepository _beneficiariosRepository;
 
+        private readonly IBitacoraService _bitacora;
+
         public DonacionesService(
             IDonacionesRepository repository,
             IDonantesRepository donantesRepository,
             IInventarioService inventarioService,
-            IBeneficiariosRepository beneficiariosRepository)
+            IBeneficiariosRepository beneficiariosRepository,
+            IBitacoraService bitacora)
         {
             _repository = repository;
             _donantesRepository = donantesRepository;
             _inventarioService = inventarioService;
             _beneficiariosRepository = beneficiariosRepository;
+            _bitacora = bitacora;
         }
 
         // ------------------------------------------------------------------
@@ -110,6 +114,9 @@ namespace SIGAC.Application.Services
                 // Una sola escritura y nada de inventario: el dinero no es un
                 // artículo con stock, así que esta donación no genera movimiento.
                 await _repository.AgregarDonacionDineroAsync(donacion);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Donaciones,
+                    $"Donación en dinero #{donacion.Id}: {donacion.Monto:N2} {donacion.Moneda}, donante #{donacion.DonanteId}");
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException and not DuplicateException)
             {
@@ -157,6 +164,9 @@ namespace SIGAC.Application.Services
                 // atómica del lado del repositorio (cabecera y líneas en el mismo
                 // SaveChanges).
                 await _repository.AgregarDonacionEspecieAsync(donacion);
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Donaciones,
+                    $"Donación en especie #{donacion.Id}: {donacion.Detalles.Count} artículo(s), donante #{donacion.DonanteId}");
 
                 // FASE 2: cada línea entra al stock como EntradaInventario con origen
                 // "Donacion", delegando en Inventario.
@@ -324,6 +334,9 @@ namespace SIGAC.Application.Services
                 try
                 {
                     await _repository.AgregarDonacionEntregadaAsync(entrega);
+
+                    await _bitacora.RegistrarAsync(AccionesBitacora.Entregar, ModulosSistema.Donaciones,
+                        $"Entrega #{entrega.Id}: {entrega.Cantidad} (artículo #{entrega.ArticuloId}) a {textoDestino}");
                 }
                 catch (Exception ex)
                 {

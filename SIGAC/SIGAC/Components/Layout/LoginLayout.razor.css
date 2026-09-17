@@ -1,0 +1,16 @@
+/* Misma paleta artesanal que AparienciaService (tema claro): fondo beige,
+   tarjeta crema, texto marrón, terracota como primario. */
+.login-fondo {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background-color: #E6D7C3;
+    color: #3E332E;
+}
+
+.login-contenedor {
+    width: 100%;
+    max-width: 420px;
+}
