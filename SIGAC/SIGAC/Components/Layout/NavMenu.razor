@@ -139,6 +139,17 @@
         },
         new Grupo
         {
+            Titulo = "Proyectos",
+            Icono = Icons.Material.Filled.Groups,
+            Prefijos = new[] { "proyectos" },
+            Enlaces = new[]
+            {
+                new Enlace("Ver Proyectos", "/proyectos", Icons.Material.Filled.Groups, Permisos.Proyectos.Ver, NavLinkMatch.All),
+                new Enlace("Registrar Proyecto", "/proyectos/registrar", Icons.Material.Filled.AddCircle, Permisos.Proyectos.Registrar)
+            }
+        },
+        new Grupo
+        {
             Titulo = "Seguridad",
             Icono = Icons.Material.Filled.Security,
             Prefijos = new[] { "usuarios", "bitacora" },

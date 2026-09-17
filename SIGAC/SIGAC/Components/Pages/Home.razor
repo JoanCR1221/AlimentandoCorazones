@@ -172,6 +172,33 @@
         </MudItem>
     }
 
+    @if (Tiene(Permisos.Proyectos.Ver) || Tiene(Permisos.Proyectos.Registrar))
+    {
+        <MudItem xs="12" sm="6" md="4">
+            <MudCard Class="pa-4" Style="height: 100%;">
+                <MudStack Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Groups" Color="Color.Tertiary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6">Proyectos comunitarios</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                        Planifique proyectos y actividades de la asociación y registre a sus participantes.
+                    </MudText>
+                    @if (Tiene(Permisos.Proyectos.Ver))
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Tertiary" Href="/proyectos" Class="mt-2">
+                            Ver proyectos
+                        </MudButton>
+                    }
+                    @if (Tiene(Permisos.Proyectos.Registrar))
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Tertiary" Href="/proyectos/registrar">
+                            Registrar proyecto
+                        </MudButton>
+                    }
+                </MudStack>
+            </MudCard>
+        </MudItem>
+    }
+
     @if (Tiene(Permisos.Seguridad.GestionarUsuarios) || Tiene(Permisos.Seguridad.VerBitacora))
     {
         <MudItem xs="12" sm="6" md="4">

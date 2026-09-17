@@ -64,9 +64,14 @@ namespace SIGAC.Domain
             public const string Anular = "Gastos.Anular";
         }
 
-        // Proyectos tiene backend pero todavía no tiene pantallas; sus permisos se
-        // agregan cuando exista la UI, para no ofrecer en el panel switches que no
-        // controlan nada.
+        public static class Proyectos
+        {
+            public const string Ver = "Proyectos.Ver";
+            public const string Registrar = "Proyectos.Registrar";
+            public const string Editar = "Proyectos.Editar";
+            public const string Finalizar = "Proyectos.Finalizar";
+            public const string RegistrarParticipante = "Proyectos.RegistrarParticipante";
+        }
 
         public static class Seguridad
         {
@@ -106,6 +111,12 @@ namespace SIGAC.Domain
             new Permiso(Gastos.Registrar, ModulosSistema.Gastos, "Registrar gastos operativos"),
             new Permiso(Gastos.Editar, ModulosSistema.Gastos, "Editar gastos operativos"),
             new Permiso(Gastos.Anular, ModulosSistema.Gastos, "Anular gastos operativos"),
+
+            new Permiso(Proyectos.Ver, ModulosSistema.Proyectos, "Ver el listado de proyectos comunitarios"),
+            new Permiso(Proyectos.Registrar, ModulosSistema.Proyectos, "Registrar proyectos"),
+            new Permiso(Proyectos.Editar, ModulosSistema.Proyectos, "Editar proyectos"),
+            new Permiso(Proyectos.Finalizar, ModulosSistema.Proyectos, "Finalizar proyectos"),
+            new Permiso(Proyectos.RegistrarParticipante, ModulosSistema.Proyectos, "Registrar participantes en proyectos"),
 
             new Permiso(Seguridad.GestionarUsuarios, ModulosSistema.Seguridad, "Gestionar usuarios, roles y permisos"),
             new Permiso(Seguridad.VerBitacora, ModulosSistema.Seguridad, "Consultar la bitácora de acciones")
