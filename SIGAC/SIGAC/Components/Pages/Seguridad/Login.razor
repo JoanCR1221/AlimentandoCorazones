@@ -180,13 +180,18 @@
         return stampEnCookie == stampEnBase;
     }
 
-    // Solo rutas relativas dentro del sitio: un ReturnUrl absoluto o con "//"
-    // permitiría mandar al usuario a otro dominio después de autenticarse.
+    // Solo rutas relativas dentro del sitio: un ReturnUrl absoluto, con "//" o
+    // con "/\" permitiría mandar al usuario a otro dominio después de
+    // autenticarse. El caso "/\" hace falta además de "//" porque los
+    // navegadores normalizan la barra invertida a barra normal al resolver la
+    // URL, así que "/\evil.com" termina interpretándose igual que "//evil.com".
+    // Es la misma comprobación que hace IsLocalUrl en ASP.NET Core.
     private string DestinoSeguro()
     {
         if (string.IsNullOrWhiteSpace(ReturnUrl)
             || !ReturnUrl.StartsWith('/')
             || ReturnUrl.StartsWith("//")
+            || ReturnUrl.StartsWith("/\\")
             || ReturnUrl.StartsWith("/login", StringComparison.OrdinalIgnoreCase))
         {
             return "/";
