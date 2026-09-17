@@ -1,0 +1,108 @@
+@page "/proyectos/registrar"
+@using SIGAC.Application.DTOs.Proyectos
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@using SIGAC.Application.Validators
+@inject IProyectosService ProyectosService
+@inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
+
+<MudText Typo="Typo.h4" Class="mb-4">Registrar proyecto comunitario</MudText>
+
+<EditForm Model="modelo" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <MudCard Class="pa-4">
+        <MudCardContent>
+            <MudTextField @bind-Value="modelo.Nombre" For="@(() => modelo.Nombre)" Label="Nombre" Variant="Variant.Outlined"
+                          MaxLength="ProyectoValidator.LongitudMaximaNombre"
+                          HelperText="@($"Máximo {ProyectoValidator.LongitudMaximaNombre} caracteres.")" />
+
+            <MudTextField @bind-Value="modelo.Descripcion" For="@(() => modelo.Descripcion)" Label="Descripción" Variant="Variant.Outlined" Class="mt-4" Lines="3"
+                          MaxLength="ProyectoValidator.LongitudMaximaDescripcion"
+                          HelperText="@($"Máximo {ProyectoValidator.LongitudMaximaDescripcion} caracteres. Ej: Taller de huerta familiar para 20 familias del barrio.")" />
+
+            @* Sin MaxDate, a diferencia de casi todo SIGAC: un proyecto se planifica
+               de antemano, así que su fecha de inicio normalmente ES futura. Es el
+               mismo caso que la fecha de una entrega de donación
+               (RegistrarDonacionEntregada.razor). *@
+            <MudDatePicker @bind-Date="fechaInicio" @bind-Date:after="OnFechaInicioCambiada"
+                           Label="Fecha de inicio" Variant="Variant.Outlined" Class="mt-4" />
+
+            @* MinDate atado a la fecha de inicio: ProyectoValidator.ValidarFechas
+               rechaza un fin anterior al inicio, así que el calendario no ofrece lo
+               que el servidor va a rechazar. La validación real sigue estando del
+               lado del servicio: esto solo evita el viaje. *@
+            <MudDatePicker @bind-Date="fechaEstimadaFin"
+                           Label="Fecha estimada de finalización" Variant="Variant.Outlined" Class="mt-4"
+                           MinDate="fechaInicio"
+                           HelperText="No puede ser anterior a la fecha de inicio." />
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+        </MudCardActions>
+    </MudCard>
+</EditForm>
+
+@code {
+    private ProyectoCrearDto modelo = new();
+
+    private DateTime? fechaInicio
+    {
+        get => modelo.FechaInicio == default ? null : modelo.FechaInicio;
+        set => modelo.FechaInicio = value ?? default;
+    }
+
+    private DateTime? fechaEstimadaFin
+    {
+        get => modelo.FechaEstimadaFin == default ? null : modelo.FechaEstimadaFin;
+        set => modelo.FechaEstimadaFin = value ?? default;
+    }
+
+    // Si mover el inicio deja el fin estimado en el pasado, se limpia en vez de
+    // arrastrar una combinación que el validador va a rechazar al guardar.
+    private void OnFechaInicioCambiada()
+    {
+        if (fechaEstimadaFin.HasValue && fechaInicio.HasValue && fechaEstimadaFin.Value.Date < fechaInicio.Value.Date)
+            fechaEstimadaFin = null;
+    }
+
+    private async Task Guardar()
+    {
+        try
+        {
+            var proyectoId = await ProyectosService.RegistrarProyectoAsync(modelo);
+            Snackbar.Add("Proyecto comunitario registrado correctamente.", Severity.Success);
+
+            // El alta no captura participantes: se registran de a uno desde su
+            // propia pantalla, porque cada uno es una escritura independiente en
+            // ParticipantesProyecto. Se ofrece el enlace para no obligar a buscar
+            // el proyecto recién creado en el listado, con el mismo criterio que
+            // RegistrarGasto.razor ofrece la entrada de inventario de una compra.
+            Snackbar.Add(
+                "¿Querés agregarle participantes ahora?",
+                Severity.Info,
+                config =>
+                {
+                    config.Action = "Agregar participantes";
+                    config.ActionColor = Color.Primary;
+                    config.OnClick = _ =>
+                    {
+                        NavigationManager.NavigateTo($"/proyectos/{proyectoId}/participantes/registrar");
+                        return Task.CompletedTask;
+                    };
+                });
+
+            modelo = new();
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo registrar el proyecto comunitario. Intentá de nuevo.", Severity.Error);
+        }
+    }
+}

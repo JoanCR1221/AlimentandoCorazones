@@ -1,0 +1,194 @@
+@page "/proyectos/editar/{Id:int}"
+@using SIGAC.Application.DTOs.Proyectos
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@using SIGAC.Application.Validators
+@using SIGAC.Domain.Entities
+@inject IProyectosService ProyectosService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h4" Class="mb-4">Editar proyecto comunitario</MudText>
+
+@if (!cargado)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <EditForm Model="modelo" OnValidSubmit="Guardar">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <MudCard Class="pa-4">
+            <MudCardContent>
+                @* LIMITACIÓN CONOCIDA DEL CONTRATO ACTUAL.
+                   IProyectosService no tiene ObtenerParaEditarAsync (sí lo tienen
+                   Beneficiarios, Donantes, Gastos e Inventario), así que esta
+                   pantalla se prellena con la fila que devuelve ObtenerProyectosAsync.
+                   Esa fila es ProyectoListaDto y NO trae Descripcion, que el
+                   validador exige obligatoria: el campo arranca vacío y hay que
+                   volver a escribirlo.
+
+                   El aviso está acá y no solo en un comentario porque, sin él, el
+                   usuario guardaría creyendo que conserva la descripción anterior y
+                   en realidad la estaría reemplazando por lo que teclee.
+
+                   Se resuelve agregando ObtenerParaEditarAsync(int id) al servicio
+                   (devolviendo un ProyectoEditarDto completo); cuando exista, se
+                   borra este MudAlert y OnInitializedAsync pasa a llamarlo, igual
+                   que EditarGasto.razor. *@
+                <MudAlert Severity="Severity.Warning" Class="mb-4">
+                    La descripción no se puede precargar con el contrato actual del servicio y
+                    se guardará con lo que escribas acá. Volvé a redactarla completa antes de guardar.
+                </MudAlert>
+
+                <MudTextField @bind-Value="modelo.Nombre" For="@(() => modelo.Nombre)" Label="Nombre" Variant="Variant.Outlined"
+                              MaxLength="ProyectoValidator.LongitudMaximaNombre"
+                              HelperText="@($"Máximo {ProyectoValidator.LongitudMaximaNombre} caracteres.")" />
+
+                <MudTextField @bind-Value="modelo.Descripcion" For="@(() => modelo.Descripcion)" Label="Descripción" Variant="Variant.Outlined" Class="mt-4" Lines="3"
+                              MaxLength="ProyectoValidator.LongitudMaximaDescripcion"
+                              HelperText="@($"Máximo {ProyectoValidator.LongitudMaximaDescripcion} caracteres.")" />
+
+                @* Sin MaxDate, igual que en el alta: un proyecto puede replanificarse
+                   hacia adelante. *@
+                <MudDatePicker @bind-Date="fechaInicio" @bind-Date:after="OnFechaInicioCambiada"
+                               Label="Fecha de inicio" Variant="Variant.Outlined" Class="mt-4" />
+
+                <MudDatePicker @bind-Date="fechaEstimadaFin"
+                               Label="Fecha estimada de finalización" Variant="Variant.Outlined" Class="mt-4"
+                               MinDate="fechaInicio"
+                               HelperText="No puede ser anterior a la fecha de inicio." />
+
+                @* Finalizado NO aparece en la lista a propósito:
+                   ProyectoValidator.ValidarEstadoParaEdicion lo rechaza, porque esa
+                   transición además registra FechaFinalizacionReal y eso solo lo hace
+                   FinalizarProyectoAsync. La acción vive en el listado, separada del
+                   formulario. Mismo criterio que la anulación de un gasto: el cierre
+                   del ciclo no es un campo más del formulario de edición. *@
+                <MudSelect T="EstadoProyecto" @bind-Value="modelo.Estado" Label="Estado" Variant="Variant.Outlined" Class="mt-4"
+                           HelperText="Para finalizar el proyecto usá la acción «Finalizar» del listado.">
+                    @foreach (var estado in EstadosEditables)
+                    {
+                        <MudSelectItem T="EstadoProyecto" Value="@estado">@EtiquetaEstado(estado)</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Default" Href="/proyectos" Class="mb-2">Cancelar</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private ProyectoEditarDto modelo = new();
+    private bool cargado;
+
+    // Los tres estados que la edición sí puede asignar. Se deriva del enum y no se
+    // escribe a mano para que un estado nuevo aparezca solo; Finalizado se excluye
+    // por la regla de ValidarEstadoParaEdicion.
+    private static readonly EstadoProyecto[] EstadosEditables =
+        Enum.GetValues<EstadoProyecto>().Where(e => e != EstadoProyecto.Finalizado).ToArray();
+
+    private DateTime? fechaInicio
+    {
+        get => modelo.FechaInicio == default ? null : modelo.FechaInicio;
+        set => modelo.FechaInicio = value ?? default;
+    }
+
+    private DateTime? fechaEstimadaFin
+    {
+        get => modelo.FechaEstimadaFin == default ? null : modelo.FechaEstimadaFin;
+        set => modelo.FechaEstimadaFin = value ?? default;
+    }
+
+    private void OnFechaInicioCambiada()
+    {
+        if (fechaEstimadaFin.HasValue && fechaInicio.HasValue && fechaEstimadaFin.Value.Date < fechaInicio.Value.Date)
+            fechaEstimadaFin = null;
+    }
+
+    // Sin filtro de estado: se busca el proyecto por Id entre todos, porque acá no
+    // se sabe de antemano en cuál está. Es el sustituto de un ObtenerParaEditarAsync
+    // que el servicio todavía no expone (ver el MudAlert de arriba).
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var proyectos = await ProyectosService.ObtenerProyectosAsync(new FiltrosProyectoDto());
+            var proyecto = proyectos.FirstOrDefault(p => p.Id == Id);
+
+            if (proyecto is null)
+            {
+                // Mismo destino que EditarBeneficiario con un id inexistente: se
+                // vuelve al listado del módulo.
+                NavigationManager.NavigateTo("/proyectos");
+                return;
+            }
+
+            // Un proyecto finalizado o cancelado es un registro cerrado y
+            // EditarProyectoAsync lo rechaza. Se avisa acá en vez de dejar que el
+            // usuario llene el formulario para chocar recién al guardar.
+            if (proyecto.Estado is nameof(EstadoProyecto.Finalizado) or nameof(EstadoProyecto.Cancelado))
+            {
+                Snackbar.Add("No se puede editar un proyecto finalizado o cancelado.", Severity.Warning);
+                NavigationManager.NavigateTo("/proyectos");
+                return;
+            }
+
+            modelo = new ProyectoEditarDto
+            {
+                Nombre = proyecto.Nombre,
+                // Descripcion queda vacía: ProyectoListaDto no la trae.
+                Descripcion = string.Empty,
+                FechaInicio = proyecto.FechaInicio,
+                FechaEstimadaFin = proyecto.FechaEstimadaFin,
+                Estado = Enum.Parse<EstadoProyecto>(proyecto.Estado)
+            };
+
+            cargado = true;
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo cargar el proyecto. Intentá de nuevo.", Severity.Error);
+            NavigationManager.NavigateTo("/proyectos");
+        }
+    }
+
+    private static string EtiquetaEstado(EstadoProyecto estado) => estado switch
+    {
+        EstadoProyecto.EnCurso => "En curso",
+        _ => estado.ToString()
+    };
+
+    // Vuelve al listado al guardar, igual que EditarBeneficiario.razor: acá sí
+    // existe el listado al que volver (que es lo que a EditarGasto.razor le faltaba
+    // cuando se escribió).
+    private async Task Guardar()
+    {
+        try
+        {
+            await ProyectosService.EditarProyectoAsync(Id, modelo);
+            Snackbar.Add("Proyecto comunitario actualizado correctamente.", Severity.Success);
+            NavigationManager.NavigateTo("/proyectos");
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (NotFoundException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo actualizar el proyecto comunitario. Intentá de nuevo.", Severity.Error);
+        }
+    }
+}
