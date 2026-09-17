@@ -1,0 +1,154 @@
+@page "/proyectos"
+@using SIGAC.Application.DTOs.Proyectos
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@using SIGAC.Domain.Entities
+@inject IProyectosService ProyectosService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h4" Class="mb-4">Proyectos comunitarios</MudText>
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        @* Lista cerrada: la fuente es el enum SIGAC.Domain.Entities.EstadoProyecto,
+           no la pantalla. Mismo criterio que el filtro de categoría en
+           ListadoGastos.razor: si esta lista tuviera sus propios literales, podría
+           ofrecer un estado que el servicio no reconoce. *@
+        <MudSelect T="EstadoProyecto?" Value="filtroEstado" ValueChanged="OnFiltroEstadoCambiadoAsync"
+                   Label="Estado" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
+            @foreach (var estado in Enum.GetValues<EstadoProyecto>())
+            {
+                <MudSelectItem T="EstadoProyecto?" Value="@((EstadoProyecto?)estado)">@EtiquetaEstado(estado)</MudSelectItem>
+            }
+        </MudSelect>
+
+        @* Items y no ServerData, a diferencia de ListadoBeneficiarios: el servicio
+           devuelve IReadOnlyList sin paginar, con el mismo criterio que Gastos (el
+           volumen de proyectos de la asociación no la justifica). Si algún día se
+           agrega paginación al repositorio, esta grilla pasa a ServerData. *@
+        <MudDataGrid T="ProyectoListaDto" Items="@proyectos">
+            <Columns>
+                <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
+                <PropertyColumn Property="x => x.FechaInicio" Title="Inicio" Format="dd/MM/yyyy" />
+                <PropertyColumn Property="x => x.FechaEstimadaFin" Title="Fin estimado" Format="dd/MM/yyyy" />
+                <TemplateColumn Title="Estado">
+                    <CellTemplate>
+                        @* El DTO trae el estado ya como string (Estado.ToString()),
+                           así que se traduce desde el texto y no desde el enum. *@
+                        @EtiquetaEstado(context.Item.Estado)
+                    </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.TotalParticipantes" Title="Participantes" />
+                <TemplateColumn Title="Acciones">
+                    <CellTemplate>
+                        @* Finalizado y Cancelado son estados de cierre: el servicio
+                           rechaza editarlos y agregarles participantes, así que los
+                           botones se ocultan en vez de dejar que el usuario descubra
+                           el error al guardar. Mismo criterio que ListadoGastos.razor
+                           con el botón Anular de un gasto ya anulado. *@
+                        @if (!EsEstadoTerminal(context.Item.Estado))
+                        {
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/proyectos/editar/{context.Item.Id}")">Editar</MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Secondary" Href="@($"/proyectos/{context.Item.Id}/participantes/registrar")">Participantes</MudButton>
+                            @* Cancelado no aparece acá aunque también sea terminal:
+                               un proyecto cancelado no se finaliza (el servicio lo
+                               rechaza), se queda cancelado. *@
+                            <MudButton Variant="Variant.Text" Color="Color.Success" OnClick="@(() => FinalizarAsync(context.Item.Id, context.Item.Nombre))">Finalizar</MudButton>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+            <NoRecordsContent>
+                <MudText>No hay proyectos comunitarios que coincidan con el filtro.</MudText>
+            </NoRecordsContent>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private IReadOnlyList<ProyectoListaDto> proyectos = Array.Empty<ProyectoListaDto>();
+    private EstadoProyecto? filtroEstado;
+
+    // Se carga todo al abrir, igual que ListadoGastos: es un registro de gestión
+    // chico, no un catálogo que exija filtrar antes de mostrar algo (que es lo que
+    // sí hace Existencias de inventario).
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarAsync();
+    }
+
+    private async Task OnFiltroEstadoCambiadoAsync(EstadoProyecto? valor)
+    {
+        filtroEstado = valor;
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            proyectos = await ProyectosService.ObtenerProyectosAsync(new FiltrosProyectoDto
+            {
+                Estado = filtroEstado
+            });
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudieron cargar los proyectos. Intentá de nuevo.", Severity.Error);
+            proyectos = Array.Empty<ProyectoListaDto>();
+        }
+    }
+
+    private async Task FinalizarAsync(int proyectoId, string nombre)
+    {
+        // ShowMessageBoxAsync y no un diálogo propio como AnularGastoDialog:
+        // finalizar no pide ningún dato adicional, solo la confirmación. Mismo
+        // criterio que Aprobar en GestionSolicitudesPrestamo.razor.
+        var confirmado = await DialogService.ShowMessageBoxAsync(
+            "Confirmar",
+            $"¿Finalizar el proyecto \"{nombre}\"? Se registrará la fecha de finalización real y " +
+            "el proyecto ya no podrá editarse ni recibir participantes.",
+            yesText: "Finalizar",
+            cancelText: "Cancelar");
+
+        if (confirmado != true)
+            return;
+
+        try
+        {
+            await ProyectosService.FinalizarProyectoAsync(proyectoId);
+            Snackbar.Add("Proyecto finalizado correctamente.", Severity.Success);
+            await CargarAsync();
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (NotFoundException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo finalizar el proyecto. Intentá de nuevo.", Severity.Error);
+        }
+    }
+
+    // Los valores internos del enum son PascalCase sin espacios; acá solo se
+    // traducen para mostrarse. Mismo criterio que EtiquetaCategoria en
+    // ListadoGastos.razor / RegistrarGasto.razor.
+    private static string EtiquetaEstado(EstadoProyecto estado) => estado switch
+    {
+        EstadoProyecto.EnCurso => "En curso",
+        _ => estado.ToString()
+    };
+
+    // Sobrecarga para el texto que llega en ProyectoListaDto.Estado, que es el
+    // ToString() del enum y no el enum en sí.
+    private static string EtiquetaEstado(string estado) =>
+        estado == nameof(EstadoProyecto.EnCurso) ? "En curso" : estado;
+
+    private static bool EsEstadoTerminal(string estado) =>
+        estado == nameof(EstadoProyecto.Finalizado) || estado == nameof(EstadoProyecto.Cancelado);
+}

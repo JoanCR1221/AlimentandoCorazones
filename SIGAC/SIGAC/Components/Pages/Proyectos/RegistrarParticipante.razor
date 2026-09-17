@@ -1,0 +1,192 @@
+@page "/proyectos/{Id:int}/participantes/registrar"
+@using SIGAC.Application.DTOs.Beneficiarios
+@using SIGAC.Application.DTOs.Proyectos
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@using SIGAC.Application.Validators
+@using SIGAC.Domain.Entities
+@inject IProyectosService ProyectosService
+@inject IBeneficiariosService BeneficiariosService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h4" Class="mb-4">Registrar participante</MudText>
+
+@if (!cargado)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudText Typo="Typo.subtitle1" Class="mb-4 mud-text-secondary">
+        Proyecto: @nombreProyecto
+    </MudText>
+
+    <EditForm Model="modelo" OnValidSubmit="Guardar">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <MudCard Class="pa-4">
+            <MudCardContent>
+                @* EsBeneficiario es el discriminador de ParticipanteProyecto: decide
+                   cuál de los dos grupos de campos se llena y cuál queda en NULL, con
+                   la exclusión mutua respaldada por
+                   CK_ParticipantesProyecto_Discriminador. Se resuelve con un switch y
+                   no con un MudSelect como TipoDestinatario en
+                   RegistrarDonacionEntregada porque acá son exactamente dos opciones,
+                   no un catálogo que pueda crecer. *@
+                <MudSwitch T="bool" Value="modelo.EsBeneficiario" ValueChanged="OnEsBeneficiarioCambiado"
+                           Color="Color.Primary" Class="mb-2">
+                    Es un beneficiario ya registrado
+                </MudSwitch>
+
+                @if (modelo.EsBeneficiario)
+                {
+                    @* Solo activos: ProyectosService rechaza a un beneficiario
+                       inactivo (BeneficiarioInactivoException), así que ofrecerlo acá
+                       solo llevaría a un error al guardar. Mismo buscador que
+                       RegistrarDonacionEntregada.razor. *@
+                    <MudAutocomplete T="BeneficiarioListaDto" Label="Beneficiario" Variant="Variant.Outlined" Class="mt-4"
+                                      Value="beneficiarioSeleccionado" ValueChanged="OnBeneficiarioCambiado"
+                                      SearchFunc="BuscarBeneficiariosActivosAsync" ToStringFunc="@(b => b?.NombreCompleto)"
+                                      MinCharacters="FiltrosBeneficiarioDto.MinimoCaracteresBusqueda"
+                                      HelperText="@($"Escribí al menos {FiltrosBeneficiarioDto.MinimoCaracteresBusqueda} caracteres para buscar.")" />
+                }
+                else
+                {
+                    @* Participante externo: alguien sin ficha en el sistema (un
+                       vecino, un facilitador invitado). Los largos máximos salen de
+                       ParticipanteProyectoValidator, que es la misma fuente que valida
+                       el servidor. *@
+                    <MudTextField @bind-Value="modelo.NombreExterno" Label="Nombre del participante" Variant="Variant.Outlined" Class="mt-4"
+                                  MaxLength="ParticipanteProyectoValidator.LongitudMaximaNombreExterno"
+                                  HelperText="@($"Máximo {ParticipanteProyectoValidator.LongitudMaximaNombreExterno} caracteres.")" />
+
+                    <MudTextField @bind-Value="modelo.ContactoExterno" Label="Contacto (opcional)" Variant="Variant.Outlined" Class="mt-4"
+                                  MaxLength="ParticipanteProyectoValidator.LongitudMaximaContactoExterno"
+                                  HelperText="Teléfono o correo. Un participante externo puede no dejar datos de contacto." />
+                }
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Agregar participante</MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Default" Href="/proyectos" Class="mb-2">Volver al listado</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private ParticipanteCrearDto modelo = new();
+    private BeneficiarioListaDto? beneficiarioSeleccionado;
+    private string nombreProyecto = string.Empty;
+    private bool cargado;
+
+    // Se lee del listado por el mismo motivo que en EditarProyecto.razor: el
+    // servicio no expone un ObtenerPorId. Acá solo hace falta para el encabezado y
+    // para no dejar entrar a un proyecto ya cerrado.
+    protected override async Task OnInitializedAsync()
+    {
+        modelo.ProyectoId = Id;
+
+        try
+        {
+            var proyectos = await ProyectosService.ObtenerProyectosAsync(new FiltrosProyectoDto());
+            var proyecto = proyectos.FirstOrDefault(p => p.Id == Id);
+
+            if (proyecto is null)
+            {
+                NavigationManager.NavigateTo("/proyectos");
+                return;
+            }
+
+            // Finalizado y Cancelado no admiten participantes nuevos: el servicio lo
+            // rechaza, así que se avisa antes de llenar el formulario.
+            if (proyecto.Estado is nameof(EstadoProyecto.Finalizado) or nameof(EstadoProyecto.Cancelado))
+            {
+                Snackbar.Add("No se pueden agregar participantes a un proyecto finalizado o cancelado.", Severity.Warning);
+                NavigationManager.NavigateTo("/proyectos");
+                return;
+            }
+
+            nombreProyecto = proyecto.Nombre;
+            cargado = true;
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo cargar el proyecto. Intentá de nuevo.", Severity.Error);
+            NavigationManager.NavigateTo("/proyectos");
+        }
+    }
+
+    // Al cambiar de tipo se limpia el grupo de campos que ya no corresponde, mismo
+    // criterio que OnTipoDestinatarioCambiado en RegistrarDonacionEntregada.razor:
+    // los dos grupos son excluyentes y arrastrar el anterior mandaría al servicio
+    // datos que el CHECK de la base rechaza.
+    private void OnEsBeneficiarioCambiado(bool valor)
+    {
+        modelo.EsBeneficiario = valor;
+        beneficiarioSeleccionado = null;
+        modelo.BeneficiarioId = null;
+        modelo.NombreExterno = null;
+        modelo.ContactoExterno = null;
+    }
+
+    private void OnBeneficiarioCambiado(BeneficiarioListaDto? valor)
+    {
+        beneficiarioSeleccionado = valor;
+        modelo.BeneficiarioId = valor?.Id;
+    }
+
+    private async Task<IEnumerable<BeneficiarioListaDto>> BuscarBeneficiariosActivosAsync(
+        string valor, CancellationToken cancellationToken)
+    {
+        var resultado = await BeneficiariosService.ObtenerBeneficiariosAsync(new FiltrosBeneficiarioDto
+        {
+            Nombre = valor,
+            Estado = true
+        });
+
+        return resultado.Elementos;
+    }
+
+    private async Task Guardar()
+    {
+        try
+        {
+            await ProyectosService.RegistrarParticipanteAsync(modelo);
+            Snackbar.Add("Participante agregado correctamente.", Severity.Success);
+
+            // Se queda en la pantalla con el formulario limpio, no vuelve al listado:
+            // los participantes se cargan de a tandas, y volver obligaría a reabrir
+            // el proyecto por cada persona. El botón "Volver al listado" está ahí
+            // para cuando se termine.
+            var esBeneficiario = modelo.EsBeneficiario;
+            modelo = new ParticipanteCrearDto { ProyectoId = Id, EsBeneficiario = esBeneficiario };
+            beneficiarioSeleccionado = null;
+        }
+        catch (BeneficiarioInactivoException ex)
+        {
+            // Se atrapa ANTES que ValidationException (de la que hereda) para poder
+            // darle su propio tratamiento: es el caso para el que se creó el tipo.
+            // Cuando exista una acción de reactivar desde acá, este catch es el lugar
+            // donde se ofrece (IBeneficiariosService.ActivarBeneficiarioAsync ya
+            // existe); por ahora solo se distingue el mensaje.
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (NotFoundException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo agregar el participante. Intentá de nuevo.", Severity.Error);
+        }
+    }
+}
