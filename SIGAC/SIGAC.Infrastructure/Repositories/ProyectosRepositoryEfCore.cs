@@ -1,3 +1,4 @@
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using SIGAC.Application.DTOs.Proyectos;
 using SIGAC.Application.Exceptions;
@@ -13,6 +14,14 @@ namespace SIGAC.Infrastructure.Repositories
     // compartido queda expuesto a que dos operaciones lo usen a la vez.
     public class ProyectosRepositoryEfCore : IProyectosRepository
     {
+        // Números de error de SQL Server para violación de unicidad: 2627 es una
+        // restricción UNIQUE/PK y 2601 un índice único, igual que en
+        // InventarioRepositoryEfCore. Se usan para traducir el choque contra
+        // UX_ParticipantesProyecto_Proyecto_Beneficiario a un mensaje entendible en
+        // vez de un DbUpdateException crudo.
+        private const int ErrorSqlRestriccionUnica = 2627;
+        private const int ErrorSqlIndiceUnico = 2601;
+
         private readonly IDbContextFactory<SigacDbContext> _contextFactory;
 
         public ProyectosRepositoryEfCore(IDbContextFactory<SigacDbContext> contextFactory)
@@ -116,7 +125,25 @@ namespace SIGAC.Infrastructure.Repositories
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
             context.ParticipantesProyecto.Add(participante);
-            await context.SaveChangesAsync();
+
+            try
+            {
+                await context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (EsViolacionDeUnicidad(ex))
+            {
+                // Choque contra UX_ParticipantesProyecto_Proyecto_Beneficiario: el
+                // servicio ya consultó ExisteParticipanteAsync, así que llegar acá
+                // significa que otro registro del mismo beneficiario se guardó entre
+                // ese chequeo y este INSERT. Se traduce a ValidationException, no a
+                // DuplicateException, por el mismo motivo que la doble aprobación de
+                // un préstamo: el servicio y la pantalla ya tratan ValidationException
+                // como "esto es culpa del dato, no del sistema", y el mensaje sale con
+                // el mismo texto que el chequeo previo para que el usuario vea siempre
+                // la misma explicación gane quien gane la carrera.
+                throw new ValidationException(
+                    "Este beneficiario ya está registrado como participante en el proyecto.");
+            }
         }
 
         public async Task<bool> ExisteParticipanteAsync(int proyectoId, int beneficiarioId)
@@ -127,5 +154,9 @@ namespace SIGAC.Infrastructure.Repositories
                 .AsNoTracking()
                 .AnyAsync(p => p.ProyectoId == proyectoId && p.BeneficiarioId == beneficiarioId);
         }
+
+        private static bool EsViolacionDeUnicidad(DbUpdateException ex) =>
+            ex.InnerException is SqlException sql &&
+            (sql.Number == ErrorSqlRestriccionUnica || sql.Number == ErrorSqlIndiceUnico);
     }
 }

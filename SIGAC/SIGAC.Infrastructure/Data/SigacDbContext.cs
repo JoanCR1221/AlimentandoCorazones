@@ -1267,8 +1267,23 @@ namespace SIGAC.Infrastructure.Data
                 // Compuesto empezando por ProyectoId: sirve tanto a "listar los
                 // participantes de un proyecto" como a ExisteParticipanteAsync, y hace
                 // de índice de esa FK.
+                //
+                // ÚNICO, para que la regla "un beneficiario no se repite en el mismo
+                // proyecto" no dependa solo de ExisteParticipanteAsync: entre ese
+                // SELECT y el INSERT hay una ventana en la que dos registros
+                // simultáneos del mismo beneficiario pasan los dos el chequeo y
+                // duplican la participación. Mismo criterio que
+                // UX_SalidasInventario_SolicitudPrestamo con la doble aprobación.
+                //
+                // Índice FILTRADO: los participantes externos llevan BeneficiarioId en
+                // NULL y quedan fuera de la regla. Sin el filtro chocarían todos entre
+                // sí dentro de un proyecto (en SQL Server el índice único trata dos
+                // NULL como iguales), que es justo lo contrario de lo que se busca:
+                // dos vecinos distintos sin ficha de beneficiario son dos personas.
                 entity.HasIndex(p => new { p.ProyectoId, p.BeneficiarioId })
-                    .HasDatabaseName("IX_ParticipantesProyecto_Proyecto_Beneficiario");
+                    .IsUnique()
+                    .HasFilter("[BeneficiarioId] IS NOT NULL")
+                    .HasDatabaseName("UX_ParticipantesProyecto_Proyecto_Beneficiario");
 
                 // Índice suelto de la FK a Beneficiario: responde "en qué proyectos ha
                 // participado esta persona", la consulta desde la ficha del
