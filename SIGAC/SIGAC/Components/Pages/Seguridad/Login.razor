@@ -185,11 +185,15 @@
     private string DestinoSeguro()
     {
         // Sin ReturnUrl válido se pasa por la bienvenida (banner), que redirige
-        // sola al inicio.
+        // sola al inicio. "/" cuenta como "sin destino": es el ReturnUrl que
+        // genera el sistema cuando alguien abre la raíz sin sesión, y sin esto
+        // se saltaría la bienvenida en el caso más común.
         if (string.IsNullOrWhiteSpace(ReturnUrl)
+            || ReturnUrl == "/"
             || !ReturnUrl.StartsWith('/')
             || ReturnUrl.StartsWith("//")
-            || ReturnUrl.StartsWith("/login", StringComparison.OrdinalIgnoreCase))
+            || ReturnUrl.StartsWith("/login", StringComparison.OrdinalIgnoreCase)
+            || ReturnUrl.StartsWith("/bienvenida", StringComparison.OrdinalIgnoreCase))
         {
             return "/bienvenida";
         }
