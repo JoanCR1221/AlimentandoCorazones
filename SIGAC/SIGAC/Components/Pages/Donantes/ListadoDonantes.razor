@@ -37,7 +37,7 @@
                 <PropertyColumn Property="x => x.Telefono" Title="Teléfono" />
                 <TemplateColumn Title="Estado">
                     <CellTemplate>
-                        @(context.Item.Estado ? "Activo" : "Inactivo")
+                        <EstadoChip Activo="@context.Item.Estado" />
                     </CellTemplate>
                 </TemplateColumn>
                 <TemplateColumn Title="Acciones">
@@ -48,11 +48,11 @@
                             <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/donantes/editar/{context.Item.Id}")">Editar</MudButton>
                             @if (context.Item.Estado)
                             {
-                                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.Nombre, false))">Desactivar</MudButton>
+                                <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Error" Class="ac-btn-inactivar ml-1" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.Nombre, false))">Desactivar</MudButton>
                             }
                             else
                             {
-                                <MudButton Variant="Variant.Text" Color="Color.Success" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.Nombre, true))">Activar</MudButton>
+                                <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Success" Class="ac-btn-activar ml-1" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.Nombre, true))">Activar</MudButton>
                             }
                         </AuthorizeView>
                     </CellTemplate>

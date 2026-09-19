@@ -40,6 +40,12 @@
     --ac-error-fondo: #FCEBE9;
     --ac-error-texto: #7A1C14;
 
+    /* Estado Activo / Inactivo: verde 5.13:1 y rojo 6.54:1 con texto blanco */
+    --ac-activo: #2E7D32;
+    --ac-activo-texto: #FFFFFF;
+    --ac-inactivo: #B3261E;
+    --ac-inactivo-texto: #FFFFFF;
+
     /* Sombras y vidrio */
     --ac-sombra-rgb: 38, 43, 42;
     --ac-vidrio: rgba(255, 255, 255, 0.72);
@@ -66,6 +72,11 @@ html[data-theme="dark"] {
     --ac-error-fondo: #3B1512;
     --ac-error-texto: #FFB4AB;
 
+    --ac-activo: #66D17F;
+    --ac-activo-texto: #000000;
+    --ac-inactivo: #FF6B5E;
+    --ac-inactivo-texto: #000000;
+
     --ac-sombra-rgb: 0, 0, 0;
     --ac-vidrio: rgba(31, 31, 31, 0.72);
     --ac-vidrio-borde: rgba(255, 255, 255, 0.18);
@@ -90,6 +101,11 @@ html[data-alto-contraste="true"] {
     --ac-error: #8C1610;
     --ac-error-fondo: #FFFFFF;
     --ac-error-texto: #8C1610;
+
+    --ac-activo: #1B5E20;
+    --ac-activo-texto: #FFFFFF;
+    --ac-inactivo: #8C1610;
+    --ac-inactivo-texto: #FFFFFF;
 }
 
 /* Alto contraste + oscuro. */
@@ -110,6 +126,11 @@ html[data-theme="dark"][data-alto-contraste="true"] {
     --ac-error: #FF9088;
     --ac-error-fondo: #000000;
     --ac-error-texto: #FF9088;
+
+    --ac-activo: #7BE495;
+    --ac-activo-texto: #000000;
+    --ac-inactivo: #FF9088;
+    --ac-inactivo-texto: #000000;
 }
 
 html {
@@ -261,6 +282,32 @@ html:not([data-alto-contraste="true"]) .mud-data-grid {
     color: var(--mud-palette-text-primary);
     font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
     font-weight: 600;
+}
+
+/* --- Estado Activo / Inactivo ---
+   Etiquetas (EstadoChip) y botones de Activar / Desactivar / Anular en verde y
+   rojo, rellenos para que se lean de un vistazo en las grillas. El selector es
+   más específico que el de los colores de Mud (.mud-chip-filled-color-*,
+   .mud-button-filled-*) para que gane sin usar !important. */
+html .mud-chip.mud-chip-filled.ac-estado {
+    font-weight: 700;
+}
+
+html .mud-chip.mud-chip-filled.ac-estado-activo,
+html .mud-button.mud-button-filled.ac-btn-activar {
+    background-color: var(--ac-activo);
+    color: var(--ac-activo-texto);
+}
+
+html .mud-chip.mud-chip-filled.ac-estado-inactivo,
+html .mud-button.mud-button-filled.ac-btn-inactivar {
+    background-color: var(--ac-inactivo);
+    color: var(--ac-inactivo-texto);
+}
+
+html .mud-button.mud-button-filled.ac-btn-activar:hover,
+html .mud-button.mud-button-filled.ac-btn-inactivar:hover {
+    filter: brightness(0.92);
 }
 
 /* Alertas con el mismo radio que el resto de superficies. */

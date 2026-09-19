@@ -45,7 +45,7 @@
                     <CellTemplate>
                         @if (!context.Item.Estado)
                         {
-                            <MudChip T="string" Color="Color.Default" Size="Size.Small" Icon="@Icons.Material.Filled.Block">Inactivo</MudChip>
+                            <EstadoChip Activo="false" />
                         }
                         else if (context.Item.BloqueadoTemporalmente)
                         {
@@ -56,7 +56,7 @@
                         }
                         else
                         {
-                            <MudChip T="string" Color="Color.Success" Size="Size.Small" Icon="@Icons.Material.Filled.CheckCircle">Activo</MudChip>
+                            <EstadoChip Activo="true" />
                         }
                     </CellTemplate>
                 </TemplateColumn>

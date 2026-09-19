@@ -51,7 +51,13 @@
                 </TemplateColumn>
                 <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
                 <PropertyColumn Property="x => x.Descripcion" Title="Descripción" />
-                <PropertyColumn Property="x => x.Estado" Title="Estado" />
+                <TemplateColumn Title="Estado">
+                    <CellTemplate>
+                        @* Activo en verde; cualquier otro estado (Anulado) en rojo, con su propio texto. *@
+                        <EstadoChip Activo="@(context.Item.Estado == nameof(EstadoGastoOperativo.Activo))"
+                                    TextoInactivo="@context.Item.Estado" />
+                    </CellTemplate>
+                </TemplateColumn>
                 <TemplateColumn Title="Acciones">
                     <CellTemplate>
                         <AuthorizeView Policy="@Permisos.Gastos.Editar" Context="auth">
@@ -63,7 +69,7 @@
                         @if (context.Item.Estado == nameof(EstadoGastoOperativo.Activo))
                         {
                             <AuthorizeView Policy="@Permisos.Gastos.Anular" Context="auth">
-                                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@(() => AnularAsync(context.Item.Id))">Anular</MudButton>
+                                <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Error" Class="ac-btn-inactivar ml-1" OnClick="@(() => AnularAsync(context.Item.Id))">Anular</MudButton>
                             </AuthorizeView>
                         }
                     </CellTemplate>
