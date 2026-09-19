@@ -12,7 +12,7 @@
 @inject IDonacionesService DonacionesService
 @inject ISnackbar Snackbar
 
-<MudText Typo="Typo.h4" Class="mb-4">Registrar entrega de donación</MudText>
+<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Registrar entrega de donación</MudText>
 
 <EditForm Model="modelo" OnValidSubmit="Guardar">
     <DataAnnotationsValidator />
@@ -49,7 +49,7 @@
 
             <MudTextField @bind-Value="modelo.Observaciones" Label="Observaciones (opcional)" Variant="Variant.Outlined" Class="mt-4" Lines="2" />
 
-            <MudText Typo="Typo.h6" Class="mt-6 mb-2">Artículos a entregar</MudText>
+            <MudText Typo="Typo.h6" HtmlTag="h2" Class="mt-6 mb-2">Artículos a entregar</MudText>
 
             @* Sin restricción de categoría, a diferencia de Solicitar Préstamo: acá se
                entrega en forma definitiva cualquier artículo que haya entrado como

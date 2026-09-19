@@ -282,3 +282,22 @@
         transform: translateX(26px) rotate(360deg);
     }
 }
+
+
+/* Quien pidió menos movimiento no ve las nubes ni las estrellas animadas, ni
+   el giro del sol/luna, ni los deslizamientos del interruptor. */
+@media (prefers-reduced-motion: reduce) {
+    .cloud-light,
+    .cloud-dark,
+    .star,
+    #input:checked + .slider .sun-moon {
+        animation: none;
+    }
+
+    .slider,
+    .sun-moon,
+    .stars,
+    .moon-dot {
+        transition: none;
+    }
+}

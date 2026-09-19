@@ -10,7 +10,7 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
-<MudText Typo="Typo.h4" Class="mb-4">Gastos operativos</MudText>
+<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Gastos operativos</MudText>
 
 <MudCard Class="pa-4">
     <MudCardContent>
@@ -30,7 +30,7 @@
 
         @* Un total por moneda y no un solo número: sumar colones con dólares en
            una sola cifra no representaría nada. *@
-        <MudText Typo="Typo.h6" Class="mb-4">
+        <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-4">
             Total acumulado:
             @if (totalesPorMoneda.Count == 0)
             {

@@ -46,10 +46,8 @@
     --ac-inactivo: #B3261E;
     --ac-inactivo-texto: #FFFFFF;
 
-    /* Sombras y vidrio */
+    /* Sombras */
     --ac-sombra-rgb: 38, 43, 42;
-    --ac-vidrio: rgba(255, 255, 255, 0.72);
-    --ac-vidrio-borde: rgba(255, 255, 255, 0.9);
 }
 
 /* Modo oscuro: fondo negro, superficies #1F1F1F y coral claro para que
@@ -78,8 +76,6 @@ html[data-theme="dark"] {
     --ac-inactivo-texto: #000000;
 
     --ac-sombra-rgb: 0, 0, 0;
-    --ac-vidrio: rgba(31, 31, 31, 0.72);
-    --ac-vidrio-borde: rgba(255, 255, 255, 0.18);
 }
 
 /* Alto contraste (claro): mismos tonos de marca llevados a AAA (>= 7:1),
@@ -191,31 +187,17 @@ html:not([data-alto-contraste="true"]) .mud-appbar::after {
     font-weight: 600;
 }
 
-/* Tarjeta "vidrio esmerilado" (From Uiverse.io by SteveBloX), a pedido,
-   reemplaza la tarjeta "gema" anterior. El CSS original es para una
-   insignia chica y clicable (200x254px fijos, centrada, con cursor:pointer
-   y una animación de "rebote" al hacer hover/click) — una MudCard acá es un
-   contenedor grande de formularios y tablas, no un botón, así que se
-   mantiene solo la "piel" de vidrio (fondo traslúcido + blur + borde +
-   sombra + radio) y se omiten:
-   - width/height fijos y el centrado flex/text-align (rompería el layout
-     de cualquier formulario o tabla adentro).
-   - cursor:pointer, user-select:none y el hover/active con scale+rotate
-     (la tarjeta entera no es un único elemento clicable; ese "rebote" en
-     cada hover/click de un input o botón interno se sentiría roto, no como
-     una interacción intencional).
-   - color:black y font-weight:bolder (el texto ya tiene su propio color
-     por el tema; forzar negro/negrita ahí pisaría eso).
-   El vidrio es blanco translúcido sobre el crema (oscuro translúcido en modo
-   oscuro) y suma un filo coral arriba como sello de marca. El blur deja ver
-   difuminado el fondo animado detrás de la tarjeta. */
+/* Tarjeta: superficie opaca con radio parejo, sombra suave y un filo coral
+   arriba como sello de marca. Antes era un "vidrio esmerilado" translúcido con
+   desenfoque; sin el fondo animado que lo justificaba solo restaba contraste a
+   formularios y tablas, y el backdrop-filter costaba rendimiento en cada
+   tarjeta de la pantalla. */
 html:not([data-alto-contraste="true"]) .mud-card {
     box-sizing: border-box;
-    background: var(--ac-vidrio);
-    border: 1px solid var(--ac-vidrio-borde);
+    background: var(--ac-superficie);
+    border: 1px solid var(--ac-borde-suave);
     border-top: 3px solid var(--ac-coral);
-    box-shadow: 12px 17px 51px rgba(var(--ac-sombra-rgb), 0.16);
-    backdrop-filter: blur(6px);
+    box-shadow: 0 8px 24px rgba(var(--ac-sombra-rgb), 0.1);
     border-radius: 17px;
 }
 
@@ -340,6 +322,73 @@ html[data-alto-contraste="true"] :focus-visible {
 
 a {
     color: var(--ac-coral-700);
+}
+
+/* --- Accesibilidad e interacción --- */
+
+/* El AppBar es fixed: sin esto, al saltar a un ancla (enlace "Saltar al
+   contenido") el destino queda tapado por la barra. */
+html {
+    scroll-padding-top: calc(var(--mud-appbar-height, 64px) + 1rem);
+}
+
+/* Enlace "Saltar al contenido principal": fuera de pantalla hasta que recibe el
+   foco del teclado. */
+.sigac-saltar {
+    position: fixed;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 2000;
+    padding: 0.6rem 1rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--ac-blanco);
+    background-color: var(--ac-coral-800);
+    border-radius: 8px;
+    transform: translateY(-200%);
+}
+
+.sigac-saltar:focus {
+    transform: translateY(0);
+    outline: 3px solid var(--ac-lima);
+    outline-offset: 2px;
+}
+
+/* Foco visible para quien navega con teclado, en el verde azulado de marca
+   (5.97:1 sobre blanco; en modo oscuro el token pasa a su tono claro). En el
+   AppBar, que es coral, se usa blanco. Alto contraste ya tiene su propio anillo
+   (currentColor, más arriba). */
+html:not([data-alto-contraste="true"]) :is(a, button, [role="button"], [tabindex]):focus-visible {
+    outline: 3px solid var(--ac-teal-700);
+    outline-offset: 2px;
+}
+
+html:not([data-alto-contraste="true"]) .mud-appbar :is(a, button, [role="button"], [tabindex]):focus-visible {
+    outline-color: var(--ac-blanco);
+}
+
+/* El destino del enlace de salto recibe foco programático (tabindex -1): sin
+   anillo, no es un control. */
+#contenido-principal:focus {
+    outline: none;
+}
+
+/* Cifras alineadas en columnas de datos (montos, fechas, cantidades). */
+.mud-table-cell {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Pantallas táctiles: objetivos de 44px como mínimo (los botones Small de las
+   grillas, como Activar/Desactivar, quedarían en ~30px). */
+@media (pointer: coarse) {
+    .mud-button-root,
+    .mud-icon-button {
+        min-height: 44px;
+    }
+
+    .mud-icon-button {
+        min-width: 44px;
+    }
 }
 
 /* --- Portada (Home.razor): hero + tarjetas de módulos --- */
