@@ -1,18 +1,13 @@
 @page "/bienvenida"
 @layout BienvenidaLayout
+@attribute [AllowAnonymous]
 
-@* Pantalla de bienvenida con el banner: es a donde lleva el inicio de sesión y
-   de aquí se pasa sola al inicio (dashboard de módulos).
-   El fallback de autorización (Program.cs) ya exige sesión, no hace falta
-   atributo. La redirección es un <meta refresh> y no un temporizador de
-   Blazor: funciona aunque el circuito interactivo todavía no esté conectado
-   y no depende de JS. El botón permite entrar sin esperar. *@
+@* Landing de bienvenida: a donde lleva el inicio de sesión. No redirige sola;
+   se pasa al dashboard (/) con el botón, y si alguien sin sesión la abre, el
+   botón lo lleva al login y de ahí al dashboard. Las tarjetas son solo
+   informativas (no enlazan a módulos), así que no dependen de permisos. *@
 
 <PageTitle>Bienvenida — SIGAC</PageTitle>
-
-<HeadContent>
-    <meta http-equiv="refresh" content="@SegundosEspera;url=/" />
-</HeadContent>
 
 <section class="bienvenida" aria-labelledby="bienvenida-titulo">
     <img src="img/banner.png"
@@ -22,14 +17,44 @@
     <div class="bienvenida-texto">
         <span class="ac-hero-antetitulo">UN PUENTE DE ESPERANZA</span>
         <h1 id="bienvenida-titulo" class="ac-hero-titulo">SISTEMA DE GESTIÓN ALIMENTANDO CORAZONES</h1>
-
-        <a href="/" class="bienvenida-entrar">Entrar al sistema</a>
-        <p class="bienvenida-aviso" role="status">
-            Serás redirigido automáticamente en unos segundos.
+        <p class="bienvenida-descripcion">
+            Administre beneficiarios, donaciones, inventario y proyectos desde un solo lugar,
+            con la información siempre al día.
         </p>
-    </div>
-</section>
 
-@code {
-    private const int SegundosEspera = 6;
-}
+        <a href="/" class="bienvenida-entrar">
+            Ir al panel administrativo <span aria-hidden="true">→</span>
+        </a>
+    </div>
+
+    <ul class="bienvenida-modulos" aria-label="Módulos del sistema">
+        <li class="bienvenida-modulo">
+            <span class="bienvenida-icono bienvenida-icono-coral">
+                <MudIcon Icon="@Icons.Material.Filled.People" Color="Color.Inherit" />
+            </span>
+            <h2 class="bienvenida-modulo-titulo">Beneficiarios</h2>
+            <p>Personas atendidas y su asistencia al comedor.</p>
+        </li>
+        <li class="bienvenida-modulo">
+            <span class="bienvenida-icono bienvenida-icono-teal">
+                <MudIcon Icon="@Icons.Material.Filled.VolunteerActivism" Color="Color.Inherit" />
+            </span>
+            <h2 class="bienvenida-modulo-titulo">Donaciones</h2>
+            <p>Donantes y aportes recibidos, en dinero y en especie.</p>
+        </li>
+        <li class="bienvenida-modulo">
+            <span class="bienvenida-icono bienvenida-icono-coral">
+                <MudIcon Icon="@Icons.Material.Filled.Inventory2" Color="Color.Inherit" />
+            </span>
+            <h2 class="bienvenida-modulo-titulo">Inventario</h2>
+            <p>Existencias, entradas y préstamos de artículos.</p>
+        </li>
+        <li class="bienvenida-modulo">
+            <span class="bienvenida-icono bienvenida-icono-teal">
+                <MudIcon Icon="@Icons.Material.Filled.Groups" Color="Color.Inherit" />
+            </span>
+            <h2 class="bienvenida-modulo-titulo">Proyectos</h2>
+            <p>Actividades comunitarias y sus participantes.</p>
+        </li>
+    </ul>
+</section>

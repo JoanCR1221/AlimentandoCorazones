@@ -184,8 +184,8 @@
     // permitiría mandar al usuario a otro dominio después de autenticarse.
     private string DestinoSeguro()
     {
-        // Sin ReturnUrl válido se pasa por la bienvenida (banner), que redirige
-        // sola al inicio. "/" cuenta como "sin destino": es el ReturnUrl que
+        // Sin ReturnUrl válido se pasa por la bienvenida (banner), desde donde
+        // se entra al dashboard con un botón. "/" cuenta como "sin destino": es el ReturnUrl que
         // genera el sistema cuando alguien abre la raíz sin sesión, y sin esto
         // se saltaría la bienvenida en el caso más común.
         if (string.IsNullOrWhiteSpace(ReturnUrl)
