@@ -16,8 +16,34 @@
     margin-left: 0.5rem;
     flex-shrink: 0;
     /* Cuadrado redondeado, no el radio orgánico de tarjetas/botones: en un
-       ícono de 40px ese radio asimétrico se ve deforme. */
+       ícono de 40px ese radio asimétrico se ve deforme. El logo tiene fondo
+       blanco propio, así que sobre el AppBar coral se lee como una ficha. */
     border-radius: 10px;
+    background-color: var(--ac-blanco);
+}
+
+.sigac-brand-texto {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin-left: 0.6rem;
+    line-height: 1.05;
+}
+
+::deep .sigac-brand-nombre {
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.sigac-brand-lema {
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+::deep .sigac-drawer-encabezado {
+    border-bottom: 3px solid var(--ac-lima);
+    font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
 }
 
 #blazor-error-ui {
@@ -45,20 +71,17 @@ html:not([data-theme="dark"]):not([data-alto-contraste="true"]) .ice-crystal {
     display: block;
 }
 
-/* Recoloreado a pedido: con cian/blanco a la intensidad que hacía falta
-   para que se note, todo el fondo beige se lavaba a verde salvia (perdía el
-   tono cálido de la paleta SIGAC). Misma mecánica y animaciones del CSS
-   original, pero con crema/terracota de la propia paleta en vez de
-   cian/blanco — así "lighten"/"screen" empujan el fondo hacia más cálido y
-   luminoso en vez de hacia frío. */
+/* Recoloreado con la marca: puntos blancos y coral, ondas coral suave y
+   líneas verde azulado, todos de baja opacidad sobre el crema. Misma
+   mecánica y animaciones del CSS original. */
 .cosmic-element {
     filter: url(#cosmic-texture);
     mix-blend-mode: lighten;
 }
 
 .stars-layer {
-    background-image: radial-gradient(#FDFBF799 1.5px, transparent 1.5px),
-        radial-gradient(#C05C4E88 1.5px, transparent 1.5px);
+    background-image: radial-gradient(color-mix(in srgb, var(--ac-superficie) 60%, transparent) 1.5px, transparent 1.5px),
+        radial-gradient(color-mix(in srgb, var(--ac-coral) 53%, transparent) 1.5px, transparent 1.5px);
     background-size: 10px 10px;
     background-position: 0 0, 5px 5px;
     animation: sigac-twinkle 4s infinite alternate ease-in-out;
@@ -67,8 +90,8 @@ html:not([data-theme="dark"]):not([data-alto-contraste="true"]) .ice-crystal {
 
 .wind-wave {
     background: repeating-linear-gradient(45deg,
-        rgba(253, 251, 247, 0.05) 0px,
-        rgba(192, 92, 78, 0.1) 1px,
+        color-mix(in srgb, var(--ac-superficie) 5%, transparent) 0px,
+        color-mix(in srgb, var(--ac-coral) 10%, transparent) 1px,
         transparent 3px);
     background-size: 300% 300%;
     animation: sigac-wind-shift 10s ease-in-out infinite;
@@ -76,10 +99,11 @@ html:not([data-theme="dark"]):not([data-alto-contraste="true"]) .ice-crystal {
 
 /* xmlns corregido: el CSS que llegó traía la URL del namespace rota por un
    autolinkeo del pegado ("://[www.w3.org/2000/svg](url)"), que hace que el
-   SVG no sea válido y la imagen no cargue. Color de las líneas cambiado de
-   cian (%2300ffff) a terracota (%23C05C4E), mismo criterio de recoloreado. */
+   SVG no sea válido y la imagen no cargue. Las líneas van en verde azulado
+   del logo (%23219B8C): un data-URI no puede leer variables CSS, así que ese
+   color es el único literal de este archivo (equivale a --ac-teal). */
 .ice-crystal {
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><line x1='0' y1='0' x2='100' y2='100' stroke='%23C05C4E' stroke-opacity='0.3'/><line x1='100' y1='0' x2='0' y2='100' stroke='%23C05C4E' stroke-opacity='0.3'/></svg>");
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><line x1='0' y1='0' x2='100' y2='100' stroke='%23219B8C' stroke-opacity='0.3'/><line x1='100' y1='0' x2='0' y2='100' stroke='%23219B8C' stroke-opacity='0.3'/></svg>");
     background-size: 80px 80px;
     animation: sigac-ice-drift 15s linear infinite;
     mix-blend-mode: screen;

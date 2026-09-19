@@ -1,3 +1,127 @@
+/* ==========================================================================
+   Identidad visual de Alimentando Corazones
+   --------------------------------------------------------------------------
+   Los colores de marca viven acá como variables CSS (--ac-*) y en
+   Services/AparienciaService.cs (paleta de MudBlazor). Ambos lugares tienen
+   que mantenerse en sincronía: la paleta de Mud pinta los componentes y estos
+   tokens pintan todo lo que es CSS propio (login, hero, textura de fondo).
+   En los .razor no se escriben hexadecimales: se usa var(--ac-*) o
+   var(--mud-palette-*).
+
+   Reglas de contraste que respetan los tonos de abajo:
+   - texto de cuerpo >= 4.5:1, elementos de UI >= 3:1.
+   - --ac-coral y --ac-teal (tonos "puros" del logo) son para acentos: iconos,
+     títulos grandes, bordes, insignias. Con texto blanco encima se usan las
+     variantes -700 (coral-700 5.19:1, teal-700 5.97:1).
+   - --ac-lima nunca va como texto sobre blanco (1.52:1); solo como acento o
+     como fondo con texto oscuro (9.4:1).
+   ========================================================================== */
+
+:root {
+    /* Colores del logo */
+    --ac-coral: #E5411C;
+    --ac-coral-700: #C2401F;
+    --ac-coral-800: #A93318;
+    --ac-teal: #219B8C;
+    --ac-teal-700: #17705F;
+    --ac-lima: #D2DA09;
+
+    /* Superficies y texto (modo claro) */
+    --ac-crema: #FFF8F2;
+    --ac-superficie: #FFFFFF;
+    --ac-ink: #262B2A;
+    --ac-ink-suave: #545B59;
+    --ac-borde: #6F7876;
+    --ac-borde-suave: #E4D8CE;
+    --ac-blanco: #FFFFFF;
+
+    /* Estados de error (login estático, sin paleta de Mud) */
+    --ac-error: #B3261E;
+    --ac-error-fondo: #FCEBE9;
+    --ac-error-texto: #7A1C14;
+
+    /* Estilo artesanal: color del "pliegue" de los botones, sombra y vidrio */
+    --ac-pliegue: #262B2A;
+    --ac-sombra-rgb: 38, 43, 42;
+    --ac-vidrio: rgba(255, 255, 255, 0.72);
+    --ac-vidrio-borde: rgba(255, 255, 255, 0.9);
+
+    /* Alias de la nomenclatura anterior, para no romper reglas que aún
+       la usen. */
+    --sigac-border: var(--ac-borde);
+    --sigac-shadow: 3px 3px 0px rgba(var(--ac-sombra-rgb), 0.18);
+    /* Usado por los popovers/diálogos/menús (mud-paper que no es card); las
+       tarjetas, botones e inputs ya migraron a otros estilos y no la usan. */
+    --sigac-radius-surface: 30px 6px 30px 6px / 6px 30px 6px 30px;
+}
+
+/* Modo oscuro: fondo negro, superficies #1F1F1F y coral claro para que
+   contraste sobre negro (coral #FF8A65 sobre negro: 9.08:1). */
+html[data-theme="dark"] {
+    --ac-coral: #FF8A65;
+    --ac-coral-700: #FF8A65;
+    --ac-coral-800: #FFA48A;
+    --ac-teal: #35BDB1;
+    --ac-teal-700: #35BDB1;
+
+    --ac-crema: #000000;
+    --ac-superficie: #1F1F1F;
+    --ac-ink: #FFFFFF;
+    --ac-ink-suave: #B8BDBB;
+    --ac-borde: #8C9492;
+    --ac-borde-suave: #3A3A3A;
+
+    --ac-error: #FF6B5E;
+    --ac-error-fondo: #3B1512;
+    --ac-error-texto: #FFB4AB;
+
+    --ac-pliegue: #000000;
+    --ac-sombra-rgb: 0, 0, 0;
+    --ac-vidrio: rgba(31, 31, 31, 0.72);
+    --ac-vidrio-borde: rgba(255, 255, 255, 0.18);
+}
+
+/* Alto contraste (claro): mismos tonos de marca llevados a AAA (>= 7:1),
+   ver AparienciaService. */
+html[data-alto-contraste="true"] {
+    --ac-coral: #7B240E;
+    --ac-coral-700: #7B240E;
+    --ac-coral-800: #5E1B0A;
+    --ac-teal: #0B4A3E;
+    --ac-teal-700: #0B4A3E;
+
+    --ac-crema: #FFFDFA;
+    --ac-superficie: #FFFFFF;
+    --ac-ink: #000000;
+    --ac-ink-suave: #000000;
+    --ac-borde: #000000;
+    --ac-borde-suave: #000000;
+
+    --ac-error: #8C1610;
+    --ac-error-fondo: #FFFFFF;
+    --ac-error-texto: #8C1610;
+}
+
+/* Alto contraste + oscuro. */
+html[data-theme="dark"][data-alto-contraste="true"] {
+    --ac-coral: #FFAB91;
+    --ac-coral-700: #FFAB91;
+    --ac-coral-800: #FFC2AD;
+    --ac-teal: #6FE0D3;
+    --ac-teal-700: #6FE0D3;
+
+    --ac-crema: #000000;
+    --ac-superficie: #0A0A0A;
+    --ac-ink: #FFFFFF;
+    --ac-ink-suave: #FFFFFF;
+    --ac-borde: #FFFFFF;
+    --ac-borde-suave: #FFFFFF;
+
+    --ac-error: #FF9088;
+    --ac-error-fondo: #000000;
+    --ac-error-texto: #FF9088;
+}
+
 html {
     /* Tamaño base: el slider de Configuraciones lo sobrescribe con un estilo
        inline (ver apariencia.js), este 100% es solo el valor antes de que
@@ -6,7 +130,18 @@ html {
 }
 
 html, body {
-    font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-family: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+body {
+    background-color: var(--ac-crema);
+    color: var(--ac-ink);
+}
+
+/* Títulos con Outfit. Los componentes de Mud (Typo.h1-h6) ya la reciben del
+   tema; esto cubre los <h1> planos de páginas estáticas como el login. */
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
 }
 
 /* La barra superior es position:fixed con un z-index alto; MudBlazor le suma
@@ -19,13 +154,30 @@ html, body {
     padding-top: calc(var(--mud-appbar-height, 64px) + 1rem);
 }
 
-/* --- Tokens del estilo artesanal (hand-drawn) --- */
-:root {
-    --sigac-border: #7A685D;
-    --sigac-shadow: 3px 3px 0px rgba(122, 104, 93, 0.25);
-    /* Usado por los popovers/diálogos/menús (mud-paper que no es card); las
-       tarjetas, botones e inputs ya migraron a otros estilos y no la usan. */
-    --sigac-radius-surface: 30px 6px 30px 6px / 6px 30px 6px 30px;
+/* --- Barra superior: franja tricolor del logo (lima, coral, verde azulado)
+   en el borde inferior. Decorativa; se omite en alto contraste. */
+html:not([data-alto-contraste="true"]) .mud-appbar::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 4px;
+    pointer-events: none;
+    background: linear-gradient(90deg,
+        var(--ac-lima) 0 33.33%,
+        var(--ac-coral) 33.33% 66.66%,
+        var(--ac-teal) 66.66% 100%);
+}
+
+/* --- Consistencia entre módulos: títulos de pantalla ---
+   Coral-700 (4.93:1 sobre el crema, 5.19:1 sobre blanco) y no el coral puro:
+   a 80% de tamaño de letra un h5 deja de contar como "texto grande". */
+.sigac-main .mud-typography-h3,
+.sigac-main .mud-typography-h4,
+.sigac-main .mud-typography-h5 {
+    color: var(--ac-coral-700);
+    font-weight: 600;
 }
 
 /* Fondo de "papel cuadriculado" en modo oscuro (From Uiverse.io by
@@ -34,14 +186,13 @@ html, body {
    queda detrás de AppBar/Drawer/tarjetas sin tocar el layout de Blazor).
    Se omite overflow:hidden del .container original: en <body> eso
    recortaría el scroll de cualquier página más larga que la pantalla
-   (tablas, formularios largos). #121212 (gris neutro) se cambió por
-   #2A2420, el mismo marrón oscuro que ya usa el tema — la cuadrícula/puntos
-   en blanco quedan igual, son casi imperceptibles (3-7% de opacidad) así
-   que el matiz exacto no se nota. Estática, sin animación: no hace falta
-   guardar contra prefers-reduced-motion. */
+   (tablas, formularios largos). Sobre el negro de la marca, la
+   cuadrícula/puntos en blanco quedan casi imperceptibles (3-7% de opacidad).
+   Estática, sin animación: no hace falta guardar contra
+   prefers-reduced-motion. */
 html[data-theme="dark"]:not([data-alto-contraste="true"]) body {
     position: relative;
-    background-color: #2A2420;
+    background-color: var(--ac-crema);
     background-image:
         radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.05) 1px, transparent 0),
         linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 0),
@@ -93,31 +244,28 @@ html[data-theme="dark"]:not([data-alto-contraste="true"]) body::after {
      una interacción intencional).
    - color:black y font-weight:bolder (el texto ya tiene su propio color
      por el tema; forzar negro/negrita ahí pisaría eso).
-   Los colores sí se adaptaron: gris rgba(217,217,217,.58) → crema de la
-   paleta, sombra negra → el mismo marrón de siempre. El blur deja ver
-   difuminado el fondo animado de día/noche detrás de la tarjeta. */
+   El vidrio es blanco translúcido sobre el crema (oscuro translúcido en modo
+   oscuro) y suma un filo coral arriba como sello de marca. El blur deja ver
+   difuminado el fondo animado detrás de la tarjeta. */
 html:not([data-alto-contraste="true"]) .mud-card {
     box-sizing: border-box;
-    background: rgba(253, 251, 247, 0.58);
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    box-shadow: 12px 17px 51px rgba(62, 51, 46, 0.22);
+    background: var(--ac-vidrio);
+    border: 1px solid var(--ac-vidrio-borde);
+    border-top: 3px solid var(--ac-coral);
+    box-shadow: 12px 17px 51px rgba(var(--ac-sombra-rgb), 0.16);
     backdrop-filter: blur(6px);
     border-radius: 17px;
 }
 
-/* Vidrio oscuro en modo oscuro: con el mismo fondo crema translúcido de
-   arriba, el texto blanco del tema oscuro quedaba lavado contra un panel
-   claro-ish (poco contraste). Mismo vidrio, base oscura. */
-html[data-theme="dark"]:not([data-alto-contraste="true"]) .mud-card {
-    background: rgba(22, 16, 9, 0.58);
-    border-color: rgba(255, 255, 255, 0.18);
-    box-shadow: 12px 17px 51px rgba(0, 0, 0, 0.35);
-}
-
 html:not([data-alto-contraste="true"]) .mud-paper:not(.mud-card) {
     border-radius: var(--sigac-radius-surface);
-    border: 1.5px solid var(--sigac-border);
+    border: 1.5px solid var(--ac-borde);
     box-shadow: var(--sigac-shadow);
+}
+
+/* Menú lateral: borde fino en vez de solo sombra. */
+html:not([data-alto-contraste="true"]) .mud-drawer {
+    border-right: 1px solid var(--ac-borde-suave);
 }
 
 /* Inputs con línea inferior en vez de caja completa (a pedido, reemplaza el
@@ -150,13 +298,13 @@ html:not([data-alto-contraste="true"]) .mud-button-outlined {
     position: relative;
     overflow: hidden;
     border-radius: 0.5em;
-    box-shadow: 0.35em 0.35em 0.4em rgba(62, 51, 46, 0.35);
+    box-shadow: 0.35em 0.35em 0.4em rgba(var(--ac-sombra-rgb), 0.3);
     transition: box-shadow 0.2s, transform 0.2s;
 }
 
 html:not([data-alto-contraste="true"]) .mud-button-filled:active,
 html:not([data-alto-contraste="true"]) .mud-button-outlined:active {
-    box-shadow: 0.15em 0.15em 0.2em rgba(62, 51, 46, 0.35);
+    box-shadow: 0.15em 0.15em 0.2em rgba(var(--ac-sombra-rgb), 0.3);
     transform: translate(0.1em, 0.1em);
 }
 
@@ -173,7 +321,7 @@ html:not([data-alto-contraste="true"]) .mud-button-filled::before {
     width: 0;
     top: 0;
     left: 0;
-    background: linear-gradient(135deg, #2A2420 0%, #2A2420 50%, transparent 50%, transparent 60%);
+    background: linear-gradient(135deg, var(--ac-pliegue) 0%, var(--ac-pliegue) 50%, transparent 50%, transparent 60%);
     border-radius: 0 0 0.5em 0;
     transition: 0.3s;
 }
@@ -183,22 +331,37 @@ html:not([data-alto-contraste="true"]) .mud-button-filled:hover::before {
     height: 1.4em;
 }
 
-/* Botones secundarios (Variant.Outlined + Color.Primary): fidelidad literal
-   al terracota #C05C4E pedido. No tienen el problema de contraste del botón
+/* Botones secundarios (Variant.Outlined + Color.Primary): borde y texto del
+   mismo color Primary del tema. No tienen el problema de contraste del botón
    principal porque el texto es del mismo color que el borde, no blanco. */
 html:not([data-alto-contraste="true"]) .mud-button-outlined-primary {
-    border-color: #C05C4E;
-    color: #C05C4E;
+    border-color: var(--mud-palette-primary);
+    color: var(--mud-palette-primary);
 }
 
 html:not([data-alto-contraste="true"]) .mud-table-container,
 html:not([data-alto-contraste="true"]) .mud-data-grid {
-    border: 1.5px solid var(--sigac-border);
+    border: 1.5px solid var(--ac-borde);
     border-radius: 10px;
 }
 
+/* Encabezado de tablas y grillas: coral suave sobre la superficie, con el
+   mismo texto del tema (contraste >= 13:1). Una sola regla para las 12
+   MudDataGrid y las MudTable. */
+.mud-table-head .mud-table-cell {
+    background-color: color-mix(in srgb, var(--ac-coral) 10%, var(--mud-palette-surface));
+    color: var(--mud-palette-text-primary);
+    font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
+    font-weight: 600;
+}
+
 html:not([data-alto-contraste="true"]) .mud-chip {
-    border: 1.5px solid var(--sigac-border);
+    border: 1.5px solid var(--ac-borde);
+}
+
+/* Alertas con el mismo radio que el resto de superficies. */
+html:not([data-alto-contraste="true"]) .mud-alert {
+    border-radius: 12px;
 }
 
 html[data-alto-contraste="true"] .mud-input-outlined .mud-input-outlined-border {
@@ -225,7 +388,83 @@ html[data-alto-contraste="true"] :focus-visible {
 }
 
 a {
-    color: #A8503F;
+    color: var(--ac-coral-700);
+}
+
+/* --- Portada (Home.razor): hero + tarjetas de módulos --- */
+.ac-hero {
+    margin-bottom: 2rem;
+}
+
+.ac-hero-banner {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 17px;
+    border: 1.5px solid var(--ac-borde-suave);
+    box-shadow: 0 10px 30px rgba(var(--ac-sombra-rgb), 0.12);
+}
+
+.ac-hero-texto {
+    text-align: center;
+    padding: 1.5rem 0.5rem 0;
+}
+
+/* Antetítulo: verde azulado 700 (5.67:1 sobre el crema), no el puro. */
+.ac-hero-antetitulo {
+    display: inline-block;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.35rem;
+    font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    color: var(--ac-teal-700);
+    border-bottom: 3px solid var(--ac-lima);
+}
+
+.ac-hero-titulo {
+    margin: 0;
+    font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
+    font-size: clamp(1.5rem, 1rem + 2.4vw, 2.75rem);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    /* Título grande: coral puro (3.91:1 sobre el crema, válido para texto
+       grande). En modo oscuro y alto contraste el token ya cambia. */
+    color: var(--ac-coral);
+}
+
+.ac-card-modulo {
+    height: 100%;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+html:not([data-alto-contraste="true"]) .ac-card-modulo:hover {
+    transform: translateY(-3px);
+    box-shadow: 12px 20px 51px rgba(var(--ac-sombra-rgb), 0.22);
+}
+
+/* Icono de cada módulo dentro de un círculo teñido con su propio color
+   (currentColor lo toma de la clase mud-*-text del icono). */
+.ac-card-modulo .mud-icon-root.mud-icon-size-large {
+    box-sizing: content-box;
+    padding: 0.6rem;
+    border-radius: 50%;
+    background-color: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ac-card-modulo,
+    .mud-button-filled,
+    .mud-button-outlined {
+        transition: none;
+    }
+
+    html:not([data-alto-contraste="true"]) .ac-card-modulo:hover {
+        transform: none;
+    }
 }
 
 .blazor-error-boundary {

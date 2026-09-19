@@ -1,16 +1,42 @@
-/* Misma paleta artesanal que AparienciaService (tema claro): fondo beige,
-   tarjeta crema, texto marrón, terracota como primario. */
+/* Página estática sin MudThemeProvider: los colores salen de los tokens
+   --ac-* de app.css (tema claro; esta página nunca activa el modo oscuro). */
 .login-fondo {
     min-height: 100vh;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 1.5rem;
-    background-color: #E6D7C3;
-    color: #3E332E;
+    /* Degradado de marca: un toque de coral arriba a la izquierda, verde azulado
+       arriba a la derecha y lima abajo, sobre el crema. */
+    background-color: var(--ac-crema);
+    background-image:
+        radial-gradient(60rem 30rem at 0% 0%, color-mix(in srgb, var(--ac-coral) 16%, transparent), transparent 70%),
+        radial-gradient(50rem 26rem at 100% 0%, color-mix(in srgb, var(--ac-teal) 18%, transparent), transparent 70%),
+        radial-gradient(60rem 24rem at 50% 100%, color-mix(in srgb, var(--ac-lima) 22%, transparent), transparent 70%);
+    color: var(--ac-ink);
+    overflow-x: hidden;
 }
 
 .login-contenedor {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     width: 100%;
     max-width: 420px;
+    padding: 1.5rem 1.5rem 1rem;
+    box-sizing: border-box;
+}
+
+/* Paisaje del banner al pie, recortado a los lados y difuminado hacia arriba
+   para que el cielo del banner no dibuje un corte contra el crema. */
+.login-paisaje {
+    flex: 0 0 auto;
+    display: block;
+    width: 100%;
+    height: clamp(110px, 22vw, 260px);
+    object-fit: cover;
+    object-position: center bottom;
+    pointer-events: none;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 45%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 45%);
 }

@@ -8,9 +8,17 @@
 
 <PageTitle>Inicio — SIGAC</PageTitle>
 
-<MudText Typo="Typo.body1" Class="mb-6 mud-text-secondary">
-    Sistema de Gestión Alimentando Corazones.
-</MudText>
+@* Hero: el banner ya trae su propio texto (versículo y logos), así que el
+   antetítulo y el título van debajo y no encima de la imagen. *@
+<section class="ac-hero" aria-labelledby="inicio-titulo">
+    <img src="img/banner.png"
+         alt="Alimentando Corazones, Tamarindo, Guanacaste. Niños celebrando junto al ministerio infantil El Faro, con el versículo: «Mantengamos firme la esperanza que profesamos, porque fiel es el que hizo la promesa» (Hebreos 10:23)."
+         class="ac-hero-banner" />
+    <div class="ac-hero-texto">
+        <span class="ac-hero-antetitulo">UN PUENTE DE ESPERANZA</span>
+        <h1 id="inicio-titulo" class="ac-hero-titulo">SISTEMA DE GESTIÓN ALIMENTANDO CORAZONES</h1>
+    </div>
+</section>
 
 @* Cada tarjeta y cada botón se muestran solo si la cookie del usuario trae el
    permiso correspondiente (AB de fase 4): un Asistente ve dos tarjetas con un
@@ -21,7 +29,7 @@
     @if (Tiene(Permisos.Beneficiarios.Ver) || Tiene(Permisos.Beneficiarios.Registrar))
     {
         <MudItem xs="12" sm="6" md="4">
-            <MudCard Class="pa-4" Style="height: 100%;">
+            <MudCard Class="pa-4 ac-card-modulo">
                 <MudStack Spacing="2">
                     <MudIcon Icon="@Icons.Material.Filled.People" Color="Color.Primary" Size="Size.Large" />
                     <MudText Typo="Typo.h6">Beneficiarios</MudText>
@@ -48,7 +56,7 @@
     @if (Tiene(Permisos.Asistencia.Registrar) || Tiene(Permisos.Asistencia.Ver))
     {
         <MudItem xs="12" sm="6" md="4">
-            <MudCard Class="pa-4" Style="height: 100%;">
+            <MudCard Class="pa-4 ac-card-modulo">
                 <MudStack Spacing="2">
                     <MudIcon Icon="@Icons.Material.Filled.Restaurant" Color="Color.Secondary" Size="Size.Large" />
                     <MudText Typo="Typo.h6">Asistencia al comedor</MudText>
@@ -75,7 +83,7 @@
     @if (Tiene(Permisos.Inventario.VerExistencias) || Tiene(Permisos.Inventario.RegistrarEntrada))
     {
         <MudItem xs="12" sm="6" md="4">
-            <MudCard Class="pa-4" Style="height: 100%;">
+            <MudCard Class="pa-4 ac-card-modulo">
                 <MudStack Spacing="2">
                     <MudIcon Icon="@Icons.Material.Filled.Inventory" Color="Color.Info" Size="Size.Large" />
                     <MudText Typo="Typo.h6">Inventario</MudText>
@@ -102,7 +110,7 @@
     @if (Tiene(Permisos.Donaciones.VerHistorial) || Tiene(Permisos.Donaciones.RegistrarDinero) || Tiene(Permisos.Donaciones.RegistrarEspecie))
     {
         <MudItem xs="12" sm="6" md="4">
-            <MudCard Class="pa-4" Style="height: 100%;">
+            <MudCard Class="pa-4 ac-card-modulo">
                 <MudStack Spacing="2">
                     <MudIcon Icon="@Icons.Material.Filled.VolunteerActivism" Color="Color.Warning" Size="Size.Large" />
                     <MudText Typo="Typo.h6">Donaciones</MudText>
@@ -148,7 +156,7 @@
     @if (Tiene(Permisos.Gastos.Ver) || Tiene(Permisos.Gastos.Registrar))
     {
         <MudItem xs="12" sm="6" md="4">
-            <MudCard Class="pa-4" Style="height: 100%;">
+            <MudCard Class="pa-4 ac-card-modulo">
                 <MudStack Spacing="2">
                     <MudIcon Icon="@Icons.Material.Filled.Receipt" Color="Color.Success" Size="Size.Large" />
                     <MudText Typo="Typo.h6">Gastos Operativos</MudText>
@@ -175,7 +183,7 @@
     @if (Tiene(Permisos.Proyectos.Ver) || Tiene(Permisos.Proyectos.Registrar))
     {
         <MudItem xs="12" sm="6" md="4">
-            <MudCard Class="pa-4" Style="height: 100%;">
+            <MudCard Class="pa-4 ac-card-modulo">
                 <MudStack Spacing="2">
                     <MudIcon Icon="@Icons.Material.Filled.Groups" Color="Color.Tertiary" Size="Size.Large" />
                     <MudText Typo="Typo.h6">Proyectos comunitarios</MudText>
@@ -202,7 +210,7 @@
     @if (Tiene(Permisos.Seguridad.GestionarUsuarios) || Tiene(Permisos.Seguridad.VerBitacora))
     {
         <MudItem xs="12" sm="6" md="4">
-            <MudCard Class="pa-4" Style="height: 100%;">
+            <MudCard Class="pa-4 ac-card-modulo">
                 <MudStack Spacing="2">
                     <MudIcon Icon="@Icons.Material.Filled.Security" Color="Color.Error" Size="Size.Large" />
                     <MudText Typo="Typo.h6">Seguridad</MudText>

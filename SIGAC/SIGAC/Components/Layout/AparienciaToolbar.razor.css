@@ -1,8 +1,9 @@
 /* Switch día/noche (Uiverse.io by RiccardoRapelli), adaptado a SIGAC: los
    dos colores del carril (azul #2196f3 / negro del demo original) se
-   cambiaron por el beige y el marrón oscuro de la paleta artesanal para no
-   desentonar con el resto del AppBar; el resto (medidas, capas, animaciones)
-   es el CSS tal cual se pidió. */
+   cambiaron por el blanco y el negro de la marca para no desentonar con el
+   AppBar; el resto (medidas, capas, animaciones) es el CSS tal cual se pidió.
+   Un aro blanco separa el carril del AppBar en ambos modos (el carril negro
+   sobre el AppBar #1F1F1F del modo oscuro casi no se distinguía). */
 
 .switch {
     position: relative;
@@ -24,7 +25,8 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: #E6D7C3;
+    background-color: var(--ac-crema);
+    box-shadow: 0 0 0 2px var(--ac-blanco);
     transition: 0.4s;
     z-index: 0;
     overflow: hidden;
@@ -42,12 +44,13 @@
 }
 
 #input:checked + .slider {
-    background-color: #2A2420;
+    background-color: #000000;
 }
 
+/* Lima sobre el AppBar coral: ~3.8:1, suficiente para un indicador de foco. */
 #input:focus-visible + .slider {
-    outline: 2px solid #7A685D;
-    outline-offset: 2px;
+    outline: 3px solid var(--ac-lima);
+    outline-offset: 3px;
 }
 
 #input:checked + .slider .sun-moon {

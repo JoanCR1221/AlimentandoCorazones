@@ -6,18 +6,32 @@
 ::deep .mud-nav-link {
     border-radius: 8px;
     margin: 2px 0;
+    /* Reserva el ancho de la barra del estado activo para que el contenido no
+       "salte" al seleccionar un enlace. */
+    border-left: 4px solid transparent;
 }
 
 ::deep .mud-nav-link:hover {
-    background-color: rgba(160, 80, 63, 0.08);
+    background-color: color-mix(in srgb, var(--ac-coral) 8%, transparent);
 }
 
+/* Estado activo: fondo coral suave, barra coral a la izquierda y texto en el
+   color de texto del tema (no en el coral del tema, que sobre el fondo teñido
+   quedaría por debajo de 4.5:1). La barra (coral vs. superficie, >= 3:1)
+   es lo que marca el enlace activo sin depender solo del color de fondo. */
 ::deep .mud-nav-link.mud-selected,
 ::deep .mud-nav-link.mud-selected:hover {
-    background-color: rgba(160, 80, 63, 0.14);
-    font-weight: 600;
+    background-color: color-mix(in srgb, var(--ac-coral) 14%, transparent);
+    border-left-color: var(--ac-coral);
+    color: var(--mud-palette-text-primary);
+    font-weight: 700;
 }
 
 ::deep .mud-nav-group .mud-nav-link {
     font-weight: 500;
+}
+
+::deep .mud-nav-group > .mud-nav-link.mud-nav-link-active,
+::deep .mud-nav-group > .mud-nav-link.mud-selected {
+    font-weight: 700;
 }

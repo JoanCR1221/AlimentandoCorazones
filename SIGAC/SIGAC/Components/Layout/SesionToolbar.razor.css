@@ -11,6 +11,8 @@
     font-weight: 500;
 }
 
+/* Sin opacidad: el texto chico en blanco sobre el coral del AppBar (5.19:1)
+   dejaría de llegar a 4.5:1 si se atenúa. */
 ::deep .sesion-rol {
-    opacity: 0.85;
+    opacity: 1;
 }
