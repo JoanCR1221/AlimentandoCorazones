@@ -26,7 +26,7 @@
     right: 0;
     bottom: 0;
     background-color: var(--ac-crema);
-    box-shadow: 0 0 0 2px var(--ac-blanco);
+    box-shadow: 0 0 0 2px var(--ac-borde);
     transition: 0.4s;
     z-index: 0;
     overflow: hidden;
@@ -47,9 +47,9 @@
     background-color: #000000;
 }
 
-/* Lima sobre el AppBar coral: ~3.8:1, suficiente para un indicador de foco. */
+/* Anillo de foco en el verde azulado de marca (5.97:1 sobre la barra blanca). */
 #input:focus-visible + .slider {
-    outline: 3px solid var(--ac-lima);
+    outline: 3px solid var(--ac-teal-700);
     outline-offset: 3px;
 }
 

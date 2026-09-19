@@ -27,12 +27,15 @@
     --ac-lima: #D2DA09;
 
     /* Superficies y texto (modo claro) */
-    --ac-crema: #FFF8F2;
+    /* --ac-crema es el fondo de página (gris cálido); --ac-superficie-2 es la
+       segunda superficie, para encabezados de tabla y filas al pasar el mouse. */
+    --ac-crema: #F6F4F1;
     --ac-superficie: #FFFFFF;
+    --ac-superficie-2: #FBFAF8;
     --ac-ink: #262B2A;
     --ac-ink-suave: #545B59;
     --ac-borde: #6F7876;
-    --ac-borde-suave: #E4D8CE;
+    --ac-borde-suave: #E4E0DA;
     --ac-blanco: #FFFFFF;
 
     /* Estados de error (login estático, sin paleta de Mud) */
@@ -42,6 +45,7 @@
 
     /* Estado Activo / Inactivo: verde 5.13:1 y rojo 6.54:1 con texto blanco */
     --ac-activo: #2E7D32;
+    --ac-activo-ink: #1B5E20;
     --ac-activo-texto: #FFFFFF;
     --ac-inactivo: #B3261E;
     --ac-inactivo-texto: #FFFFFF;
@@ -61,6 +65,7 @@ html[data-theme="dark"] {
 
     --ac-crema: #000000;
     --ac-superficie: #1F1F1F;
+    --ac-superficie-2: #262626;
     --ac-ink: #FFFFFF;
     --ac-ink-suave: #B8BDBB;
     --ac-borde: #8C9492;
@@ -71,6 +76,7 @@ html[data-theme="dark"] {
     --ac-error-texto: #FFB4AB;
 
     --ac-activo: #66D17F;
+    --ac-activo-ink: #66D17F;
     --ac-activo-texto: #000000;
     --ac-inactivo: #FF6B5E;
     --ac-inactivo-texto: #000000;
@@ -89,6 +95,7 @@ html[data-alto-contraste="true"] {
 
     --ac-crema: #FFFDFA;
     --ac-superficie: #FFFFFF;
+    --ac-superficie-2: #FFFFFF;
     --ac-ink: #000000;
     --ac-ink-suave: #000000;
     --ac-borde: #000000;
@@ -99,6 +106,7 @@ html[data-alto-contraste="true"] {
     --ac-error-texto: #8C1610;
 
     --ac-activo: #1B5E20;
+    --ac-activo-ink: #1B5E20;
     --ac-activo-texto: #FFFFFF;
     --ac-inactivo: #8C1610;
     --ac-inactivo-texto: #FFFFFF;
@@ -114,6 +122,7 @@ html[data-theme="dark"][data-alto-contraste="true"] {
 
     --ac-crema: #000000;
     --ac-superficie: #0A0A0A;
+    --ac-superficie-2: #0A0A0A;
     --ac-ink: #FFFFFF;
     --ac-ink-suave: #FFFFFF;
     --ac-borde: #FFFFFF;
@@ -124,6 +133,7 @@ html[data-theme="dark"][data-alto-contraste="true"] {
     --ac-error-texto: #FF9088;
 
     --ac-activo: #7BE495;
+    --ac-activo-ink: #7BE495;
     --ac-activo-texto: #000000;
     --ac-inactivo: #FF9088;
     --ac-inactivo-texto: #000000;
@@ -161,50 +171,44 @@ h1, h2, h3, h4, h5, h6 {
     padding-top: calc(var(--mud-appbar-height, 64px) + 1rem);
 }
 
-/* --- Barra superior: franja tricolor del logo (lima, coral, verde azulado)
-   en el borde inferior. Decorativa; se omite en alto contraste. */
-html:not([data-alto-contraste="true"]) .mud-appbar::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 4px;
-    pointer-events: none;
-    background: linear-gradient(90deg,
-        var(--ac-lima) 0 33.33%,
-        var(--ac-coral) 33.33% 66.66%,
-        var(--ac-teal) 66.66% 100%);
+/* --- Barra superior: blanca (gris #1F1F1F en oscuro) con un borde inferior fino
+   en lugar de sombra; el coral queda para el botón principal y el ítem activo
+   del menú. En alto contraste conserva el coral oscuro del tema. */
+html:not([data-alto-contraste="true"]) .mud-appbar {
+    border-bottom: 1px solid var(--ac-borde-suave);
+    box-shadow: none;
 }
 
 /* --- Consistencia entre módulos: títulos de pantalla ---
-   Coral-700 (4.93:1 sobre el crema, 5.19:1 sobre blanco) y no el coral puro:
-   a 80% de tamaño de letra un h5 deja de contar como "texto grande". */
+   Texto de tinta a 26px, no coral: el color se reserva para la acción. */
 .sigac-main .mud-typography-h3,
 .sigac-main .mud-typography-h4,
 .sigac-main .mud-typography-h5 {
-    color: var(--ac-coral-700);
+    color: var(--ac-ink);
     font-weight: 600;
 }
 
-/* Tarjeta: superficie opaca con radio parejo, sombra suave y un filo coral
-   arriba como sello de marca. Antes era un "vidrio esmerilado" translúcido con
-   desenfoque; sin el fondo animado que lo justificaba solo restaba contraste a
-   formularios y tablas, y el backdrop-filter costaba rendimiento en cada
-   tarjeta de la pantalla. */
+.sigac-main .mud-typography-h4 {
+    font-size: 1.625rem;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+}
+
+/* Tarjeta: superficie blanca con borde de 1px y una sombra casi imperceptible
+   (estilo sobrio de software administrativo). */
 html:not([data-alto-contraste="true"]) .mud-card {
     box-sizing: border-box;
     background: var(--ac-superficie);
     border: 1px solid var(--ac-borde-suave);
-    border-top: 3px solid var(--ac-coral);
-    box-shadow: 0 8px 24px rgba(var(--ac-sombra-rgb), 0.1);
-    border-radius: 17px;
+    box-shadow: 0 1px 2px rgba(var(--ac-sombra-rgb), 0.06), 0 1px 1px rgba(var(--ac-sombra-rgb), 0.04);
+    border-radius: 10px;
 }
 
+/* Menús, popovers y diálogos: más sombra porque flotan sobre el contenido. */
 html:not([data-alto-contraste="true"]) .mud-paper:not(.mud-card) {
-    border-radius: 12px;
+    border-radius: 10px;
     border: 1px solid var(--ac-borde-suave);
-    box-shadow: 0 4px 16px rgba(var(--ac-sombra-rgb), 0.1);
+    box-shadow: 0 8px 24px rgba(var(--ac-sombra-rgb), 0.12);
 }
 
 /* Menú lateral: borde fino en vez de solo sombra. */
@@ -212,26 +216,9 @@ html:not([data-alto-contraste="true"]) .mud-drawer {
     border-right: 1px solid var(--ac-borde-suave);
 }
 
-/* Inputs con línea inferior en vez de caja completa (a pedido, reemplaza el
-   radio orgánico que tenían antes). No hace falta reproducir a mano los
-   estados de foco/error/hover del CSS pegado: MudBlazor ya los resuelve solo
-   con la misma variable de color (var(--mud-palette-lines-inputs) en reposo,
-   Primary en foco, Error si hay error) — acá solo se cambia la FORMA del
-   borde (una línea abajo, sin caja ni radio), no el color. El "legend" que
-   recorta un hueco en la caja para la etiqueta ya no tiene sentido sin caja,
-   así que se oculta. */
-html:not([data-alto-contraste="true"]) .mud-input-outlined-border {
-    border-width: 0 0 2px 0 !important;
-    border-radius: 0;
-}
-
-html:not([data-alto-contraste="true"]) .mud-input-outlined-border legend {
-    display: none;
-}
-
 /* Botones (Filled/Outlined): radio parejo y sin sombra; el color de fondo lo
    resuelve el tema de MudBlazor. Los botones "Text" (acciones chicas dentro
-   de la grilla, como Editar/Desactivar) quedan con su estilo plano. */
+   de la grilla, como Editar) quedan con su estilo plano. */
 html:not([data-alto-contraste="true"]) .mud-button-filled,
 html:not([data-alto-contraste="true"]) .mud-button-outlined {
     border-radius: 8px;
@@ -242,6 +229,7 @@ html:not([data-alto-contraste="true"]) .mud-button-outlined {
 html:not([data-alto-contraste="true"]) .mud-button-filled:hover {
     box-shadow: 0 2px 8px rgba(var(--ac-sombra-rgb), 0.2);
 }
+
 /* Botones secundarios (Variant.Outlined + Color.Primary): borde y texto del
    mismo color Primary del tema. No tienen el problema de contraste del botón
    principal porque el texto es del mismo color que el borde, no blanco. */
@@ -256,40 +244,55 @@ html:not([data-alto-contraste="true"]) .mud-data-grid {
     border-radius: 10px;
 }
 
-/* Encabezado de tablas y grillas: coral suave sobre la superficie, con el
-   mismo texto del tema (contraste >= 13:1). Una sola regla para las 12
-   MudDataGrid y las MudTable. */
+/* Encabezado de tablas y grillas: segunda superficie, texto pequeño en
+   mayúsculas con espaciado, color de tinta suave (>= 6:1). Una sola regla para
+   las 12 MudDataGrid y las MudTable. */
 .mud-table-head .mud-table-cell {
-    background-color: color-mix(in srgb, var(--ac-coral) 10%, var(--mud-palette-surface));
-    color: var(--mud-palette-text-primary);
-    font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
-    font-weight: 600;
+    background-color: var(--ac-superficie-2);
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
 }
 
 /* --- Estado Activo / Inactivo ---
-   Etiquetas (EstadoChip) y botones de Activar / Desactivar / Anular en verde y
-   rojo, rellenos para que se lean de un vistazo en las grillas. El selector es
-   más específico que el de los colores de Mud (.mud-chip-filled-color-*,
-   .mud-button-filled-*) para que gane sin usar !important. */
+   Etiqueta (EstadoChip): píldora tintada con texto e icono del color del estado.
+   Botones Activar / Desactivar / Anular: contorno del mismo color. Los
+   selectores son más específicos que los de Mud (.mud-chip-filled-color-*,
+   .mud-button-outlined-*) para ganar sin usar !important. */
 html .mud-chip.mud-chip-filled.ac-estado {
     font-weight: 700;
+    border-radius: 999px;
 }
 
-html .mud-chip.mud-chip-filled.ac-estado-activo,
-html .mud-button.mud-button-filled.ac-btn-activar {
-    background-color: var(--ac-activo);
-    color: var(--ac-activo-texto);
+html .mud-chip.mud-chip-filled.ac-estado-activo {
+    background-color: color-mix(in srgb, var(--ac-activo) 14%, var(--ac-superficie));
+    color: var(--ac-activo-ink);
 }
 
-html .mud-chip.mud-chip-filled.ac-estado-inactivo,
-html .mud-button.mud-button-filled.ac-btn-inactivar {
-    background-color: var(--ac-inactivo);
-    color: var(--ac-inactivo-texto);
+html .mud-chip.mud-chip-filled.ac-estado-inactivo {
+    background-color: color-mix(in srgb, var(--ac-inactivo) 14%, var(--ac-superficie));
+    color: var(--ac-inactivo);
 }
 
-html .mud-button.mud-button-filled.ac-btn-activar:hover,
-html .mud-button.mud-button-filled.ac-btn-inactivar:hover {
-    filter: brightness(0.92);
+html .mud-button.mud-button-outlined.ac-btn-activar {
+    color: var(--ac-activo-ink);
+    border-color: var(--ac-activo);
+}
+
+html .mud-button.mud-button-outlined.ac-btn-inactivar {
+    color: var(--ac-inactivo);
+    border-color: var(--ac-inactivo);
+}
+
+html .mud-button.mud-button-outlined.ac-btn-activar:hover {
+    background-color: color-mix(in srgb, var(--ac-activo) 12%, transparent);
+}
+
+html .mud-button.mud-button-outlined.ac-btn-inactivar:hover {
+    background-color: color-mix(in srgb, var(--ac-inactivo) 12%, transparent);
 }
 
 /* Alertas con el mismo radio que el resto de superficies. */
@@ -363,10 +366,6 @@ html:not([data-alto-contraste="true"]) :is(a, button, [role="button"], [tabindex
     outline-offset: 2px;
 }
 
-html:not([data-alto-contraste="true"]) .mud-appbar :is(a, button, [role="button"], [tabindex]):focus-visible {
-    outline-color: var(--ac-blanco);
-}
-
 /* El destino del enlace de salto recibe foco programático (tabindex -1): sin
    anillo, no es un control. */
 #contenido-principal:focus {
@@ -389,6 +388,27 @@ html:not([data-alto-contraste="true"]) .mud-appbar :is(a, button, [role="button"
     .mud-icon-button {
         min-width: 44px;
     }
+}
+
+/* --- Listados: barra de filtros en una fila ---
+   En las pantallas de listado (tarjeta con una grilla como hijo directo) los
+   campos de búsqueda y los filtros se acomodan en columnas que se ajustan al
+   ancho, en vez de una pila de campos a todo el ancho. Todo lo que no es un
+   campo (botones, avisos, la grilla) ocupa la fila completa. Sin cambiar el
+   markup de las 12 pantallas. */
+.sigac-main .mud-card-content:has(> .mud-data-grid) {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    column-gap: 12px;
+    align-items: start;
+}
+
+.sigac-main .mud-card-content:has(> .mud-data-grid) > :not(.mud-input-control) {
+    grid-column: 1 / -1;
+}
+
+.sigac-main .mud-card-content:has(> .mud-data-grid) > .mud-button-root {
+    justify-self: start;
 }
 
 /* --- Portada (Home.razor): hero + tarjetas de módulos --- */

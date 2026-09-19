@@ -10,9 +10,9 @@
    enlace que el usuario SÍ puede ver. Los permisos vienen de la cookie
    (PermisosClaimsPrincipalFactory): no hay consultas a la base al navegar. *@
 <MudNavMenu Class="pa-2">
-    <MudText Typo="Typo.subtitle2" Class="px-4 py-2 mud-text-secondary">Navegación</MudText>
+    <MudText Typo="Typo.subtitle2" Class="px-4 py-2 mud-text-secondary sigac-nav-titulo">Navegación</MudText>
 
-    <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home" IconColor="Color.Primary">
+    <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">
         Inicio
     </MudNavLink>
 
@@ -20,12 +20,11 @@
     {
         <MudNavGroup Title="@grupo.Titulo"
                      Icon="@grupo.Icono"
-                     IconColor="@grupo.ColorIcono"
                      Expanded="grupo.Expandido"
                      ExpandedChanged="@(expandido => OnExpandedChanged(grupo, expandido))">
             @foreach (var enlace in grupo.EnlacesVisibles)
             {
-                <MudNavLink Href="@enlace.Href" Match="@enlace.Match" Icon="@enlace.Icono" IconColor="@grupo.ColorIcono">
+                <MudNavLink Href="@enlace.Href" Match="@enlace.Match" Icon="@enlace.Icono">
                     @enlace.Titulo
                 </MudNavLink>
             }
@@ -51,10 +50,6 @@
         public required string Titulo { get; init; }
         public required string Icono { get; init; }
 
-        // Mismo color que la tarjeta del módulo en la portada (Home.razor), para
-        // que cada módulo se reconozca igual en el menú y en el inicio.
-        public required Color ColorIcono { get; init; }
-
         // Rutas (relativas, sin barra inicial) que "pertenecen" al grupo, para
         // expandirlo al navegar. Excluidos permite que /donaciones/entregas/...
         // cuente para Beneficiarios y no para Donaciones.
@@ -76,7 +71,6 @@
         {
             Titulo = "Beneficiarios",
             Icono = Icons.Material.Filled.People,
-            ColorIcono = Color.Primary,
             // "Entregar Donación" e "Historial de Entregas" viven acá aunque su
             // ruta siga siendo /donaciones/entregas/...: son la salida de una
             // donación hacia un beneficiario o una comunidad, no el alta de la
@@ -94,7 +88,6 @@
         {
             Titulo = "Asistencia",
             Icono = Icons.Material.Filled.Restaurant,
-            ColorIcono = Color.Secondary,
             Prefijos = new[] { "asistencia" },
             Enlaces = new[]
             {
@@ -106,7 +99,6 @@
         {
             Titulo = "Inventario",
             Icono = Icons.Material.Filled.Inventory,
-            ColorIcono = Color.Info,
             Prefijos = new[] { "inventario" },
             Enlaces = new[]
             {
@@ -121,7 +113,6 @@
         {
             Titulo = "Donaciones",
             Icono = Icons.Material.Filled.VolunteerActivism,
-            ColorIcono = Color.Warning,
             // Donantes y Donaciones son pantallas del mismo grupo con rutas
             // separadas; donaciones/entregas se excluye porque es de Beneficiarios.
             Prefijos = new[] { "donantes", "donaciones" },
@@ -139,7 +130,6 @@
         {
             Titulo = "Gastos Operativos",
             Icono = Icons.Material.Filled.Receipt,
-            ColorIcono = Color.Success,
             Prefijos = new[] { "gastos" },
             Enlaces = new[]
             {
@@ -151,7 +141,6 @@
         {
             Titulo = "Proyectos",
             Icono = Icons.Material.Filled.Groups,
-            ColorIcono = Color.Tertiary,
             Prefijos = new[] { "proyectos" },
             Enlaces = new[]
             {
@@ -163,7 +152,6 @@
         {
             Titulo = "Seguridad",
             Icono = Icons.Material.Filled.Security,
-            ColorIcono = Color.Error,
             Prefijos = new[] { "usuarios", "bitacora" },
             Enlaces = new[]
             {

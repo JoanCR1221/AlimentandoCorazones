@@ -3,28 +3,38 @@
    MudBlazor genera de verdad, vía ::deep porque el markup interno de
    MudNavMenu vive fuera del árbol aislado de este componente. */
 
+/* Rótulo de sección en mayúsculas pequeñas, como etiqueta y no como título. */
+::deep .sigac-nav-titulo {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
 ::deep .mud-nav-link {
-    border-radius: 8px;
+    border-radius: 6px;
     margin: 2px 0;
-    /* Reserva el ancho de la barra del estado activo para que el contenido no
-       "salte" al seleccionar un enlace. */
-    border-left: 4px solid transparent;
+    font-weight: 500;
+    color: var(--mud-palette-text-secondary);
 }
 
 ::deep .mud-nav-link:hover {
-    background-color: color-mix(in srgb, var(--ac-coral) 8%, transparent);
+    background-color: var(--ac-superficie-2);
+    color: var(--mud-palette-text-primary);
 }
 
-/* Estado activo: fondo coral suave, barra coral a la izquierda y texto en el
-   color de texto del tema (no en el coral del tema, que sobre el fondo teñido
-   quedaría por debajo de 4.5:1). La barra (coral vs. superficie, >= 3:1)
-   es lo que marca el enlace activo sin depender solo del color de fondo. */
+/* Estado activo: tinte coral suave con texto coral-700 en negrita (4.9:1 sobre
+   el tinte en claro; los tokens suben el contraste en oscuro y alto contraste).
+   Es lo único de todo el menú que lleva el color de marca. */
 ::deep .mud-nav-link.mud-selected,
 ::deep .mud-nav-link.mud-selected:hover {
-    background-color: color-mix(in srgb, var(--ac-coral) 14%, transparent);
-    border-left-color: var(--ac-coral);
-    color: var(--mud-palette-text-primary);
+    background-color: color-mix(in srgb, var(--ac-coral) 10%, var(--ac-superficie));
+    color: var(--ac-coral-700);
     font-weight: 700;
+}
+
+::deep .mud-nav-link.mud-selected .mud-icon-root {
+    color: var(--ac-coral-700);
 }
 
 ::deep .mud-nav-group .mud-nav-link {

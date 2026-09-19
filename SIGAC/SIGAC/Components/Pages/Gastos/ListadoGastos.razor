@@ -69,7 +69,7 @@
                         @if (context.Item.Estado == nameof(EstadoGastoOperativo.Activo))
                         {
                             <AuthorizeView Policy="@Permisos.Gastos.Anular" Context="auth">
-                                <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Error" Class="ac-btn-inactivar ml-1" OnClick="@(() => AnularAsync(context.Item.Id))">Anular</MudButton>
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error" Class="ac-btn-inactivar ml-1" OnClick="@(() => AnularAsync(context.Item.Id))">Anular</MudButton>
                             </AuthorizeView>
                         }
                     </CellTemplate>

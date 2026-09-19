@@ -15,11 +15,11 @@
     width: auto;
     margin-left: 0.5rem;
     flex-shrink: 0;
-    /* Cuadrado redondeado, no el radio orgánico de tarjetas/botones: en un
-       ícono de 40px ese radio asimétrico se ve deforme. El logo tiene fondo
-       blanco propio, así que sobre el AppBar coral se lee como una ficha. */
-    border-radius: 10px;
+    /* Cuadrado redondeado. El logo trae fondo blanco propio: un borde fino lo
+       delimita sobre la barra blanca. */
+    border-radius: 8px;
     background-color: var(--ac-blanco);
+    border: 1px solid var(--ac-borde-suave);
 }
 
 .sigac-brand-texto {
@@ -42,7 +42,7 @@
 }
 
 ::deep .sigac-drawer-encabezado {
-    border-bottom: 3px solid var(--ac-lima);
+    border-bottom: 1px solid var(--ac-borde-suave);
     font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
 }
 

@@ -280,23 +280,26 @@ public sealed class AparienciaService : IAsyncDisposable
                 // 6.54:1 con blanco (el rojo por defecto da 3.68:1).
                 Error = "#B3261E",
                 ErrorContrastText = "#FFFFFF",
-                AppbarBackground = "#C2401F",
-                AppbarText = "#FFFFFF",
-                Background = "#FFF8F2",
+                // Barra superior blanca con texto oscuro (14.4:1) y fondo de página
+                // gris cálido: el coral queda para el botón principal y el
+                // ítem activo del menú, no para superficies enteras.
+                AppbarBackground = "#FFFFFF",
+                AppbarText = "#262B2A",
+                Background = "#F6F4F1",
                 Surface = "#FFFFFF",
-                TextPrimary = "#262B2A",       // 13.66:1 sobre el crema
-                TextSecondary = "#545B59",     // 6.61:1 sobre el crema
+                TextPrimary = "#262B2A",       // 13.1:1 sobre el fondo
+                TextSecondary = "#545B59",     // 6.3:1 sobre el fondo
                 DrawerBackground = "#FFFFFF",
                 DrawerText = "#262B2A",
-                DrawerIcon = "#C2401F",
+                DrawerIcon = "#545B59",
                 ActionDefault = "#545B59",
                 // Borde de campos: 4.54:1 sobre blanco (elementos de UI ≥3:1).
                 LinesInputs = "#6F7876",
-                LinesDefault = "#E4D8CE",
-                Divider = "#E4D8CE",
-                TableLines = "#E4D8CE",
-                TableStriped = "#FBF1E9",
-                TableHover = "#F8E6DA"
+                LinesDefault = "#E4E0DA",
+                Divider = "#E4E0DA",
+                TableLines = "#E4E0DA",
+                TableStriped = "#FBFAF8",
+                TableHover = "#F6F4F1"
             },
             PaletteDark = new PaletteDark
             {
@@ -326,7 +329,7 @@ public sealed class AparienciaService : IAsyncDisposable
                 TextSecondary = "#B8BDBB",     // 8.66:1 sobre #1F1F1F
                 DrawerBackground = "#1F1F1F",
                 DrawerText = "#FFFFFF",
-                DrawerIcon = "#FF8A65",
+                DrawerIcon = "#B8BDBB",
                 ActionDefault = "#B8BDBB",
                 // Borde de campos: 5.31:1 sobre #1F1F1F.
                 LinesInputs = "#8C9492",
@@ -339,7 +342,7 @@ public sealed class AparienciaService : IAsyncDisposable
             Typography = ConstruirTipografia(),
             LayoutProperties = new LayoutProperties
             {
-                DefaultBorderRadius = "12px",
+                DefaultBorderRadius = "8px",
                 AppbarHeight = "64px"
             }
         };

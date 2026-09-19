@@ -69,11 +69,11 @@
                         <AuthorizeView Policy="@Permisos.Beneficiarios.CambiarEstado" Context="auth">
                             @if (context.Item.Estado)
                             {
-                                <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Error" Class="ac-btn-inactivar ml-1" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.NombreCompleto, false))">Desactivar</MudButton>
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error" Class="ac-btn-inactivar ml-1" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.NombreCompleto, false))">Desactivar</MudButton>
                             }
                             else
                             {
-                                <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Success" Class="ac-btn-activar ml-1" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.NombreCompleto, true))">Activar</MudButton>
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Success" Class="ac-btn-activar ml-1" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.NombreCompleto, true))">Activar</MudButton>
                             }
                         </AuthorizeView>
                     </CellTemplate>
