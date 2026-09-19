@@ -40,19 +40,10 @@
     --ac-error-fondo: #FCEBE9;
     --ac-error-texto: #7A1C14;
 
-    /* Estilo artesanal: color del "pliegue" de los botones, sombra y vidrio */
-    --ac-pliegue: #262B2A;
+    /* Sombras y vidrio */
     --ac-sombra-rgb: 38, 43, 42;
     --ac-vidrio: rgba(255, 255, 255, 0.72);
     --ac-vidrio-borde: rgba(255, 255, 255, 0.9);
-
-    /* Alias de la nomenclatura anterior, para no romper reglas que aún
-       la usen. */
-    --sigac-border: var(--ac-borde);
-    --sigac-shadow: 3px 3px 0px rgba(var(--ac-sombra-rgb), 0.18);
-    /* Usado por los popovers/diálogos/menús (mud-paper que no es card); las
-       tarjetas, botones e inputs ya migraron a otros estilos y no la usan. */
-    --sigac-radius-surface: 30px 6px 30px 6px / 6px 30px 6px 30px;
 }
 
 /* Modo oscuro: fondo negro, superficies #1F1F1F y coral claro para que
@@ -75,7 +66,6 @@ html[data-theme="dark"] {
     --ac-error-fondo: #3B1512;
     --ac-error-texto: #FFB4AB;
 
-    --ac-pliegue: #000000;
     --ac-sombra-rgb: 0, 0, 0;
     --ac-vidrio: rgba(31, 31, 31, 0.72);
     --ac-vidrio-borde: rgba(255, 255, 255, 0.18);
@@ -180,55 +170,6 @@ html:not([data-alto-contraste="true"]) .mud-appbar::after {
     font-weight: 600;
 }
 
-/* Fondo de "papel cuadriculado" en modo oscuro (From Uiverse.io by
-   chris_6688), reemplaza la lluvia animada anterior. Va directo en <body>
-   (mismo motivo que antes: ahí pinta MudBlazor el Background del tema, y
-   queda detrás de AppBar/Drawer/tarjetas sin tocar el layout de Blazor).
-   Se omite overflow:hidden del .container original: en <body> eso
-   recortaría el scroll de cualquier página más larga que la pantalla
-   (tablas, formularios largos). Sobre el negro de la marca, la
-   cuadrícula/puntos en blanco quedan casi imperceptibles (3-7% de opacidad).
-   Estática, sin animación: no hace falta guardar contra
-   prefers-reduced-motion. */
-html[data-theme="dark"]:not([data-alto-contraste="true"]) body {
-    position: relative;
-    background-color: var(--ac-crema);
-    background-image:
-        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.05) 1px, transparent 0),
-        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 0),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 0);
-    background-size: 40px 40px, 20px 20px, 20px 20px;
-}
-
-html[data-theme="dark"]:not([data-alto-contraste="true"]) body::before {
-    content: "";
-    /* fixed + z-index negativo por la misma razón que el resto de estos
-       fondos: <body> puede medir menos que la página real (AppBar/Drawer
-       son fixed y no suman a su alto "auto"), y sin esto quedaría encima de
-       tarjetas/drawer en vez de detrás. */
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background: repeating-linear-gradient(45deg,
-        transparent,
-        transparent 10px,
-        rgba(255, 255, 255, 0.03) 10px,
-        rgba(255, 255, 255, 0.03) 20px);
-    opacity: 0.8;
-}
-
-html[data-theme="dark"]:not([data-alto-contraste="true"]) body::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
-    background-size: 60px 60px;
-    opacity: 0.6;
-}
-
 /* Tarjeta "vidrio esmerilado" (From Uiverse.io by SteveBloX), a pedido,
    reemplaza la tarjeta "gema" anterior. El CSS original es para una
    insignia chica y clicable (200x254px fijos, centrada, con cursor:pointer
@@ -258,9 +199,9 @@ html:not([data-alto-contraste="true"]) .mud-card {
 }
 
 html:not([data-alto-contraste="true"]) .mud-paper:not(.mud-card) {
-    border-radius: var(--sigac-radius-surface);
-    border: 1.5px solid var(--ac-borde);
-    box-shadow: var(--sigac-shadow);
+    border-radius: 12px;
+    border: 1px solid var(--ac-borde-suave);
+    box-shadow: 0 4px 16px rgba(var(--ac-sombra-rgb), 0.1);
 }
 
 /* Menú lateral: borde fino en vez de solo sombra. */
@@ -285,52 +226,19 @@ html:not([data-alto-contraste="true"]) .mud-input-outlined-border legend {
     display: none;
 }
 
-/* Botón (Filled/Outlined), estilo "papel doblado" (From Uiverse.io by
-   ferlagher, adaptado): reemplaza el radio orgánico que tenían antes, a
-   pedido explícito porque no convenció. El color de fondo lo sigue
-   resolviendo el tema de MudBlazor (Primary/Secondary/Info); acá solo se
-   cambia forma, sombra y la esquina que se "despega" al pasar el mouse.
-   Los botones "Text" (acciones chicas dentro de la grilla, como
-   Editar/Desactivar) quedan fuera a propósito: son enlaces discretos, no
-   tarjetas con sombra. */
+/* Botones (Filled/Outlined): radio parejo y sin sombra; el color de fondo lo
+   resuelve el tema de MudBlazor. Los botones "Text" (acciones chicas dentro
+   de la grilla, como Editar/Desactivar) quedan con su estilo plano. */
 html:not([data-alto-contraste="true"]) .mud-button-filled,
 html:not([data-alto-contraste="true"]) .mud-button-outlined {
-    position: relative;
-    overflow: hidden;
-    border-radius: 0.5em;
-    box-shadow: 0.35em 0.35em 0.4em rgba(var(--ac-sombra-rgb), 0.3);
-    transition: box-shadow 0.2s, transform 0.2s;
+    border-radius: 8px;
+    box-shadow: none;
+    transition: background-color 0.2s, box-shadow 0.2s;
 }
 
-html:not([data-alto-contraste="true"]) .mud-button-filled:active,
-html:not([data-alto-contraste="true"]) .mud-button-outlined:active {
-    box-shadow: 0.15em 0.15em 0.2em rgba(var(--ac-sombra-rgb), 0.3);
-    transform: translate(0.1em, 0.1em);
+html:not([data-alto-contraste="true"]) .mud-button-filled:hover {
+    box-shadow: 0 2px 8px rgba(var(--ac-sombra-rgb), 0.2);
 }
-
-/* La esquina doblada solo tiene sentido sobre un fondo sólido: va únicamente
-   en Filled (Guardar, Ver listado...). El segundo tramo del degradé es
-   transparente en vez de repetir el color del botón (como en el CSS
-   original, pensado para un solo botón rojo) para que funcione igual sobre
-   cualquier color de MudBlazor (Primary, Secondary, Info) sin declarar un
-   caso por color. */
-html:not([data-alto-contraste="true"]) .mud-button-filled::before {
-    position: absolute;
-    content: '';
-    height: 0;
-    width: 0;
-    top: 0;
-    left: 0;
-    background: linear-gradient(135deg, var(--ac-pliegue) 0%, var(--ac-pliegue) 50%, transparent 50%, transparent 60%);
-    border-radius: 0 0 0.5em 0;
-    transition: 0.3s;
-}
-
-html:not([data-alto-contraste="true"]) .mud-button-filled:hover::before {
-    width: 1.4em;
-    height: 1.4em;
-}
-
 /* Botones secundarios (Variant.Outlined + Color.Primary): borde y texto del
    mismo color Primary del tema. No tienen el problema de contraste del botón
    principal porque el texto es del mismo color que el borde, no blanco. */
@@ -341,7 +249,7 @@ html:not([data-alto-contraste="true"]) .mud-button-outlined-primary {
 
 html:not([data-alto-contraste="true"]) .mud-table-container,
 html:not([data-alto-contraste="true"]) .mud-data-grid {
-    border: 1.5px solid var(--ac-borde);
+    border: 1px solid var(--ac-borde-suave);
     border-radius: 10px;
 }
 
@@ -353,10 +261,6 @@ html:not([data-alto-contraste="true"]) .mud-data-grid {
     color: var(--mud-palette-text-primary);
     font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
     font-weight: 600;
-}
-
-html:not([data-alto-contraste="true"]) .mud-chip {
-    border: 1.5px solid var(--ac-borde);
 }
 
 /* Alertas con el mismo radio que el resto de superficies. */
@@ -394,15 +298,6 @@ a {
 /* --- Portada (Home.razor): hero + tarjetas de módulos --- */
 .ac-hero {
     margin-bottom: 2rem;
-}
-
-.ac-hero-banner {
-    display: block;
-    width: 100%;
-    height: auto;
-    border-radius: 17px;
-    border: 1.5px solid var(--ac-borde-suave);
-    box-shadow: 0 10px 30px rgba(var(--ac-sombra-rgb), 0.12);
 }
 
 .ac-hero-texto {

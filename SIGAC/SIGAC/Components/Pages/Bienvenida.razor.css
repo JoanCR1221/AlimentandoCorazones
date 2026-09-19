@@ -1,0 +1,43 @@
+.bienvenida-banner {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 17px;
+    border: 1px solid var(--ac-borde-suave);
+    box-shadow: 0 10px 30px rgba(var(--ac-sombra-rgb), 0.12);
+}
+
+.bienvenida-texto {
+    text-align: center;
+    padding: 1.75rem 0.5rem 0;
+}
+
+/* Botón como enlace (navegación, no acción): coral-700 con texto blanco,
+   5.19:1. Mismo radio y color que el botón del login. */
+.bienvenida-entrar {
+    display: inline-block;
+    margin-top: 1.75rem;
+    padding: 0.8rem 2.25rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    color: var(--ac-blanco);
+    background-color: var(--ac-coral-700);
+    border-radius: 8px;
+}
+
+.bienvenida-entrar:hover {
+    background-color: var(--ac-coral-800);
+}
+
+.bienvenida-entrar:focus-visible {
+    outline: 3px solid var(--ac-teal-700);
+    outline-offset: 3px;
+}
+
+.bienvenida-aviso {
+    margin: 0.9rem 0 0;
+    font-size: 0.85rem;
+    color: var(--ac-ink-suave);
+}

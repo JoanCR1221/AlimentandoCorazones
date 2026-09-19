@@ -1,12 +1,12 @@
 /* Identidad de Alimentando Corazones (ver tokens --ac-* en app.css): tarjeta
-   blanca con filo coral, radio orgánico y coral-700 para el botón (5.19:1 con
-   texto blanco, el mismo del AppBar). Página estática: sin MudBlazor. */
+   blanca con filo coral y coral-700 para el botón (5.19:1 con texto blanco,
+   el mismo del AppBar). Página estática: sin MudBlazor. */
 .login-tarjeta {
     background-color: var(--ac-superficie);
-    border: 2px solid var(--ac-borde);
+    border: 1px solid var(--ac-borde-suave);
     border-top: 6px solid var(--ac-coral);
-    border-radius: 30px 6px 30px 6px / 6px 30px 6px 30px;
-    box-shadow: 3px 3px 0 rgba(var(--ac-sombra-rgb), 0.18), 0 18px 40px rgba(var(--ac-sombra-rgb), 0.12);
+    border-radius: 16px;
+    box-shadow: 0 18px 40px rgba(var(--ac-sombra-rgb), 0.12);
     padding: 2rem 1.75rem;
 }
 
@@ -99,12 +99,11 @@
     letter-spacing: 0.04em;
     padding: 0.75rem 1rem;
     margin-top: 0.5rem;
-    border: 2px solid var(--ac-coral-800);
-    border-radius: 30px 6px 30px 6px / 6px 30px 6px 30px;
+    border: 0;
+    border-radius: 8px;
     background-color: var(--ac-coral-700);
     color: var(--ac-blanco);
     cursor: pointer;
-    box-shadow: 3px 3px 0 rgba(var(--ac-sombra-rgb), 0.25);
 }
 
 .login-boton:hover {

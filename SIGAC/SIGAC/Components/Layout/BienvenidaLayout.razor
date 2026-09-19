@@ -1,0 +1,10 @@
+@inherits LayoutComponentBase
+
+@* Layout de la pantalla de bienvenida: sin AppBar ni menú, solo el contenido
+   centrado sobre el mismo degradado de marca del login. No usa componentes de
+   MudBlazor, así que no necesita los providers ni el servicio de apariencia. *@
+<div class="bienvenida-fondo">
+    <main class="bienvenida-contenedor">
+        @Body
+    </main>
+</div>

@@ -1,0 +1,35 @@
+@page "/bienvenida"
+@layout BienvenidaLayout
+
+@* Pantalla de bienvenida con el banner: es a donde lleva el inicio de sesión y
+   de aquí se pasa sola al inicio (dashboard de módulos).
+   El fallback de autorización (Program.cs) ya exige sesión, no hace falta
+   atributo. La redirección es un <meta refresh> y no un temporizador de
+   Blazor: funciona aunque el circuito interactivo todavía no esté conectado
+   y no depende de JS. El botón permite entrar sin esperar. *@
+
+<PageTitle>Bienvenida — SIGAC</PageTitle>
+
+<HeadContent>
+    <meta http-equiv="refresh" content="@SegundosEspera;url=/" />
+</HeadContent>
+
+<section class="bienvenida" aria-labelledby="bienvenida-titulo">
+    <img src="img/banner.png"
+         alt="Alimentando Corazones, Tamarindo, Guanacaste. Niños celebrando junto al ministerio infantil El Faro, con el versículo: «Mantengamos firme la esperanza que profesamos, porque fiel es el que hizo la promesa» (Hebreos 10:23)."
+         class="bienvenida-banner" />
+
+    <div class="bienvenida-texto">
+        <span class="ac-hero-antetitulo">UN PUENTE DE ESPERANZA</span>
+        <h1 id="bienvenida-titulo" class="ac-hero-titulo">SISTEMA DE GESTIÓN ALIMENTANDO CORAZONES</h1>
+
+        <a href="/" class="bienvenida-entrar">Entrar al sistema</a>
+        <p class="bienvenida-aviso" role="status">
+            Serás redirigido automáticamente en unos segundos.
+        </p>
+    </div>
+</section>
+
+@code {
+    private const int SegundosEspera = 6;
+}

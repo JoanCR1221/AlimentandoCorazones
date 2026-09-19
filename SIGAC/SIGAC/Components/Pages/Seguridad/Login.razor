@@ -184,12 +184,14 @@
     // permitiría mandar al usuario a otro dominio después de autenticarse.
     private string DestinoSeguro()
     {
+        // Sin ReturnUrl válido se pasa por la bienvenida (banner), que redirige
+        // sola al inicio.
         if (string.IsNullOrWhiteSpace(ReturnUrl)
             || !ReturnUrl.StartsWith('/')
             || ReturnUrl.StartsWith("//")
             || ReturnUrl.StartsWith("/login", StringComparison.OrdinalIgnoreCase))
         {
-            return "/";
+            return "/bienvenida";
         }
 
         return ReturnUrl;
