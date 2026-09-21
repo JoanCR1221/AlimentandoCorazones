@@ -457,13 +457,22 @@ html:not([data-alto-contraste="true"]) :is(a, button, [role="button"], [tabindex
    markup de las 12 pantallas. */
 .sigac-main .mud-card-content:has(> .mud-data-grid) {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     column-gap: 12px;
     align-items: start;
 }
 
 .sigac-main .mud-card-content:has(> .mud-data-grid) > :not(.mud-input-control) {
     grid-column: 1 / -1;
+}
+
+/* La caja de búsqueda (campo de texto, no lista desplegable) ocupa su propia fila:
+   sus etiquetas son largas ("Buscar por nombres, apellidos o número de
+   identidad") y en una columna de filtro quedaban cortadas. Los desplegables
+   (Categoría, Tipo de documento, Estado) sí van en columnas, debajo. */
+.sigac-main .mud-card-content:has(> .mud-data-grid) > .mud-input-control:not(.mud-select) {
+    grid-column: 1 / -1;
+    max-width: 640px;
 }
 
 .sigac-main .mud-card-content:has(> .mud-data-grid) > .mud-button-root {
