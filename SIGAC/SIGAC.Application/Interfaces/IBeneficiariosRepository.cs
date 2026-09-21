@@ -23,5 +23,9 @@ namespace SIGAC.Application.Interfaces
         // de la regla y nunca chocan entre sí.
         Task<bool> ExisteNumIdentidadAsync(string? numIdentidad, int? idExcluir = null);
         Task CambiarEstadoAsync(int id, bool estado);
+
+        // Conteos generales (activos, inactivos, altas de este mes y del anterior)
+        // en una sola consulta agregada: no trae filas, solo cuatro números.
+        Task<ResumenRegistrosDto> ObtenerResumenAsync();
     }
 }

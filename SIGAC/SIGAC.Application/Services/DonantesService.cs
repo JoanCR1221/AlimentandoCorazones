@@ -164,5 +164,17 @@ namespace SIGAC.Application.Services
                 throw new Exception("Error al cambiar el estado del donante.", ex);
             }
         }
+
+        public async Task<ResumenRegistrosDto> ObtenerResumenAsync()
+        {
+            try
+            {
+                return await _repository.ObtenerResumenAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al consultar el resumen de donantes.", ex);
+            }
+        }
     }
 }

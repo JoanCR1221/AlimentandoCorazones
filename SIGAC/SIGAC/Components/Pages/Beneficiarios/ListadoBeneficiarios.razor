@@ -10,6 +10,25 @@
 
 <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Beneficiarios registrados</MudText>
 
+@* Panorama general del módulo (no depende de los filtros de la grilla). Si la
+   consulta falla, las tarjetas simplemente no se muestran: el listado sigue. *@
+@if (resumen is not null)
+{
+    <section class="ac-kpis" aria-label="Resumen de beneficiarios">
+        <TarjetaResumen Titulo="Beneficiarios activos"
+                        Valor="@TextoResumen.Numero(resumen.Activos)"
+                        Detalle="@TextoResumen.Cantidad(resumen.Inactivos, "inactivo", "inactivos")"
+                        Icono="@Icons.Material.Filled.People" />
+        <TarjetaResumen Titulo="Registrados este mes"
+                        Valor="@TextoResumen.Numero(resumen.NuevosEsteMes)"
+                        Detalle="@TextoResumen.VsMesAnterior(resumen.NuevosEsteMes, resumen.NuevosMesAnterior)"
+                        Icono="@Icons.Material.Filled.PersonAdd" />
+        <TarjetaResumen Titulo="Registrados el mes anterior"
+                        Valor="@TextoResumen.Numero(resumen.NuevosMesAnterior)"
+                        Icono="@Icons.Material.Filled.History" />
+    </section>
+}
+
 <MudCard Class="pa-4">
     <MudCardContent>
         @* Una sola caja: busca en los cuatro campos de nombre y en el número de
@@ -97,6 +116,24 @@
     private string? filtroCategoria;
     private string? filtroTipoDocumento;
     private bool? filtroEstado;
+
+    private ResumenRegistrosDto? resumen;
+
+    protected override async Task OnInitializedAsync() => await CargarResumenAsync();
+
+    // Las tarjetas son un complemento del listado: si la consulta falla se
+    // ocultan, en vez de romper la pantalla.
+    private async Task CargarResumenAsync()
+    {
+        try
+        {
+            resumen = await BeneficiariosService.ObtenerResumenAsync();
+        }
+        catch (Exception)
+        {
+            resumen = null;
+        }
+    }
 
     // La llama la grilla cada vez que cambia de página o se recarga. Devuelve solo
     // los registros de esa página más el total, que es lo que necesita el paginador.
@@ -195,6 +232,9 @@
                 await BeneficiariosService.DesactivarBeneficiarioAsync(id);
 
             Snackbar.Add(activar ? "Beneficiario activado." : "Beneficiario desactivado.", Severity.Success);
+
+            // Activar o desactivar mueve los conteos de las tarjetas.
+            await CargarResumenAsync();
 
             // Se recarga la página actual, no la primera: el filtro no cambió.
             if (grilla is not null)

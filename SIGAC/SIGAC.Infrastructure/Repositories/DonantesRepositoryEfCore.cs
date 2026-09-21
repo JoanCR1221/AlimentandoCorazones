@@ -181,5 +181,30 @@ namespace SIGAC.Infrastructure.Repositories
                 await context.SaveChangesAsync();
             }
         }
+
+        public async Task<ResumenRegistrosDto> ObtenerResumenAsync()
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            // Meses calendario, con la misma hora local con la que se guarda
+            // FechaRegistro (DateTime.Now en el servicio).
+            var inicioMes = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            var inicioMesAnterior = inicioMes.AddMonths(-1);
+
+            // Un solo GROUP BY constante: SQL Server devuelve una fila con los
+            // cuatro conteos y no se trae ningún donante. Con la tabla vacía no
+            // hay grupo, de ahí el Vacio.
+            var resumen = await context.Donantes
+                .AsNoTracking()
+                .GroupBy(_ => 1)
+                .Select(g => new ResumenRegistrosDto(
+                    g.Count(d => d.Estado),
+                    g.Count(d => !d.Estado),
+                    g.Count(d => d.FechaRegistro >= inicioMes),
+                    g.Count(d => d.FechaRegistro >= inicioMesAnterior && d.FechaRegistro < inicioMes)))
+                .FirstOrDefaultAsync();
+
+            return resumen ?? ResumenRegistrosDto.Vacio;
+        }
     }
 }

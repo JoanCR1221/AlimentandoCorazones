@@ -390,6 +390,65 @@ html:not([data-alto-contraste="true"]) :is(a, button, [role="button"], [tabindex
     }
 }
 
+/* --- Tarjetas de resumen (TarjetaResumen) ---
+   Cifra grande con título y detalle, en una fila que se ajusta al ancho. La
+   cifra usa dígitos tabulares. Con .ac-kpi-alerta el borde y el icono pasan al
+   color de advertencia del tema (texto e icono con contraste >= 4.5:1). */
+.ac-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.ac-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 16px;
+    background: var(--ac-superficie);
+    border: 1px solid var(--ac-borde-suave);
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(var(--ac-sombra-rgb), 0.06);
+}
+
+.ac-kpi-titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    color: var(--ac-ink-suave);
+}
+
+.ac-kpi-titulo .mud-icon-root {
+    color: var(--ac-teal-700);
+}
+
+.ac-kpi-valor {
+    font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
+    font-size: 1.875rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    color: var(--ac-ink);
+}
+
+.ac-kpi-detalle {
+    font-size: 0.8125rem;
+    color: var(--ac-ink-suave);
+}
+
+.ac-kpi-alerta {
+    border-color: var(--mud-palette-warning);
+}
+
+.ac-kpi-alerta .ac-kpi-titulo .mud-icon-root,
+.ac-kpi-alerta .ac-kpi-detalle {
+    color: var(--mud-palette-warning);
+    font-weight: 600;
+}
+
 /* --- Listados: barra de filtros en una fila ---
    En las pantallas de listado (tarjeta con una grilla como hijo directo) los
    campos de búsqueda y los filtros se acomodan en columnas que se ajustan al

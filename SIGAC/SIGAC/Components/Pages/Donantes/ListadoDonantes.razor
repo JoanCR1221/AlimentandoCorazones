@@ -10,6 +10,25 @@
 
 <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Donantes registrados</MudText>
 
+@* Panorama general del módulo (no depende de los filtros de la grilla). Si la
+   consulta falla, las tarjetas simplemente no se muestran: el listado sigue. *@
+@if (resumen is not null)
+{
+    <section class="ac-kpis" aria-label="Resumen de donantes">
+        <TarjetaResumen Titulo="Donantes activos"
+                        Valor="@TextoResumen.Numero(resumen.Activos)"
+                        Detalle="@TextoResumen.Cantidad(resumen.Inactivos, "inactivo", "inactivos")"
+                        Icono="@Icons.Material.Filled.VolunteerActivism" />
+        <TarjetaResumen Titulo="Registrados este mes"
+                        Valor="@TextoResumen.Numero(resumen.NuevosEsteMes)"
+                        Detalle="@TextoResumen.VsMesAnterior(resumen.NuevosEsteMes, resumen.NuevosMesAnterior)"
+                        Icono="@Icons.Material.Filled.PersonAdd" />
+        <TarjetaResumen Titulo="Registrados el mes anterior"
+                        Valor="@TextoResumen.Numero(resumen.NuevosMesAnterior)"
+                        Icono="@Icons.Material.Filled.History" />
+    </section>
+}
+
 <MudCard Class="pa-4">
     <MudCardContent>
         <MudTextField T="string" Value="filtroTexto" ValueChanged="OnFiltroTextoCambiado" Immediate="true" DebounceInterval="300"
@@ -74,6 +93,24 @@
     private string? filtroTexto;
     private string? filtroTipoPersona;
     private bool? filtroEstado;
+
+    private ResumenRegistrosDto? resumen;
+
+    protected override async Task OnInitializedAsync() => await CargarResumenAsync();
+
+    // Las tarjetas son un complemento del listado: si la consulta falla se
+    // ocultan, en vez de romper la pantalla.
+    private async Task CargarResumenAsync()
+    {
+        try
+        {
+            resumen = await DonantesService.ObtenerResumenAsync();
+        }
+        catch (Exception)
+        {
+            resumen = null;
+        }
+    }
 
     // MudDataGrid con ServerData no dispara la primera carga solo: sin este
     // reload explícito la grilla se ve vacía al entrar aunque haya donantes,
@@ -159,6 +196,9 @@
                 await DonantesService.DesactivarDonanteAsync(id);
 
             Snackbar.Add(activar ? "Donante activado." : "Donante desactivado.", Severity.Success);
+
+            // Activar o desactivar mueve los conteos de las tarjetas.
+            await CargarResumenAsync();
 
             if (grilla is not null)
                 await grilla.ReloadServerData();

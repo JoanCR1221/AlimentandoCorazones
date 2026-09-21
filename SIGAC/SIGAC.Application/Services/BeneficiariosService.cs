@@ -185,6 +185,18 @@ namespace SIGAC.Application.Services
             }
         }
 
+        public async Task<ResumenRegistrosDto> ObtenerResumenAsync()
+        {
+            try
+            {
+                return await _repository.ObtenerResumenAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al consultar el resumen de beneficiarios.", ex);
+            }
+        }
+
         public Task ActivarBeneficiarioAsync(int id) => CambiarEstadoAsync(id, true);
 
         public Task DesactivarBeneficiarioAsync(int id) => CambiarEstadoAsync(id, false);
