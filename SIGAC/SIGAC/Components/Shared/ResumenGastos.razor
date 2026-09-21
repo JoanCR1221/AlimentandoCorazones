@@ -1,0 +1,41 @@
+@using SIGAC.Application.DTOs
+@using SIGAC.Application.Interfaces
+@inject IResumenService ResumenService
+
+@* Tarjetas de resumen de los gastos operativos (solo los activos: un gasto
+   anulado no cuenta). Autónomo: carga sus propios datos y, si la consulta
+   falla, no muestra nada. La pantalla puede pedir RecargarAsync después de
+   anular un gasto. *@
+@if (datos is not null)
+{
+    <section class="ac-kpis" aria-label="Resumen de gastos">
+        <TarjetaResumen Titulo="Gastos registrados este mes"
+                        Valor="@TextoResumen.Numero(datos.GastosEsteMes)"
+                        Detalle="@TextoResumen.VsMesAnterior(datos.GastosEsteMes, datos.GastosMesAnterior)"
+                        Icono="@Icons.Material.Filled.ReceiptLong" />
+        <TarjetaResumen Titulo="Total gastado este mes"
+                        Valor="@TextoResumen.Montos(datos.TotalEsteMes)"
+                        Detalle="@(datos.TotalEsteMes.Count == 0 ? "Sin gastos este mes" : null)"
+                        Icono="@Icons.Material.Filled.Payments" />
+    </section>
+}
+
+@code {
+    private ResumenGastosDto? datos;
+
+    protected override async Task OnInitializedAsync() => await RecargarAsync();
+
+    public async Task RecargarAsync()
+    {
+        try
+        {
+            datos = await ResumenService.ObtenerResumenGastosAsync();
+        }
+        catch (Exception)
+        {
+            datos = null;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+}

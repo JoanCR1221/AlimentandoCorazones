@@ -12,6 +12,8 @@
 
 <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Gastos operativos</MudText>
 
+<ResumenGastos @ref="resumenGastos" />
+
 <MudCard Class="pa-4">
     <MudCardContent>
         @* Mismo catálogo cerrado que usan Registrar y Editar: si esta lista tuviera
@@ -83,6 +85,8 @@
 </MudCard>
 
 @code {
+    private ResumenGastos? resumenGastos;
+
     private List<GastoOperativoListaDto> gastos = new();
     private IReadOnlyList<MontoPorMonedaDto> totalesPorMoneda = Array.Empty<MontoPorMonedaDto>();
     private string? filtroCategoria;
@@ -136,6 +140,9 @@
             await GastosService.AnularGastoAsync(new AnulacionGastoDto { GastoId = gastoId, MotivoAnulacion = motivo });
             Snackbar.Add("Gasto operativo anulado.", Severity.Success);
             await CargarAsync();
+            // Anular un gasto cambia el total y el conteo de las tarjetas.
+            if (resumenGastos is not null)
+                await resumenGastos.RecargarAsync();
         }
         catch (ValidationException ex)
         {

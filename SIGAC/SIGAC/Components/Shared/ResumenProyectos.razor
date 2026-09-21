@@ -1,0 +1,41 @@
+@using SIGAC.Application.DTOs
+@using SIGAC.Application.Interfaces
+@inject IResumenService ResumenService
+
+@* Tarjetas de resumen de los proyectos comunitarios por estado. Autónomo: carga
+   sus propios datos y, si la consulta falla, no muestra nada. *@
+@if (datos is not null)
+{
+    <section class="ac-kpis" aria-label="Resumen de proyectos">
+        <TarjetaResumen Titulo="Proyectos en curso"
+                        Valor="@TextoResumen.Numero(datos.EnCurso)"
+                        Icono="@Icons.Material.Filled.PlayCircle" />
+        <TarjetaResumen Titulo="Proyectos planificados"
+                        Valor="@TextoResumen.Numero(datos.Planificados)"
+                        Icono="@Icons.Material.Filled.Event" />
+        <TarjetaResumen Titulo="Proyectos finalizados"
+                        Valor="@TextoResumen.Numero(datos.Finalizados)"
+                        Detalle="@TextoResumen.Cantidad(datos.Cancelados, "cancelado", "cancelados")"
+                        Icono="@Icons.Material.Filled.CheckCircle" />
+    </section>
+}
+
+@code {
+    private ResumenProyectosDto? datos;
+
+    protected override async Task OnInitializedAsync() => await RecargarAsync();
+
+    public async Task RecargarAsync()
+    {
+        try
+        {
+            datos = await ResumenService.ObtenerResumenProyectosAsync();
+        }
+        catch (Exception)
+        {
+            datos = null;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+}
