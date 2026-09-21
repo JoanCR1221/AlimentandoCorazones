@@ -390,6 +390,124 @@ html:not([data-alto-contraste="true"]) :is(a, button, [role="button"], [tabindex
     }
 }
 
+/* --- Menú de la cuenta (SesionToolbar) ---
+   Activador: avatar con iniciales + nombre + rol + flecha, sobre la barra. Al
+   pulsarlo se abre una tarjeta con la cuenta y sus acciones. El color del texto
+   lo hereda de la barra (oscuro en claro, blanco en oscuro y alto contraste),
+   por eso el rol se atenúa con color-mix sobre currentColor y no con un token
+   fijo. */
+.sigac-usuario-activador {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    height: 44px;
+    padding: 0 8px 0 6px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+
+.sigac-usuario-activador:hover {
+    background-color: var(--ac-superficie-2);
+    border-color: var(--ac-borde-suave);
+}
+
+html[data-alto-contraste="true"] .sigac-usuario-activador:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-color: currentColor;
+}
+
+.sigac-avatar {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--ac-teal) 14%, var(--ac-superficie));
+    color: var(--ac-teal-700);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.sigac-avatar-grande {
+    width: 44px;
+    height: 44px;
+    font-size: 1rem;
+}
+
+.sigac-usuario-datos {
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.2;
+    text-align: left;
+}
+
+.sigac-usuario-nombre {
+    max-width: 14rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.sigac-usuario-rol {
+    font-size: 0.75rem;
+    color: color-mix(in srgb, currentColor 78%, transparent);
+}
+
+.sigac-usuario-popover {
+    min-width: 288px;
+}
+
+.sigac-usuario-tarjeta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+}
+
+.sigac-usuario-tarjeta-datos {
+    min-width: 0;
+}
+
+.sigac-usuario-tarjeta-nombre {
+    font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--ac-ink);
+}
+
+.sigac-usuario-correo {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.8125rem;
+    color: var(--ac-ink-suave);
+}
+
+.sigac-usuario-pildora {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ac-teal) 14%, var(--ac-superficie));
+    color: var(--ac-teal-700);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.sigac-usuario-cerrar {
+    color: var(--ac-inactivo);
+    font-weight: 600;
+}
+
 /* --- Tarjetas de resumen (TarjetaResumen) ---
    Cifra grande con título y detalle, en una fila que se ajusta al ancho. La
    cifra usa dígitos tabulares. Con .ac-kpi-alerta el borde y el icono pasan al

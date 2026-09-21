@@ -1,39 +1,98 @@
+@using System.Security.Claims
 @inject IDialogService DialogService
 
-@* Nombre y rol del usuario en sesión, y el botón de cerrar sesión (AB#2755).
-   Siempre visible para cualquier usuario autenticado; en las páginas públicas
-   (login) no se renderiza porque usan otro layout. *@
+@* Cuenta en sesión (AB#2755): avatar con iniciales, nombre y rol; al pulsarlo
+   se despliega una tarjeta con los datos de la cuenta y sus acciones
+   (Configuraciones y Cerrar sesión). Siempre visible para cualquier usuario
+   autenticado; en las páginas públicas (login) no se renderiza porque usan otro
+   layout. Estilos en app.css (.sigac-usuario-*). *@
 <AuthorizeView>
     <Authorized>
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="sesion-toolbar">
-            <MudStack Spacing="0" Class="sesion-datos d-none d-sm-flex">
-                <MudText Typo="Typo.body2" Class="sesion-nombre">
-                    @NombreDe(context.User)
-                </MudText>
-                <MudText Typo="Typo.caption" Class="sesion-rol">
-                    @RolDe(context.User)
-                </MudText>
-            </MudStack>
-
-            <MudButton Variant="Variant.Text"
-                       Color="Color.Inherit"
-                       StartIcon="@Icons.Material.Filled.Logout"
-                       aria-label="Cerrar sesión"
-                       OnClick="ConfirmarCierreAsync">
-                Cerrar sesión
-            </MudButton>
-        </MudStack>
+        @{
+            var nombre = NombreDe(context.User);
+            var rol = RolDe(context.User);
+            var correo = CorreoDe(context.User);
+            var iniciales = InicialesDe(nombre);
+        }
+        <MudMenu AnchorOrigin="Origin.BottomRight"
+                 TransformOrigin="Origin.TopRight"
+                 PopoverClass="sigac-usuario-popover"
+                 ListClass="pa-0"
+                 Class="sesion-toolbar">
+            <ActivatorContent Context="menu">
+                @* Un <button> real (foco, Enter y Espacio) que le pasa el clic al
+                   menú, como pide MudBlazor para activadores propios. *@
+                <button type="button"
+                        class="sigac-usuario-activador"
+                        aria-haspopup="menu"
+                        aria-label="@($"Cuenta de {nombre}. Abrir menú de la cuenta")"
+                        @onclick="@(e => menu.ToggleAsync(e))">
+                    <span class="sigac-avatar" aria-hidden="true">@iniciales</span>
+                    <span class="sigac-usuario-datos d-none d-sm-flex">
+                        <span class="sigac-usuario-nombre">@nombre</span>
+                        <span class="sigac-usuario-rol">@rol</span>
+                    </span>
+                    <MudIcon Icon="@Icons.Material.Filled.KeyboardArrowDown" Size="Size.Small" />
+                </button>
+            </ActivatorContent>
+            <ChildContent>
+                <div class="sigac-usuario-tarjeta">
+                    <span class="sigac-avatar sigac-avatar-grande" aria-hidden="true">@iniciales</span>
+                    <div class="sigac-usuario-tarjeta-datos">
+                        <div class="sigac-usuario-tarjeta-nombre">@nombre</div>
+                        @if (!string.IsNullOrWhiteSpace(correo))
+                        {
+                            <div class="sigac-usuario-correo">@correo</div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(rol))
+                        {
+                            <span class="sigac-usuario-pildora">@rol</span>
+                        }
+                    </div>
+                </div>
+                <MudDivider />
+                <MudMenuItem Icon="@Icons.Material.Filled.Settings" Href="/configuracion">
+                    Configuraciones
+                </MudMenuItem>
+                <MudDivider />
+                @* La acción destructiva va aparte y en rojo, separada de la navegación. *@
+                <MudMenuItem Icon="@Icons.Material.Filled.Logout" IconColor="Color.Error"
+                             Class="sigac-usuario-cerrar" OnClick="ConfirmarCierreAsync">
+                    Cerrar sesión
+                </MudMenuItem>
+            </ChildContent>
+        </MudMenu>
     </Authorized>
 </AuthorizeView>
 
 @code {
-    private static string NombreDe(System.Security.Claims.ClaimsPrincipal usuario) =>
+    private static string NombreDe(ClaimsPrincipal usuario) =>
         usuario.FindFirst(SIGAC.Infrastructure.Identity.ClaimsSigac.Nombre)?.Value
         ?? usuario.Identity?.Name
         ?? string.Empty;
 
-    private static string RolDe(System.Security.Claims.ClaimsPrincipal usuario) =>
-        usuario.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? string.Empty;
+    private static string RolDe(ClaimsPrincipal usuario) =>
+        usuario.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+
+    // El correo es el nombre de usuario (Identity.Name); si hay un claim de
+    // correo explícito, gana ese.
+    private static string CorreoDe(ClaimsPrincipal usuario) =>
+        usuario.FindFirst(ClaimTypes.Email)?.Value
+        ?? usuario.Identity?.Name
+        ?? string.Empty;
+
+    // Hasta dos iniciales: primera letra del primer y del último nombre.
+    private static string InicialesDe(string nombre)
+    {
+        var partes = nombre.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        return partes.Length switch
+        {
+            0 => "?",
+            1 => partes[0][..1].ToUpperInvariant(),
+            _ => (partes[0][..1] + partes[^1][..1]).ToUpperInvariant()
+        };
+    }
 
     // Confirmación con MudDialog (AB#2758). El POST real lo hace el formulario
     // que vive dentro del diálogo: no hay nada que "conectar" desde acá.
