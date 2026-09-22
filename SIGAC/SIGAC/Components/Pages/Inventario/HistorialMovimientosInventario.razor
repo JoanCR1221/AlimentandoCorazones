@@ -26,7 +26,7 @@
             Total de entradas: @resultado.TotalEntradas · Total de salidas: @resultado.TotalSalidas
         </MudText>
 
-        <MudDataGrid T="MovimientoInventarioDto" Items="@resultado.Movimientos">
+        <MudDataGrid T="MovimientoInventarioDto" Items="@resultado.Movimientos" Loading="cargando">
             <Columns>
                 <PropertyColumn Property="x => x.Articulo" Title="Artículo" />
                 <TemplateColumn Title="Tipo de movimiento">
@@ -38,8 +38,21 @@
                     <CellTemplate>@EtiquetaTipoMovimiento(context.Item.OrigenODestino ?? string.Empty)</CellTemplate>
                 </TemplateColumn>
             </Columns>
+            <LoadingContent>
+                <CargandoGrilla />
+            </LoadingContent>
             <NoRecordsContent>
-                <MudText>No hay movimientos registrados para los filtros seleccionados.</MudText>
+                @if (HayFiltro)
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="Ningún movimiento coincide con los filtros"
+                                 Descripcion="Probá con otro artículo, tipo de movimiento o rango de fechas." />
+                }
+                else
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.SwapHoriz"
+                                 Titulo="Todavía no hay movimientos registrados" />
+                }
             </NoRecordsContent>
         </MudDataGrid>
     </MudCardContent>
@@ -50,6 +63,10 @@
     private ArticuloExistenciaDto? articuloSeleccionado;
     private string? filtroTipoMovimiento;
     private DateRange? rangoFechas;
+    private bool cargando = true;
+
+    private bool HayFiltro =>
+        articuloSeleccionado is not null || !string.IsNullOrWhiteSpace(filtroTipoMovimiento) || rangoFechas is not null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -89,12 +106,21 @@
 
     private async Task CargarAsync()
     {
-        resultado = await InventarioService.ObtenerHistorialMovimientosAsync(new FiltrosMovimientoDto
+        cargando = true;
+
+        try
         {
-            ArticuloId = articuloSeleccionado?.Id,
-            TipoMovimiento = filtroTipoMovimiento,
-            Desde = rangoFechas?.Start,
-            Hasta = rangoFechas?.End
-        });
+            resultado = await InventarioService.ObtenerHistorialMovimientosAsync(new FiltrosMovimientoDto
+            {
+                ArticuloId = articuloSeleccionado?.Id,
+                TipoMovimiento = filtroTipoMovimiento,
+                Desde = rangoFechas?.Start,
+                Hasta = rangoFechas?.End
+            });
+        }
+        finally
+        {
+            cargando = false;
+        }
     }
 }

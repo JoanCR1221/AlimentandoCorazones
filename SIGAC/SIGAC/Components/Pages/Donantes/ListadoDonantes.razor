@@ -77,8 +77,23 @@
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
+            <LoadingContent>
+                <CargandoGrilla />
+            </LoadingContent>
             <NoRecordsContent>
-                <MudText>No hay donantes que coincidan con los filtros.</MudText>
+                @if (HayFiltro)
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="Ningún donante coincide con los filtros"
+                                 Descripcion="Probá con otro nombre, tipo de persona o estado." />
+                }
+                else
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.VolunteerActivism"
+                                 Titulo="Todavía no hay donantes registrados"
+                                 TextoAccion="Registrar donante" HrefAccion="/donantes/registrar"
+                                 PermisoAccion="@Permisos.Donaciones.RegistrarDonante" />
+                }
             </NoRecordsContent>
             <PagerContent>
                 <MudDataGridPager T="DonanteListaDto" />
@@ -93,6 +108,9 @@
     private string? filtroTexto;
     private string? filtroTipoPersona;
     private bool? filtroEstado;
+
+    private bool HayFiltro =>
+        !string.IsNullOrWhiteSpace(filtroTexto) || !string.IsNullOrWhiteSpace(filtroTipoPersona) || filtroEstado.HasValue;
 
     private ResumenRegistrosDto? resumen;
 

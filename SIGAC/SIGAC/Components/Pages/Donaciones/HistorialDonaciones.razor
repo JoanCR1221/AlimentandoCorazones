@@ -45,7 +45,7 @@
             }
         </MudText>
 
-        <MudDataGrid T="HistorialDonacionDto" Items="@resultado.Donaciones">
+        <MudDataGrid T="HistorialDonacionDto" Items="@resultado.Donaciones" Loading="cargando">
             <Columns>
                 <PropertyColumn Property="x => x.TipoDonacion" Title="Tipo" />
                 <PropertyColumn Property="x => x.NombreDonante" Title="Donante" />
@@ -59,8 +59,21 @@
                 <PropertyColumn Property="x => x.Descripcion" Title="Descripción" />
                 <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
             </Columns>
+            <LoadingContent>
+                <CargandoGrilla />
+            </LoadingContent>
             <NoRecordsContent>
-                <MudText>No hay donaciones registradas para los filtros seleccionados.</MudText>
+                @if (HayFiltro)
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="Ninguna donación coincide con los filtros"
+                                 Descripcion="Probá con otro donante, tipo de donación o rango de fechas." />
+                }
+                else
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.VolunteerActivism"
+                                 Titulo="Todavía no hay donaciones registradas" />
+                }
             </NoRecordsContent>
         </MudDataGrid>
     </MudCardContent>
@@ -71,6 +84,10 @@
     private DonanteListaDto? donanteSeleccionado;
     private string? filtroTipoDonacion;
     private DateRange? rangoFechas;
+    private bool cargando = true;
+
+    private bool HayFiltro =>
+        donanteSeleccionado is not null || !string.IsNullOrWhiteSpace(filtroTipoDonacion) || rangoFechas is not null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -103,12 +120,21 @@
 
     private async Task CargarAsync()
     {
-        resultado = await DonacionesService.ObtenerHistorialDonacionesAsync(new FiltrosHistorialDonacionDto
+        cargando = true;
+
+        try
         {
-            DonanteId = donanteSeleccionado?.Id,
-            TipoDonacion = filtroTipoDonacion,
-            FechaDesde = rangoFechas?.Start,
-            FechaHasta = rangoFechas?.End
-        });
+            resultado = await DonacionesService.ObtenerHistorialDonacionesAsync(new FiltrosHistorialDonacionDto
+            {
+                DonanteId = donanteSeleccionado?.Id,
+                TipoDonacion = filtroTipoDonacion,
+                FechaDesde = rangoFechas?.Start,
+                FechaHasta = rangoFechas?.End
+            });
+        }
+        finally
+        {
+            cargando = false;
+        }
     }
 }

@@ -30,7 +30,7 @@
            devuelve IReadOnlyList sin paginar, con el mismo criterio que Gastos (el
            volumen de proyectos de la asociación no la justifica). Si algún día se
            agrega paginación al repositorio, esta grilla pasa a ServerData. *@
-        <MudDataGrid T="ProyectoListaDto" Items="@proyectos">
+        <MudDataGrid T="ProyectoListaDto" Items="@proyectos" Loading="cargando">
             <Columns>
                 <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
                 <PropertyColumn Property="x => x.FechaInicio" Title="Inicio" Format="dd/MM/yyyy" />
@@ -70,8 +70,23 @@
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
+            <LoadingContent>
+                <CargandoGrilla />
+            </LoadingContent>
             <NoRecordsContent>
-                <MudText>No hay proyectos comunitarios que coincidan con el filtro.</MudText>
+                @if (filtroEstado.HasValue)
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="Ningún proyecto coincide con el filtro"
+                                 Descripcion="Probá con otro estado." />
+                }
+                else
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.Groups"
+                                 Titulo="Todavía no hay proyectos comunitarios registrados"
+                                 TextoAccion="Registrar proyecto" HrefAccion="/proyectos/registrar"
+                                 PermisoAccion="@Permisos.Proyectos.Registrar" />
+                }
             </NoRecordsContent>
         </MudDataGrid>
     </MudCardContent>
@@ -80,6 +95,7 @@
 @code {
     private IReadOnlyList<ProyectoListaDto> proyectos = Array.Empty<ProyectoListaDto>();
     private EstadoProyecto? filtroEstado;
+    private bool cargando = true;
 
     // Se carga todo al abrir, igual que ListadoGastos: es un registro de gestión
     // chico, no un catálogo que exija filtrar antes de mostrar algo (que es lo que
@@ -97,6 +113,8 @@
 
     private async Task CargarAsync()
     {
+        cargando = true;
+
         try
         {
             proyectos = await ProyectosService.ObtenerProyectosAsync(new FiltrosProyectoDto
@@ -108,6 +126,10 @@
         {
             Snackbar.Add("No se pudieron cargar los proyectos. Intentá de nuevo.", Severity.Error);
             proyectos = Array.Empty<ProyectoListaDto>();
+        }
+        finally
+        {
+            cargando = false;
         }
     }
 

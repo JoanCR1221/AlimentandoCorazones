@@ -567,6 +567,46 @@ html[data-alto-contraste="true"] .sigac-usuario-activador:hover {
     font-weight: 600;
 }
 
+/* --- Estados vacío y de carga de las grillas (EstadoVacio / CargandoGrilla) --- */
+.ac-vacio {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 40px 16px;
+    text-align: center;
+    color: var(--ac-ink-suave);
+}
+
+.ac-vacio .mud-icon-root {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 8px;
+    color: var(--ac-borde);
+}
+
+.ac-vacio-titulo {
+    margin: 0;
+    font-weight: 600;
+    color: var(--ac-ink);
+}
+
+.ac-vacio-descripcion {
+    margin: 0;
+    max-width: 32rem;
+    font-size: 0.875rem;
+}
+
+.ac-cargando {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 48px 16px;
+    color: var(--ac-ink-suave);
+    font-size: 0.875rem;
+}
+
 /* --- Listados: barra de filtros en una fila ---
    En las pantallas de listado (tarjeta con una grilla como hijo directo) los
    campos de búsqueda y los filtros se acomodan en columnas que se ajustan al

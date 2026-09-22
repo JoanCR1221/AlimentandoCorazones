@@ -98,8 +98,23 @@
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
+            <LoadingContent>
+                <CargandoGrilla />
+            </LoadingContent>
             <NoRecordsContent>
-                <MudText>No hay beneficiarios que coincidan con los filtros.</MudText>
+                @if (HayFiltro)
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="Ningún beneficiario coincide con los filtros"
+                                 Descripcion="Probá con otro nombre, número de identidad o categoría." />
+                }
+                else
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.PeopleOutline"
+                                 Titulo="Todavía no hay beneficiarios registrados"
+                                 TextoAccion="Registrar beneficiario" HrefAccion="/beneficiarios/registrar"
+                                 PermisoAccion="@Permisos.Beneficiarios.Registrar" />
+                }
             </NoRecordsContent>
             <PagerContent>
                 <MudDataGridPager T="BeneficiarioListaDto"
@@ -116,6 +131,10 @@
     private string? filtroCategoria;
     private string? filtroTipoDocumento;
     private bool? filtroEstado;
+
+    private bool HayFiltro =>
+        !string.IsNullOrWhiteSpace(filtroTexto) || !string.IsNullOrWhiteSpace(filtroCategoria) ||
+        !string.IsNullOrWhiteSpace(filtroTipoDocumento) || filtroEstado.HasValue;
 
     private ResumenRegistrosDto? resumen;
 

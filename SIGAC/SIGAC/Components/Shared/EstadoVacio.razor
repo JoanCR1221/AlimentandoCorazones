@@ -1,0 +1,52 @@
+@* Estado vacío de una grilla: icono, mensaje y, si corresponde, una acción.
+   Reemplaza el "No hay X que coincidan con los filtros." en texto plano.
+   Con PermisoAccion la acción queda detrás de un AuthorizeView, igual que el
+   botón equivalente en la pantalla; sin PermisoAccion se muestra siempre
+   (pantallas donde ya se llegó habiendo pasado ese control). *@
+<div class="ac-vacio">
+    <MudIcon Icon="@Icono" Size="Size.Large" Color="Color.Inherit" />
+    <p class="ac-vacio-titulo">@Titulo</p>
+    @if (!string.IsNullOrWhiteSpace(Descripcion))
+    {
+        <p class="ac-vacio-descripcion">@Descripcion</p>
+    }
+    @if (!string.IsNullOrWhiteSpace(TextoAccion) && !string.IsNullOrWhiteSpace(HrefAccion))
+    {
+        @if (!string.IsNullOrWhiteSpace(PermisoAccion))
+        {
+            <AuthorizeView Policy="@PermisoAccion" Context="auth">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@HrefAccion"
+                           StartIcon="@Icons.Material.Filled.Add" Class="mt-2">
+                    @TextoAccion
+                </MudButton>
+            </AuthorizeView>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@HrefAccion"
+                       StartIcon="@Icons.Material.Filled.Add" Class="mt-2">
+                @TextoAccion
+            </MudButton>
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Icono { get; set; } = Icons.Material.Filled.Inbox;
+
+    [Parameter, EditorRequired]
+    public string Titulo { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Descripcion { get; set; }
+
+    [Parameter]
+    public string? TextoAccion { get; set; }
+
+    [Parameter]
+    public string? HrefAccion { get; set; }
+
+    [Parameter]
+    public string? PermisoAccion { get; set; }
+}

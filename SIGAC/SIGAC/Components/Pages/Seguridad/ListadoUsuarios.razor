@@ -111,8 +111,21 @@
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
+            <LoadingContent>
+                <CargandoGrilla />
+            </LoadingContent>
             <NoRecordsContent>
-                <MudText>No hay usuarios que coincidan con los filtros.</MudText>
+                @if (HayFiltro)
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="Ningún usuario coincide con los filtros"
+                                 Descripcion="Probá con otro nombre, correo, rol o estado." />
+                }
+                else
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.ManageAccounts"
+                                 Titulo="Todavía no hay usuarios registrados" />
+                }
             </NoRecordsContent>
         </MudDataGrid>
     </MudCardContent>
@@ -129,6 +142,9 @@
     private string? filtroTexto;
     private string? filtroRol;
     private bool? filtroEstado;
+
+    private bool HayFiltro =>
+        !string.IsNullOrWhiteSpace(filtroTexto) || !string.IsNullOrWhiteSpace(filtroRol) || filtroEstado.HasValue;
 
     protected override async Task OnInitializedAsync()
     {

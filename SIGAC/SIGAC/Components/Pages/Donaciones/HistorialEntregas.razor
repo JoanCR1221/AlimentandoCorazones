@@ -60,7 +60,7 @@
            destinatario aparecía repetido una vez por cada uno. La columna
            Artículo muestra "N artículos" con el detalle en un tooltip cuando
            hay más de uno, en vez de una fila por artículo. *@
-        <MudDataGrid T="FilaHistorialEntrega" Items="@FilasAgrupadas">
+        <MudDataGrid T="FilaHistorialEntrega" Items="@FilasAgrupadas" Loading="cargando">
             <Columns>
                 <PropertyColumn Property="x => x.NombreDestinatario" Title="Destinatario" />
                 <TemplateColumn Title="Tipo">
@@ -121,8 +121,23 @@
                 <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
                 <PropertyColumn Property="x => x.Observaciones" Title="Observaciones" />
             </Columns>
+            <LoadingContent>
+                <CargandoGrilla />
+            </LoadingContent>
             <NoRecordsContent>
-                <MudText>No hay entregas registradas para los filtros seleccionados.</MudText>
+                @if (HayFiltro)
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="Ninguna entrega coincide con los filtros"
+                                 Descripcion="Probá con otro beneficiario, tipo de destinatario, artículo o rango de fechas." />
+                }
+                else
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.LocalShipping"
+                                 Titulo="Todavía no hay entregas registradas"
+                                 TextoAccion="Registrar entrega" HrefAccion="/donaciones/entregas/registrar"
+                                 PermisoAccion="@Permisos.Donaciones.RegistrarEntrega" />
+                }
             </NoRecordsContent>
         </MudDataGrid>
     </MudCardContent>
@@ -149,6 +164,11 @@
     private string? filtroTipoDestinatario;
     private BeneficiarioListaDto? beneficiarioSeleccionado;
     private DateRange? rangoFechas;
+    private bool cargando = true;
+
+    private bool HayFiltro =>
+        articuloSeleccionado is not null || !string.IsNullOrWhiteSpace(filtroTipoDestinatario) ||
+        beneficiarioSeleccionado is not null || rangoFechas is not null;
 
     // Mismas filas que resultado.Entregas, agrupadas para mostrar. El grupo es
     // (TipoDestinatario, NombreDestinatario, Fecha): dos entregas al mismo
@@ -219,13 +239,22 @@
 
     private async Task CargarAsync()
     {
-        resultado = await DonacionesService.ObtenerHistorialEntregasAsync(new FiltrosHistorialEntregaDto
+        cargando = true;
+
+        try
         {
-            ArticuloId = articuloSeleccionado?.Id,
-            TipoDestinatario = filtroTipoDestinatario,
-            BeneficiarioId = beneficiarioSeleccionado?.Id,
-            FechaDesde = rangoFechas?.Start,
-            FechaHasta = rangoFechas?.End
-        });
+            resultado = await DonacionesService.ObtenerHistorialEntregasAsync(new FiltrosHistorialEntregaDto
+            {
+                ArticuloId = articuloSeleccionado?.Id,
+                TipoDestinatario = filtroTipoDestinatario,
+                BeneficiarioId = beneficiarioSeleccionado?.Id,
+                FechaDesde = rangoFechas?.Start,
+                FechaHasta = rangoFechas?.End
+            });
+        }
+        finally
+        {
+            cargando = false;
+        }
     }
 }

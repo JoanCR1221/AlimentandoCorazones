@@ -74,8 +74,21 @@
             <ChildRowContent>
                 <MudText Typo="Typo.body2" Class="pa-2" Style="white-space: pre-wrap;">@context.Item.Detalle</MudText>
             </ChildRowContent>
+            <LoadingContent>
+                <CargandoGrilla />
+            </LoadingContent>
             <NoRecordsContent>
-                <MudText>No hay acciones registradas que coincidan con los filtros.</MudText>
+                @if (HayFiltro)
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="Ninguna acción coincide con los filtros"
+                                 Descripcion="Probá con otro usuario, rol, módulo o rango de fechas." />
+                }
+                else
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.History"
+                                 Titulo="Todavía no hay acciones registradas" />
+                }
             </NoRecordsContent>
             <PagerContent>
                 <MudDataGridPager T="BitacoraAccionDto"
@@ -96,6 +109,10 @@
     private string? filtroRol;
     private string? filtroModulo;
     private DateRange? rangoFechas;
+
+    private bool HayFiltro =>
+        filtroUsuario is not null || !string.IsNullOrWhiteSpace(filtroRol) ||
+        !string.IsNullOrWhiteSpace(filtroModulo) || rangoFechas is not null;
 
     protected override async Task OnInitializedAsync()
     {

@@ -29,7 +29,7 @@
                    Color="Color.Error" Class="mb-4">
             Solo artículos con stock bajo
         </MudSwitch>
-        <MudDataGrid T="ArticuloExistenciaDto" Items="@articulos">
+        <MudDataGrid T="ArticuloExistenciaDto" Items="@articulos" Loading="cargando">
             <Columns>
                 <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
                 <PropertyColumn Property="x => x.Codigo" Title="Código" />
@@ -60,14 +60,21 @@
                "todavía no buscaste" es una invitación a escribir, "no hay coincidencias"
                es el resultado de una búsqueda que sí se hizo. Con un solo mensaje, una
                pantalla recién abierta parecería un inventario vacío. *@
+            <LoadingContent>
+                <CargandoGrilla />
+            </LoadingContent>
             <NoRecordsContent>
                 @if (HayFiltro)
                 {
-                    <MudText>Ningún artículo coincide con la búsqueda. Probá con otro nombre, código o categoría.</MudText>
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="Ningún artículo coincide con la búsqueda"
+                                 Descripcion="Probá con otro nombre, código o categoría." />
                 }
                 else
                 {
-                    <MudText>Escribí un nombre o código, o elegí una categoría, para ver el inventario.</MudText>
+                    <EstadoVacio Icono="@Icons.Material.Filled.Inventory2"
+                                 Titulo="Escribí un nombre o código, o elegí una categoría"
+                                 Descripcion="Así se muestra el inventario, sin cargar el catálogo entero de una vez." />
                 }
             </NoRecordsContent>
         </MudDataGrid>
@@ -88,6 +95,7 @@
     private string? filtroNombre;
     private string? filtroCategoria;
     private bool filtroSoloStockBajo;
+    private bool cargando;
 
     // Se usa IsNullOrWhiteSpace y no IsNullOrEmpty a propósito: es el mismo criterio
     // con el que el repositorio decide si aplica el filtro. Un campo con solo espacios
@@ -141,12 +149,21 @@
             return;
         }
 
-        var pagina = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto
+        cargando = true;
+
+        try
         {
-            Nombre = filtroNombre,
-            Categoria = filtroCategoria,
-            SoloStockBajo = filtroSoloStockBajo
-        });
-        articulos = pagina.Elementos;
+            var pagina = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto
+            {
+                Nombre = filtroNombre,
+                Categoria = filtroCategoria,
+                SoloStockBajo = filtroSoloStockBajo
+            });
+            articulos = pagina.Elementos;
+        }
+        finally
+        {
+            cargando = false;
+        }
     }
 }

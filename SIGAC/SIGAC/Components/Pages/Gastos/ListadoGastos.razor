@@ -45,7 +45,7 @@
             }
         </MudText>
 
-        <MudDataGrid T="GastoOperativoListaDto" Items="@gastos">
+        <MudDataGrid T="GastoOperativoListaDto" Items="@gastos" Loading="cargando">
             <Columns>
                 <PropertyColumn Property="x => x.Categoria" Title="Categoría" />
                 <TemplateColumn Title="Monto">
@@ -77,8 +77,23 @@
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
+            <LoadingContent>
+                <CargandoGrilla />
+            </LoadingContent>
             <NoRecordsContent>
-                <MudText>No hay gastos operativos registrados.</MudText>
+                @if (HayFiltro)
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="Ningún gasto coincide con los filtros"
+                                 Descripcion="Probá con otra categoría o rango de fechas." />
+                }
+                else
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.ReceiptLong"
+                                 Titulo="Todavía no hay gastos operativos registrados"
+                                 TextoAccion="Registrar gasto" HrefAccion="/gastos/registrar"
+                                 PermisoAccion="@Permisos.Gastos.Registrar" />
+                }
             </NoRecordsContent>
         </MudDataGrid>
     </MudCardContent>
@@ -91,6 +106,9 @@
     private IReadOnlyList<MontoPorMonedaDto> totalesPorMoneda = Array.Empty<MontoPorMonedaDto>();
     private string? filtroCategoria;
     private DateRange? rangoFechas;
+    private bool cargando = true;
+
+    private bool HayFiltro => !string.IsNullOrWhiteSpace(filtroCategoria) || rangoFechas is not null;
 
     // A diferencia de Existencias de inventario (catálogo potencialmente enorme,
     // exige un filtro antes de mostrar algo), un listado de gastos operativos es
@@ -115,14 +133,23 @@
 
     private async Task CargarAsync()
     {
-        var resultado = await GastosService.ObtenerGastosAsync(new FiltrosGastoDto
+        cargando = true;
+
+        try
         {
-            Categoria = filtroCategoria,
-            FechaDesde = rangoFechas?.Start,
-            FechaHasta = rangoFechas?.End
-        });
-        gastos = resultado.Gastos.ToList();
-        totalesPorMoneda = resultado.TotalesPorMoneda;
+            var resultado = await GastosService.ObtenerGastosAsync(new FiltrosGastoDto
+            {
+                Categoria = filtroCategoria,
+                FechaDesde = rangoFechas?.Start,
+                FechaHasta = rangoFechas?.End
+            });
+            gastos = resultado.Gastos.ToList();
+            totalesPorMoneda = resultado.TotalesPorMoneda;
+        }
+        finally
+        {
+            cargando = false;
+        }
     }
 
     private async Task AnularAsync(int gastoId)

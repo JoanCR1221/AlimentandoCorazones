@@ -11,7 +11,7 @@
 
 <MudCard Class="pa-4">
     <MudCardContent>
-        <MudDataGrid T="SolicitudPrestamoListaDto" Items="@solicitudes">
+        <MudDataGrid T="SolicitudPrestamoListaDto" Items="@solicitudes" Loading="cargando">
             <Columns>
                 <PropertyColumn Property="x => x.Articulo" Title="Artículo" />
                 <PropertyColumn Property="x => x.Cantidad" Title="Cantidad" />
@@ -26,8 +26,15 @@
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
+            <LoadingContent>
+                <CargandoGrilla />
+            </LoadingContent>
             <NoRecordsContent>
-                <MudText>No hay solicitudes de préstamo pendientes.</MudText>
+                @* Estado vacío positivo: una cola sin pendientes es buena noticia, no
+                   un catálogo al que le falte algo. *@
+                <EstadoVacio Icono="@Icons.Material.Filled.CheckCircle"
+                             Titulo="No hay solicitudes de préstamo pendientes"
+                             Descripcion="Estás al día." />
             </NoRecordsContent>
         </MudDataGrid>
     </MudCardContent>
@@ -35,6 +42,7 @@
 
 @code {
     private IEnumerable<SolicitudPrestamoListaDto> solicitudes = new List<SolicitudPrestamoListaDto>();
+    private bool cargando = true;
 
     protected override async Task OnInitializedAsync()
     {
@@ -43,8 +51,17 @@
 
     private async Task CargarAsync()
     {
-        var todas = await InventarioService.ObtenerSolicitudesAsync();
-        solicitudes = todas.Where(s => s.Estado == "Pendiente");
+        cargando = true;
+
+        try
+        {
+            var todas = await InventarioService.ObtenerSolicitudesAsync();
+            solicitudes = todas.Where(s => s.Estado == "Pendiente");
+        }
+        finally
+        {
+            cargando = false;
+        }
     }
 
     private async Task AprobarAsync(int solicitudId)
