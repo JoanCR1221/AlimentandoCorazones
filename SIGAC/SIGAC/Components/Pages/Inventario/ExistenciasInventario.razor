@@ -5,7 +5,10 @@
 @using SIGAC.Domain
 @inject IInventarioService InventarioService
 
-<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Existencias de inventario</MudText>
+<EncabezadoPagina Titulo="Existencias de inventario"
+                  Descripcion="Consulte las existencias y registre nuevas entradas de artículos."
+                  TextoAccion="Registrar entrada" HrefAccion="/inventario/entradas/registrar"
+                  PermisoAccion="@Permisos.Inventario.RegistrarEntrada" />
 
 <ResumenInventario />
 

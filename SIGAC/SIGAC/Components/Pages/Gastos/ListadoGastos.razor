@@ -10,7 +10,10 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
-<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Gastos operativos</MudText>
+<EncabezadoPagina Titulo="Gastos operativos"
+                  Descripcion="Registre y consulte los gastos operativos de la asociación."
+                  TextoAccion="Registrar gasto" HrefAccion="/gastos/registrar"
+                  PermisoAccion="@Permisos.Gastos.Registrar" />
 
 <ResumenGastos @ref="resumenGastos" />
 

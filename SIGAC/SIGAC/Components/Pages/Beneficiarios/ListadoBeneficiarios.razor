@@ -8,7 +8,10 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
-<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Beneficiarios registrados</MudText>
+<EncabezadoPagina Titulo="Beneficiarios registrados"
+                  Descripcion="Consulte, registre y administre a las personas atendidas por el comedor."
+                  TextoAccion="Registrar beneficiario" HrefAccion="/beneficiarios/registrar"
+                  PermisoAccion="@Permisos.Beneficiarios.Registrar" />
 
 @* Panorama general del módulo (no depende de los filtros de la grilla). Si la
    consulta falla, las tarjetas simplemente no se muestran: el listado sigue. *@

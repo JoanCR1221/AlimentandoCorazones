@@ -10,7 +10,14 @@
 
 <PageTitle>Usuarios — SIGAC</PageTitle>
 
-<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Usuarios del sistema</MudText>
+<EncabezadoPagina Titulo="Usuarios del sistema" Descripcion="Administre los usuarios del sistema, sus roles y sus permisos.">
+    <Acciones>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/usuarios/registrar"
+                   StartIcon="@Icons.Material.Filled.PersonAdd">
+            Registrar usuario
+        </MudButton>
+    </Acciones>
+</EncabezadoPagina>
 
 <MudCard Class="pa-4">
     <MudCardContent>
@@ -27,11 +34,6 @@
             <MudSelectItem T="bool?" Value="true">Activo</MudSelectItem>
             <MudSelectItem T="bool?" Value="false">Inactivo</MudSelectItem>
         </MudSelect>
-
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/usuarios/registrar"
-                   StartIcon="@Icons.Material.Filled.PersonAdd" Class="mb-4">
-            Registrar usuario
-        </MudButton>
 
         @* Items y no ServerData: el listado completo cabe en memoria (decenas de
            usuarios) y el filtrado ya lo hace el servicio en SQL. *@

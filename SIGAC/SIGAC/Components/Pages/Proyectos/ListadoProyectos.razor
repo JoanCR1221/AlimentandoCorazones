@@ -8,7 +8,10 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
-<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Proyectos comunitarios</MudText>
+<EncabezadoPagina Titulo="Proyectos comunitarios"
+                  Descripcion="Planifique proyectos y actividades de la asociación y registre a sus participantes."
+                  TextoAccion="Registrar proyecto" HrefAccion="/proyectos/registrar"
+                  PermisoAccion="@Permisos.Proyectos.Registrar" />
 
 <ResumenProyectos />
 

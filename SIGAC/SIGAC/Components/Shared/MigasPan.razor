@@ -1,0 +1,51 @@
+@inject NavigationManager Navigation
+@implements IDisposable
+
+@* Ruta de navegación arriba de cada pantalla ("Inicio › Módulo › Página"), a
+   partir de la tabla estática RutasSigac (mismo agrupamiento que NavMenu). Sin
+   entrada en la tabla, no se muestra nada: no depende de que cada pantalla
+   nueva la declare. *@
+@if (migas is { Count: > 0 })
+{
+    <nav class="ac-migas" aria-label="Ruta de navegación">
+        <a href="/">Inicio</a>
+        @foreach (var miga in migas)
+        {
+            <MudIcon Icon="@Icons.Material.Filled.ChevronRight" aria-hidden="true" />
+            @if (miga.Href is not null)
+            {
+                <a href="@miga.Href">@miga.Texto</a>
+            }
+            else
+            {
+                <span class="ac-migas-actual">@miga.Texto</span>
+            }
+        }
+    </nav>
+}
+
+@code {
+    private IReadOnlyList<RutasSigac.Miga>? migas;
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        Actualizar();
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        Actualizar();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void Actualizar()
+    {
+        migas = RutasSigac.MigasPara(Navigation.ToBaseRelativePath(Navigation.Uri));
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+}

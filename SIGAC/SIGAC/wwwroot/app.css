@@ -567,6 +567,61 @@ html[data-alto-contraste="true"] .sigac-usuario-activador:hover {
     font-weight: 600;
 }
 
+/* --- Cabecera de pantalla (EncabezadoPagina) --- */
+.ac-encabezado {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.ac-encabezado-texto {
+    min-width: 0;
+}
+
+.ac-encabezado-descripcion {
+    margin-top: 4px;
+    color: var(--ac-ink-suave);
+}
+
+.ac-encabezado-accion {
+    flex: none;
+}
+
+/* --- Migas de pan (MigasPan) --- */
+.ac-migas {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 12px;
+    font-size: 0.8125rem;
+    color: var(--ac-ink-suave);
+}
+
+.ac-migas a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.ac-migas a:hover {
+    color: var(--ac-coral-700);
+    text-decoration: underline;
+}
+
+.ac-migas .ac-migas-actual {
+    color: var(--ac-ink);
+    font-weight: 600;
+}
+
+.ac-migas .mud-icon-root {
+    width: 14px;
+    height: 14px;
+    opacity: 0.6;
+}
+
 /* --- Estados vacío y de carga de las grillas (EstadoVacio / CargandoGrilla) --- */
 .ac-vacio {
     display: flex;

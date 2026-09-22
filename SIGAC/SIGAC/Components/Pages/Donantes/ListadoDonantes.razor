@@ -8,7 +8,10 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
-<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Donantes registrados</MudText>
+<EncabezadoPagina Titulo="Donantes registrados"
+                  Descripcion="Consulte, registre y administre a los donantes y sus aportes."
+                  TextoAccion="Registrar donante" HrefAccion="/donantes/registrar"
+                  PermisoAccion="@Permisos.Donaciones.RegistrarDonante" />
 
 @* Panorama general del módulo (no depende de los filtros de la grilla). Si la
    consulta falla, las tarjetas simplemente no se muestran: el listado sigue. *@

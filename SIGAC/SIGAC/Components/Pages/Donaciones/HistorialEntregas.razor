@@ -10,7 +10,10 @@
 @inject IBeneficiariosService BeneficiariosService
 @inject IDonacionesService DonacionesService
 
-<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Historial de entregas</MudText>
+<EncabezadoPagina Titulo="Historial de entregas"
+                  Descripcion="Consulte qué se le ha entregado a cada beneficiario o comunidad."
+                  TextoAccion="Registrar entrega" HrefAccion="/donaciones/entregas/registrar"
+                  PermisoAccion="@Permisos.Donaciones.RegistrarEntrega" />
 
 <MudCard Class="pa-4">
     <MudCardContent>
