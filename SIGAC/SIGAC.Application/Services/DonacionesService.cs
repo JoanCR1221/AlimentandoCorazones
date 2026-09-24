@@ -347,7 +347,7 @@ namespace SIGAC.Application.Services
                     throw new ValidationException(
                         $"El stock se descontó y la salida quedó registrada en Inventario, " +
                         $"pero no se pudo guardar la entrega a {textoDestino}. " +
-                        "NO vuelvas a registrarla desde acá (descontaría el stock otra vez): " +
+                        "NO vuelva a registrarla desde aquí (descontaría el stock otra vez): " +
                         "el movimiento ya figura en el historial de Inventario. " +
                         $"Motivo: {ex.Message}");
                 }
@@ -489,7 +489,7 @@ namespace SIGAC.Application.Services
             {
                 throw new ValidationException(
                     "Se recibieron a la vez un donante existente y uno nuevo. " +
-                    "Elegí uno de los dos.");
+                    "Elija uno de los dos.");
             }
 
             if (!tieneExistente && !tieneNuevo)

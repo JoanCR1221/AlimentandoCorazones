@@ -81,7 +81,7 @@
                 {
                     <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
                                  Titulo="Ningún proyecto coincide con el filtro"
-                                 Descripcion="Probá con otro estado." />
+                                 Descripcion="Pruebe con otro estado." />
                 }
                 else
                 {
@@ -127,7 +127,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudieron cargar los proyectos. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudieron cargar los proyectos. Intente de nuevo.", Severity.Error);
             proyectos = Array.Empty<ProyectoListaDto>();
         }
         finally
@@ -167,7 +167,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo finalizar el proyecto. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo finalizar el proyecto. Intente de nuevo.", Severity.Error);
         }
     }
 

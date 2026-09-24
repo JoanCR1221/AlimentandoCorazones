@@ -86,7 +86,7 @@
             if (categoriaRegistrada == CategoriasGastoOperativo.CompraInsumos)
             {
                 Snackbar.Add(
-                    "Este gasto es una compra de insumos. ¿Deseás registrar la entrada correspondiente en inventario?",
+                    "Este gasto es una compra de insumos. ¿Desea registrar la entrada correspondiente en inventario?",
                     Severity.Info,
                     config =>
                     {
@@ -108,7 +108,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo registrar el gasto operativo. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo registrar el gasto operativo. Intente de nuevo.", Severity.Error);
         }
     }
 }

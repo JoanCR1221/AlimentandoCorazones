@@ -57,7 +57,7 @@
     </EditForm>
 
     <p class="login-ayuda">
-        Si olvidaste tu contraseña, pedile a un administrador que la restablezca.
+        Si olvidó su contraseña, pídale a un administrador que la restablezca.
     </p>
 </section>
 
@@ -127,7 +127,7 @@
         if (!usuario.Estado)
         {
             await RegistrarIntentoFallidoAsync(usuario.Id, usuario.Nombre, rol, "Usuario desactivado");
-            mensajeError = "Tu usuario está desactivado. Contactá a un administrador.";
+            mensajeError = "Su usuario está desactivado. Contacte a un administrador.";
             return;
         }
 
@@ -151,7 +151,7 @@
         if (resultado.IsLockedOut)
         {
             await RegistrarIntentoFallidoAsync(usuario.Id, usuario.Nombre, rol, "Bloqueado por intentos fallidos");
-            mensajeError = $"Demasiados intentos fallidos. Esperá {ReglasUsuario.MinutosBloqueo} minutos e intentá de nuevo.";
+            mensajeError = $"Demasiados intentos fallidos. Espere {ReglasUsuario.MinutosBloqueo} minutos e intente de nuevo.";
             return;
         }
 

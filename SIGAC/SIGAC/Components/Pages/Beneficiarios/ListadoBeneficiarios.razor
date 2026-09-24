@@ -109,7 +109,7 @@
                 {
                     <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
                                  Titulo="Ningún beneficiario coincide con los filtros"
-                                 Descripcion="Probá con otro nombre, número de identidad o categoría." />
+                                 Descripcion="Pruebe con otro nombre, número de identidad o categoría." />
                 }
                 else
                 {
@@ -234,7 +234,7 @@
         var accion = activar ? "activar" : "desactivar";
         var confirmado = await DialogService.ShowMessageBoxAsync(
             "Confirmar",
-            $"¿Seguro que querés {accion} a {nombre}?",
+            $"¿Seguro que desea {accion} a {nombre}?",
             yesText: "Confirmar",
             cancelText: "Cancelar");
 
@@ -264,7 +264,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo actualizar el estado del beneficiario. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo actualizar el estado del beneficiario. Intente de nuevo.", Severity.Error);
         }
     }
 }

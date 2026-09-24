@@ -78,7 +78,7 @@
                 {
                     <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
                                  Titulo="Ninguna acción coincide con los filtros"
-                                 Descripcion="Probá con otro usuario, rol, módulo o rango de fechas." />
+                                 Descripcion="Pruebe con otro usuario, rol, módulo o rango de fechas." />
                 }
                 else
                 {
@@ -146,7 +146,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo cargar la bitácora. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo cargar la bitácora. Intente de nuevo.", Severity.Error);
             return new GridData<BitacoraAccionDto> { Items = Array.Empty<BitacoraAccionDto>(), TotalItems = 0 };
         }
     }

@@ -34,7 +34,7 @@
             <MudSelect T="string" @bind-Value="modelo.UnidadMedida" For="@(() => modelo.UnidadMedida)"
                        Label="Unidad de medida" Variant="Variant.Outlined" Class="mt-4"
                        Disabled="string.IsNullOrWhiteSpace(modelo.Categoria)"
-                       HelperText="@(string.IsNullOrWhiteSpace(modelo.Categoria) ? "Elegí primero una categoría." : null)">
+                       HelperText="@(string.IsNullOrWhiteSpace(modelo.Categoria) ? "Elija primero una categoría." : null)">
                 @foreach (var unidad in UnidadesMedidaArticulo.ObtenerUnidadesValidas(modelo.Categoria))
                 {
                     <MudSelectItem T="string" Value="@unidad">@unidad</MudSelectItem>
@@ -99,7 +99,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo actualizar el artículo. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo actualizar el artículo. Intente de nuevo.", Severity.Error);
         }
     }
 }

@@ -39,7 +39,7 @@
                                   Value="beneficiarioSeleccionado" ValueChanged="OnBeneficiarioCambiado"
                                   SearchFunc="BuscarBeneficiariosActivosAsync" ToStringFunc="@(b => b?.NombreCompleto)"
                                   MinCharacters="FiltrosBeneficiarioDto.MinimoCaracteresBusqueda"
-                                  HelperText="@($"Escribí al menos {FiltrosBeneficiarioDto.MinimoCaracteresBusqueda} caracteres para buscar.")" />
+                                  HelperText="@($"Escriba al menos {FiltrosBeneficiarioDto.MinimoCaracteresBusqueda} caracteres para buscar.")" />
             }
             else if (modelo.TipoDestinatario == TiposDestinatarioDonacion.Comunidad)
             {
@@ -66,7 +66,7 @@
                                       Value="linea.Articulo" ValueChanged="@(valor => OnArticuloCambiado(indice, valor))"
                                       SearchFunc="BuscarArticulosAsync" MinCharacters="1" DebounceInterval="300"
                                       ToStringFunc="@(a => a is null ? null : $"{a.Nombre} (stock: {a.StockActual} {a.UnidadMedida})")"
-                                      HelperText="Escribí para buscar el artículo a entregar." />
+                                      HelperText="Escriba para buscar el artículo a entregar." />
 
                     <MudNumericField T="int" @bind-Value="linea.Cantidad" Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
 
@@ -194,7 +194,7 @@
     {
         if (lineas.Any(l => l.Articulo is null))
         {
-            Snackbar.Add("Seleccioná un artículo en cada línea.", Severity.Warning);
+            Snackbar.Add("Seleccione un artículo en cada línea.", Severity.Warning);
             return;
         }
 
@@ -248,7 +248,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add(ConAvisoDeProgreso("No se pudo registrar la entrega. Intentá de nuevo.", registradas), Severity.Error);
+            Snackbar.Add(ConAvisoDeProgreso("No se pudo registrar la entrega. Intente de nuevo.", registradas), Severity.Error);
         }
     }
 
@@ -259,5 +259,5 @@
     private static string ConAvisoDeProgreso(string mensaje, int registradas) =>
         registradas == 0
             ? mensaje
-            : $"{mensaje} Ya se habían registrado {registradas} artículo(s) de esta entrega antes del error; no los volvás a registrar.";
+            : $"{mensaje} Ya se habían registrado {registradas} artículo(s) de esta entrega antes del error; no los vuelva a registrar.";
 }

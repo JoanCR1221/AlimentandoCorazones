@@ -2,7 +2,7 @@
 @inject NavigationManager Navigation
 @inject IBitacoraService Bitacora
 
-@* Mensaje de "no tenés permiso" (AB de fase 4). Componente compartido porque se
+@* Mensaje de "no tiene permiso" (AB de fase 4). Componente compartido porque se
    muestra en dos situaciones distintas: como página propia (/acceso-denegado,
    a donde manda la cookie en una carga completa) y como contenido del
    NotAuthorized de AuthorizeRouteView (navegación dentro del circuito). En las
@@ -16,8 +16,8 @@
                 <MudIcon Icon="@Icons.Material.Filled.Block" Color="Color.Error" Style="font-size: 4rem;" />
                 <MudText Typo="Typo.h5">Acceso denegado</MudText>
                 <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Lock">
-                    No tenés permiso para entrar a esta parte del sistema.
-                    Si creés que deberías tenerlo, pedíselo a un administrador.
+                    No tiene permiso para entrar a esta parte del sistema.
+                    Si cree que debería tenerlo, pídaselo a un administrador.
                 </MudAlert>
                 @if (!string.IsNullOrEmpty(RutaSolicitada))
                 {

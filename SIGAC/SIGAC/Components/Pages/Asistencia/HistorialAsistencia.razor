@@ -57,7 +57,7 @@
                 {
                     <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
                                  Titulo="Ninguna asistencia coincide con los filtros"
-                                 Descripcion="Probá con otro beneficiario, tiempo de comida o rango de fechas." />
+                                 Descripcion="Pruebe con otro beneficiario, tiempo de comida o rango de fechas." />
                 }
                 else
                 {
@@ -82,7 +82,7 @@
         beneficiarioSeleccionado is not null || !string.IsNullOrWhiteSpace(filtroTiempoComida) || rangoFechas is not null;
 
     private static readonly string AyudaBusqueda =
-        $"Escribí al menos {FiltrosBeneficiarioDto.MinimoCaracteresBusqueda} caracteres para buscar por nombre o número de identidad.";
+        $"Escriba al menos {FiltrosBeneficiarioDto.MinimoCaracteresBusqueda} caracteres para buscar por nombre o número de identidad.";
 
     protected override async Task OnInitializedAsync()
     {

@@ -25,7 +25,7 @@
                               SearchFunc="BuscarDonantesActivosAsync" ToStringFunc="@(d => d?.Nombre)"
                               MinCharacters="1" DebounceInterval="300" Clearable="true"
                               Disabled="panelNuevoDonanteAbierto"
-                              HelperText="Escribí para buscar un donante ya registrado." />
+                              HelperText="Escriba para buscar un donante ya registrado." />
 
             <MudExpansionPanels Class="mt-4">
                 <MudExpansionPanel Text="Registrar donante nuevo" Expanded="panelNuevoDonanteAbierto" ExpandedChanged="OnPanelNuevoDonanteCambiadoAsync">
@@ -150,7 +150,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo registrar la donación. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo registrar la donación. Intente de nuevo.", Severity.Error);
         }
     }
 }

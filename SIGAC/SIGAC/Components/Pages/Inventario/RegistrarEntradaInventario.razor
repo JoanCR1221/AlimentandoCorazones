@@ -37,7 +37,7 @@
                               Value="modelo.NombreArticulo" ValueChanged="OnNombreArticuloCambiadoAsync"
                               SearchFunc="BuscarNombresArticuloAsync" CoerceText="false" CoerceValue="true"
                               MinCharacters="1" DebounceInterval="300"
-                              HelperText="Escribí para buscar un artículo existente, o ingresá uno nuevo." />
+                              HelperText="Escriba para buscar un artículo existente, o ingrese uno nuevo." />
 
             @if (articuloExistente is not null)
             {
@@ -68,7 +68,7 @@
             <MudSelect T="string" @bind-Value="modelo.UnidadMedida" For="@(() => modelo.UnidadMedida)"
                        Label="Unidad de medida" Variant="Variant.Outlined" Class="mt-4"
                        Disabled="articuloExistente is not null || string.IsNullOrWhiteSpace(modelo.Categoria)"
-                       HelperText="@(articuloExistente is null && string.IsNullOrWhiteSpace(modelo.Categoria) ? "Elegí primero una categoría." : null)">
+                       HelperText="@(articuloExistente is null && string.IsNullOrWhiteSpace(modelo.Categoria) ? "Elija primero una categoría." : null)">
                 @foreach (var unidad in UnidadesMedidaArticulo.ObtenerUnidadesValidas(modelo.Categoria))
                 {
                     <MudSelectItem T="string" Value="@unidad">@unidad</MudSelectItem>
@@ -100,12 +100,12 @@
                                   Value="donanteSeleccionado" ValueChanged="OnDonanteSeleccionado"
                                   SearchFunc="BuscarDonantesActivosAsync" ToStringFunc="@(d => d?.Nombre)"
                                   MinCharacters="1" DebounceInterval="300" Clearable="true"
-                                  HelperText="Escribí para buscar un donante ya registrado." />
+                                  HelperText="Escriba para buscar un donante ya registrado." />
 
                 @if (sinDonantesActivos)
                 {
                     <MudAlert Severity="Severity.Info" Class="mt-2">
-                        Todavía no hay donantes activos registrados. Podés guardar la entrada sin donante, o darlo de alta primero en Donantes.
+                        Todavía no hay donantes activos registrados. Puede guardar la entrada sin donante, o darlo de alta primero en Donantes.
                     </MudAlert>
                 }
             }
@@ -114,7 +114,7 @@
                 @if (GastoOperativoId.HasValue && modelo.GastoOperativoId == GastoOperativoId)
                 {
                     <MudAlert Severity="Severity.Info" Class="mt-4">
-                        Esta entrada quedará vinculada al gasto operativo #@GastoOperativoId que acabás de registrar.
+                        Esta entrada quedará vinculada al gasto operativo #@GastoOperativoId que acaba de registrar.
                     </MudAlert>
                 }
                 else
@@ -139,7 +139,7 @@
                     @if (gastosCargados && gastosVinculables.Count == 0)
                     {
                         <MudAlert Severity="Severity.Info" Class="mt-2">
-                            Todavía no hay gastos de compra de insumos activos. Podés guardar la entrada sin vincularla, o registrar el gasto primero en Gastos operativos.
+                            Todavía no hay gastos de compra de insumos activos. Puede guardar la entrada sin vincularla, o registrar el gasto primero en Gastos operativos.
                         </MudAlert>
                     }
                 }
@@ -352,7 +352,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo registrar la entrada de inventario. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo registrar la entrada de inventario. Intente de nuevo.", Severity.Error);
         }
     }
 }

@@ -29,7 +29,7 @@
                               Value="articuloSeleccionado" ValueChanged="OnArticuloCambiado"
                               SearchFunc="BuscarArticulosAsync"
                               MinCharacters="1" DebounceInterval="300"
-                              HelperText="@($"Escribí para buscar. Solo se prestan artículos de categoría {CategoriasArticulo.Equipo}.")"
+                              HelperText="@($"Escriba para buscar. Solo se prestan artículos de categoría {CategoriasArticulo.Equipo}.")"
                               ToStringFunc="@(a => a is null ? null : $"{a.Nombre} (stock: {a.StockActual} {a.UnidadMedida})")" />
 
             <MudNumericField T="int" @bind-Value="modelo.Cantidad" For="@(() => modelo.Cantidad)" Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
@@ -109,7 +109,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo registrar la solicitud de préstamo. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo registrar la solicitud de préstamo. Intente de nuevo.", Severity.Error);
         }
     }
 }

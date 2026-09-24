@@ -22,7 +22,7 @@
                               SearchFunc="BuscarDonantesActivosAsync" ToStringFunc="@(d => d?.Nombre)"
                               MinCharacters="1" DebounceInterval="300" Clearable="true"
                               Disabled="panelNuevoDonanteAbierto"
-                              HelperText="Escribí para buscar un donante ya registrado." />
+                              HelperText="Escriba para buscar un donante ya registrado." />
 
             <MudExpansionPanels Class="mt-4">
                 <MudExpansionPanel Text="Registrar donante nuevo" Expanded="panelNuevoDonanteAbierto" ExpandedChanged="OnPanelNuevoDonanteCambiadoAsync">
@@ -63,7 +63,7 @@
                        elegida en esta línea, igual que en Inventario. *@
                     <MudSelect T="string" @bind-Value="articulo.UnidadMedida" Label="Unidad de medida" Variant="Variant.Outlined" Class="mt-4"
                                Disabled="string.IsNullOrWhiteSpace(articulo.Categoria)"
-                               HelperText="@(string.IsNullOrWhiteSpace(articulo.Categoria) ? "Elegí primero una categoría." : null)">
+                               HelperText="@(string.IsNullOrWhiteSpace(articulo.Categoria) ? "Elija primero una categoría." : null)">
                         @foreach (var unidad in UnidadesMedidaArticulo.ObtenerUnidadesValidas(articulo.Categoria))
                         {
                             <MudSelectItem T="string" Value="@unidad">@unidad</MudSelectItem>
@@ -196,7 +196,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo registrar la donación. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo registrar la donación. Intente de nuevo.", Severity.Error);
         }
     }
 }

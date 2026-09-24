@@ -107,7 +107,7 @@
                             @if (esElMismo)
                             {
                                 <MudDivider />
-                                <MudMenuItem Disabled="true">Tu propio usuario: cambiá tu contraseña desde Configuración.</MudMenuItem>
+                                <MudMenuItem Disabled="true">Su propio usuario: cambie su contraseña desde Configuración.</MudMenuItem>
                             }
                         </MudMenu>
                     </CellTemplate>
@@ -121,7 +121,7 @@
                 {
                     <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
                                  Titulo="Ningún usuario coincide con los filtros"
-                                 Descripcion="Probá con otro nombre, correo, rol o estado." />
+                                 Descripcion="Pruebe con otro nombre, correo, rol o estado." />
                 }
                 else
                 {
@@ -174,7 +174,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudieron cargar los usuarios. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudieron cargar los usuarios. Intente de nuevo.", Severity.Error);
         }
         finally
         {
@@ -217,14 +217,14 @@
         await EjecutarAsync(
             () => UsuariosService.CambiarRolAsync(new CambioRolDto { UsuarioId = usuario.Id, NuevoRol = nuevoRol }),
             $"Rol de {usuario.Nombre} cambiado a {nuevoRol}. Su sesión se cierra en menos de un minuto.",
-            "No se pudo cambiar el rol. Intentá de nuevo.");
+            "No se pudo cambiar el rol. Intente de nuevo.");
     }
 
     private async Task ConfirmarCambioEstadoAsync(UsuarioListaDto usuario, bool activar)
     {
         var pregunta = activar
-            ? $"¿Seguro que querés activar a {usuario.Nombre}? Va a poder iniciar sesión de inmediato."
-            : $"¿Seguro que querés desactivar a {usuario.Nombre}? No va a poder iniciar sesión y, si tiene una sesión abierta, se cierra en menos de un minuto. Su historial se conserva.";
+            ? $"¿Seguro que desea activar a {usuario.Nombre}? Va a poder iniciar sesión de inmediato."
+            : $"¿Seguro que desea desactivar a {usuario.Nombre}? No va a poder iniciar sesión y, si tiene una sesión abierta, se cierra en menos de un minuto. Su historial se conserva.";
 
         var confirmado = await DialogService.ShowMessageBoxAsync(
             "Confirmar",
@@ -238,7 +238,7 @@
         await EjecutarAsync(
             () => activar ? UsuariosService.ActivarUsuarioAsync(usuario.Id) : UsuariosService.DesactivarUsuarioAsync(usuario.Id),
             activar ? "Usuario activado." : "Usuario desactivado.",
-            "No se pudo actualizar el estado del usuario. Intentá de nuevo.");
+            "No se pudo actualizar el estado del usuario. Intente de nuevo.");
     }
 
     private async Task RestablecerPasswordAsync(UsuarioListaDto usuario)
@@ -259,7 +259,7 @@
         await EjecutarAsync(
             () => UsuariosService.RestablecerPasswordAsync(dto),
             $"Contraseña de {usuario.Nombre} restablecida. Indicale que la cambie desde Configuración al entrar.",
-            "No se pudo restablecer la contraseña. Intentá de nuevo.");
+            "No se pudo restablecer la contraseña. Intente de nuevo.");
     }
 
     // Un solo lugar para el patrón "ejecutar, avisar, recargar": las cuatro

@@ -62,7 +62,7 @@
     private bool asistenciaDuplicada;
 
     private static readonly string AyudaBusqueda =
-        $"Escribí al menos {FiltrosBeneficiarioDto.MinimoCaracteresBusqueda} caracteres para buscar por nombre o número de identidad.";
+        $"Escriba al menos {FiltrosBeneficiarioDto.MinimoCaracteresBusqueda} caracteres para buscar por nombre o número de identidad.";
 
     private DateTime? fecha
     {
@@ -143,7 +143,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo registrar la asistencia. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo registrar la asistencia. Intente de nuevo.", Severity.Error);
         }
     }
 }

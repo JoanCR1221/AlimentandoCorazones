@@ -16,7 +16,7 @@
     <MudCardContent>
         <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-1">Apariencia</MudText>
         <MudText Typo="Typo.body2" Class="mb-4 mud-text-secondary">
-            Elegí cómo se ve SIGAC en esta computadora.
+            Elija cómo se ve SIGAC en esta computadora.
         </MudText>
 
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
@@ -60,7 +60,7 @@
     <MudCardContent>
         <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-1">Contraseña</MudText>
         <MudText Typo="Typo.body2" Class="mb-4 mud-text-secondary">
-            Cambiá tu contraseña de acceso a SIGAC. Después del cambio vas a tener que iniciar sesión de nuevo.
+            Cambie su contraseña de acceso a SIGAC. Después del cambio tendrá que iniciar sesión de nuevo.
         </MudText>
 
         <EditForm Model="cambioPassword" OnValidSubmit="CambiarPasswordAsync">
@@ -121,7 +121,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo cambiar la contraseña. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo cambiar la contraseña. Intente de nuevo.", Severity.Error);
         }
         finally
         {

@@ -88,7 +88,7 @@
                 {
                     <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
                                  Titulo="Ningún donante coincide con los filtros"
-                                 Descripcion="Probá con otro nombre, tipo de persona o estado." />
+                                 Descripcion="Pruebe con otro nombre, tipo de persona o estado." />
                 }
                 else
                 {
@@ -197,7 +197,7 @@
         var accion = activar ? "activar" : "desactivar";
         var confirmado = await DialogService.ShowMessageBoxAsync(
             "Confirmar",
-            $"¿Seguro que querés {accion} a {nombre}?",
+            $"¿Seguro que desea {accion} a {nombre}?",
             yesText: "Confirmar",
             cancelText: "Cancelar");
 
@@ -226,7 +226,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo actualizar el estado del donante. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo actualizar el estado del donante. Intente de nuevo.", Severity.Error);
         }
     }
 }
