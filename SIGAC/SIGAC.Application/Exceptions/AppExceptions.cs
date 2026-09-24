@@ -10,6 +10,16 @@
         public ValidationException(string mensaje) : base(mensaje) { }
     }
 
+    // La operación principal YA quedó guardada, pero no se pudo anotar en la
+    // bitácora (que escribe por su propia conexión, fuera de la transacción).
+    // Se distingue del error genérico para que la pantalla no diga "no se pudo"
+    // sobre algo que sí se hizo: el usuario reintentaría y chocaría con su
+    // propio registro como duplicado.
+    public class BitacoraNoRegistradaException : Exception
+    {
+        public BitacoraNoRegistradaException(string mensaje, Exception inner) : base(mensaje, inner) { }
+    }
+
     public class DuplicateException : Exception
     {
         public DuplicateException(string mensaje) : base(mensaje) { }

@@ -1,6 +1,8 @@
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Beneficiarios;
+using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
 using SIGAC.Domain;
 using SIGAC.Domain.Entities;
@@ -16,6 +18,16 @@ namespace SIGAC.Infrastructure.Repositories
         // "Maria" encuentre a "María" sin salir de SQL. Se aplica a la expresión,
         // no a la columna, así que no depende de la collation de la base.
         private const string ColacionSinTildes = "Latin1_General_CI_AI";
+
+        // Números de error de SQL Server para violación de unicidad: 2627 es una
+        // restricción UNIQUE/PK y 2601 un índice único. Mismo criterio que
+        // InventarioRepositoryEfCore.
+        private const int ErrorSqlRestriccionUnica = 2627;
+        private const int ErrorSqlIndiceUnico = 2601;
+
+        // SQL Server nombra el índice violado en el texto del error, en cualquier
+        // idioma: así se sabe cuál de los dos índices únicos rechazó la escritura.
+        private const string IndiceUnicoNumIdentidad = "UX_Beneficiarios_NumIdentidad";
 
         // Factory y no un DbContext inyectado: en Blazor Server el scope dura toda
         // la sesión, así que un contexto compartido queda expuesto a que dos
@@ -33,7 +45,18 @@ namespace SIGAC.Infrastructure.Repositories
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
             context.Beneficiarios.Add(beneficiario);
-            await context.SaveChangesAsync();
+
+            try
+            {
+                await context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (EsViolacionDeUnicidad(ex))
+            {
+                // Dos altas simultáneas del mismo beneficiario pasan las dos el
+                // chequeo previo del servicio y la segunda la frena el índice
+                // único. Sin traducir, el usuario veía "Intente de nuevo".
+                throw new DuplicateException(DescribirDuplicado(ex, esOtro: false));
+            }
         }
 
         public async Task ActualizarAsync(Beneficiario beneficiario)
@@ -43,7 +66,35 @@ namespace SIGAC.Infrastructure.Repositories
             // La entidad llega desprendida (ObtenerPorIdAsync usa AsNoTracking),
             // por lo que Update la adjunta y marca todos sus campos como modificados.
             context.Beneficiarios.Update(beneficiario);
-            await context.SaveChangesAsync();
+
+            try
+            {
+                await context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (EsViolacionDeUnicidad(ex))
+            {
+                throw new DuplicateException(DescribirDuplicado(ex, esOtro: true));
+            }
+        }
+
+        private static bool EsViolacionDeUnicidad(DbUpdateException ex) =>
+            ex.InnerException is SqlException sql &&
+            (sql.Number == ErrorSqlRestriccionUnica || sql.Number == ErrorSqlIndiceUnico);
+
+        // Mismos textos que los chequeos previos del servicio, según CUÁL índice
+        // rechazó la escritura. Si no se lo puede identificar, se cae al de
+        // nombres, que es la clave que siempre participa.
+        private static string DescribirDuplicado(DbUpdateException ex, bool esOtro)
+        {
+            var sujeto = esOtro ? "otro beneficiario" : "un beneficiario";
+
+            if (ex.InnerException is SqlException sql &&
+                sql.Message.Contains(IndiceUnicoNumIdentidad, StringComparison.OrdinalIgnoreCase))
+            {
+                return $"Ya existe {sujeto} registrado con ese número de identidad.";
+            }
+
+            return $"Ya existe {sujeto} con esos nombres, apellidos y fecha de nacimiento.";
         }
 
         public async Task<Beneficiario?> ObtenerPorIdAsync(int id)

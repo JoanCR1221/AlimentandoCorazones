@@ -64,10 +64,20 @@ namespace SIGAC.Application.Services
 
                 await _repository.AgregarAsync(beneficiario);
 
-                await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Beneficiarios,
-                    $"Beneficiario #{beneficiario.Id}: {beneficiario.NombreCompleto}");
+                // Desde acá el alta ya está confirmada: si falla la bitácora no se
+                // puede informar como "no se pudo registrar".
+                try
+                {
+                    await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Beneficiarios,
+                        $"Beneficiario #{beneficiario.Id}: {beneficiario.NombreCompleto}");
+                }
+                catch (Exception ex)
+                {
+                    throw new BitacoraNoRegistradaException(
+                        "El beneficiario se registró, pero no se pudo anotar la acción en la bitácora.", ex);
+                }
             }
-            catch (Exception ex) when (ex is not ValidationException and not DuplicateException)
+            catch (Exception ex) when (ex is not ValidationException and not DuplicateException and not BitacoraNoRegistradaException)
             {
                 throw new Exception("Error al registrar el beneficiario.", ex);
             }

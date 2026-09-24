@@ -128,6 +128,13 @@
         {
             Snackbar.Add(ex.Message, Severity.Warning);
         }
+        catch (BitacoraNoRegistradaException ex)
+        {
+            // El alta sí quedó guardada: se limpia el formulario igual que en el
+            // caso exitoso, para que no se reintente y choque consigo misma.
+            Snackbar.Add(ex.Message, Severity.Warning);
+            modelo = new();
+        }
         catch (Exception)
         {
             Snackbar.Add("No se pudo registrar el beneficiario. Intente de nuevo.", Severity.Error);
