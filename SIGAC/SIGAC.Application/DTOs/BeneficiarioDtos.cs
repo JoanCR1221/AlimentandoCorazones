@@ -23,6 +23,8 @@ namespace SIGAC.Application.DTOs.Beneficiarios
 
         // La categoría ya no se captura: la deriva el servicio desde FechaNacimiento.
 
+        // Código de país sin "+" ("506") y número local; ver ReglasTelefono.
+        public string? CodigoPaisTelefono { get; set; }
         public string? Telefono { get; set; }
         public string? Direccion { get; set; }
         public bool Estado { get; set; }
@@ -48,6 +50,7 @@ namespace SIGAC.Application.DTOs.Beneficiarios
 
         public DateTime FechaNacimiento { get; set; }
 
+        public string? CodigoPaisTelefono { get; set; }
         public string? Telefono { get; set; }
         public string? Direccion { get; set; }
 
@@ -70,7 +73,10 @@ namespace SIGAC.Application.DTOs.Beneficiarios
 
         public DateTime FechaNacimiento { get; set; }
         public string Categoria { get; set; } = string.Empty;
+        public string? CodigoPaisTelefono { get; set; }
         public string? Telefono { get; set; }
+
+        public string? TelefonoCompleto => ReglasTelefono.Formatear(CodigoPaisTelefono, Telefono);
         public bool Estado { get; set; }
         public string? TipoDocumento { get; set; }
         public string? NumIdentidad { get; set; }

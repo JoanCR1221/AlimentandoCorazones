@@ -1,4 +1,4 @@
-using SIGAC.Application.DTOs.Donaciones;
+﻿using SIGAC.Application.DTOs.Donaciones;
 using SIGAC.Application.Exceptions;
 using SIGAC.Domain;
 
@@ -9,6 +9,7 @@ namespace SIGAC.Application.Validators
     public sealed record DonanteValidado(
         string Nombre,
         string TipoPersona,
+        string? CodigoPaisTelefono,
         string? Telefono,
         string? Correo);
 
@@ -35,28 +36,37 @@ namespace SIGAC.Application.Validators
         // declaran sus propias constantes (ver ArticuloValidator).
         public const int LongitudMaximaNombre = 150;
         public const int LongitudMaximaTipoPersona = 20;
-        public const int LongitudMaximaTelefono = 20;
         public const int LongitudMaximaCorreo = 150;
 
         public static DonanteValidado Validar(DonanteCrearDto dto) =>
-            Validar(dto.Nombre, dto.TipoPersona, dto.Telefono, dto.Correo);
+            Validar(dto.Nombre, dto.TipoPersona, dto.CodigoPaisTelefono, dto.Telefono, dto.Correo);
 
         public static DonanteValidado Validar(DonanteEditarDto dto) =>
-            Validar(dto.Nombre, dto.TipoPersona, dto.Telefono, dto.Correo);
+            Validar(dto.Nombre, dto.TipoPersona, dto.CodigoPaisTelefono, dto.Telefono, dto.Correo);
 
         // Sobrecarga para el donante que se registra sin salir del formulario de
         // donación: son los mismos campos y la misma regla, así que se valida con
         // el mismo código y no con una copia paralela que pueda divergir.
         public static DonanteValidado Validar(NuevoDonanteDto dto) =>
-            Validar(dto.Nombre, dto.TipoPersona, dto.Telefono, dto.Correo);
+            Validar(dto.Nombre, dto.TipoPersona, dto.CodigoPaisTelefono, dto.Telefono, dto.Correo);
 
         public static DonanteValidado Validar(
-            string? nombre, string? tipoPersona, string? telefono, string? correo) =>
-            new(
-                ValidarNombre(nombre),
-                ValidarTipoPersona(tipoPersona),
-                ValidarTelefono(telefono),
+            string? nombre, string? tipoPersona, string? codigoPaisTelefono, string? telefono, string? correo)
+        {
+            var nombreValidado = ValidarNombre(nombre);
+            var tipoPersonaValidado = ValidarTipoPersona(tipoPersona);
+
+            // Misma regla que el teléfono del beneficiario (ver TelefonoValidator).
+            // Opcional: sin número se guardan los dos campos en NULL.
+            var telefonoValidado = TelefonoValidator.Validar(codigoPaisTelefono, telefono);
+
+            return new(
+                nombreValidado,
+                tipoPersonaValidado,
+                telefonoValidado.CodigoPais,
+                telefonoValidado.Numero,
                 ValidarCorreo(correo));
+        }
 
         // Devuelve el nombre tal como se guarda: sin espacios en los extremos ni
         // internos repetidos. Es también el valor con el que hay que buscar posibles
@@ -102,29 +112,6 @@ namespace SIGAC.Application.Validators
                     $"El tipo de persona '{normalizado}' no es válido. " +
                     $"Valores válidos: {string.Join(", ", TiposPersonaDonante.Todos)}.");
             }
-
-            return normalizado;
-        }
-
-        // Opcional: se recibe la donación igual aunque el donante no deje teléfono.
-        // Cuando no se ingresa se guarda como NULL y no como cadena vacía, para que
-        // la columna distinga "no dejó teléfono" de "dejó uno vacío".
-        //
-        // Sin validación de formato, a diferencia de BeneficiarioValidator (que
-        // exige los 8 dígitos de Costa Rica vía ReglasBeneficiario): la columna se
-        // dimensionó en 20 justamente porque un donante puede ser una empresa con
-        // extensión o estar en el extranjero, así que no hay un formato único que
-        // exigir. Solo se compacta y se controla la longitud.
-        public static string? ValidarTelefono(string? valor)
-        {
-            var normalizado = TextoNormalizador.CompactarEspacios(valor);
-
-            if (normalizado.Length == 0)
-                return null;
-
-            if (normalizado.Length > LongitudMaximaTelefono)
-                throw new ValidationException(
-                    $"El teléfono no puede superar los {LongitudMaximaTelefono} caracteres.");
 
             return normalizado;
         }

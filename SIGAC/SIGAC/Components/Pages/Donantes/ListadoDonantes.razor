@@ -1,4 +1,4 @@
-@page "/donantes"
+﻿@page "/donantes"
 @attribute [Authorize(Policy = Permisos.Donaciones.VerDonantes)]
 @using SIGAC.Application.DTOs
 @using SIGAC.Application.DTOs.Donaciones
@@ -56,7 +56,7 @@
                 <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
                 <PropertyColumn Property="x => x.TipoPersona" Title="Tipo de persona" />
                 <PropertyColumn Property="x => x.Correo" Title="Correo" />
-                <PropertyColumn Property="x => x.Telefono" Title="Teléfono" />
+                <PropertyColumn Property="x => x.TelefonoCompleto" Title="Teléfono" />
                 <TemplateColumn Title="Estado">
                     <CellTemplate>
                         <EstadoChip Activo="@context.Item.Estado" />

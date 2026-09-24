@@ -1,3 +1,4 @@
+﻿using SIGAC.Domain;
 using System.ComponentModel.DataAnnotations;
 
 namespace SIGAC.Application.DTOs.Donaciones
@@ -43,6 +44,9 @@ namespace SIGAC.Application.DTOs.Donaciones
 
         // Opcionales: se recibe la donación igual aunque el donante no deje datos
         // de contacto.
+        // Código de país sin "+" ("506") y número local; ver ReglasTelefono.
+        public string? CodigoPaisTelefono { get; set; }
+
         [StringLength(LongitudesDonaciones.Telefono, ErrorMessage = "El teléfono no puede superar los {1} caracteres.")]
         public string? Telefono { get; set; }
 
@@ -68,6 +72,9 @@ namespace SIGAC.Application.DTOs.Donaciones
         [StringLength(LongitudesDonaciones.TipoPersona)]
         public string TipoPersona { get; set; } = string.Empty;
 
+        // Código de país sin "+" ("506") y número local; ver ReglasTelefono.
+        public string? CodigoPaisTelefono { get; set; }
+
         [StringLength(LongitudesDonaciones.Telefono, ErrorMessage = "El teléfono no puede superar los {1} caracteres.")]
         public string? Telefono { get; set; }
 
@@ -84,7 +91,11 @@ namespace SIGAC.Application.DTOs.Donaciones
         public string Nombre { get; set; } = string.Empty;
         public string TipoPersona { get; set; } = string.Empty;
         public string? Correo { get; set; }
+        public string? CodigoPaisTelefono { get; set; }
         public string? Telefono { get; set; }
+
+        public string? TelefonoCompleto => ReglasTelefono.Formatear(CodigoPaisTelefono, Telefono);
+
         public bool Estado { get; set; }
     }
 
@@ -143,6 +154,9 @@ namespace SIGAC.Application.DTOs.Donaciones
         [Required(ErrorMessage = "El tipo de persona es obligatorio.")]
         [StringLength(LongitudesDonaciones.TipoPersona)]
         public string TipoPersona { get; set; } = string.Empty;
+
+        // Código de país sin "+" ("506") y número local; ver ReglasTelefono.
+        public string? CodigoPaisTelefono { get; set; }
 
         [StringLength(LongitudesDonaciones.Telefono, ErrorMessage = "El teléfono no puede superar los {1} caracteres.")]
         public string? Telefono { get; set; }

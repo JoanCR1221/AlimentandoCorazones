@@ -1,4 +1,4 @@
-@page "/donantes/registrar"
+﻿@page "/donantes/registrar"
 @attribute [Authorize(Policy = Permisos.Donaciones.RegistrarDonante)]
 @using SIGAC.Application.DTOs.Donaciones
 @using SIGAC.Application.Exceptions
@@ -26,7 +26,7 @@
                 }
             </MudSelect>
 
-            <PhoneInput @bind-Value="modelo.Telefono" Label="Teléfono (opcional)" Class="mt-4" />
+            <PhoneInput @bind-Value="modelo.Telefono" @bind-CodigoPais="modelo.CodigoPaisTelefono" Label="Teléfono (opcional)" Class="mt-4" />
             <MudTextField @bind-Value="modelo.Correo" For="@(() => modelo.Correo)" Label="Correo (opcional)" Variant="Variant.Outlined" Class="mt-4" />
         </MudCardContent>
         <MudCardActions>

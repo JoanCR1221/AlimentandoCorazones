@@ -12,6 +12,7 @@ namespace SIGAC.Application.Validators
         string PrimerApellido,
         string SegundoApellido,
         DateTime FechaNacimiento,
+        string? CodigoPaisTelefono,
         string? Telefono,
         string? Direccion,
         string TipoDocumento,
@@ -26,13 +27,13 @@ namespace SIGAC.Application.Validators
         public static BeneficiarioValidado Validar(BeneficiarioCrearDto dto) =>
             Validar(
                 dto.PrimerNombre, dto.SegundoNombre, dto.PrimerApellido, dto.SegundoApellido,
-                dto.FechaNacimiento, dto.Telefono, dto.Direccion,
+                dto.FechaNacimiento, dto.CodigoPaisTelefono, dto.Telefono, dto.Direccion,
                 dto.TipoDocumento, dto.NumIdentidad, dto.TipoDocumentoOtro);
 
         public static BeneficiarioValidado Validar(BeneficiarioEditarDto dto) =>
             Validar(
                 dto.PrimerNombre, dto.SegundoNombre, dto.PrimerApellido, dto.SegundoApellido,
-                dto.FechaNacimiento, dto.Telefono, dto.Direccion,
+                dto.FechaNacimiento, dto.CodigoPaisTelefono, dto.Telefono, dto.Direccion,
                 dto.TipoDocumento, dto.NumIdentidad, dto.TipoDocumentoOtro);
 
         private static BeneficiarioValidado Validar(
@@ -41,6 +42,7 @@ namespace SIGAC.Application.Validators
             string? primerApellido,
             string? segundoApellido,
             DateTime fechaNacimiento,
+            string? codigoPaisTelefono,
             string? telefono,
             string? direccion,
             string? tipoDocumento,
@@ -48,6 +50,7 @@ namespace SIGAC.Application.Validators
             string? tipoDocumentoOtro)
         {
             var (numero, especificacion) = ValidarDocumento(tipoDocumento, numIdentidad, tipoDocumentoOtro);
+            var telefonoValidado = TelefonoValidator.Validar(codigoPaisTelefono, telefono);
 
             return new BeneficiarioValidado(
                 ValidarNombreObligatorio(primerNombre, "El primer nombre", ReglasBeneficiario.LongitudMaximaNombre),
@@ -55,7 +58,8 @@ namespace SIGAC.Application.Validators
                 ValidarNombreObligatorio(primerApellido, "El primer apellido", ReglasBeneficiario.LongitudMaximaApellido),
                 ValidarNombreOpcional(segundoApellido, "El segundo apellido", ReglasBeneficiario.LongitudMaximaApellido),
                 ValidarFechaNacimiento(fechaNacimiento),
-                ValidarTelefono(telefono),
+                telefonoValidado.CodigoPais,
+                telefonoValidado.Numero,
                 ValidarDireccion(direccion),
                 tipoDocumento!,
                 numero,
@@ -109,22 +113,6 @@ namespace SIGAC.Application.Validators
                 throw new ValidationException($"La fecha de nacimiento no es válida: supera los {ReglasBeneficiario.EdadMaximaAnios} años.");
 
             return fecha;
-        }
-
-        // Opcional. Si se ingresa: 8 dígitos exactos, sin guiones ni espacios.
-        // Un solo teléfono por beneficiario.
-        private static string? ValidarTelefono(string? telefono)
-        {
-            var valor = telefono?.Trim();
-
-            if (string.IsNullOrEmpty(valor))
-                return null;
-
-            if (!ReglasBeneficiario.TieneFormatoTelefono(valor))
-                throw new ValidationException(
-                    $"El teléfono debe tener exactamente {ReglasBeneficiario.DigitosTelefono} dígitos, sin guiones ni espacios.");
-
-            return valor;
         }
 
         // Opcional. Admite números porque se usan referencias como

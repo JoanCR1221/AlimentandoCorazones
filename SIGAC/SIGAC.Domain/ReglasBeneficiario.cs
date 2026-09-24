@@ -20,9 +20,8 @@ namespace SIGAC.Domain
         public const int LongitudMaximaNumIdentidad = 30;
         public const int LongitudMaximaTipoDocumentoOtro = 100;
 
-        // Teléfono de Costa Rica: 8 dígitos, sin guiones ni espacios. Uno solo por
-        // beneficiario, por eso es una columna simple y no una lista.
-        public const int DigitosTelefono = 8;
+        // El teléfono (con código de país) tiene sus propias reglas en
+        // ReglasTelefono, compartidas con Donante.
 
         public const int LongitudMaximaDireccion = 200;
 
@@ -62,9 +61,6 @@ namespace SIGAC.Domain
             TieneSoloDigitos(valor)
             && valor!.Length >= DigitosMinimosDimex
             && valor.Length <= DigitosMaximosDimex;
-
-        public static bool TieneFormatoTelefono(string? valor) =>
-            TieneSoloDigitos(valor) && valor!.Length == DigitosTelefono;
 
         // ---- Reglas del número de identidad según el tipo de documento ----
         //

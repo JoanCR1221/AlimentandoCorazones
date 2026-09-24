@@ -1,4 +1,4 @@
-using SIGAC.Application.DTOs;
+﻿using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Donaciones;
 using SIGAC.Application.DTOs.Inventario;
 using SIGAC.Application.Exceptions;
@@ -506,6 +506,7 @@ namespace SIGAC.Application.Services
                 {
                     Nombre = datos.Nombre,
                     TipoPersona = datos.TipoPersona,
+                    CodigoPaisTelefono = datos.CodigoPaisTelefono,
                     Telefono = datos.Telefono,
                     Correo = datos.Correo,
                     Estado = true,

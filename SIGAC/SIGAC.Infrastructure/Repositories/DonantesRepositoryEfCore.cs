@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Donaciones;
 using SIGAC.Application.Interfaces;
@@ -68,6 +68,7 @@ namespace SIGAC.Infrastructure.Repositories
             // no se corrige desde la edición.
             existente.Nombre = donante.Nombre;
             existente.TipoPersona = donante.TipoPersona;
+            existente.CodigoPaisTelefono = donante.CodigoPaisTelefono;
             existente.Telefono = donante.Telefono;
             existente.Correo = donante.Correo;
 

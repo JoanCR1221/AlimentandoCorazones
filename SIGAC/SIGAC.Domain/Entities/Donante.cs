@@ -15,6 +15,12 @@ namespace SIGAC.Domain.Entities
 
         // Opcionales: la donación se recibe igual aunque el donante no deje datos
         // de contacto, y en las donaciones anónimas o de paso no hay ninguno.
+        //
+        // Teléfono con código de país en dos columnas, igual que Beneficiario (ver
+        // ReglasTelefono). Los teléfonos cargados antes del código de país que no
+        // eran de Costa Rica quedaron con CodigoPaisTelefono en NULL y el texto
+        // original: se corrigen al editar el donante.
+        public string? CodigoPaisTelefono { get; set; }
         public string? Telefono { get; set; }
         public string? Correo { get; set; }
 

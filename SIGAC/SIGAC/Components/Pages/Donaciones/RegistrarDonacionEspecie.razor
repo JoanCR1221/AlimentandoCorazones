@@ -1,4 +1,4 @@
-@page "/donaciones/especie/registrar"
+﻿@page "/donaciones/especie/registrar"
 @attribute [Authorize(Policy = Permisos.Donaciones.RegistrarEspecie)]
 @using SIGAC.Application.DTOs
 @using SIGAC.Application.DTOs.Donaciones
@@ -33,7 +33,7 @@
                             <MudSelectItem T="string" Value="@tipo">@tipo</MudSelectItem>
                         }
                     </MudSelect>
-                    <PhoneInput @bind-Value="nuevoDonante.Telefono" Label="Teléfono (opcional)" Class="mt-4" />
+                    <PhoneInput @bind-Value="nuevoDonante.Telefono" @bind-CodigoPais="nuevoDonante.CodigoPaisTelefono" Label="Teléfono (opcional)" Class="mt-4" />
                     <MudTextField @bind-Value="nuevoDonante.Correo" Label="Correo (opcional)" Variant="Variant.Outlined" Class="mt-4" />
                 </MudExpansionPanel>
             </MudExpansionPanels>

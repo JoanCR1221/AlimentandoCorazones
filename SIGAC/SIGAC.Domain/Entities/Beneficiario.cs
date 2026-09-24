@@ -21,6 +21,9 @@ namespace SIGAC.Domain.Entities
 
         public DateTime FechaNacimiento { get; set; }
         public string Categoria { get; set; } = string.Empty;
+        // Código de país sin "+" ("506") y número local: ver ReglasTelefono.
+        // Los dos en NULL cuando no se dejó teléfono.
+        public string? CodigoPaisTelefono { get; set; }
         public string? Telefono { get; set; }
         public string? Direccion { get; set; }
         public bool Estado { get; set; } = true;

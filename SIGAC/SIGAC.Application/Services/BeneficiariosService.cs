@@ -53,6 +53,7 @@ namespace SIGAC.Application.Services
                     FechaNacimiento = datos.FechaNacimiento,
                     // La categoría se almacena, pero nunca se elige a mano.
                     Categoria = CategoriasBeneficiario.DerivarDesdeFechaNacimiento(datos.FechaNacimiento),
+                    CodigoPaisTelefono = datos.CodigoPaisTelefono,
                     Telefono = datos.Telefono,
                     Direccion = datos.Direccion,
                     Estado = true,
@@ -98,6 +99,7 @@ namespace SIGAC.Application.Services
                     PrimerApellido = beneficiario.PrimerApellido,
                     SegundoApellido = beneficiario.SegundoApellido,
                     FechaNacimiento = beneficiario.FechaNacimiento,
+                    CodigoPaisTelefono = beneficiario.CodigoPaisTelefono,
                     Telefono = beneficiario.Telefono,
                     Direccion = beneficiario.Direccion,
                     TipoDocumento = beneficiario.TipoDocumento,
@@ -143,6 +145,7 @@ namespace SIGAC.Application.Services
                 beneficiario.SegundoApellido = datos.SegundoApellido;
                 beneficiario.FechaNacimiento = datos.FechaNacimiento;
                 beneficiario.Categoria = CategoriasBeneficiario.DerivarDesdeFechaNacimiento(datos.FechaNacimiento);
+                beneficiario.CodigoPaisTelefono = datos.CodigoPaisTelefono;
                 beneficiario.Telefono = datos.Telefono;
                 beneficiario.Direccion = datos.Direccion;
                 beneficiario.TipoDocumento = datos.TipoDocumento;
@@ -179,6 +182,7 @@ namespace SIGAC.Application.Services
                     SegundoApellido = b.SegundoApellido,
                     FechaNacimiento = b.FechaNacimiento,
                     Categoria = b.Categoria,
+                    CodigoPaisTelefono = b.CodigoPaisTelefono,
                     Telefono = b.Telefono,
                     Estado = b.Estado,
                     TipoDocumento = b.TipoDocumento,

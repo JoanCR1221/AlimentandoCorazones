@@ -1,4 +1,4 @@
-using SIGAC.Application.DTOs;
+﻿using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Donaciones;
 using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
@@ -41,6 +41,7 @@ namespace SIGAC.Application.Services
                 {
                     Nombre = datos.Nombre,
                     TipoPersona = datos.TipoPersona,
+                    CodigoPaisTelefono = datos.CodigoPaisTelefono,
                     Telefono = datos.Telefono,
                     Correo = datos.Correo,
                     Estado = true,
@@ -70,6 +71,7 @@ namespace SIGAC.Application.Services
                 {
                     Nombre = donante.Nombre,
                     TipoPersona = donante.TipoPersona,
+                    CodigoPaisTelefono = donante.CodigoPaisTelefono,
                     Telefono = donante.Telefono,
                     Correo = donante.Correo
                 };
@@ -91,6 +93,7 @@ namespace SIGAC.Application.Services
 
                 donante.Nombre = datos.Nombre;
                 donante.TipoPersona = datos.TipoPersona;
+                donante.CodigoPaisTelefono = datos.CodigoPaisTelefono;
                 donante.Telefono = datos.Telefono;
                 donante.Correo = datos.Correo;
 
@@ -123,6 +126,7 @@ namespace SIGAC.Application.Services
                     Nombre = d.Nombre,
                     TipoPersona = d.TipoPersona,
                     Correo = d.Correo,
+                    CodigoPaisTelefono = d.CodigoPaisTelefono,
                     Telefono = d.Telefono,
                     Estado = d.Estado
                 }).ToList();

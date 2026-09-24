@@ -243,10 +243,15 @@ namespace SIGAC.Infrastructure.Data
                     .IsUnicode(false)
                     .HasMaxLength(50);
 
-                // Teléfono de Costa Rica: 8 dígitos exactos, sin guiones ni espacios.
+                // Teléfono en dos columnas: código de país y número local, solo
+                // dígitos (ver ReglasTelefono). El número entra en el tope E.164.
+                entity.Property(b => b.CodigoPaisTelefono)
+                    .IsUnicode(false)
+                    .HasMaxLength(ReglasTelefono.LongitudMaximaCodigoPais);
+
                 entity.Property(b => b.Telefono)
                     .IsUnicode(false)
-                    .HasMaxLength(ReglasBeneficiario.DigitosTelefono);
+                    .HasMaxLength(ReglasTelefono.MaximoDigitosInternacional);
 
                 entity.Property(b => b.Direccion)
                     .IsUnicode(false)
@@ -763,10 +768,14 @@ namespace SIGAC.Infrastructure.Data
                     .IsUnicode(false)
                     .HasMaxLength(20);
 
-                // 20 y no los 8 exactos de ReglasBeneficiario.DigitosTelefono: un
-                // donante puede ser una empresa (extensión) o estar en el extranjero
-                // (prefijo internacional), y a diferencia de Beneficiario no hay un
-                // validador que exija el formato costarricense de 8 dígitos.
+                // Mismo esquema que Beneficiario (ver ReglasTelefono). El número
+                // conserva los 20 caracteres de antes del código de país: los
+                // teléfonos viejos que no eran de Costa Rica quedaron con su texto
+                // original hasta que se editen.
+                entity.Property(d => d.CodigoPaisTelefono)
+                    .IsUnicode(false)
+                    .HasMaxLength(ReglasTelefono.LongitudMaximaCodigoPais);
+
                 entity.Property(d => d.Telefono)
                     .IsUnicode(false)
                     .HasMaxLength(20);

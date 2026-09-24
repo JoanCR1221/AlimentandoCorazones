@@ -29,9 +29,8 @@
                 </MudText>
             }
 
-            <PhoneInput @bind-Value="modelo.Telefono" Label="Teléfono (opcional)" Class="mt-4"
-                        MaxLength="ReglasBeneficiario.DigitosTelefono"
-                        HelperText="@($"{ReglasBeneficiario.DigitosTelefono} dígitos, sin guiones ni espacios.")" />
+            <PhoneInput @bind-Value="modelo.Telefono" @bind-CodigoPais="modelo.CodigoPaisTelefono"
+                        Label="Teléfono (opcional)" Class="mt-4" />
             <MudTextField @bind-Value="modelo.Direccion" Label="Dirección (opcional)" Variant="Variant.Outlined" Class="mt-4"
                           MaxLength="ReglasBeneficiario.LongitudMaximaDireccion" Lines="2"
                           HelperText="@($"Máximo {ReglasBeneficiario.LongitudMaximaDireccion} caracteres. Ej: Del parque 150 metros suroeste, casa verde.")" />
