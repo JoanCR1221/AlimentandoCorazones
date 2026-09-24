@@ -3,10 +3,10 @@ using System.ComponentModel.DataAnnotations;
 
 namespace SIGAC.Application.DTOs.Beneficiarios
 {
+    // Solo lo que captura el formulario: Id, Estado y FechaRegistro los pone el
+    // servicio al crear la entidad.
     public class BeneficiarioCrearDto
     {
-        public int Id { get; set; }
-
         [Required(ErrorMessage = "El primer nombre es obligatorio.")]
         public string PrimerNombre { get; set; } = string.Empty;
 
@@ -27,13 +27,10 @@ namespace SIGAC.Application.DTOs.Beneficiarios
         public string? CodigoPaisTelefono { get; set; }
         public string? Telefono { get; set; }
         public string? Direccion { get; set; }
-        public bool Estado { get; set; }
-        public DateTime FechaRegistro { get; set; }
 
         public string? TipoDocumento { get; set; }
         public string? NumIdentidad { get; set; }
         public string? TipoDocumentoOtro { get; set; }
-
     }
 
     public class BeneficiarioEditarDto

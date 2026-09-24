@@ -49,18 +49,26 @@ namespace SIGAC.Application.Validators
             string? numIdentidad,
             string? tipoDocumentoOtro)
         {
-            var (numero, especificacion) = ValidarDocumento(tipoDocumento, numIdentidad, tipoDocumentoOtro);
+            // Se corta en el primer error, así que el orden es el del formulario:
+            // el usuario ve primero el problema del campo que tiene más arriba.
+            var primerNombreValidado = ValidarNombreObligatorio(primerNombre, "El primer nombre", ReglasBeneficiario.LongitudMaximaNombre);
+            var segundoNombreValidado = ValidarNombreOpcional(segundoNombre, "El segundo nombre", ReglasBeneficiario.LongitudMaximaNombre);
+            var primerApellidoValidado = ValidarNombreObligatorio(primerApellido, "El primer apellido", ReglasBeneficiario.LongitudMaximaApellido);
+            var segundoApellidoValidado = ValidarNombreOpcional(segundoApellido, "El segundo apellido", ReglasBeneficiario.LongitudMaximaApellido);
+            var fechaValidada = ValidarFechaNacimiento(fechaNacimiento);
             var telefonoValidado = TelefonoValidator.Validar(codigoPaisTelefono, telefono);
+            var direccionValidada = ValidarDireccion(direccion);
+            var (numero, especificacion) = ValidarDocumento(tipoDocumento, numIdentidad, tipoDocumentoOtro);
 
             return new BeneficiarioValidado(
-                ValidarNombreObligatorio(primerNombre, "El primer nombre", ReglasBeneficiario.LongitudMaximaNombre),
-                ValidarNombreOpcional(segundoNombre, "El segundo nombre", ReglasBeneficiario.LongitudMaximaNombre),
-                ValidarNombreObligatorio(primerApellido, "El primer apellido", ReglasBeneficiario.LongitudMaximaApellido),
-                ValidarNombreOpcional(segundoApellido, "El segundo apellido", ReglasBeneficiario.LongitudMaximaApellido),
-                ValidarFechaNacimiento(fechaNacimiento),
+                primerNombreValidado,
+                segundoNombreValidado,
+                primerApellidoValidado,
+                segundoApellidoValidado,
+                fechaValidada,
                 telefonoValidado.CodigoPais,
                 telefonoValidado.Numero,
-                ValidarDireccion(direccion),
+                direccionValidada,
                 tipoDocumento!,
                 numero,
                 especificacion);
@@ -82,7 +90,8 @@ namespace SIGAC.Application.Validators
                 throw new ValidationException($"{etiqueta} no puede superar los {longitudMaxima} caracteres.");
 
             if (!ReglasBeneficiario.TieneFormatoValido(normalizado))
-                throw new ValidationException($"{etiqueta} solo puede contener letras, apóstrofes y guiones.");
+                throw new ValidationException(
+                    $"{etiqueta} solo puede contener letras del alfabeto latino (con tildes, ñ o diéresis), apóstrofes y guiones.");
 
             return normalizado;
         }

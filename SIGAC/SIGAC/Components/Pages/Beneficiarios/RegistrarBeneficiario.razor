@@ -11,14 +11,17 @@
 
 <EditForm Model="modelo" OnValidSubmit="Guardar">
     <DataAnnotationsValidator />
-    <ValidationSummary />
 
     <MudCard Class="pa-4">
         <MudCardContent>
-            <MudTextField @bind-Value="modelo.PrimerNombre" For="@(() => modelo.PrimerNombre)" Label="Primer nombre" Variant="Variant.Outlined" />
-            <MudTextField @bind-Value="modelo.SegundoNombre" Label="Segundo nombre (opcional)" Variant="Variant.Outlined" Class="mt-4" />
-            <MudTextField @bind-Value="modelo.PrimerApellido" For="@(() => modelo.PrimerApellido)" Label="Primer apellido" Variant="Variant.Outlined" Class="mt-4" />
-            <MudTextField @bind-Value="modelo.SegundoApellido" Label="Segundo apellido (opcional)" Variant="Variant.Outlined" Class="mt-4" />
+            <MudTextField @bind-Value="modelo.PrimerNombre" For="@(() => modelo.PrimerNombre)" Label="Primer nombre" Variant="Variant.Outlined"
+                          MaxLength="ReglasBeneficiario.LongitudMaximaNombre" />
+            <MudTextField @bind-Value="modelo.SegundoNombre" Label="Segundo nombre (opcional)" Variant="Variant.Outlined" Class="mt-4"
+                          MaxLength="ReglasBeneficiario.LongitudMaximaNombre" />
+            <MudTextField @bind-Value="modelo.PrimerApellido" For="@(() => modelo.PrimerApellido)" Label="Primer apellido" Variant="Variant.Outlined" Class="mt-4"
+                          MaxLength="ReglasBeneficiario.LongitudMaximaApellido" />
+            <MudTextField @bind-Value="modelo.SegundoApellido" Label="Segundo apellido (opcional)" Variant="Variant.Outlined" Class="mt-4"
+                          MaxLength="ReglasBeneficiario.LongitudMaximaApellido" />
             <MudDatePicker @bind-Date="fechaNacimiento" Label="Fecha de nacimiento" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
 
             @* La categoría ya no se elige: se deriva de la fecha de nacimiento. *@
@@ -51,15 +54,16 @@
             }
 
             @* "Sin documento" no pide número: el campo se oculta.
-               MaxLength, teclado, patrón y ayuda salen de ReglasBeneficiario según
-               el tipo elegido, que es la misma fuente que usa el validador. *@
+               MaxLength, teclado y ayuda salen de ReglasBeneficiario según el tipo
+               elegido, que es la misma fuente que usa el validador. Sin atributo
+               pattern: el navegador bloqueaba el envío con su propio globo, y el
+               filtro de OnNumIdentidadCambiado ya descarta lo que no corresponde. *@
             @if (TiposDocumento.RequiereNumIdentidad(modelo.TipoDocumento))
             {
                 <MudTextField T="string" Value="modelo.NumIdentidad" ValueChanged="OnNumIdentidadCambiado" Immediate="true"
                               Label="Número de identidad" Variant="Variant.Outlined" Class="mt-4"
                               MaxLength="ReglasBeneficiario.LongitudMaximaNumIdentidadPara(modelo.TipoDocumento)"
                               InputMode="@ModoEntradaNumIdentidad"
-                              Pattern="@PatronNumIdentidad"
                               HelperText="@ReglasBeneficiario.DescribirNumIdentidad(modelo.TipoDocumento)" />
             }
         </MudCardContent>
@@ -82,9 +86,6 @@
     // Teclado numérico en móvil para los tipos que solo admiten dígitos.
     private InputMode ModoEntradaNumIdentidad =>
         ReglasBeneficiario.NumIdentidadEsSoloDigitos(modelo.TipoDocumento) ? InputMode.numeric : InputMode.text;
-
-    private string PatronNumIdentidad =>
-        ReglasBeneficiario.NumIdentidadEsSoloDigitos(modelo.TipoDocumento) ? "[0-9]*" : "[A-Za-z0-9]*";
 
     // Descarta lo que no corresponde al tipo mientras se escribe. Es comodidad: el
     // validador del servidor vuelve a comprobar el valor completo igual que antes.
@@ -119,11 +120,7 @@
             Snackbar.Add("Beneficiario registrado correctamente.", Severity.Success);
             modelo = new();
         }
-        catch (ValidationException ex)
-        {
-            Snackbar.Add(ex.Message, Severity.Warning);
-        }
-        catch (DuplicateException ex)
+        catch (Exception ex) when (ex is ValidationException or DuplicateException)
         {
             Snackbar.Add(ex.Message, Severity.Warning);
         }
