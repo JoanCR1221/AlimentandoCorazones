@@ -4,8 +4,10 @@
 @using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces
 @using SIGAC.Domain
+@using SIGAC.Infrastructure.Identity
 @inject IBeneficiariosService BeneficiariosService
 @inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
 
 <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Registrar beneficiario</MudText>
 
@@ -75,6 +77,9 @@
 </EditForm>
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? EstadoAutenticacion { get; set; }
+
     private BeneficiarioCrearDto modelo = new();
 
     private DateTime? fechaNacimiento
@@ -120,6 +125,10 @@
             Snackbar.Add("Beneficiario registrado correctamente.", Severity.Success);
             modelo = new();
         }
+        catch (BeneficiarioDuplicadoException ex)
+        {
+            await AvisarDuplicadoAsync(ex);
+        }
         catch (Exception ex) when (ex is ValidationException or DuplicateException)
         {
             Snackbar.Add(ex.Message, Severity.Warning);
@@ -134,6 +143,62 @@
         catch (Exception)
         {
             Snackbar.Add("No se pudo registrar el beneficiario. Intente de nuevo.", Severity.Error);
+        }
+    }
+
+    // El aviso de duplicado ofrece ir al registro que ya existe, o reactivarlo si
+    // está inactivo, en vez de dejar que se cargue a la misma persona de nuevo.
+    // Cada acción aparece solo si el usuario tiene el permiso que la respalda.
+    private async Task AvisarDuplicadoAsync(BeneficiarioDuplicadoException ex)
+    {
+        var usuario = EstadoAutenticacion is null ? null : (await EstadoAutenticacion).User;
+        bool Tiene(string permiso) => usuario?.HasClaim(ClaimsSigac.Permiso, permiso) == true;
+
+        var id = ex.BeneficiarioId;
+        string? accion = null;
+        Func<Task>? alHacerClic = null;
+
+        if (!ex.Activo && Tiene(Permisos.Beneficiarios.CambiarEstado))
+        {
+            accion = "Reactivar";
+            alHacerClic = () => ReactivarAsync(id, Tiene(Permisos.Beneficiarios.Editar));
+        }
+        else if (Tiene(Permisos.Beneficiarios.Editar))
+        {
+            accion = "Ver registro";
+            alHacerClic = () =>
+            {
+                NavigationManager.NavigateTo($"/beneficiarios/editar/{id}");
+                return Task.CompletedTask;
+            };
+        }
+
+        Snackbar.Add(ex.Message, Severity.Warning, config =>
+        {
+            if (accion is null || alHacerClic is null)
+                return;
+
+            config.Action = accion;
+            config.ActionColor = Color.Primary;
+            config.OnClick = _ => alHacerClic();
+        });
+    }
+
+    private async Task ReactivarAsync(int id, bool puedeEditar)
+    {
+        try
+        {
+            await BeneficiariosService.ActivarBeneficiarioAsync(id);
+            Snackbar.Add("Beneficiario reactivado correctamente.", Severity.Success);
+
+            // Se abre para revisar sus datos: si se estaba registrando de nuevo es
+            // porque algo pudo haber cambiado (teléfono, dirección, documento).
+            if (puedeEditar)
+                NavigationManager.NavigateTo($"/beneficiarios/editar/{id}");
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo reactivar el beneficiario. Intente de nuevo.", Severity.Error);
         }
     }
 }

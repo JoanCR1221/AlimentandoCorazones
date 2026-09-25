@@ -25,6 +25,21 @@
         public DuplicateException(string mensaje) : base(mensaje) { }
     }
 
+    // Duplicado de beneficiario con el registro que ya existe identificado: la
+    // pantalla puede ofrecer abrirlo o, si está inactivo, reactivarlo en vez de
+    // cargar a la misma persona dos veces.
+    public class BeneficiarioDuplicadoException : DuplicateException
+    {
+        public int BeneficiarioId { get; }
+        public bool Activo { get; }
+
+        public BeneficiarioDuplicadoException(int beneficiarioId, bool activo, string mensaje) : base(mensaje)
+        {
+            BeneficiarioId = beneficiarioId;
+            Activo = activo;
+        }
+    }
+
     // Caso particular de ValidationException: el beneficiario existe pero está
     // inactivo. Se distingue del resto para que una futura pantalla pueda ofrecer
     // el botón de reactivarlo (IBeneficiariosService.ActivarBeneficiarioAsync ya

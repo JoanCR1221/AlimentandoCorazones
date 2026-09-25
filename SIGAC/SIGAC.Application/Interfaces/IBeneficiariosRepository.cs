@@ -11,7 +11,8 @@ namespace SIGAC.Application.Interfaces
         Task<Beneficiario?> ObtenerPorIdAsync(int id);
         // La comparación es normalizada (sin tildes, sin mayúsculas y sin espacios
         // sobrantes). idExcluir permite editar un beneficiario sin chocar consigo mismo.
-        Task<bool> ExisteAsync(string primerNombre, string segundoNombre, string primerApellido, string segundoApellido, DateTime fechaNacimiento, int? idExcluir = null);
+        // Devuelve el beneficiario que coincide (o null) para poder decirle al usuario cuál es.
+        Task<BeneficiarioCoincidente?> BuscarPorNombresYFechaAsync(string primerNombre, string segundoNombre, string primerApellido, string segundoApellido, DateTime fechaNacimiento, int? idExcluir = null);
         // Devuelve una sola página, ya filtrada y ordenada en SQL, junto con el
         // total de registros que cumplen los filtros (que la grilla necesita para
         // saber cuántas páginas hay). Nunca materializa la tabla entera.
@@ -21,7 +22,7 @@ namespace SIGAC.Application.Interfaces
         // con el mismo número, sin importar el tipo de documento con el que se haya
         // registrado. Los que no tienen documento (número nulo o vacío) quedan fuera
         // de la regla y nunca chocan entre sí.
-        Task<bool> ExisteNumIdentidadAsync(string? numIdentidad, int? idExcluir = null);
+        Task<BeneficiarioCoincidente?> BuscarPorNumIdentidadAsync(string? numIdentidad, int? idExcluir = null);
         Task CambiarEstadoAsync(int id, bool estado);
 
         // Conteos generales (activos, inactivos, altas de este mes y del anterior)

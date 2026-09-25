@@ -83,6 +83,9 @@ namespace SIGAC.Application.DTOs.Beneficiarios
 
     }
 
+    // Beneficiario ya registrado que coincide con uno que se intenta guardar.
+    public sealed record BeneficiarioCoincidente(int Id, string NombreCompleto, bool Activo);
+
     public class FiltrosBeneficiarioDto
     {
         public const int TamanoPaginaPredeterminado = 20;

@@ -105,7 +105,7 @@ namespace SIGAC.Infrastructure.Repositories
                 .FirstOrDefaultAsync(b => b.Id == id);
         }
 
-        public async Task<bool> ExisteAsync(string primerNombre, string segundoNombre, string primerApellido, string segundoApellido, DateTime fechaNacimiento, int? idExcluir = null)
+        public async Task<BeneficiarioCoincidente?> BuscarPorNombresYFechaAsync(string primerNombre, string segundoNombre, string primerApellido, string segundoApellido, DateTime fechaNacimiento, int? idExcluir = null)
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
             var fecha = fechaNacimiento.Date;
@@ -116,23 +116,31 @@ namespace SIGAC.Infrastructure.Repositories
             var candidatos = await context.Beneficiarios
                 .AsNoTracking()
                 .Where(b => b.FechaNacimiento == fecha && (idExcluir == null || b.Id != idExcluir))
-                .Select(b => new { b.PrimerNombre, b.SegundoNombre, b.PrimerApellido, b.SegundoApellido })
+                .Select(b => new { b.Id, b.PrimerNombre, b.SegundoNombre, b.PrimerApellido, b.SegundoApellido, b.Estado })
                 .ToListAsync();
 
-            return candidatos.Any(c =>
+            var coincidente = candidatos.FirstOrDefault(c =>
                 TextoNormalizador.SonEquivalentes(c.PrimerNombre, primerNombre) &&
                 TextoNormalizador.SonEquivalentes(c.SegundoNombre, segundoNombre) &&
                 TextoNormalizador.SonEquivalentes(c.PrimerApellido, primerApellido) &&
                 TextoNormalizador.SonEquivalentes(c.SegundoApellido, segundoApellido));
+
+            return coincidente is null
+                ? null
+                : new BeneficiarioCoincidente(
+                    coincidente.Id,
+                    ReglasBeneficiario.ComponerNombreCompleto(
+                        coincidente.PrimerNombre, coincidente.SegundoNombre, coincidente.PrimerApellido, coincidente.SegundoApellido),
+                    coincidente.Estado);
         }
 
-        public async Task<bool> ExisteNumIdentidadAsync(string? numIdentidad, int? idExcluir = null)
+        public async Task<BeneficiarioCoincidente?> BuscarPorNumIdentidadAsync(string? numIdentidad, int? idExcluir = null)
         {
             // Los beneficiarios sin documento quedan fuera de la regla: son varias
             // personas indocumentadas y no pueden chocar entre sí. Es la misma
             // exclusión que hace el filtro del índice único.
             if (string.IsNullOrEmpty(numIdentidad))
-                return false;
+                return null;
 
             await using var context = await _contextFactory.CreateDbContextAsync();
 
@@ -143,11 +151,21 @@ namespace SIGAC.Infrastructure.Repositories
             // filtrado, para que el código y la base coincidan en qué es duplicado
             // y la consulta pueda hacer seek sobre ese índice.
             // El "sin distinguir mayúsculas" lo aporta la collation CI de SQL Server.
-            return await context.Beneficiarios
+            var coincidente = await context.Beneficiarios
                 .AsNoTracking()
-                .AnyAsync(b =>
+                .Where(b =>
                     b.NumIdentidad == numIdentidad &&
-                    (idExcluir == null || b.Id != idExcluir));
+                    (idExcluir == null || b.Id != idExcluir))
+                .Select(b => new { b.Id, b.PrimerNombre, b.SegundoNombre, b.PrimerApellido, b.SegundoApellido, b.Estado })
+                .FirstOrDefaultAsync();
+
+            return coincidente is null
+                ? null
+                : new BeneficiarioCoincidente(
+                    coincidente.Id,
+                    ReglasBeneficiario.ComponerNombreCompleto(
+                        coincidente.PrimerNombre, coincidente.SegundoNombre, coincidente.PrimerApellido, coincidente.SegundoApellido),
+                    coincidente.Estado);
         }
 
         public async Task<ResultadoPaginado<Beneficiario>> ObtenerPaginaAsync(FiltrosBeneficiarioDto filtros)
