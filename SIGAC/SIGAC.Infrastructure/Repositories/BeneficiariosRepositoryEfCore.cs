@@ -1,6 +1,8 @@
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Beneficiarios;
+using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
 using SIGAC.Domain;
 using SIGAC.Domain.Entities;
@@ -16,6 +18,16 @@ namespace SIGAC.Infrastructure.Repositories
         // "Maria" encuentre a "María" sin salir de SQL. Se aplica a la expresión,
         // no a la columna, así que no depende de la collation de la base.
         private const string ColacionSinTildes = "Latin1_General_CI_AI";
+
+        // Números de error de SQL Server para violación de unicidad: 2627 es una
+        // restricción UNIQUE/PK y 2601 un índice único. Mismo criterio que
+        // InventarioRepositoryEfCore.
+        private const int ErrorSqlRestriccionUnica = 2627;
+        private const int ErrorSqlIndiceUnico = 2601;
+
+        // SQL Server nombra el índice violado en el texto del error, en cualquier
+        // idioma: así se sabe cuál de los dos índices únicos rechazó la escritura.
+        private const string IndiceUnicoNumIdentidad = "UX_Beneficiarios_NumIdentidad";
 
         // Factory y no un DbContext inyectado: en Blazor Server el scope dura toda
         // la sesión, así que un contexto compartido queda expuesto a que dos
@@ -33,7 +45,18 @@ namespace SIGAC.Infrastructure.Repositories
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
             context.Beneficiarios.Add(beneficiario);
-            await context.SaveChangesAsync();
+
+            try
+            {
+                await context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (EsViolacionDeUnicidad(ex))
+            {
+                // Dos altas simultáneas del mismo beneficiario pasan las dos el
+                // chequeo previo del servicio y la segunda la frena el índice
+                // único. Sin traducir, el usuario veía "Intente de nuevo".
+                throw new DuplicateException(DescribirDuplicado(ex, esOtro: false));
+            }
         }
 
         public async Task ActualizarAsync(Beneficiario beneficiario)
@@ -43,7 +66,35 @@ namespace SIGAC.Infrastructure.Repositories
             // La entidad llega desprendida (ObtenerPorIdAsync usa AsNoTracking),
             // por lo que Update la adjunta y marca todos sus campos como modificados.
             context.Beneficiarios.Update(beneficiario);
-            await context.SaveChangesAsync();
+
+            try
+            {
+                await context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (EsViolacionDeUnicidad(ex))
+            {
+                throw new DuplicateException(DescribirDuplicado(ex, esOtro: true));
+            }
+        }
+
+        private static bool EsViolacionDeUnicidad(DbUpdateException ex) =>
+            ex.InnerException is SqlException sql &&
+            (sql.Number == ErrorSqlRestriccionUnica || sql.Number == ErrorSqlIndiceUnico);
+
+        // Mismos textos que los chequeos previos del servicio, según CUÁL índice
+        // rechazó la escritura. Si no se lo puede identificar, se cae al de
+        // nombres, que es la clave que siempre participa.
+        private static string DescribirDuplicado(DbUpdateException ex, bool esOtro)
+        {
+            var sujeto = esOtro ? "otro beneficiario" : "un beneficiario";
+
+            if (ex.InnerException is SqlException sql &&
+                sql.Message.Contains(IndiceUnicoNumIdentidad, StringComparison.OrdinalIgnoreCase))
+            {
+                return $"Ya existe {sujeto} registrado con ese número de identidad.";
+            }
+
+            return $"Ya existe {sujeto} con esos nombres, apellidos y fecha de nacimiento.";
         }
 
         public async Task<Beneficiario?> ObtenerPorIdAsync(int id)
@@ -54,7 +105,7 @@ namespace SIGAC.Infrastructure.Repositories
                 .FirstOrDefaultAsync(b => b.Id == id);
         }
 
-        public async Task<bool> ExisteAsync(string primerNombre, string segundoNombre, string primerApellido, string segundoApellido, DateTime fechaNacimiento, int? idExcluir = null)
+        public async Task<BeneficiarioCoincidente?> BuscarPorNombresYFechaAsync(string primerNombre, string segundoNombre, string primerApellido, string segundoApellido, DateTime fechaNacimiento, int? idExcluir = null)
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
             var fecha = fechaNacimiento.Date;
@@ -65,23 +116,31 @@ namespace SIGAC.Infrastructure.Repositories
             var candidatos = await context.Beneficiarios
                 .AsNoTracking()
                 .Where(b => b.FechaNacimiento == fecha && (idExcluir == null || b.Id != idExcluir))
-                .Select(b => new { b.PrimerNombre, b.SegundoNombre, b.PrimerApellido, b.SegundoApellido })
+                .Select(b => new { b.Id, b.PrimerNombre, b.SegundoNombre, b.PrimerApellido, b.SegundoApellido, b.Estado })
                 .ToListAsync();
 
-            return candidatos.Any(c =>
+            var coincidente = candidatos.FirstOrDefault(c =>
                 TextoNormalizador.SonEquivalentes(c.PrimerNombre, primerNombre) &&
                 TextoNormalizador.SonEquivalentes(c.SegundoNombre, segundoNombre) &&
                 TextoNormalizador.SonEquivalentes(c.PrimerApellido, primerApellido) &&
                 TextoNormalizador.SonEquivalentes(c.SegundoApellido, segundoApellido));
+
+            return coincidente is null
+                ? null
+                : new BeneficiarioCoincidente(
+                    coincidente.Id,
+                    ReglasBeneficiario.ComponerNombreCompleto(
+                        coincidente.PrimerNombre, coincidente.SegundoNombre, coincidente.PrimerApellido, coincidente.SegundoApellido),
+                    coincidente.Estado);
         }
 
-        public async Task<bool> ExisteNumIdentidadAsync(string? numIdentidad, int? idExcluir = null)
+        public async Task<BeneficiarioCoincidente?> BuscarPorNumIdentidadAsync(string? numIdentidad, int? idExcluir = null)
         {
             // Los beneficiarios sin documento quedan fuera de la regla: son varias
             // personas indocumentadas y no pueden chocar entre sí. Es la misma
             // exclusión que hace el filtro del índice único.
             if (string.IsNullOrEmpty(numIdentidad))
-                return false;
+                return null;
 
             await using var context = await _contextFactory.CreateDbContextAsync();
 
@@ -92,11 +151,21 @@ namespace SIGAC.Infrastructure.Repositories
             // filtrado, para que el código y la base coincidan en qué es duplicado
             // y la consulta pueda hacer seek sobre ese índice.
             // El "sin distinguir mayúsculas" lo aporta la collation CI de SQL Server.
-            return await context.Beneficiarios
+            var coincidente = await context.Beneficiarios
                 .AsNoTracking()
-                .AnyAsync(b =>
+                .Where(b =>
                     b.NumIdentidad == numIdentidad &&
-                    (idExcluir == null || b.Id != idExcluir));
+                    (idExcluir == null || b.Id != idExcluir))
+                .Select(b => new { b.Id, b.PrimerNombre, b.SegundoNombre, b.PrimerApellido, b.SegundoApellido, b.Estado })
+                .FirstOrDefaultAsync();
+
+            return coincidente is null
+                ? null
+                : new BeneficiarioCoincidente(
+                    coincidente.Id,
+                    ReglasBeneficiario.ComponerNombreCompleto(
+                        coincidente.PrimerNombre, coincidente.SegundoNombre, coincidente.PrimerApellido, coincidente.SegundoApellido),
+                    coincidente.Estado);
         }
 
         public async Task<ResultadoPaginado<Beneficiario>> ObtenerPaginaAsync(FiltrosBeneficiarioDto filtros)
@@ -120,16 +189,22 @@ namespace SIGAC.Infrastructure.Repositories
         // El OrderBy es obligatorio para que Skip/Take sea determinista. Se traduce
         // a ORDER BY ... OFFSET n ROWS FETCH NEXT m ROWS ONLY: la base devuelve solo
         // las filas de la página, no se descarta nada en memoria.
+        //
+        // Alfabético en el mismo orden en que se lee NombreCompleto (nombres y
+        // después apellidos), que es como lo muestran el listado y los buscadores
+        // de beneficiario. Ordenar por apellido mientras se muestra el nombre
+        // primero hacía que la lista no pareciera ordenada. Coincide además con
+        // las primeras columnas del índice único, así que SQL puede recorrerlo.
         private static IQueryable<Beneficiario> AplicarOrdenYPaginado(
             IQueryable<Beneficiario> consulta, FiltrosBeneficiarioDto filtros)
         {
             var tamanoPagina = filtros.TamanoPaginaEfectivo;
 
             return consulta
-                .OrderBy(b => b.PrimerApellido)
-                .ThenBy(b => b.SegundoApellido)
-                .ThenBy(b => b.PrimerNombre)
+                .OrderBy(b => b.PrimerNombre)
                 .ThenBy(b => b.SegundoNombre)
+                .ThenBy(b => b.PrimerApellido)
+                .ThenBy(b => b.SegundoApellido)
                 .ThenBy(b => b.Id)
                 .Skip(filtros.PaginaEfectiva * tamanoPagina)
                 .Take(tamanoPagina);
@@ -159,8 +234,19 @@ namespace SIGAC.Infrastructure.Repositories
 
             if (!string.IsNullOrWhiteSpace(filtros.Categoria))
             {
-                var categoria = filtros.Categoria;
-                consulta = consulta.Where(b => b.Categoria == categoria);
+                // La categoría no se guarda: se traduce al rango de fechas de
+                // nacimiento que le corresponde hoy (ver CategoriasBeneficiario).
+                // Una categoría que no existe no devuelve nada, igual que antes.
+                if (!CategoriasBeneficiario.EsValida(filtros.Categoria))
+                    return consulta.Where(_ => false);
+
+                var (nacidoDespuesDe, nacidoHasta) = CategoriasBeneficiario.RangoDeNacimiento(filtros.Categoria);
+
+                if (nacidoDespuesDe is DateTime despuesDe)
+                    consulta = consulta.Where(b => b.FechaNacimiento > despuesDe);
+
+                if (nacidoHasta is DateTime hasta)
+                    consulta = consulta.Where(b => b.FechaNacimiento <= hasta);
             }
 
             if (!string.IsNullOrWhiteSpace(filtros.TipoDocumento))
@@ -190,6 +276,31 @@ namespace SIGAC.Infrastructure.Repositories
                 beneficiario.Estado = estado;
                 await context.SaveChangesAsync();
             }
+        }
+
+        public async Task<ResumenRegistrosDto> ObtenerResumenAsync()
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            // Meses calendario, con la misma hora local con la que se guarda
+            // FechaRegistro (DateTime.Now en el servicio).
+            var inicioMes = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            var inicioMesAnterior = inicioMes.AddMonths(-1);
+
+            // Un solo GROUP BY constante: SQL Server devuelve una fila con los
+            // cuatro conteos y no se trae ningún beneficiario. Con la tabla vacía
+            // no hay grupo, de ahí el Vacio.
+            var resumen = await context.Beneficiarios
+                .AsNoTracking()
+                .GroupBy(_ => 1)
+                .Select(g => new ResumenRegistrosDto(
+                    g.Count(b => b.Estado),
+                    g.Count(b => !b.Estado),
+                    g.Count(b => b.FechaRegistro >= inicioMes),
+                    g.Count(b => b.FechaRegistro >= inicioMesAnterior && b.FechaRegistro < inicioMes)))
+                .FirstOrDefaultAsync();
+
+            return resumen ?? ResumenRegistrosDto.Vacio;
         }
     }
 }

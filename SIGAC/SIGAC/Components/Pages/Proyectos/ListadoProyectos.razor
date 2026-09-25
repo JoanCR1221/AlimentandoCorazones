@@ -8,7 +8,12 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
-<MudText Typo="Typo.h4" Class="mb-4">Proyectos comunitarios</MudText>
+<EncabezadoPagina Titulo="Proyectos comunitarios"
+                  Descripcion="Planifique proyectos y actividades de la asociación y registre a sus participantes."
+                  TextoAccion="Registrar proyecto" HrefAccion="/proyectos/registrar"
+                  PermisoAccion="@Permisos.Proyectos.Registrar" />
+
+<ResumenProyectos />
 
 <MudCard Class="pa-4">
     <MudCardContent>
@@ -28,7 +33,7 @@
            devuelve IReadOnlyList sin paginar, con el mismo criterio que Gastos (el
            volumen de proyectos de la asociación no la justifica). Si algún día se
            agrega paginación al repositorio, esta grilla pasa a ServerData. *@
-        <MudDataGrid T="ProyectoListaDto" Items="@proyectos">
+        <MudDataGrid T="ProyectoListaDto" Items="@proyectos" Loading="cargando">
             <Columns>
                 <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
                 <PropertyColumn Property="x => x.FechaInicio" Title="Inicio" Format="dd/MM/yyyy" />
@@ -68,8 +73,23 @@
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
+            <LoadingContent>
+                <CargandoGrilla />
+            </LoadingContent>
             <NoRecordsContent>
-                <MudText>No hay proyectos comunitarios que coincidan con el filtro.</MudText>
+                @if (filtroEstado.HasValue)
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="Ningún proyecto coincide con el filtro"
+                                 Descripcion="Pruebe con otro estado." />
+                }
+                else
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.Groups"
+                                 Titulo="Todavía no hay proyectos comunitarios registrados"
+                                 TextoAccion="Registrar proyecto" HrefAccion="/proyectos/registrar"
+                                 PermisoAccion="@Permisos.Proyectos.Registrar" />
+                }
             </NoRecordsContent>
         </MudDataGrid>
     </MudCardContent>
@@ -78,6 +98,7 @@
 @code {
     private IReadOnlyList<ProyectoListaDto> proyectos = Array.Empty<ProyectoListaDto>();
     private EstadoProyecto? filtroEstado;
+    private bool cargando = true;
 
     // Se carga todo al abrir, igual que ListadoGastos: es un registro de gestión
     // chico, no un catálogo que exija filtrar antes de mostrar algo (que es lo que
@@ -95,6 +116,8 @@
 
     private async Task CargarAsync()
     {
+        cargando = true;
+
         try
         {
             proyectos = await ProyectosService.ObtenerProyectosAsync(new FiltrosProyectoDto
@@ -104,8 +127,12 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudieron cargar los proyectos. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudieron cargar los proyectos. Intente de nuevo.", Severity.Error);
             proyectos = Array.Empty<ProyectoListaDto>();
+        }
+        finally
+        {
+            cargando = false;
         }
     }
 
@@ -140,7 +167,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo finalizar el proyecto. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo finalizar el proyecto. Intente de nuevo.", Severity.Error);
         }
     }
 

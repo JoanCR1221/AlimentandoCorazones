@@ -22,7 +22,7 @@
 
 <section class="login-tarjeta" aria-labelledby="login-titulo">
     <header class="login-encabezado">
-        <img src="Logo.png" alt="Logo de Alimentando Corazones" class="login-logo" />
+        <img src="img/logo.png" alt="Logo de Alimentando Corazones" class="login-logo" width="96" height="96" />
         <h1 id="login-titulo" class="login-titulo">SIGAC</h1>
         <p class="login-subtitulo">Sistema de Gestión Alimentando Corazones</p>
     </header>
@@ -57,7 +57,7 @@
     </EditForm>
 
     <p class="login-ayuda">
-        Si olvidaste tu contraseña, pedile a un administrador que la restablezca.
+        Si olvidó su contraseña, pídale a un administrador que la restablezca.
     </p>
 </section>
 
@@ -127,7 +127,7 @@
         if (!usuario.Estado)
         {
             await RegistrarIntentoFallidoAsync(usuario.Id, usuario.Nombre, rol, "Usuario desactivado");
-            mensajeError = "Tu usuario está desactivado. Contactá a un administrador.";
+            mensajeError = "Su usuario está desactivado. Contacte a un administrador.";
             return;
         }
 
@@ -151,7 +151,7 @@
         if (resultado.IsLockedOut)
         {
             await RegistrarIntentoFallidoAsync(usuario.Id, usuario.Nombre, rol, "Bloqueado por intentos fallidos");
-            mensajeError = $"Demasiados intentos fallidos. Esperá {ReglasUsuario.MinutosBloqueo} minutos e intentá de nuevo.";
+            mensajeError = $"Demasiados intentos fallidos. Espere {ReglasUsuario.MinutosBloqueo} minutos e intente de nuevo.";
             return;
         }
 
@@ -188,13 +188,19 @@
     // Es la misma comprobación que hace IsLocalUrl en ASP.NET Core.
     private string DestinoSeguro()
     {
+        // Sin ReturnUrl válido se pasa por la bienvenida (banner), desde donde
+        // se entra al dashboard con un botón. "/" cuenta como "sin destino": es el ReturnUrl que
+        // genera el sistema cuando alguien abre la raíz sin sesión, y sin esto
+        // se saltaría la bienvenida en el caso más común.
         if (string.IsNullOrWhiteSpace(ReturnUrl)
+            || ReturnUrl == "/"
             || !ReturnUrl.StartsWith('/')
             || ReturnUrl.StartsWith("//")
             || ReturnUrl.StartsWith("/\\")
-            || ReturnUrl.StartsWith("/login", StringComparison.OrdinalIgnoreCase))
+            || ReturnUrl.StartsWith("/login", StringComparison.OrdinalIgnoreCase)
+            || ReturnUrl.StartsWith("/bienvenida", StringComparison.OrdinalIgnoreCase))
         {
-            return "/";
+            return "/bienvenida";
         }
 
         return ReturnUrl;

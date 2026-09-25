@@ -20,7 +20,13 @@ namespace SIGAC.Domain.Entities
             ReglasBeneficiario.ComponerNombreCompleto(PrimerNombre, SegundoNombre, PrimerApellido, SegundoApellido);
 
         public DateTime FechaNacimiento { get; set; }
-        public string Categoria { get; set; } = string.Empty;
+
+        // Sin columna Categoria: se deriva de FechaNacimiento cada vez que hace
+        // falta (ver CategoriasBeneficiario), así nunca queda desactualizada.
+
+        // Código de país sin "+" ("506") y número local: ver ReglasTelefono.
+        // Los dos en NULL cuando no se dejó teléfono.
+        public string? CodigoPaisTelefono { get; set; }
         public string? Telefono { get; set; }
         public string? Direccion { get; set; }
         public bool Estado { get; set; } = true;

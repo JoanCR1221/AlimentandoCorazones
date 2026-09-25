@@ -20,17 +20,25 @@ namespace SIGAC.Domain
         public const int LongitudMaximaNumIdentidad = 30;
         public const int LongitudMaximaTipoDocumentoOtro = 100;
 
-        // Teléfono de Costa Rica: 8 dígitos, sin guiones ni espacios. Uno solo por
-        // beneficiario, por eso es una columna simple y no una lista.
-        public const int DigitosTelefono = 8;
+        // El teléfono (con código de país) tiene sus propias reglas en
+        // ReglasTelefono, compartidas con Donante.
 
         public const int LongitudMaximaDireccion = 200;
 
         // Letras (con tildes y ñ), apóstrofes, guiones y un espacio entre partes:
         // aparecen en apellidos reales (D'Ávila, Sánchez-Mora, De la Cruz).
         // Se rechazan dígitos y cualquier otro símbolo.
+        //
+        // Solo las letras que caben en las columnas: son varchar con la collation
+        // SQL_Latin1_General_CP1 (página de códigos 1252), y una letra fuera de ella
+        // ("ł", "ễ") se guardaría como "?". De ahí la lista explícita en vez de
+        // \p{L}: el latín básico, el bloque Latin-1 (À-ÿ sin × ni ÷) y las letras
+        // que la 1252 agrega (Š, š, Œ, œ, Ž, ž, Ÿ). Espera texto en forma NFC
+        // (TextoNormalizador.NormalizarNombre), así "é" llega como una sola letra.
+        private const string LetraGuardable = "A-Za-zÀ-ÖØ-öø-ÿŠšŒœŽžŸ";
+
         private static readonly Regex FormatoNombre = new(
-            @"^[\p{L}\p{M}]+(?:[ '’\-][\p{L}\p{M}]+)*$",
+            $@"^[{LetraGuardable}]+(?:[ '’\-][{LetraGuardable}]+)*$",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         // Solo dígitos ASCII: nada de guiones, espacios ni separadores.
@@ -62,9 +70,6 @@ namespace SIGAC.Domain
             TieneSoloDigitos(valor)
             && valor!.Length >= DigitosMinimosDimex
             && valor.Length <= DigitosMaximosDimex;
-
-        public static bool TieneFormatoTelefono(string? valor) =>
-            TieneSoloDigitos(valor) && valor!.Length == DigitosTelefono;
 
         // ---- Reglas del número de identidad según el tipo de documento ----
         //
@@ -108,9 +113,10 @@ namespace SIGAC.Domain
         {
             TiposDocumento.CedulaNacional => TieneFormatoCedulaNacional(numero),
             TiposDocumento.Dimex => TieneFormatoDimex(numero),
-            // El pasaporte es alfanumérico y de longitud variable según el país
-            // emisor: alcanza con que no venga vacío.
-            TiposDocumento.Pasaporte => !string.IsNullOrWhiteSpace(numero),
+            // El pasaporte es de longitud variable según el país emisor, pero con
+            // los mismos caracteres que "Otro": es lo que filtra la pantalla y lo
+            // que promete la ayuda del campo.
+            TiposDocumento.Pasaporte => EsAlfanumericoConGuiones(numero),
             TiposDocumento.Otro => EsAlfanumericoConGuiones(numero),
             _ => false
         };

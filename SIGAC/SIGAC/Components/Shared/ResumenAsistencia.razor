@@ -1,0 +1,41 @@
+@using SIGAC.Application.DTOs
+@using SIGAC.Application.Interfaces
+@inject IResumenService ResumenService
+
+@* Tarjetas de resumen de la asistencia al comedor. Autónomo: carga sus propios
+   datos y, si la consulta falla, no muestra nada. *@
+@if (datos is not null)
+{
+    <section class="ac-kpis" aria-label="Resumen de asistencia">
+        <TarjetaResumen Titulo="Comidas servidas hoy"
+                        Valor="@TextoResumen.Numero(datos.ComidasHoy)"
+                        Icono="@Icons.Material.Filled.Restaurant" />
+        <TarjetaResumen Titulo="Comidas servidas este mes"
+                        Valor="@TextoResumen.Numero(datos.ComidasEsteMes)"
+                        Detalle="@TextoResumen.VsMesAnterior(datos.ComidasEsteMes, datos.ComidasMesAnterior)"
+                        Icono="@Icons.Material.Filled.History" />
+        <TarjetaResumen Titulo="Personas atendidas este mes"
+                        Valor="@TextoResumen.Numero(datos.PersonasAtendidasEsteMes)"
+                        Icono="@Icons.Material.Filled.People" />
+    </section>
+}
+
+@code {
+    private ResumenAsistenciaDto? datos;
+
+    protected override async Task OnInitializedAsync() => await RecargarAsync();
+
+    public async Task RecargarAsync()
+    {
+        try
+        {
+            datos = await ResumenService.ObtenerResumenAsistenciaAsync();
+        }
+        catch (Exception)
+        {
+            datos = null;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+}

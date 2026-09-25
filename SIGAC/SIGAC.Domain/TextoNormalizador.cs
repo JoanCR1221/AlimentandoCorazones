@@ -26,9 +26,12 @@ namespace SIGAC.Domain
         //   "de la cruz" -> "De la cruz"   (y no "De La Cruz")
         //   "van dijk"   -> "Van dijk"     (y no "Van Dijk")
         //   "maría"      -> "María"
+        //
+        // También se lleva a NFC: una "é" escrita como "e" + tilde combinante pasa a
+        // ser una sola letra, que es la forma que la base puede guardar.
         public static string NormalizarNombre(string? valor)
         {
-            var compactado = CompactarEspacios(valor);
+            var compactado = CompactarEspacios(valor?.Normalize(NormalizationForm.FormC));
             if (compactado.Length == 0)
                 return string.Empty;
 

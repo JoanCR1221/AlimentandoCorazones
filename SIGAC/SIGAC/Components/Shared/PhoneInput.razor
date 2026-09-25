@@ -1,11 +1,13 @@
+@using SIGAC.Domain
 @* Teléfono con selector de código de país (bandera + código, buscable,
-   Costa Rica por defecto). El código de país es solo de interfaz: lo que se
-   bindea y valida sigue siendo únicamente el número local (ver Value/
-   ValueChanged), igual que antes — no cambia cómo se guarda el teléfono. *@
+   Costa Rica por defecto). Se bindean dos valores: el código de país sin "+"
+   (CodigoPais) y el número local (Value). El tope de dígitos y la ayuda salen
+   de ReglasTelefono según el país elegido, que es la misma fuente que usa el
+   validador del servidor. *@
 
 <div class="sigac-phone-input @Class">
     <div class="sigac-phone-code">
-        <MudAutocomplete T="Pais" Value="_pais" ValueChanged="OnPaisChanged"
+        <MudAutocomplete T="Pais" Value="_pais" ValueChanged="OnPaisChangedAsync"
                           SearchFunc="BuscarPaisesAsync"
                           ToStringFunc="@(p => p is null ? string.Empty : $"{p.Bandera} +{p.CodigoTelefono}")"
                           Label="Código" Variant="Variant.Outlined"
@@ -23,9 +25,11 @@
         </MudAutocomplete>
     </div>
 
-    <MudTextField T="string" Value="@Value" ValueChanged="OnNumeroChangedAsync" Label="@Label"
+    <MudTextField T="string" Value="@Value" ValueChanged="OnNumeroChangedAsync" Immediate="true" Label="@Label"
                   Variant="Variant.Outlined" Class="sigac-phone-number"
-                  MaxLength="MaxLength ?? int.MaxValue" HelperText="@HelperText" />
+                  InputMode="InputMode.tel"
+                  MaxLength="ReglasTelefono.LongitudMaximaNumeroPara(_pais.CodigoTelefono)"
+                  HelperText="@ReglasTelefono.DescribirNumero(_pais.CodigoTelefono)" />
 </div>
 
 @code {
@@ -35,19 +39,32 @@
     [Parameter]
     public EventCallback<string?> ValueChanged { get; set; }
 
+    // Código de país sin "+" ("506"). Vacío equivale a Costa Rica, que es lo que
+    // muestra el selector por defecto y lo que asume el validador.
+    [Parameter]
+    public string? CodigoPais { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> CodigoPaisChanged { get; set; }
+
     [Parameter]
     public string Label { get; set; } = "Teléfono (opcional)";
-
-    [Parameter]
-    public int? MaxLength { get; set; }
-
-    [Parameter]
-    public string? HelperText { get; set; }
 
     [Parameter]
     public string? Class { get; set; }
 
     private Pais _pais = Paises.CostaRica;
+
+    protected override void OnParametersSet()
+    {
+        // Solo se reemplaza el país cuando el código cambió desde afuera (al cargar
+        // un registro para editar, o al limpiar el formulario). Si el código es el
+        // mismo se respeta el país elegido: +1 puede ser Canadá o Estados Unidos.
+        var codigo = string.IsNullOrWhiteSpace(CodigoPais) ? Paises.CostaRica.CodigoTelefono : CodigoPais;
+
+        if (_pais.CodigoTelefono != codigo)
+            _pais = Paises.PorCodigo(codigo);
+    }
 
     private Task<IEnumerable<Pais>> BuscarPaisesAsync(string valor, CancellationToken token)
     {
@@ -68,10 +85,17 @@
         return Task.FromResult(resultado);
     }
 
-    private void OnPaisChanged(Pais pais)
+    private Task OnPaisChangedAsync(Pais pais)
     {
         _pais = pais ?? Paises.CostaRica;
+        return CodigoPaisChanged.InvokeAsync(_pais.CodigoTelefono);
     }
 
-    private Task OnNumeroChangedAsync(string valor) => ValueChanged.InvokeAsync(valor);
+    // Descarta lo que no es dígito y recorta al máximo del país mientras se
+    // escribe. Es comodidad: el validador vuelve a comprobar el número completo.
+    private Task OnNumeroChangedAsync(string? valor)
+    {
+        var filtrado = ReglasTelefono.FiltrarNumero(_pais.CodigoTelefono, valor);
+        return ValueChanged.InvokeAsync(filtrado.Length == 0 ? null : filtrado);
+    }
 }

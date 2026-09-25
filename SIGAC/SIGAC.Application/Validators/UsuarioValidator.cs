@@ -47,7 +47,7 @@ namespace SIGAC.Application.Validators
                 throw new ValidationException($"El correo no puede superar los {ReglasUsuario.LongitudMaximaCorreo} caracteres.");
 
             if (!ReglasUsuario.TieneFormatoCorreo(correo))
-                throw new ValidationException("Escribí un correo válido, por ejemplo nombre@ejemplo.com.");
+                throw new ValidationException("Escriba un correo válido, por ejemplo nombre@ejemplo.com.");
 
             return correo;
         }

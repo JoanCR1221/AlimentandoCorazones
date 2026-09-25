@@ -12,13 +12,13 @@ namespace SIGAC.Infrastructure.Identity
         public override IdentityError DefaultError() => new()
         {
             Code = nameof(DefaultError),
-            Description = "Ocurrió un error inesperado. Intentá de nuevo."
+            Description = "Ocurrió un error inesperado. Intente de nuevo."
         };
 
         public override IdentityError ConcurrencyFailure() => new()
         {
             Code = nameof(ConcurrencyFailure),
-            Description = "Otra persona modificó este usuario al mismo tiempo. Recargá la página e intentá de nuevo."
+            Description = "Otra persona modificó este usuario al mismo tiempo. Recargue la página e intente de nuevo."
         };
 
         public override IdentityError PasswordMismatch() => new()

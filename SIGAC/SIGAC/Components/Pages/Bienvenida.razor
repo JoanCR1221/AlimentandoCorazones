@@ -1,0 +1,60 @@
+@page "/bienvenida"
+@layout BienvenidaLayout
+@attribute [AllowAnonymous]
+
+@* Landing de bienvenida: a donde lleva el inicio de sesión. No redirige sola;
+   se pasa al dashboard (/) con el botón, y si alguien sin sesión la abre, el
+   botón lo lleva al login y de ahí al dashboard. Las tarjetas son solo
+   informativas (no enlazan a módulos), así que no dependen de permisos. *@
+
+<PageTitle>Bienvenida — SIGAC</PageTitle>
+
+<section class="bienvenida" aria-labelledby="bienvenida-titulo">
+    <img src="img/banner.jpg" width="1600" height="535" fetchpriority="high"
+         alt="Alimentando Corazones, Tamarindo, Guanacaste. Niños celebrando junto al ministerio infantil El Faro, con el versículo: «Mantengamos firme la esperanza que profesamos, porque fiel es el que hizo la promesa» (Hebreos 10:23)."
+         class="bienvenida-banner" />
+
+    <div class="bienvenida-texto">
+        <span class="ac-hero-antetitulo">UN PUENTE DE ESPERANZA</span>
+        <h1 id="bienvenida-titulo" class="ac-hero-titulo">SISTEMA DE GESTIÓN ALIMENTANDO CORAZONES</h1>
+        <p class="bienvenida-descripcion">
+            Administre beneficiarios, donaciones, inventario y proyectos desde un solo lugar,
+            con la información siempre al día.
+        </p>
+
+        <a href="/" class="bienvenida-entrar">
+            Ir al panel administrativo <span aria-hidden="true">→</span>
+        </a>
+    </div>
+
+    <ul class="bienvenida-modulos" aria-label="Módulos del sistema">
+        <li class="bienvenida-modulo">
+            <span class="bienvenida-icono bienvenida-icono-coral">
+                <MudIcon Icon="@Icons.Material.Filled.People" Color="Color.Inherit" />
+            </span>
+            <h2 class="bienvenida-modulo-titulo">Beneficiarios</h2>
+            <p>Personas atendidas y su asistencia al comedor.</p>
+        </li>
+        <li class="bienvenida-modulo">
+            <span class="bienvenida-icono bienvenida-icono-teal">
+                <MudIcon Icon="@Icons.Material.Filled.VolunteerActivism" Color="Color.Inherit" />
+            </span>
+            <h2 class="bienvenida-modulo-titulo">Donaciones</h2>
+            <p>Donantes y aportes recibidos, en dinero y en especie.</p>
+        </li>
+        <li class="bienvenida-modulo">
+            <span class="bienvenida-icono bienvenida-icono-coral">
+                <MudIcon Icon="@Icons.Material.Filled.Inventory2" Color="Color.Inherit" />
+            </span>
+            <h2 class="bienvenida-modulo-titulo">Inventario</h2>
+            <p>Existencias, entradas y préstamos de artículos.</p>
+        </li>
+        <li class="bienvenida-modulo">
+            <span class="bienvenida-icono bienvenida-icono-teal">
+                <MudIcon Icon="@Icons.Material.Filled.Groups" Color="Color.Inherit" />
+            </span>
+            <h2 class="bienvenida-modulo-titulo">Proyectos</h2>
+            <p>Actividades comunitarias y sus participantes.</p>
+        </li>
+    </ul>
+</section>

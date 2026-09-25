@@ -3,10 +3,28 @@ using System.ComponentModel.DataAnnotations;
 
 namespace SIGAC.Application.DTOs.Beneficiarios
 {
-    public class BeneficiarioCrearDto
+    // Campos que comparten el alta y la edición. Existe para que el formulario
+    // (CamposBeneficiario.razor) sea uno solo para las dos pantallas; cada DTO
+    // sigue siendo un tipo aparte.
+    public interface IDatosBeneficiario
     {
-        public int Id { get; set; }
+        string PrimerNombre { get; set; }
+        string SegundoNombre { get; set; }
+        string PrimerApellido { get; set; }
+        string SegundoApellido { get; set; }
+        DateTime FechaNacimiento { get; set; }
+        string? CodigoPaisTelefono { get; set; }
+        string? Telefono { get; set; }
+        string? Direccion { get; set; }
+        string? TipoDocumento { get; set; }
+        string? NumIdentidad { get; set; }
+        string? TipoDocumentoOtro { get; set; }
+    }
 
+    // Solo lo que captura el formulario: Id, Estado y FechaRegistro los pone el
+    // servicio al crear la entidad.
+    public class BeneficiarioCrearDto : IDatosBeneficiario
+    {
         [Required(ErrorMessage = "El primer nombre es obligatorio.")]
         public string PrimerNombre { get; set; } = string.Empty;
 
@@ -21,20 +39,19 @@ namespace SIGAC.Application.DTOs.Beneficiarios
 
         public DateTime FechaNacimiento { get; set; }
 
-        // La categoría ya no se captura: la deriva el servicio desde FechaNacimiento.
+        // La categoría no se captura ni se guarda: se deriva de FechaNacimiento.
 
+        // Código de país sin "+" ("506") y número local; ver ReglasTelefono.
+        public string? CodigoPaisTelefono { get; set; }
         public string? Telefono { get; set; }
         public string? Direccion { get; set; }
-        public bool Estado { get; set; }
-        public DateTime FechaRegistro { get; set; }
 
         public string? TipoDocumento { get; set; }
         public string? NumIdentidad { get; set; }
         public string? TipoDocumentoOtro { get; set; }
-
     }
 
-    public class BeneficiarioEditarDto
+    public class BeneficiarioEditarDto : IDatosBeneficiario
     {
         [Required(ErrorMessage = "El primer nombre es obligatorio.")]
         public string PrimerNombre { get; set; } = string.Empty;
@@ -48,6 +65,7 @@ namespace SIGAC.Application.DTOs.Beneficiarios
 
         public DateTime FechaNacimiento { get; set; }
 
+        public string? CodigoPaisTelefono { get; set; }
         public string? Telefono { get; set; }
         public string? Direccion { get; set; }
 
@@ -69,8 +87,12 @@ namespace SIGAC.Application.DTOs.Beneficiarios
             ReglasBeneficiario.ComponerNombreCompleto(PrimerNombre, SegundoNombre, PrimerApellido, SegundoApellido);
 
         public DateTime FechaNacimiento { get; set; }
-        public string Categoria { get; set; } = string.Empty;
+        // Calculada al mostrar, con la edad de hoy: no se guarda en la base.
+        public string Categoria => CategoriasBeneficiario.DerivarDesdeFechaNacimiento(FechaNacimiento);
+        public string? CodigoPaisTelefono { get; set; }
         public string? Telefono { get; set; }
+
+        public string? TelefonoCompleto => ReglasTelefono.Formatear(CodigoPaisTelefono, Telefono);
         public bool Estado { get; set; }
         public string? TipoDocumento { get; set; }
         public string? NumIdentidad { get; set; }
@@ -78,6 +100,9 @@ namespace SIGAC.Application.DTOs.Beneficiarios
 
 
     }
+
+    // Beneficiario ya registrado que coincide con uno que se intenta guardar.
+    public sealed record BeneficiarioCoincidente(int Id, string NombreCompleto, bool Activo);
 
     public class FiltrosBeneficiarioDto
     {

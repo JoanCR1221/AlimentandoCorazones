@@ -11,7 +11,7 @@
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 
-<MudText Typo="Typo.h4" Class="mb-4">Registrar participante</MudText>
+<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Registrar participante</MudText>
 
 @if (!cargado)
 {
@@ -51,7 +51,7 @@ else
                                       Value="beneficiarioSeleccionado" ValueChanged="OnBeneficiarioCambiado"
                                       SearchFunc="BuscarBeneficiariosActivosAsync" ToStringFunc="@(b => b?.NombreCompleto)"
                                       MinCharacters="FiltrosBeneficiarioDto.MinimoCaracteresBusqueda"
-                                      HelperText="@($"Escribí al menos {FiltrosBeneficiarioDto.MinimoCaracteresBusqueda} caracteres para buscar.")" />
+                                      HelperText="@($"Escriba al menos {FiltrosBeneficiarioDto.MinimoCaracteresBusqueda} caracteres para buscar.")" />
                 }
                 else
                 {
@@ -70,7 +70,7 @@ else
             </MudCardContent>
             <MudCardActions>
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Agregar participante</MudButton>
-                <MudButton Variant="Variant.Text" Color="Color.Default" Href="/proyectos" Class="mb-2">Volver al listado</MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Default" Href="/proyectos" Class="mb-2">Cancelar</MudButton>
             </MudCardActions>
         </MudCard>
     </EditForm>
@@ -117,7 +117,7 @@ else
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo cargar el proyecto. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo cargar el proyecto. Intente de nuevo.", Severity.Error);
             NavigationManager.NavigateTo("/proyectos");
         }
     }
@@ -187,7 +187,7 @@ else
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo agregar el participante. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo agregar el participante. Intente de nuevo.", Severity.Error);
         }
     }
 }

@@ -144,6 +144,9 @@ builder.Services.AddScoped<IDonacionesService, DonacionesService>();
 // Servicio del módulo de Gestión de Proyectos
 builder.Services.AddScoped<IProyectosService, ProyectosService>();
 
+// Cifras de las tarjetas de resumen de los módulos (solo lectura)
+builder.Services.AddScoped<IResumenService, ResumenService>();
+
 
 // Repositorio de Beneficiarios con EF Core (reemplaza la versión temporal en memoria)
 builder.Services.AddScoped<IBeneficiariosRepository, BeneficiariosRepositoryEfCore>();
@@ -163,6 +166,9 @@ builder.Services.AddScoped<IDonacionesRepository, DonacionesRepositoryEfCore>();
 
 // Repositorio de Proyectos Comunitarios con EF Core
 builder.Services.AddScoped<IProyectosRepository, ProyectosRepositoryEfCore>();
+
+// Consultas agregadas de las tarjetas de resumen
+builder.Services.AddScoped<IResumenRepository, ResumenRepositoryEfCore>();
 
 // Repositorio de permisos revocados por usuario (módulo de seguridad). Lo usa
 // PermisosClaimsPrincipalFactory al iniciar sesión y el panel de permisos.

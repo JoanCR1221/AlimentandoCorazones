@@ -1,0 +1,27 @@
+@* Etiqueta de estado Activo / Inactivo: verde y roja, con icono y texto para
+   que el estado no dependa solo del color. Los tonos salen de los tokens
+   --ac-activo / --ac-inactivo (app.css), que cambian con el modo oscuro y el
+   alto contraste. Solo presentación: quien la usa decide qué es "activo". *@
+<MudChip T="string"
+         Size="Size.Small"
+         Class="@Clase"
+         Icon="@Icono">
+    @Texto
+</MudChip>
+
+@code {
+    [Parameter]
+    public bool Activo { get; set; }
+
+    [Parameter]
+    public string TextoActivo { get; set; } = "Activo";
+
+    [Parameter]
+    public string TextoInactivo { get; set; } = "Inactivo";
+
+    private string Clase => Activo ? "ac-estado ac-estado-activo" : "ac-estado ac-estado-inactivo";
+
+    private string Icono => Activo ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel;
+
+    private string Texto => Activo ? TextoActivo : TextoInactivo;
+}

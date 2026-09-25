@@ -292,7 +292,7 @@ namespace SIGAC.Application.Services
                 // de un mensaje que explique por qué no se puede borrar.
                 if (await _repository.TieneMovimientosAsync(id))
                     throw new ValidationException(
-                        "No se puede eliminar: el artículo tiene entradas, salidas o solicitudes de préstamo registradas. Podés editarlo, pero no borrarlo.");
+                        "No se puede eliminar: el artículo tiene entradas, salidas o solicitudes de préstamo registradas. Puede editarlo, pero no borrarlo.");
 
                 await _repository.EliminarArticuloAsync(id);
 

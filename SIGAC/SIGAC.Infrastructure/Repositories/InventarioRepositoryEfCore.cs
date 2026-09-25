@@ -325,7 +325,7 @@ namespace SIGAC.Infrastructure.Repositories
                     // INSERT. La transacción revierte y el mensaje explica qué hacer.
                     throw new DuplicateException(
                         $"Otro usuario acaba de crear el artículo '{articuloNuevo.Nombre}'. " +
-                        "Volvé a registrar la entrada para que se sume a ese artículo.");
+                        "Vuelva a registrar la entrada para que se sume a ese artículo.");
                 }
 
                 entrada.ArticuloId = articuloNuevo.Id;
@@ -436,7 +436,7 @@ namespace SIGAC.Infrastructure.Repositories
             {
                 throw new ValidationException(
                     "El stock disponible cambió mientras se registraba el movimiento y ya no alcanza. " +
-                    "Volvé a intentarlo.");
+                    "Vuelva a intentarlo.");
             }
         }
 

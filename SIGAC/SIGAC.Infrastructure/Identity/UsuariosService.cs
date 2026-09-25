@@ -202,7 +202,7 @@ namespace SIGAC.Infrastructure.Identity
                     throw new ValidationException("El rol indicado no existe.");
 
                 await ExigirQueNoSeaElMismoAsync(dto.UsuarioId,
-                    "No podés cambiar tu propio rol. Pedile a otro administrador que lo haga.");
+                    "No puede cambiar su propio rol. Pídale a otro administrador que lo haga.");
 
                 // Serializable: dos administradores degradándose mutuamente al mismo
                 // tiempo pasarían los dos el conteo de "queda otro activo" con
@@ -282,7 +282,7 @@ namespace SIGAC.Infrastructure.Identity
             try
             {
                 await ExigirQueNoSeaElMismoAsync(usuarioId,
-                    "No podés desactivar tu propio usuario. Pedile a otro administrador que lo haga.");
+                    "No puede desactivar su propio usuario. Pídale a otro administrador que lo haga.");
 
                 await using var transaccion = await _context.Database
                     .BeginTransactionAsync(IsolationLevel.Serializable);
@@ -354,7 +354,7 @@ namespace SIGAC.Infrastructure.Identity
             try
             {
                 await ExigirQueNoSeaElMismoAsync(dto.UsuarioId,
-                    "Para cambiar tu propia contraseña usá la opción de Configuración.");
+                    "Para cambiar su propia contraseña use la opción de Configuración.");
 
                 UsuarioValidator.ValidarPasswordNueva(dto.PasswordTemporal, dto.ConfirmarPassword);
 

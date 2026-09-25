@@ -8,7 +8,7 @@
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 
-<MudText Typo="Typo.h4" Class="mb-4">Editar artículo</MudText>
+<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Editar artículo</MudText>
 
 <EditForm Model="modelo" OnValidSubmit="Guardar">
     <DataAnnotationsValidator />
@@ -34,7 +34,7 @@
             <MudSelect T="string" @bind-Value="modelo.UnidadMedida" For="@(() => modelo.UnidadMedida)"
                        Label="Unidad de medida" Variant="Variant.Outlined" Class="mt-4"
                        Disabled="string.IsNullOrWhiteSpace(modelo.Categoria)"
-                       HelperText="@(string.IsNullOrWhiteSpace(modelo.Categoria) ? "Elegí primero una categoría." : null)">
+                       HelperText="@(string.IsNullOrWhiteSpace(modelo.Categoria) ? "Elija primero una categoría." : null)">
                 @foreach (var unidad in UnidadesMedidaArticulo.ObtenerUnidadesValidas(modelo.Categoria))
                 {
                     <MudSelectItem T="string" Value="@unidad">@unidad</MudSelectItem>
@@ -49,6 +49,7 @@
         </MudCardContent>
         <MudCardActions>
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+            <MudButton Variant="Variant.Text" Color="Color.Default" Href="/inventario/existencias" Class="mb-2">Cancelar</MudButton>
         </MudCardActions>
     </MudCard>
 </EditForm>
@@ -98,7 +99,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo actualizar el artículo. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo actualizar el artículo. Intente de nuevo.", Severity.Error);
         }
     }
 }

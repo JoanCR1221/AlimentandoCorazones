@@ -1,4 +1,4 @@
-@page "/donaciones/especie/registrar"
+﻿@page "/donaciones/especie/registrar"
 @attribute [Authorize(Policy = Permisos.Donaciones.RegistrarEspecie)]
 @using SIGAC.Application.DTOs
 @using SIGAC.Application.DTOs.Donaciones
@@ -9,7 +9,7 @@
 @inject IDonacionesService DonacionesService
 @inject ISnackbar Snackbar
 
-<MudText Typo="Typo.h4" Class="mb-4">Registrar donación en especie</MudText>
+<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Registrar donación en especie</MudText>
 
 <EditForm Model="modelo" OnValidSubmit="Guardar">
     <DataAnnotationsValidator />
@@ -22,7 +22,7 @@
                               SearchFunc="BuscarDonantesActivosAsync" ToStringFunc="@(d => d?.Nombre)"
                               MinCharacters="1" DebounceInterval="300" Clearable="true"
                               Disabled="panelNuevoDonanteAbierto"
-                              HelperText="Escribí para buscar un donante ya registrado." />
+                              HelperText="Escriba para buscar un donante ya registrado." />
 
             <MudExpansionPanels Class="mt-4">
                 <MudExpansionPanel Text="Registrar donante nuevo" Expanded="panelNuevoDonanteAbierto" ExpandedChanged="OnPanelNuevoDonanteCambiadoAsync">
@@ -33,7 +33,7 @@
                             <MudSelectItem T="string" Value="@tipo">@tipo</MudSelectItem>
                         }
                     </MudSelect>
-                    <PhoneInput @bind-Value="nuevoDonante.Telefono" Label="Teléfono (opcional)" Class="mt-4" />
+                    <PhoneInput @bind-Value="nuevoDonante.Telefono" @bind-CodigoPais="nuevoDonante.CodigoPaisTelefono" Label="Teléfono (opcional)" Class="mt-4" />
                     <MudTextField @bind-Value="nuevoDonante.Correo" Label="Correo (opcional)" Variant="Variant.Outlined" Class="mt-4" />
                 </MudExpansionPanel>
             </MudExpansionPanels>
@@ -41,7 +41,7 @@
             <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
             <MudTextField @bind-Value="modelo.Observaciones" Label="Observaciones (opcional)" Variant="Variant.Outlined" Class="mt-4" Lines="2" />
 
-            <MudText Typo="Typo.h6" Class="mt-6 mb-2">Artículos donados</MudText>
+            <MudText Typo="Typo.h6" HtmlTag="h2" Class="mt-6 mb-2">Artículos donados</MudText>
 
             @for (var i = 0; i < modelo.Articulos.Count; i++)
             {
@@ -63,7 +63,7 @@
                        elegida en esta línea, igual que en Inventario. *@
                     <MudSelect T="string" @bind-Value="articulo.UnidadMedida" Label="Unidad de medida" Variant="Variant.Outlined" Class="mt-4"
                                Disabled="string.IsNullOrWhiteSpace(articulo.Categoria)"
-                               HelperText="@(string.IsNullOrWhiteSpace(articulo.Categoria) ? "Elegí primero una categoría." : null)">
+                               HelperText="@(string.IsNullOrWhiteSpace(articulo.Categoria) ? "Elija primero una categoría." : null)">
                         @foreach (var unidad in UnidadesMedidaArticulo.ObtenerUnidadesValidas(articulo.Categoria))
                         {
                             <MudSelectItem T="string" Value="@unidad">@unidad</MudSelectItem>
@@ -84,6 +84,7 @@
         </MudCardContent>
         <MudCardActions>
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+            <MudButton Variant="Variant.Text" Color="Color.Default" Href="/donaciones/historial" Class="mb-2">Cancelar</MudButton>
         </MudCardActions>
     </MudCard>
 </EditForm>
@@ -195,7 +196,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo registrar la donación. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo registrar la donación. Intente de nuevo.", Severity.Error);
         }
     }
 }

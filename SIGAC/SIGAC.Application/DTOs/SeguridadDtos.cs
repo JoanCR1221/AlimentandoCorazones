@@ -8,7 +8,7 @@ namespace SIGAC.Application.DTOs.Seguridad
     public class LoginDto
     {
         [Required(ErrorMessage = "El correo es obligatorio.")]
-        [EmailAddress(ErrorMessage = "Escribí un correo válido.")]
+        [EmailAddress(ErrorMessage = "Escriba un correo válido.")]
         public string Correo { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "La contraseña es obligatoria.")]
@@ -23,7 +23,7 @@ namespace SIGAC.Application.DTOs.Seguridad
         public string Nombre { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "El correo es obligatorio.")]
-        [EmailAddress(ErrorMessage = "Escribí un correo válido.")]
+        [EmailAddress(ErrorMessage = "Escriba un correo válido.")]
         public string Correo { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "La contraseña es obligatoria.")]

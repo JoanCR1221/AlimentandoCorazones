@@ -1,0 +1,60 @@
+@* Cabecera uniforme de las pantallas (listados y formularios): título +
+   descripción a la izquierda y, si corresponde, un botón principal a la
+   derecha (por ejemplo "Registrar beneficiario"). Con PermisoAccion el botón queda detrás de un
+   AuthorizeView, igual que en el menú lateral y en Home.razor; sin
+   PermisoAccion se muestra siempre (para pantallas ya gateadas por completo
+   con [Authorize] a nivel de página, como Usuarios). *@
+<div class="ac-encabezado">
+    <div class="ac-encabezado-texto">
+        <MudText Typo="Typo.h4" HtmlTag="h1">@Titulo</MudText>
+        @if (!string.IsNullOrWhiteSpace(Descripcion))
+        {
+            <MudText Typo="Typo.body2" Class="ac-encabezado-descripcion">@Descripcion</MudText>
+        }
+    </div>
+    @if (!string.IsNullOrWhiteSpace(TextoAccion) && !string.IsNullOrWhiteSpace(HrefAccion))
+    {
+        @if (!string.IsNullOrWhiteSpace(PermisoAccion))
+        {
+            <AuthorizeView Policy="@PermisoAccion" Context="auth">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@HrefAccion"
+                           StartIcon="@Icons.Material.Filled.Add" Class="ac-encabezado-accion">
+                    @TextoAccion
+                </MudButton>
+            </AuthorizeView>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@HrefAccion"
+                       StartIcon="@Icons.Material.Filled.Add" Class="ac-encabezado-accion">
+                @TextoAccion
+            </MudButton>
+        }
+    }
+    else if (Acciones is not null)
+    {
+        <div class="ac-encabezado-accion">@Acciones</div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Titulo { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Descripcion { get; set; }
+
+    [Parameter]
+    public string? TextoAccion { get; set; }
+
+    [Parameter]
+    public string? HrefAccion { get; set; }
+
+    [Parameter]
+    public string? PermisoAccion { get; set; }
+
+    // Escape hatch para el único caso que no es "un botón a una ruta": Usuarios,
+    // que reutiliza el mismo botón que ya tenía.
+    [Parameter]
+    public RenderFragment? Acciones { get; set; }
+}

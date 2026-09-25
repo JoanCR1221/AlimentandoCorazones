@@ -8,7 +8,7 @@
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 
-<MudText Typo="Typo.h4" Class="mb-4">Editar gasto operativo</MudText>
+<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Editar gasto operativo</MudText>
 
 <EditForm Model="modelo" OnValidSubmit="Guardar">
     <DataAnnotationsValidator />
@@ -41,6 +41,7 @@
         </MudCardContent>
         <MudCardActions>
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+            <MudButton Variant="Variant.Text" Color="Color.Default" Href="/gastos" Class="mb-2">Cancelar</MudButton>
         </MudCardActions>
     </MudCard>
 </EditForm>
@@ -104,7 +105,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo actualizar el gasto operativo. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo actualizar el gasto operativo. Intente de nuevo.", Severity.Error);
         }
     }
 }

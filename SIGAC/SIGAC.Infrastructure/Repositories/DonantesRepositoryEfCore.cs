@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Donaciones;
 using SIGAC.Application.Interfaces;
@@ -68,6 +68,7 @@ namespace SIGAC.Infrastructure.Repositories
             // no se corrige desde la edición.
             existente.Nombre = donante.Nombre;
             existente.TipoPersona = donante.TipoPersona;
+            existente.CodigoPaisTelefono = donante.CodigoPaisTelefono;
             existente.Telefono = donante.Telefono;
             existente.Correo = donante.Correo;
 
@@ -180,6 +181,31 @@ namespace SIGAC.Infrastructure.Repositories
                 donante.Estado = estado;
                 await context.SaveChangesAsync();
             }
+        }
+
+        public async Task<ResumenRegistrosDto> ObtenerResumenAsync()
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            // Meses calendario, con la misma hora local con la que se guarda
+            // FechaRegistro (DateTime.Now en el servicio).
+            var inicioMes = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            var inicioMesAnterior = inicioMes.AddMonths(-1);
+
+            // Un solo GROUP BY constante: SQL Server devuelve una fila con los
+            // cuatro conteos y no se trae ningún donante. Con la tabla vacía no
+            // hay grupo, de ahí el Vacio.
+            var resumen = await context.Donantes
+                .AsNoTracking()
+                .GroupBy(_ => 1)
+                .Select(g => new ResumenRegistrosDto(
+                    g.Count(d => d.Estado),
+                    g.Count(d => !d.Estado),
+                    g.Count(d => d.FechaRegistro >= inicioMes),
+                    g.Count(d => d.FechaRegistro >= inicioMesAnterior && d.FechaRegistro < inicioMes)))
+                .FirstOrDefaultAsync();
+
+            return resumen ?? ResumenRegistrosDto.Vacio;
         }
     }
 }

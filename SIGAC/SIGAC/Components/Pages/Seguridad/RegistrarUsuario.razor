@@ -8,7 +8,7 @@
 
 <PageTitle>Registrar usuario — SIGAC</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-4">Registrar usuario</MudText>
+<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Registrar usuario</MudText>
 
 <EditForm Model="modelo" OnValidSubmit="Guardar">
     <DataAnnotationsValidator />
@@ -52,7 +52,7 @@
                        Disabled="guardando">
                 @(guardando ? "Guardando..." : "Registrar usuario")
             </MudButton>
-            <MudButton Variant="Variant.Text" Href="/usuarios" Class="ml-2">Ver listado</MudButton>
+            <MudButton Variant="Variant.Text" Color="Color.Default" Href="/usuarios" Class="ml-2">Cancelar</MudButton>
         </MudCardActions>
     </MudCard>
 </EditForm>
@@ -83,7 +83,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo registrar el usuario. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo registrar el usuario. Intente de nuevo.", Severity.Error);
         }
         finally
         {

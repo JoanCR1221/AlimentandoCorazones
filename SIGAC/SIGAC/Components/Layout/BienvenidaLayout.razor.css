@@ -1,0 +1,52 @@
+/* Mismo degradado de marca del login (ver LoginLayout.razor.css); los colores
+   salen de los tokens --ac-* de app.css. */
+.bienvenida-fondo {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--ac-crema);
+    background-image:
+        radial-gradient(60rem 30rem at 0% 0%, color-mix(in srgb, var(--ac-coral) 14%, transparent), transparent 70%),
+        radial-gradient(50rem 26rem at 100% 0%, color-mix(in srgb, var(--ac-teal) 16%, transparent), transparent 70%);
+    color: var(--ac-ink);
+}
+
+.bienvenida-cabecera {
+    padding: 0.9rem 1.5rem;
+    border-bottom: 1px solid var(--ac-borde-suave);
+}
+
+.bienvenida-marca {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--ac-ink);
+}
+
+.bienvenida-logo {
+    height: 36px;
+    width: auto;
+    border-radius: 8px;
+    background-color: var(--ac-blanco);
+}
+
+.bienvenida-contenedor {
+    flex: 1 0 auto;
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1.5rem;
+    box-sizing: border-box;
+}
+
+.bienvenida-pie {
+    padding: 1.25rem 1.5rem;
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--ac-ink-suave);
+    border-top: 1px solid var(--ac-borde-suave);
+}

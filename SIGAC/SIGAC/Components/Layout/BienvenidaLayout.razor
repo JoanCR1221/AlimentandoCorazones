@@ -1,0 +1,22 @@
+@inherits LayoutComponentBase
+
+@* Layout de la landing de bienvenida: cabecera de marca, contenido centrado y
+   pie. Sin AppBar ni menú. No lleva MudThemeProvider (esta página no usa
+   componentes de Mud que dependan de la paleta), así que los colores salen de
+   los tokens --ac-* de app.css. *@
+<div class="bienvenida-fondo">
+    <header class="bienvenida-cabecera">
+        <a href="/bienvenida" class="bienvenida-marca">
+            <img src="img/logo.png" alt="" class="bienvenida-logo" width="36" height="36" />
+            <span>Alimentando Corazones</span>
+        </a>
+    </header>
+
+    <main class="bienvenida-contenedor">
+        @Body
+    </main>
+
+    <footer class="bienvenida-pie">
+        Alimentando Corazones — Un puente de esperanza
+    </footer>
+</div>

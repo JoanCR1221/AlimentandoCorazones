@@ -1,9 +1,8 @@
-namespace SIGAC.Services;
+﻿namespace SIGAC.Services;
 
-// Solo para el selector visual de código de país del teléfono (ver
-// Components/Shared/PhoneInput.razor). El número que se guarda sigue siendo
-// únicamente el local: SIGAC opera en Costa Rica y esa validación (8 dígitos)
-// no cambia, ver ReglasBeneficiario.DigitosTelefono.
+// Lista del selector de código de país del teléfono (ver
+// Components/Shared/PhoneInput.razor). Se guarda solo el código ("506"), no el
+// país: las reglas del número están en SIGAC.Domain.ReglasTelefono.
 public sealed record Pais(string Nombre, string Iso2, string CodigoTelefono)
 {
     public string Bandera => ConvertirABandera(Iso2);
@@ -27,6 +26,27 @@ public sealed record Pais(string Nombre, string Iso2, string CodigoTelefono)
 public static class Paises
 {
     public static readonly Pais CostaRica = new("Costa Rica", "CR", "506");
+
+    // Códigos que comparten varios países de la lista. Como se guarda solo el
+    // código, al abrir un teléfono guardado se muestra el país más frecuente.
+    private static readonly Dictionary<string, string> PaisPreferidoPorCodigo = new()
+    {
+        ["1"] = "US",
+        ["7"] = "RU"
+    };
+
+    // País a mostrar para un código guardado; Costa Rica si no hay código o no
+    // está en la lista.
+    public static Pais PorCodigo(string? codigo)
+    {
+        if (string.IsNullOrWhiteSpace(codigo))
+            return CostaRica;
+
+        if (PaisPreferidoPorCodigo.TryGetValue(codigo, out var iso2))
+            return Todos.First(p => p.Iso2 == iso2);
+
+        return Todos.FirstOrDefault(p => p.CodigoTelefono == codigo) ?? CostaRica;
+    }
 
     public static readonly IReadOnlyList<Pais> Todos = new List<Pais>
     {

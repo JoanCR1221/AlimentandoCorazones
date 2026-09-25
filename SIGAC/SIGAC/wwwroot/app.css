@@ -1,3 +1,144 @@
+/* ==========================================================================
+   Identidad visual de Alimentando Corazones
+   --------------------------------------------------------------------------
+   Los colores de marca viven acá como variables CSS (--ac-*) y en
+   Services/AparienciaService.cs (paleta de MudBlazor). Ambos lugares tienen
+   que mantenerse en sincronía: la paleta de Mud pinta los componentes y estos
+   tokens pintan todo lo que es CSS propio (login, hero, textura de fondo).
+   En los .razor no se escriben hexadecimales: se usa var(--ac-*) o
+   var(--mud-palette-*).
+
+   Reglas de contraste que respetan los tonos de abajo:
+   - texto de cuerpo >= 4.5:1, elementos de UI >= 3:1.
+   - --ac-coral y --ac-teal (tonos "puros" del logo) son para acentos: iconos,
+     títulos grandes, bordes, insignias. Con texto blanco encima se usan las
+     variantes -700 (coral-700 5.19:1, teal-700 5.97:1).
+   - --ac-lima nunca va como texto sobre blanco (1.52:1); solo como acento o
+     como fondo con texto oscuro (9.4:1).
+   ========================================================================== */
+
+:root {
+    /* Colores del logo */
+    --ac-coral: #E5411C;
+    --ac-coral-700: #C2401F;
+    --ac-coral-800: #A93318;
+    --ac-teal: #219B8C;
+    --ac-teal-700: #17705F;
+    --ac-lima: #D2DA09;
+
+    /* Superficies y texto (modo claro) */
+    /* --ac-crema es el fondo de página (gris cálido); --ac-superficie-2 es la
+       segunda superficie, para encabezados de tabla y filas al pasar el mouse. */
+    --ac-crema: #F6F4F1;
+    --ac-superficie: #FFFFFF;
+    --ac-superficie-2: #FBFAF8;
+    --ac-ink: #262B2A;
+    --ac-ink-suave: #545B59;
+    --ac-borde: #6F7876;
+    --ac-borde-suave: #E4E0DA;
+    --ac-blanco: #FFFFFF;
+
+    /* Estados de error (login estático, sin paleta de Mud) */
+    --ac-error: #B3261E;
+    --ac-error-fondo: #FCEBE9;
+    --ac-error-texto: #7A1C14;
+
+    /* Estado Activo / Inactivo: verde 5.13:1 y rojo 6.54:1 con texto blanco */
+    --ac-activo: #2E7D32;
+    --ac-activo-ink: #1B5E20;
+    --ac-activo-texto: #FFFFFF;
+    --ac-inactivo: #B3261E;
+    --ac-inactivo-texto: #FFFFFF;
+
+    /* Sombras */
+    --ac-sombra-rgb: 38, 43, 42;
+}
+
+/* Modo oscuro: fondo negro, superficies #1F1F1F y coral claro para que
+   contraste sobre negro (coral #FF8A65 sobre negro: 9.08:1). */
+html[data-theme="dark"] {
+    --ac-coral: #FF8A65;
+    --ac-coral-700: #FF8A65;
+    --ac-coral-800: #FFA48A;
+    --ac-teal: #35BDB1;
+    --ac-teal-700: #35BDB1;
+
+    --ac-crema: #000000;
+    --ac-superficie: #1F1F1F;
+    --ac-superficie-2: #262626;
+    --ac-ink: #FFFFFF;
+    --ac-ink-suave: #B8BDBB;
+    --ac-borde: #8C9492;
+    --ac-borde-suave: #3A3A3A;
+
+    --ac-error: #FF6B5E;
+    --ac-error-fondo: #3B1512;
+    --ac-error-texto: #FFB4AB;
+
+    --ac-activo: #66D17F;
+    --ac-activo-ink: #66D17F;
+    --ac-activo-texto: #000000;
+    --ac-inactivo: #FF6B5E;
+    --ac-inactivo-texto: #000000;
+
+    --ac-sombra-rgb: 0, 0, 0;
+}
+
+/* Alto contraste (claro): mismos tonos de marca llevados a AAA (>= 7:1),
+   ver AparienciaService. */
+html[data-alto-contraste="true"] {
+    --ac-coral: #7B240E;
+    --ac-coral-700: #7B240E;
+    --ac-coral-800: #5E1B0A;
+    --ac-teal: #0B4A3E;
+    --ac-teal-700: #0B4A3E;
+
+    --ac-crema: #FFFDFA;
+    --ac-superficie: #FFFFFF;
+    --ac-superficie-2: #FFFFFF;
+    --ac-ink: #000000;
+    --ac-ink-suave: #000000;
+    --ac-borde: #000000;
+    --ac-borde-suave: #000000;
+
+    --ac-error: #8C1610;
+    --ac-error-fondo: #FFFFFF;
+    --ac-error-texto: #8C1610;
+
+    --ac-activo: #1B5E20;
+    --ac-activo-ink: #1B5E20;
+    --ac-activo-texto: #FFFFFF;
+    --ac-inactivo: #8C1610;
+    --ac-inactivo-texto: #FFFFFF;
+}
+
+/* Alto contraste + oscuro. */
+html[data-theme="dark"][data-alto-contraste="true"] {
+    --ac-coral: #FFAB91;
+    --ac-coral-700: #FFAB91;
+    --ac-coral-800: #FFC2AD;
+    --ac-teal: #6FE0D3;
+    --ac-teal-700: #6FE0D3;
+
+    --ac-crema: #000000;
+    --ac-superficie: #0A0A0A;
+    --ac-superficie-2: #0A0A0A;
+    --ac-ink: #FFFFFF;
+    --ac-ink-suave: #FFFFFF;
+    --ac-borde: #FFFFFF;
+    --ac-borde-suave: #FFFFFF;
+
+    --ac-error: #FF9088;
+    --ac-error-fondo: #000000;
+    --ac-error-texto: #FF9088;
+
+    --ac-activo: #7BE495;
+    --ac-activo-ink: #7BE495;
+    --ac-activo-texto: #000000;
+    --ac-inactivo: #FF9088;
+    --ac-inactivo-texto: #000000;
+}
+
 html {
     /* Tamaño base: el slider de Configuraciones lo sobrescribe con un estilo
        inline (ver apariencia.js), este 100% es solo el valor antes de que
@@ -6,7 +147,18 @@ html {
 }
 
 html, body {
-    font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-family: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+body {
+    background-color: var(--ac-crema);
+    color: var(--ac-ink);
+}
+
+/* Títulos con Outfit. Los componentes de Mud (Typo.h1-h6) ya la reciben del
+   tema; esto cubre los <h1> planos de páginas estáticas como el login. */
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
 }
 
 /* La barra superior es position:fixed con un z-index alto; MudBlazor le suma
@@ -19,186 +171,133 @@ html, body {
     padding-top: calc(var(--mud-appbar-height, 64px) + 1rem);
 }
 
-/* --- Tokens del estilo artesanal (hand-drawn) --- */
-:root {
-    --sigac-border: #7A685D;
-    --sigac-shadow: 3px 3px 0px rgba(122, 104, 93, 0.25);
-    /* Usado por los popovers/diálogos/menús (mud-paper que no es card); las
-       tarjetas, botones e inputs ya migraron a otros estilos y no la usan. */
-    --sigac-radius-surface: 30px 6px 30px 6px / 6px 30px 6px 30px;
+/* --- Barra superior: blanca (gris #1F1F1F en oscuro) con un borde inferior fino
+   en lugar de sombra; el coral queda para el botón principal y el ítem activo
+   del menú. En alto contraste conserva el coral oscuro del tema. */
+html:not([data-alto-contraste="true"]) .mud-appbar {
+    border-bottom: 1px solid var(--ac-borde-suave);
+    box-shadow: none;
 }
 
-/* Fondo de "papel cuadriculado" en modo oscuro (From Uiverse.io by
-   chris_6688), reemplaza la lluvia animada anterior. Va directo en <body>
-   (mismo motivo que antes: ahí pinta MudBlazor el Background del tema, y
-   queda detrás de AppBar/Drawer/tarjetas sin tocar el layout de Blazor).
-   Se omite overflow:hidden del .container original: en <body> eso
-   recortaría el scroll de cualquier página más larga que la pantalla
-   (tablas, formularios largos). #121212 (gris neutro) se cambió por
-   #2A2420, el mismo marrón oscuro que ya usa el tema — la cuadrícula/puntos
-   en blanco quedan igual, son casi imperceptibles (3-7% de opacidad) así
-   que el matiz exacto no se nota. Estática, sin animación: no hace falta
-   guardar contra prefers-reduced-motion. */
-html[data-theme="dark"]:not([data-alto-contraste="true"]) body {
-    position: relative;
-    background-color: #2A2420;
-    background-image:
-        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.05) 1px, transparent 0),
-        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 0),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 0);
-    background-size: 40px 40px, 20px 20px, 20px 20px;
+/* --- Consistencia entre módulos: títulos de pantalla ---
+   Texto de tinta a 26px, no coral: el color se reserva para la acción. */
+.sigac-main .mud-typography-h3,
+.sigac-main .mud-typography-h4,
+.sigac-main .mud-typography-h5 {
+    color: var(--ac-ink);
+    font-weight: 600;
 }
 
-html[data-theme="dark"]:not([data-alto-contraste="true"]) body::before {
-    content: "";
-    /* fixed + z-index negativo por la misma razón que el resto de estos
-       fondos: <body> puede medir menos que la página real (AppBar/Drawer
-       son fixed y no suman a su alto "auto"), y sin esto quedaría encima de
-       tarjetas/drawer en vez de detrás. */
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background: repeating-linear-gradient(45deg,
-        transparent,
-        transparent 10px,
-        rgba(255, 255, 255, 0.03) 10px,
-        rgba(255, 255, 255, 0.03) 20px);
-    opacity: 0.8;
+.sigac-main .mud-typography-h4 {
+    font-size: 1.625rem;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
 }
 
-html[data-theme="dark"]:not([data-alto-contraste="true"]) body::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
-    background-size: 60px 60px;
-    opacity: 0.6;
-}
-
-/* Tarjeta "vidrio esmerilado" (From Uiverse.io by SteveBloX), a pedido,
-   reemplaza la tarjeta "gema" anterior. El CSS original es para una
-   insignia chica y clicable (200x254px fijos, centrada, con cursor:pointer
-   y una animación de "rebote" al hacer hover/click) — una MudCard acá es un
-   contenedor grande de formularios y tablas, no un botón, así que se
-   mantiene solo la "piel" de vidrio (fondo traslúcido + blur + borde +
-   sombra + radio) y se omiten:
-   - width/height fijos y el centrado flex/text-align (rompería el layout
-     de cualquier formulario o tabla adentro).
-   - cursor:pointer, user-select:none y el hover/active con scale+rotate
-     (la tarjeta entera no es un único elemento clicable; ese "rebote" en
-     cada hover/click de un input o botón interno se sentiría roto, no como
-     una interacción intencional).
-   - color:black y font-weight:bolder (el texto ya tiene su propio color
-     por el tema; forzar negro/negrita ahí pisaría eso).
-   Los colores sí se adaptaron: gris rgba(217,217,217,.58) → crema de la
-   paleta, sombra negra → el mismo marrón de siempre. El blur deja ver
-   difuminado el fondo animado de día/noche detrás de la tarjeta. */
+/* Tarjeta: superficie blanca con borde de 1px y una sombra casi imperceptible
+   (estilo sobrio de software administrativo). */
 html:not([data-alto-contraste="true"]) .mud-card {
     box-sizing: border-box;
-    background: rgba(253, 251, 247, 0.58);
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    box-shadow: 12px 17px 51px rgba(62, 51, 46, 0.22);
-    backdrop-filter: blur(6px);
-    border-radius: 17px;
+    background: var(--ac-superficie);
+    border: 1px solid var(--ac-borde-suave);
+    box-shadow: 0 1px 2px rgba(var(--ac-sombra-rgb), 0.06), 0 1px 1px rgba(var(--ac-sombra-rgb), 0.04);
+    border-radius: 10px;
 }
 
-/* Vidrio oscuro en modo oscuro: con el mismo fondo crema translúcido de
-   arriba, el texto blanco del tema oscuro quedaba lavado contra un panel
-   claro-ish (poco contraste). Mismo vidrio, base oscura. */
-html[data-theme="dark"]:not([data-alto-contraste="true"]) .mud-card {
-    background: rgba(22, 16, 9, 0.58);
-    border-color: rgba(255, 255, 255, 0.18);
-    box-shadow: 12px 17px 51px rgba(0, 0, 0, 0.35);
-}
-
+/* Menús, popovers y diálogos: más sombra porque flotan sobre el contenido. */
 html:not([data-alto-contraste="true"]) .mud-paper:not(.mud-card) {
-    border-radius: var(--sigac-radius-surface);
-    border: 1.5px solid var(--sigac-border);
-    box-shadow: var(--sigac-shadow);
+    border-radius: 10px;
+    border: 1px solid var(--ac-borde-suave);
+    box-shadow: 0 8px 24px rgba(var(--ac-sombra-rgb), 0.12);
 }
 
-/* Inputs con línea inferior en vez de caja completa (a pedido, reemplaza el
-   radio orgánico que tenían antes). No hace falta reproducir a mano los
-   estados de foco/error/hover del CSS pegado: MudBlazor ya los resuelve solo
-   con la misma variable de color (var(--mud-palette-lines-inputs) en reposo,
-   Primary en foco, Error si hay error) — acá solo se cambia la FORMA del
-   borde (una línea abajo, sin caja ni radio), no el color. El "legend" que
-   recorta un hueco en la caja para la etiqueta ya no tiene sentido sin caja,
-   así que se oculta. */
-html:not([data-alto-contraste="true"]) .mud-input-outlined-border {
-    border-width: 0 0 2px 0 !important;
-    border-radius: 0;
+/* Menú lateral: borde fino en vez de solo sombra. */
+html:not([data-alto-contraste="true"]) .mud-drawer {
+    border-right: 1px solid var(--ac-borde-suave);
 }
 
-html:not([data-alto-contraste="true"]) .mud-input-outlined-border legend {
-    display: none;
-}
-
-/* Botón (Filled/Outlined), estilo "papel doblado" (From Uiverse.io by
-   ferlagher, adaptado): reemplaza el radio orgánico que tenían antes, a
-   pedido explícito porque no convenció. El color de fondo lo sigue
-   resolviendo el tema de MudBlazor (Primary/Secondary/Info); acá solo se
-   cambia forma, sombra y la esquina que se "despega" al pasar el mouse.
-   Los botones "Text" (acciones chicas dentro de la grilla, como
-   Editar/Desactivar) quedan fuera a propósito: son enlaces discretos, no
-   tarjetas con sombra. */
+/* Botones (Filled/Outlined): radio parejo y sin sombra; el color de fondo lo
+   resuelve el tema de MudBlazor. Los botones "Text" (acciones chicas dentro
+   de la grilla, como Editar) quedan con su estilo plano. */
 html:not([data-alto-contraste="true"]) .mud-button-filled,
 html:not([data-alto-contraste="true"]) .mud-button-outlined {
-    position: relative;
-    overflow: hidden;
-    border-radius: 0.5em;
-    box-shadow: 0.35em 0.35em 0.4em rgba(62, 51, 46, 0.35);
-    transition: box-shadow 0.2s, transform 0.2s;
+    border-radius: 8px;
+    box-shadow: none;
+    transition: background-color 0.2s, box-shadow 0.2s;
 }
 
-html:not([data-alto-contraste="true"]) .mud-button-filled:active,
-html:not([data-alto-contraste="true"]) .mud-button-outlined:active {
-    box-shadow: 0.15em 0.15em 0.2em rgba(62, 51, 46, 0.35);
-    transform: translate(0.1em, 0.1em);
+html:not([data-alto-contraste="true"]) .mud-button-filled:hover {
+    box-shadow: 0 2px 8px rgba(var(--ac-sombra-rgb), 0.2);
 }
 
-/* La esquina doblada solo tiene sentido sobre un fondo sólido: va únicamente
-   en Filled (Guardar, Ver listado...). El segundo tramo del degradé es
-   transparente en vez de repetir el color del botón (como en el CSS
-   original, pensado para un solo botón rojo) para que funcione igual sobre
-   cualquier color de MudBlazor (Primary, Secondary, Info) sin declarar un
-   caso por color. */
-html:not([data-alto-contraste="true"]) .mud-button-filled::before {
-    position: absolute;
-    content: '';
-    height: 0;
-    width: 0;
-    top: 0;
-    left: 0;
-    background: linear-gradient(135deg, #2A2420 0%, #2A2420 50%, transparent 50%, transparent 60%);
-    border-radius: 0 0 0.5em 0;
-    transition: 0.3s;
-}
-
-html:not([data-alto-contraste="true"]) .mud-button-filled:hover::before {
-    width: 1.4em;
-    height: 1.4em;
-}
-
-/* Botones secundarios (Variant.Outlined + Color.Primary): fidelidad literal
-   al terracota #C05C4E pedido. No tienen el problema de contraste del botón
+/* Botones secundarios (Variant.Outlined + Color.Primary): borde y texto del
+   mismo color Primary del tema. No tienen el problema de contraste del botón
    principal porque el texto es del mismo color que el borde, no blanco. */
 html:not([data-alto-contraste="true"]) .mud-button-outlined-primary {
-    border-color: #C05C4E;
-    color: #C05C4E;
+    border-color: var(--mud-palette-primary);
+    color: var(--mud-palette-primary);
 }
 
 html:not([data-alto-contraste="true"]) .mud-table-container,
 html:not([data-alto-contraste="true"]) .mud-data-grid {
-    border: 1.5px solid var(--sigac-border);
+    border: 1px solid var(--ac-borde-suave);
     border-radius: 10px;
 }
 
-html:not([data-alto-contraste="true"]) .mud-chip {
-    border: 1.5px solid var(--sigac-border);
+/* Encabezado de tablas y grillas: segunda superficie, texto pequeño en
+   mayúsculas con espaciado, color de tinta suave (>= 6:1). Una sola regla para
+   las 12 MudDataGrid y las MudTable. */
+.mud-table-head .mud-table-cell {
+    background-color: var(--ac-superficie-2);
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* --- Estado Activo / Inactivo ---
+   Etiqueta (EstadoChip): píldora tintada con texto e icono del color del estado.
+   Botones Activar / Desactivar / Anular: contorno del mismo color. Los
+   selectores son más específicos que los de Mud (.mud-chip-filled-color-*,
+   .mud-button-outlined-*) para ganar sin usar !important. */
+html .mud-chip.mud-chip-filled.ac-estado {
+    font-weight: 700;
+    border-radius: 999px;
+}
+
+html .mud-chip.mud-chip-filled.ac-estado-activo {
+    background-color: color-mix(in srgb, var(--ac-activo) 14%, var(--ac-superficie));
+    color: var(--ac-activo-ink);
+}
+
+html .mud-chip.mud-chip-filled.ac-estado-inactivo {
+    background-color: color-mix(in srgb, var(--ac-inactivo) 14%, var(--ac-superficie));
+    color: var(--ac-inactivo);
+}
+
+html .mud-button.mud-button-outlined.ac-btn-activar {
+    color: var(--ac-activo-ink);
+    border-color: var(--ac-activo);
+}
+
+html .mud-button.mud-button-outlined.ac-btn-inactivar {
+    color: var(--ac-inactivo);
+    border-color: var(--ac-inactivo);
+}
+
+html .mud-button.mud-button-outlined.ac-btn-activar:hover {
+    background-color: color-mix(in srgb, var(--ac-activo) 12%, transparent);
+}
+
+html .mud-button.mud-button-outlined.ac-btn-inactivar:hover {
+    background-color: color-mix(in srgb, var(--ac-inactivo) 12%, transparent);
+}
+
+/* Alertas con el mismo radio que el resto de superficies. */
+html:not([data-alto-contraste="true"]) .mud-alert {
+    border-radius: 12px;
 }
 
 html[data-alto-contraste="true"] .mud-input-outlined .mud-input-outlined-border {
@@ -225,7 +324,439 @@ html[data-alto-contraste="true"] :focus-visible {
 }
 
 a {
-    color: #A8503F;
+    color: var(--ac-coral-700);
+}
+
+/* --- Accesibilidad e interacción --- */
+
+/* El AppBar es fixed: sin esto, al saltar a un ancla (enlace "Saltar al
+   contenido") el destino queda tapado por la barra. */
+html {
+    scroll-padding-top: calc(var(--mud-appbar-height, 64px) + 1rem);
+}
+
+/* Enlace "Saltar al contenido principal": fuera de pantalla hasta que recibe el
+   foco del teclado. */
+.sigac-saltar {
+    position: fixed;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 2000;
+    padding: 0.6rem 1rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--ac-blanco);
+    background-color: var(--ac-coral-800);
+    border-radius: 8px;
+    transform: translateY(-200%);
+}
+
+.sigac-saltar:focus {
+    transform: translateY(0);
+    outline: 3px solid var(--ac-lima);
+    outline-offset: 2px;
+}
+
+/* Foco visible para quien navega con teclado, en el verde azulado de marca
+   (5.97:1 sobre blanco; en modo oscuro el token pasa a su tono claro). En el
+   AppBar, que es coral, se usa blanco. Alto contraste ya tiene su propio anillo
+   (currentColor, más arriba). */
+html:not([data-alto-contraste="true"]) :is(a, button, [role="button"], [tabindex]):focus-visible {
+    outline: 3px solid var(--ac-teal-700);
+    outline-offset: 2px;
+}
+
+/* El destino del enlace de salto recibe foco programático (tabindex -1): sin
+   anillo, no es un control. */
+#contenido-principal:focus {
+    outline: none;
+}
+
+/* Cifras alineadas en columnas de datos (montos, fechas, cantidades). */
+.mud-table-cell {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Pantallas táctiles: objetivos de 44px como mínimo (los botones Small de las
+   grillas, como Activar/Desactivar, quedarían en ~30px). */
+@media (pointer: coarse) {
+    .mud-button-root,
+    .mud-icon-button {
+        min-height: 44px;
+    }
+
+    .mud-icon-button {
+        min-width: 44px;
+    }
+}
+
+/* --- Menú de la cuenta (SesionToolbar) ---
+   Activador: avatar con iniciales + nombre + rol + flecha, sobre la barra. Al
+   pulsarlo se abre una tarjeta con la cuenta y sus acciones. El color del texto
+   lo hereda de la barra (oscuro en claro, blanco en oscuro y alto contraste),
+   por eso el rol se atenúa con color-mix sobre currentColor y no con un token
+   fijo. */
+.sigac-usuario-activador {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    height: 44px;
+    padding: 0 8px 0 6px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+
+.sigac-usuario-activador:hover {
+    background-color: var(--ac-superficie-2);
+    border-color: var(--ac-borde-suave);
+}
+
+html[data-alto-contraste="true"] .sigac-usuario-activador:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-color: currentColor;
+}
+
+.sigac-avatar {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--ac-teal) 14%, var(--ac-superficie));
+    color: var(--ac-teal-700);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.sigac-avatar-grande {
+    width: 44px;
+    height: 44px;
+    font-size: 1rem;
+}
+
+.sigac-usuario-datos {
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.2;
+    text-align: left;
+}
+
+.sigac-usuario-nombre {
+    max-width: 14rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.sigac-usuario-rol {
+    font-size: 0.75rem;
+    color: color-mix(in srgb, currentColor 78%, transparent);
+}
+
+.sigac-usuario-popover {
+    min-width: 288px;
+}
+
+.sigac-usuario-tarjeta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+}
+
+.sigac-usuario-tarjeta-datos {
+    min-width: 0;
+}
+
+.sigac-usuario-tarjeta-nombre {
+    font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--ac-ink);
+}
+
+.sigac-usuario-correo {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.8125rem;
+    color: var(--ac-ink-suave);
+}
+
+.sigac-usuario-pildora {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ac-teal) 14%, var(--ac-superficie));
+    color: var(--ac-teal-700);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.sigac-usuario-cerrar {
+    color: var(--ac-inactivo);
+    font-weight: 600;
+}
+
+/* --- Tarjetas de resumen (TarjetaResumen) ---
+   Cifra grande con título y detalle, en una fila que se ajusta al ancho. La
+   cifra usa dígitos tabulares. Con .ac-kpi-alerta el borde y el icono pasan al
+   color de advertencia del tema (texto e icono con contraste >= 4.5:1). */
+.ac-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.ac-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 16px;
+    background: var(--ac-superficie);
+    border: 1px solid var(--ac-borde-suave);
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(var(--ac-sombra-rgb), 0.06);
+}
+
+.ac-kpi-titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    color: var(--ac-ink-suave);
+}
+
+.ac-kpi-titulo .mud-icon-root {
+    color: var(--ac-teal-700);
+}
+
+.ac-kpi-valor {
+    font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
+    font-size: 1.875rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    color: var(--ac-ink);
+}
+
+.ac-kpi-detalle {
+    font-size: 0.8125rem;
+    color: var(--ac-ink-suave);
+}
+
+.ac-kpi-alerta {
+    border-color: var(--mud-palette-warning);
+}
+
+.ac-kpi-alerta .ac-kpi-titulo .mud-icon-root,
+.ac-kpi-alerta .ac-kpi-detalle {
+    color: var(--mud-palette-warning);
+    font-weight: 600;
+}
+
+/* --- Cabecera de pantalla (EncabezadoPagina) --- */
+.ac-encabezado {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.ac-encabezado-texto {
+    min-width: 0;
+}
+
+.ac-encabezado-descripcion {
+    margin-top: 4px;
+    color: var(--ac-ink-suave);
+}
+
+.ac-encabezado-accion {
+    flex: none;
+}
+
+/* --- Migas de pan (MigasPan) --- */
+.ac-migas {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 12px;
+    font-size: 0.8125rem;
+    color: var(--ac-ink-suave);
+}
+
+.ac-migas a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.ac-migas a:hover {
+    color: var(--ac-coral-700);
+    text-decoration: underline;
+}
+
+.ac-migas .ac-migas-actual {
+    color: var(--ac-ink);
+    font-weight: 600;
+}
+
+.ac-migas .mud-icon-root {
+    width: 14px;
+    height: 14px;
+    opacity: 0.6;
+}
+
+/* --- Estados vacío y de carga de las grillas (EstadoVacio / CargandoGrilla) --- */
+.ac-vacio {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 40px 16px;
+    text-align: center;
+    color: var(--ac-ink-suave);
+}
+
+.ac-vacio .mud-icon-root {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 8px;
+    color: var(--ac-borde);
+}
+
+.ac-vacio-titulo {
+    margin: 0;
+    font-weight: 600;
+    color: var(--ac-ink);
+}
+
+.ac-vacio-descripcion {
+    margin: 0;
+    max-width: 32rem;
+    font-size: 0.875rem;
+}
+
+.ac-cargando {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 48px 16px;
+    color: var(--ac-ink-suave);
+    font-size: 0.875rem;
+}
+
+/* --- Listados: barra de filtros en una fila ---
+   En las pantallas de listado (tarjeta con una grilla como hijo directo) los
+   campos de búsqueda y los filtros se acomodan en columnas que se ajustan al
+   ancho, en vez de una pila de campos a todo el ancho. Todo lo que no es un
+   campo (botones, avisos, la grilla) ocupa la fila completa. Sin cambiar el
+   markup de las 12 pantallas. */
+.sigac-main .mud-card-content:has(> .mud-data-grid) {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    column-gap: 12px;
+    align-items: start;
+}
+
+.sigac-main .mud-card-content:has(> .mud-data-grid) > :not(.mud-input-control) {
+    grid-column: 1 / -1;
+}
+
+/* La caja de búsqueda (campo de texto, no lista desplegable) ocupa su propia fila:
+   sus etiquetas son largas ("Buscar por nombres, apellidos o número de
+   identidad") y en una columna de filtro quedaban cortadas. Los desplegables
+   (Categoría, Tipo de documento, Estado) sí van en columnas, debajo. */
+.sigac-main .mud-card-content:has(> .mud-data-grid) > .mud-input-control:not(.mud-select) {
+    grid-column: 1 / -1;
+    max-width: 640px;
+}
+
+.sigac-main .mud-card-content:has(> .mud-data-grid) > .mud-button-root {
+    justify-self: start;
+}
+
+/* --- Portada (Home.razor): hero + tarjetas de módulos --- */
+.ac-hero {
+    margin-bottom: 2rem;
+}
+
+.ac-hero-texto {
+    text-align: center;
+    padding: 1.5rem 0.5rem 0;
+}
+
+/* Antetítulo: verde azulado 700 (5.67:1 sobre el crema), no el puro. */
+.ac-hero-antetitulo {
+    display: inline-block;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.35rem;
+    font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    color: var(--ac-teal-700);
+    border-bottom: 3px solid var(--ac-lima);
+}
+
+.ac-hero-titulo {
+    margin: 0;
+    font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
+    font-size: clamp(1.5rem, 1rem + 2.4vw, 2.75rem);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    /* Título grande: coral puro (3.91:1 sobre el crema, válido para texto
+       grande). En modo oscuro y alto contraste el token ya cambia. */
+    color: var(--ac-coral);
+}
+
+.ac-card-modulo {
+    height: 100%;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+html:not([data-alto-contraste="true"]) .ac-card-modulo:hover {
+    transform: translateY(-3px);
+    box-shadow: 12px 20px 51px rgba(var(--ac-sombra-rgb), 0.22);
+}
+
+/* Icono de cada módulo dentro de un círculo teñido con su propio color
+   (currentColor lo toma de la clase mud-*-text del icono). */
+.ac-card-modulo .mud-icon-root.mud-icon-size-large {
+    box-sizing: content-box;
+    padding: 0.6rem;
+    border-radius: 50%;
+    background-color: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ac-card-modulo,
+    .mud-button-filled,
+    .mud-button-outlined {
+        transition: none;
+    }
+
+    html:not([data-alto-contraste="true"]) .ac-card-modulo:hover {
+        transform: none;
+    }
 }
 
 .blazor-error-boundary {

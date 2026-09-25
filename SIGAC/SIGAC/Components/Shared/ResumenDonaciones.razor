@@ -1,0 +1,43 @@
+@using SIGAC.Application.DTOs
+@using SIGAC.Application.Interfaces
+@inject IResumenService ResumenService
+
+@* Tarjetas de resumen del módulo de Donaciones. Autónomo: carga sus propios
+   datos y, si la consulta falla, no muestra nada (el listado sigue igual). *@
+@if (datos is not null)
+{
+    <section class="ac-kpis" aria-label="Resumen de donaciones">
+        <TarjetaResumen Titulo="Donaciones este mes"
+                        Valor="@TextoResumen.Numero(datos.DonacionesEsteMes)"
+                        Detalle="@TextoResumen.VsMesAnterior(datos.DonacionesEsteMes, datos.DonacionesMesAnterior)"
+                        Icono="@Icons.Material.Filled.VolunteerActivism" />
+        <TarjetaResumen Titulo="Dinero recibido este mes"
+                        Valor="@TextoResumen.Montos(datos.DineroEsteMes)"
+                        Detalle="@(datos.DineroEsteMes.Count == 0 ? "Sin aportes en dinero este mes" : null)"
+                        Icono="@Icons.Material.Filled.Payments" />
+        <TarjetaResumen Titulo="Artículos donados este mes"
+                        Valor="@TextoResumen.Numero(datos.ArticulosDonadosEsteMes)"
+                        Detalle="@TextoResumen.VsMesAnterior(datos.ArticulosDonadosEsteMes, datos.ArticulosDonadosMesAnterior)"
+                        Icono="@Icons.Material.Filled.Redeem" />
+    </section>
+}
+
+@code {
+    private ResumenDonacionesDto? datos;
+
+    protected override async Task OnInitializedAsync() => await RecargarAsync();
+
+    public async Task RecargarAsync()
+    {
+        try
+        {
+            datos = await ResumenService.ObtenerResumenDonacionesAsync();
+        }
+        catch (Exception)
+        {
+            datos = null;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+}

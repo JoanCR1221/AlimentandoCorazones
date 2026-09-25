@@ -8,7 +8,7 @@
 @inject ISnackbar Snackbar
 @inject NavigationManager NavigationManager
 
-<MudText Typo="Typo.h4" Class="mb-4">Registrar proyecto comunitario</MudText>
+<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Registrar proyecto comunitario</MudText>
 
 <EditForm Model="modelo" OnValidSubmit="Guardar">
     <DataAnnotationsValidator />
@@ -42,6 +42,7 @@
         </MudCardContent>
         <MudCardActions>
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+            <MudButton Variant="Variant.Text" Color="Color.Default" Href="/proyectos" Class="mb-2">Cancelar</MudButton>
         </MudCardActions>
     </MudCard>
 </EditForm>
@@ -82,7 +83,7 @@
             // el proyecto recién creado en el listado, con el mismo criterio que
             // RegistrarGasto.razor ofrece la entrada de inventario de una compra.
             Snackbar.Add(
-                "¿Querés agregarle participantes ahora?",
+                "¿Desea agregarle participantes ahora?",
                 Severity.Info,
                 config =>
                 {
@@ -103,7 +104,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo registrar el proyecto comunitario. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo registrar el proyecto comunitario. Intente de nuevo.", Severity.Error);
         }
     }
 }

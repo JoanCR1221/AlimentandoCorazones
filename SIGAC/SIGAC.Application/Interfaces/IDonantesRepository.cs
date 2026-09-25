@@ -34,5 +34,9 @@ namespace SIGAC.Application.Interfaces
         // propio vive en el servicio, que es donde se lee la intención. Mismo
         // reparto que IBeneficiariosRepository.CambiarEstadoAsync.
         Task CambiarEstadoAsync(int id, bool estado);
+
+        // Conteos generales (activos, inactivos, altas de este mes y del anterior)
+        // en una sola consulta agregada: no trae filas, solo cuatro números.
+        Task<ResumenRegistrosDto> ObtenerResumenAsync();
     }
 }

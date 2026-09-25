@@ -9,7 +9,7 @@
 @inject IAsistenciaService AsistenciaService
 @inject ISnackbar Snackbar
 
-<MudText Typo="Typo.h4" Class="mb-4">Registrar asistencia</MudText>
+<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Registrar asistencia</MudText>
 
 <EditForm Model="modelo" OnValidSubmit="Guardar">
     <DataAnnotationsValidator />
@@ -51,6 +51,7 @@
         </MudCardContent>
         <MudCardActions>
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+            <MudButton Variant="Variant.Text" Color="Color.Default" Href="/asistencia/historial" Class="mb-2">Cancelar</MudButton>
         </MudCardActions>
     </MudCard>
 </EditForm>
@@ -61,7 +62,7 @@
     private bool asistenciaDuplicada;
 
     private static readonly string AyudaBusqueda =
-        $"Escribí al menos {FiltrosBeneficiarioDto.MinimoCaracteresBusqueda} caracteres para buscar por nombre o número de identidad.";
+        $"Escriba al menos {FiltrosBeneficiarioDto.MinimoCaracteresBusqueda} caracteres para buscar por nombre o número de identidad.";
 
     private DateTime? fecha
     {
@@ -142,7 +143,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo registrar la asistencia. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo registrar la asistencia. Intente de nuevo.", Severity.Error);
         }
     }
 }

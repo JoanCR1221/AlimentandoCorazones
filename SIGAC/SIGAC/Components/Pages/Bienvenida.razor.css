@@ -1,0 +1,93 @@
+.bienvenida-banner {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 20px;
+    border: 1px solid var(--ac-borde-suave);
+    box-shadow: 0 10px 30px rgba(var(--ac-sombra-rgb), 0.12);
+}
+
+.bienvenida-texto {
+    text-align: center;
+    padding: 2rem 0.5rem 0;
+}
+
+.bienvenida-descripcion {
+    max-width: 40rem;
+    margin: 1rem auto 0;
+    font-size: 1.05rem;
+    line-height: 1.6;
+    color: var(--ac-ink-suave);
+}
+
+/* Botón como enlace (navegación, no acción): coral-700 con texto blanco,
+   5.19:1. Mismo radio y color que el botón del login. */
+.bienvenida-entrar {
+    display: inline-block;
+    margin-top: 1.75rem;
+    padding: 0.8rem 2rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--ac-blanco);
+    background-color: var(--ac-coral-700);
+    border-radius: 12px;
+}
+
+.bienvenida-entrar:hover {
+    background-color: var(--ac-coral-800);
+}
+
+.bienvenida-entrar:focus-visible {
+    outline: 3px solid var(--ac-teal-700);
+    outline-offset: 3px;
+}
+
+/* Tarjetas informativas de los módulos. */
+.bienvenida-modulos {
+    list-style: none;
+    margin: 2.5rem 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.bienvenida-modulo {
+    padding: 1.25rem;
+    background-color: var(--ac-superficie);
+    border: 1px solid var(--ac-borde-suave);
+    border-radius: 16px;
+}
+
+.bienvenida-modulo p {
+    margin: 0.35rem 0 0;
+    font-size: 0.95rem;
+    color: var(--ac-ink-suave);
+}
+
+.bienvenida-modulo-titulo {
+    margin: 0.9rem 0 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--ac-ink);
+}
+
+/* Icono dentro de un círculo teñido con el color de marca (currentColor). Se
+   usan los tonos -700 porque aquí no hay MudThemeProvider que pinte la paleta. */
+.bienvenida-icono {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 50%;
+    background-color: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+.bienvenida-icono-coral {
+    color: var(--ac-coral-700);
+}
+
+.bienvenida-icono-teal {
+    color: var(--ac-teal-700);
+}

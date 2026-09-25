@@ -1,0 +1,92 @@
+@using SIGAC.Application.DTOs.Beneficiarios
+@using SIGAC.Domain
+@* Campos del beneficiario, compartidos por RegistrarBeneficiario y
+   EditarBeneficiario para que las dos pantallas no puedan divergir en límites,
+   ayudas ni filtros. Va dentro del EditForm de cada pantalla, que pone el
+   validador, el botón Guardar y el manejo de errores.
+
+   Lo único que cambia entre las dos es qué pasa con el número al cambiar el
+   tipo de documento (al registrar se limpia siempre, al editar se conserva si
+   sigue siendo válido): por eso ese cambio lo resuelve la pantalla, vía
+   AlCambiarTipoDocumento. *@
+
+<MudTextField @bind-Value="Modelo.PrimerNombre" For="@(() => Modelo.PrimerNombre)" Label="Primer nombre" Variant="Variant.Outlined"
+              MaxLength="ReglasBeneficiario.LongitudMaximaNombre" />
+<MudTextField @bind-Value="Modelo.SegundoNombre" Label="Segundo nombre (opcional)" Variant="Variant.Outlined" Class="mt-4"
+              MaxLength="ReglasBeneficiario.LongitudMaximaNombre" />
+<MudTextField @bind-Value="Modelo.PrimerApellido" For="@(() => Modelo.PrimerApellido)" Label="Primer apellido" Variant="Variant.Outlined" Class="mt-4"
+              MaxLength="ReglasBeneficiario.LongitudMaximaApellido" />
+<MudTextField @bind-Value="Modelo.SegundoApellido" Label="Segundo apellido (opcional)" Variant="Variant.Outlined" Class="mt-4"
+              MaxLength="ReglasBeneficiario.LongitudMaximaApellido" />
+<MudDatePicker @bind-Date="FechaNacimiento" Label="Fecha de nacimiento" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
+
+@* La categoría no se elige: se deriva de la fecha de nacimiento. *@
+@if (Modelo.FechaNacimiento != default)
+{
+    <MudText Typo="Typo.body2" Class="mt-2">
+        Categoría: @CategoriasBeneficiario.DerivarDesdeFechaNacimiento(Modelo.FechaNacimiento)
+    </MudText>
+}
+
+<PhoneInput @bind-Value="Modelo.Telefono" @bind-CodigoPais="Modelo.CodigoPaisTelefono"
+            Label="Teléfono (opcional)" Class="mt-4" />
+<MudTextField @bind-Value="Modelo.Direccion" Label="Dirección (opcional)" Variant="Variant.Outlined" Class="mt-4"
+              MaxLength="ReglasBeneficiario.LongitudMaximaDireccion" Lines="2"
+              HelperText="@($"Máximo {ReglasBeneficiario.LongitudMaximaDireccion} caracteres. Ej: Del parque 150 metros suroeste, casa verde.")" />
+
+@* Lista cerrada: la fuente es SIGAC.Domain.TiposDocumento, no la pantalla. *@
+<MudSelect T="string" Value="Modelo.TipoDocumento" ValueChanged="AlCambiarTipoDocumento" Label="Tipo de documento" Variant="Variant.Outlined" Class="mt-4">
+    @foreach (var tipo in TiposDocumento.Todos)
+    {
+        <MudSelectItem T="string" Value="@tipo">@tipo</MudSelectItem>
+    }
+</MudSelect>
+
+@* "Otro" pide además cómo se llama el documento. *@
+@if (TiposDocumento.RequiereNombreDelDocumento(Modelo.TipoDocumento))
+{
+    <MudTextField @bind-Value="Modelo.TipoDocumentoOtro" Label="¿Cómo se llama el documento?" Variant="Variant.Outlined" Class="mt-4"
+                  MaxLength="ReglasBeneficiario.LongitudMaximaTipoDocumentoOtro" />
+}
+
+@* "Sin documento" no pide número: el campo se oculta.
+   MaxLength, teclado y ayuda salen de ReglasBeneficiario según el tipo
+   elegido, que es la misma fuente que usa el validador. Sin atributo
+   pattern: el navegador bloqueaba el envío con su propio globo, y el
+   filtro de OnNumIdentidadCambiado ya descarta lo que no corresponde. *@
+@if (TiposDocumento.RequiereNumIdentidad(Modelo.TipoDocumento))
+{
+    <MudTextField T="string" Value="Modelo.NumIdentidad" ValueChanged="OnNumIdentidadCambiado" Immediate="true"
+                  Label="Número de identidad" Variant="Variant.Outlined" Class="mt-4"
+                  MaxLength="ReglasBeneficiario.LongitudMaximaNumIdentidadPara(Modelo.TipoDocumento)"
+                  InputMode="@ModoEntradaNumIdentidad"
+                  HelperText="@ReglasBeneficiario.DescribirNumIdentidad(Modelo.TipoDocumento)" />
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IDatosBeneficiario Modelo { get; set; } = default!;
+
+    // La pantalla decide qué pasa con el número y el nombre del documento al
+    // cambiar el tipo; tiene que asignar Modelo.TipoDocumento.
+    [Parameter, EditorRequired]
+    public EventCallback<string?> AlCambiarTipoDocumento { get; set; }
+
+    private DateTime? FechaNacimiento
+    {
+        get => Modelo.FechaNacimiento == default ? null : Modelo.FechaNacimiento;
+        set => Modelo.FechaNacimiento = value ?? default;
+    }
+
+    // Teclado numérico en móvil para los tipos que solo admiten dígitos.
+    private InputMode ModoEntradaNumIdentidad =>
+        ReglasBeneficiario.NumIdentidadEsSoloDigitos(Modelo.TipoDocumento) ? InputMode.numeric : InputMode.text;
+
+    // Descarta lo que no corresponde al tipo mientras se escribe. Es comodidad: el
+    // validador del servidor vuelve a comprobar el valor completo igual que antes.
+    private void OnNumIdentidadCambiado(string? valor)
+    {
+        var filtrado = ReglasBeneficiario.FiltrarNumIdentidad(Modelo.TipoDocumento, valor);
+        Modelo.NumIdentidad = filtrado.Length == 0 ? null : filtrado;
+    }
+}

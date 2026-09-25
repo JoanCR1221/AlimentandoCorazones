@@ -120,36 +120,81 @@ public sealed class AparienciaService : IAsyncDisposable
         return _module;
     }
 
+    // Tipografía de marca: Outfit para títulos (H1-H6) y DM Sans para el resto.
+    // Se declara la familia en cada nivel y no solo en Default: MudBlazor genera
+    // una variable CSS de familia por nivel tipográfico y, si un nivel no la
+    // trae, cae en su propio valor por defecto (Roboto), no en el de Default.
+    private static readonly string[] FuenteTitulos = { "Outfit", "DM Sans", "system-ui", "sans-serif" };
+    private static readonly string[] FuenteCuerpo = { "DM Sans", "system-ui", "-apple-system", "sans-serif" };
+
+    private static Typography ConstruirTipografia() => new()
+    {
+        Default = new DefaultTypography { FontFamily = FuenteCuerpo },
+        H1 = new H1Typography { FontFamily = FuenteTitulos },
+        H2 = new H2Typography { FontFamily = FuenteTitulos },
+        H3 = new H3Typography { FontFamily = FuenteTitulos },
+        H4 = new H4Typography { FontFamily = FuenteTitulos },
+        H5 = new H5Typography { FontFamily = FuenteTitulos },
+        H6 = new H6Typography { FontFamily = FuenteTitulos },
+        Subtitle1 = new Subtitle1Typography { FontFamily = FuenteCuerpo },
+        Subtitle2 = new Subtitle2Typography { FontFamily = FuenteCuerpo },
+        Body1 = new Body1Typography { FontFamily = FuenteCuerpo },
+        Body2 = new Body2Typography { FontFamily = FuenteCuerpo },
+        Button = new ButtonTypography { FontFamily = FuenteCuerpo },
+        Caption = new CaptionTypography { FontFamily = FuenteCuerpo },
+        Overline = new OverlineTypography { FontFamily = FuenteCuerpo }
+    };
+
     private MudTheme ConstruirTema()
     {
         if (AltoContraste)
         {
-            // Misma paleta artesanal de SIGAC (terracota/marrón), pero llevada
-            // al extremo de contraste que este modo exige: fondo/texto casi
-            // blanco puro / negro puro (no el crema #FDFBF7 ni el marrón
-            // #3E332E de los temas normales, que rinden menos contraste) y el
-            // terracota oscurecido a un tono "oxblood" para que el texto
-            // blanco del AppBar llegue a AAA (7:1), no solo AA (4.5:1) como
-            // en el tema claro normal. Radios rectos y sin animaciones se
-            // mantienen intactos (ver app.css / MainLayout.razor.css, todo
-            // guardado con :not([data-alto-contraste="true"])).
+            // Misma identidad de marca (coral / verde azulado / lima), llevada
+            // al extremo de contraste que este modo exige: fondo y texto casi
+            // blanco puro / negro puro y los tonos de marca oscurecidos hasta
+            // AAA (≥7:1) con texto blanco encima. Radios rectos y sin
+            // animaciones se mantienen intactos (ver app.css /
+            // MainLayout.razor.css, todo guardado con
+            // :not([data-alto-contraste="true"])).
             return new MudTheme
             {
                 PaletteLight = new PaletteLight
                 {
-                    // #6B3226 con texto blanco da 9.95:1 (el #A8503F del tema
-                    // normal solo llega a 5.57:1: alcanza para AA, no para el
-                    // AAA que busca este modo).
-                    Primary = "#6B3226",
-                    Secondary = "#3E332E",
-                    AppbarBackground = "#6B3226",
+                    // #7B240E con texto blanco da 10.00:1 (el coral-700 del tema
+                    // normal, #C2401F, solo llega a 5.19:1: alcanza para AA, no
+                    // para el AAA que busca este modo). Supera el 9.96:1 del
+                    // "oxblood" anterior.
+                    Primary = "#7B240E",
+                    PrimaryContrastText = "#FFFFFF",
+                    // #0B4A3E con blanco: 10.18:1.
+                    Secondary = "#0B4A3E",
+                    SecondaryContrastText = "#FFFFFF",
+                    // #464D00 (olivo derivado del lima) con blanco: 9.04:1.
+                    Tertiary = "#464D00",
+                    TertiaryContrastText = "#FFFFFF",
+                    // #0D4F66 con blanco: 9.02:1.
+                    Info = "#0D4F66",
+                    InfoContrastText = "#FFFFFF",
+                    Success = "#0B4A3E",
+                    SuccessContrastText = "#FFFFFF",
+                    // #5A3400 con blanco: 10.90:1.
+                    Warning = "#5A3400",
+                    WarningContrastText = "#FFFFFF",
+                    // #8C1610 con blanco: 9.39:1.
+                    Error = "#8C1610",
+                    ErrorContrastText = "#FFFFFF",
+                    AppbarBackground = "#7B240E",
                     AppbarText = "#FFFFFF",
-                    Background = "#FFFCF8",
+                    Background = "#FFFDFA",
                     Surface = "#FFFFFF",
+                    DrawerBackground = "#FFFFFF",
+                    DrawerText = "#000000",
+                    DrawerIcon = "#7B240E",
                     TextPrimary = "#000000",
                     TextSecondary = "#000000",
                     TextDisabled = "#424242",
                     LinesDefault = "#000000",
+                    LinesInputs = "#000000",
                     Divider = "#000000",
                     ActionDefault = "#000000",
                     TableLines = "#000000",
@@ -158,22 +203,41 @@ public sealed class AparienciaService : IAsyncDisposable
                 },
                 PaletteDark = new PaletteDark
                 {
+                    // Coral y verde azulado claros sobre negro puro, con texto
+                    // negro encima (todos ≥12:1).
                     Primary = "#FFAB91",
-                    Secondary = "#D7CCC0",
-                    AppbarBackground = "#0D0906",
+                    PrimaryContrastText = "#000000",
+                    Secondary = "#6FE0D3",
+                    SecondaryContrastText = "#000000",
+                    Tertiary = "#E4EC4A",
+                    TertiaryContrastText = "#000000",
+                    Info = "#8EDCF2",
+                    InfoContrastText = "#000000",
+                    Success = "#6FE0A8",
+                    SuccessContrastText = "#000000",
+                    Warning = "#FFCC80",
+                    WarningContrastText = "#000000",
+                    Error = "#FF9088",
+                    ErrorContrastText = "#000000",
+                    AppbarBackground = "#000000",
                     AppbarText = "#FFFFFF",
-                    Background = "#0D0906",
-                    Surface = "#161009",
+                    Background = "#000000",
+                    Surface = "#0A0A0A",
+                    DrawerBackground = "#0A0A0A",
+                    DrawerText = "#FFFFFF",
+                    DrawerIcon = "#FFAB91",
                     TextPrimary = "#FFFFFF",
                     TextSecondary = "#FFFFFF",
-                    TextDisabled = "#C4B8AC",
+                    TextDisabled = "#C4C4C4",
                     LinesDefault = "#FFFFFF",
+                    LinesInputs = "#FFFFFF",
                     Divider = "#FFFFFF",
                     ActionDefault = "#FFFFFF",
                     TableLines = "#FFFFFF",
-                    TableStriped = "#1F1710",
-                    TableHover = "#2C2018"
+                    TableStriped = "#141414",
+                    TableHover = "#242424"
                 },
+                Typography = ConstruirTipografia(),
                 LayoutProperties = new LayoutProperties
                 {
                     DefaultBorderRadius = "4px",
@@ -186,57 +250,99 @@ public sealed class AparienciaService : IAsyncDisposable
         {
             PaletteLight = new PaletteLight
             {
-                // Paleta artesanal (hand-drawn) de Alimentando Corazones:
-                // terracota, beige cálido y papel crema.
-                // #A8503F en vez del #C05C4E pedido para Primary/AppbarBackground:
-                // con texto blanco encima (AppBar, botón principal) #C05C4E da
-                // 4.30:1, por debajo del 4.5:1 que pide WCAG AA para texto normal.
-                // Con este tono llega a 5.57:1. El #C05C4E literal se conserva
-                // para el borde/texto de los botones secundarios (ver app.css,
-                // .mud-button-outlined-primary), donde el texto no es blanco y
-                // no hay problema de contraste.
-                Primary = "#A8503F",
-                Secondary = "#7A685D",
-                AppbarBackground = "#A8503F",
-                AppbarText = "#FFFFFF",
-                Background = "#E6D7C3",
-                Surface = "#FDFBF7",
-                TextPrimary = "#3E332E",
-                TextSecondary = "#6B5C52",
-                DrawerBackground = "#FDFBF7",
-                DrawerText = "#3E332E",
-                DrawerIcon = "#A8503F",
-                LinesDefault = "#7A685D",
-                LinesInputs = "#7A685D",
-                Divider = "#7A685D",
-                TableLines = "#7A685D"
+                // Identidad visual de Alimentando Corazones, tomada del logo:
+                // coral, verde azulado y lima sobre crema.
+                // Primary/AppBar usan coral-700 (#C2401F) y no el coral puro del
+                // logo (#E5411C): con texto blanco encima el coral puro da
+                // 4.11:1 (no llega a AA) y coral-700 da 5.19:1. El coral puro
+                // queda para acentos (iconos, títulos grandes, bordes; ver
+                // --ac-coral en app.css).
+                Primary = "#C2401F",
+                PrimaryContrastText = "#FFFFFF",
+                // teal-700 (#17705F): 5.97:1 con blanco. El verde azulado del
+                // logo (#219B8C) da 3.42:1, válido solo para texto grande/iconos.
+                Secondary = "#17705F",
+                SecondaryContrastText = "#FFFFFF",
+                // Olivo derivado del lima del logo (#D2DA09 no admite texto
+                // encima ni sirve como texto sobre blanco: 1.52:1). #5F6800:
+                // 6.06:1 con blanco.
+                Tertiary = "#5F6800",
+                TertiaryContrastText = "#FFFFFF",
+                // Azul verdoso, 5.97:1 con blanco. El azul por defecto de
+                // MudBlazor (#2196F3) da 3.1:1.
+                Info = "#1B6B8A",
+                InfoContrastText = "#FFFFFF",
+                Success = "#17705F",
+                SuccessContrastText = "#FFFFFF",
+                // Ámbar oscuro, 5.43:1 con blanco.
+                Warning = "#9A5B00",
+                WarningContrastText = "#FFFFFF",
+                // 6.54:1 con blanco (el rojo por defecto da 3.68:1).
+                Error = "#B3261E",
+                ErrorContrastText = "#FFFFFF",
+                // Barra superior blanca con texto oscuro (14.4:1) y fondo de página
+                // gris cálido: el coral queda para el botón principal y el
+                // ítem activo del menú, no para superficies enteras.
+                AppbarBackground = "#FFFFFF",
+                AppbarText = "#262B2A",
+                Background = "#F6F4F1",
+                Surface = "#FFFFFF",
+                TextPrimary = "#262B2A",       // 13.1:1 sobre el fondo
+                TextSecondary = "#545B59",     // 6.3:1 sobre el fondo
+                DrawerBackground = "#FFFFFF",
+                DrawerText = "#262B2A",
+                DrawerIcon = "#545B59",
+                ActionDefault = "#545B59",
+                // Borde de campos: 4.54:1 sobre blanco (elementos de UI ≥3:1).
+                LinesInputs = "#6F7876",
+                LinesDefault = "#E4E0DA",
+                Divider = "#E4E0DA",
+                TableLines = "#E4E0DA",
+                TableStriped = "#FBFAF8",
+                TableHover = "#F6F4F1"
             },
             PaletteDark = new PaletteDark
             {
-                // Misma paleta artesanal en tonos oscuros. La imagen de
-                // referencia solo mostraba el tema claro; este modo oscuro
-                // extiende la misma estética en vez de dejarlo desactualizado
-                // con los colores del logo anterior. #B85A45 da 4.58:1 con
-                // texto blanco, igual criterio de contraste que en claro.
-                Primary = "#B85A45",
-                Secondary = "#A99C8E",
-                AppbarBackground = "#B85A45",
+                // Modo oscuro: negro puro de fondo, superficies #1F1F1F y
+                // coral claro (#FF8A65) como Primary para que contraste sobre
+                // negro (9.08:1). Con esos tonos claros el texto de los botones
+                // rellenos pasa a negro (el blanco daría ~2.2:1).
+                Primary = "#FF8A65",
+                PrimaryContrastText = "#000000",
+                Secondary = "#35BDB1",         // 9.07:1 sobre negro
+                SecondaryContrastText = "#000000",
+                Tertiary = "#D2DA09",          // lima: 13.77:1 sobre negro
+                TertiaryContrastText = "#000000",
+                Info = "#5CC8E8",
+                InfoContrastText = "#000000",
+                Success = "#3CC286",
+                SuccessContrastText = "#000000",
+                Warning = "#FFB74D",
+                WarningContrastText = "#000000",
+                Error = "#FF6B5E",             // 7.52:1 sobre negro, 5.90:1 sobre #1F1F1F
+                ErrorContrastText = "#000000",
+                AppbarBackground = "#1F1F1F",
                 AppbarText = "#FFFFFF",
-                Background = "#2A2420",
-                Surface = "#362F29",
-                TextPrimary = "#F0E6DA",
-                TextSecondary = "#C9BBAE",
-                DrawerBackground = "#362F29",
-                DrawerText = "#F0E6DA",
-                DrawerIcon = "#B85A45",
-                LinesDefault = "#5B4F45",
-                LinesInputs = "#5B4F45",
-                Divider = "#5B4F45",
-                TableLines = "#5B4F45"
+                Background = "#000000",
+                Surface = "#1F1F1F",
+                TextPrimary = "#FFFFFF",       // 16.48:1 sobre #1F1F1F
+                TextSecondary = "#B8BDBB",     // 8.66:1 sobre #1F1F1F
+                DrawerBackground = "#1F1F1F",
+                DrawerText = "#FFFFFF",
+                DrawerIcon = "#B8BDBB",
+                ActionDefault = "#B8BDBB",
+                // Borde de campos: 5.31:1 sobre #1F1F1F.
+                LinesInputs = "#8C9492",
+                LinesDefault = "#3A3A3A",
+                Divider = "#3A3A3A",
+                TableLines = "#3A3A3A",
+                TableStriped = "#141414",
+                TableHover = "#2A2A2A"
             },
+            Typography = ConstruirTipografia(),
             LayoutProperties = new LayoutProperties
             {
-                DefaultBorderRadius = "12px",
+                DefaultBorderRadius = "8px",
                 AppbarHeight = "64px"
             }
         };

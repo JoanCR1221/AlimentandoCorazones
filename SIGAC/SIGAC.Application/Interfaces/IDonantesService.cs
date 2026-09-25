@@ -30,5 +30,8 @@ namespace SIGAC.Application.Interfaces
         // IBeneficiariosService.
         Task ActivarDonanteAsync(int id);
         Task DesactivarDonanteAsync(int id);
+
+        // Panorama general para las tarjetas del listado; no depende de los filtros.
+        Task<ResumenRegistrosDto> ObtenerResumenAsync();
     }
 }

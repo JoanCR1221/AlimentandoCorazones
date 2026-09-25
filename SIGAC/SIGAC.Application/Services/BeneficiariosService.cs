@@ -27,22 +27,22 @@ namespace SIGAC.Application.Services
             {
                 var datos = BeneficiarioValidator.Validar(dto);
 
-                if (await _repository.ExisteAsync(
-                        datos.PrimerNombre, datos.SegundoNombre,
-                        datos.PrimerApellido, datos.SegundoApellido,
-                        datos.FechaNacimiento))
-                {
-                    throw new DuplicateException("Ya existe un beneficiario con esos nombres, apellidos y fecha de nacimiento.");
-                }
+                var mismaPersona = await _repository.BuscarPorNombresYFechaAsync(
+                    datos.PrimerNombre, datos.SegundoNombre,
+                    datos.PrimerApellido, datos.SegundoApellido,
+                    datos.FechaNacimiento);
+
+                if (mismaPersona is not null)
+                    throw Duplicado("Ya existe un beneficiario con esos nombres, apellidos y fecha de nacimiento", mismaPersona);
 
                 // Segunda regla anti-duplicados, independiente de cómo se escriba el
                 // nombre: el número de identidad identifica a la persona. Es global,
                 // no depende del tipo de documento elegido. Los que no tienen
                 // documento quedan fuera (NumIdentidad en null).
-                if (await _repository.ExisteNumIdentidadAsync(datos.NumIdentidad))
-                {
-                    throw new DuplicateException("Ya existe un beneficiario registrado con ese número de identidad.");
-                }
+                var mismoDocumento = await _repository.BuscarPorNumIdentidadAsync(datos.NumIdentidad);
+
+                if (mismoDocumento is not null)
+                    throw Duplicado("Ya existe un beneficiario registrado con ese número de identidad", mismoDocumento);
 
                 var beneficiario = new Beneficiario
                 {
@@ -51,8 +51,7 @@ namespace SIGAC.Application.Services
                     PrimerApellido = datos.PrimerApellido,
                     SegundoApellido = datos.SegundoApellido,
                     FechaNacimiento = datos.FechaNacimiento,
-                    // La categoría se almacena, pero nunca se elige a mano.
-                    Categoria = CategoriasBeneficiario.DerivarDesdeFechaNacimiento(datos.FechaNacimiento),
+                    CodigoPaisTelefono = datos.CodigoPaisTelefono,
                     Telefono = datos.Telefono,
                     Direccion = datos.Direccion,
                     Estado = true,
@@ -64,14 +63,30 @@ namespace SIGAC.Application.Services
 
                 await _repository.AgregarAsync(beneficiario);
 
-                await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Beneficiarios,
-                    $"Beneficiario #{beneficiario.Id}: {beneficiario.NombreCompleto}");
+                // Desde acá el alta ya está confirmada: si falla la bitácora no se
+                // puede informar como "no se pudo registrar".
+                try
+                {
+                    await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Beneficiarios,
+                        $"Beneficiario #{beneficiario.Id}: {beneficiario.NombreCompleto}");
+                }
+                catch (Exception ex)
+                {
+                    throw new BitacoraNoRegistradaException(
+                        "El beneficiario se registró, pero no se pudo anotar la acción en la bitácora.", ex);
+                }
             }
-            catch (Exception ex) when (ex is not ValidationException and not DuplicateException)
+            catch (Exception ex) when (ex is not ValidationException and not DuplicateException and not BitacoraNoRegistradaException)
             {
                 throw new Exception("Error al registrar el beneficiario.", ex);
             }
         }
+
+        // Dice cuál es el registro que ya existe y si está inactivo, para que no se
+        // cargue a la misma persona dos veces sin saber que ya estaba.
+        private static BeneficiarioDuplicadoException Duplicado(string motivo, BeneficiarioCoincidente existente) =>
+            new(existente.Id, existente.Activo,
+                $"{motivo}: {existente.NombreCompleto} (#{existente.Id}){(existente.Activo ? "" : ", que está inactivo")}.");
 
         public async Task<BeneficiarioEditarDto?> ObtenerParaEditarAsync(int id)
         {
@@ -88,6 +103,7 @@ namespace SIGAC.Application.Services
                     PrimerApellido = beneficiario.PrimerApellido,
                     SegundoApellido = beneficiario.SegundoApellido,
                     FechaNacimiento = beneficiario.FechaNacimiento,
+                    CodigoPaisTelefono = beneficiario.CodigoPaisTelefono,
                     Telefono = beneficiario.Telefono,
                     Direccion = beneficiario.Direccion,
                     TipoDocumento = beneficiario.TipoDocumento,
@@ -112,27 +128,27 @@ namespace SIGAC.Application.Services
 
                 // Editar los nombres o la fecha puede chocar con otro beneficiario ya
                 // registrado; se excluye el propio para no detectarse a sí mismo.
-                if (await _repository.ExisteAsync(
-                        datos.PrimerNombre, datos.SegundoNombre,
-                        datos.PrimerApellido, datos.SegundoApellido,
-                        datos.FechaNacimiento, id))
-                {
-                    throw new DuplicateException("Ya existe otro beneficiario con esos nombres, apellidos y fecha de nacimiento.");
-                }
+                var mismaPersona = await _repository.BuscarPorNombresYFechaAsync(
+                    datos.PrimerNombre, datos.SegundoNombre,
+                    datos.PrimerApellido, datos.SegundoApellido,
+                    datos.FechaNacimiento, id);
+
+                if (mismaPersona is not null)
+                    throw Duplicado("Ya existe otro beneficiario con esos nombres, apellidos y fecha de nacimiento", mismaPersona);
 
                 // Se excluye el propio registro: editar sin tocar el documento no
                 // debe detectarse a sí mismo como duplicado.
-                if (await _repository.ExisteNumIdentidadAsync(datos.NumIdentidad, id))
-                {
-                    throw new DuplicateException("Ya existe otro beneficiario registrado con ese número de identidad.");
-                }
+                var mismoDocumento = await _repository.BuscarPorNumIdentidadAsync(datos.NumIdentidad, id);
+
+                if (mismoDocumento is not null)
+                    throw Duplicado("Ya existe otro beneficiario registrado con ese número de identidad", mismoDocumento);
 
                 beneficiario.PrimerNombre = datos.PrimerNombre;
                 beneficiario.SegundoNombre = datos.SegundoNombre;
                 beneficiario.PrimerApellido = datos.PrimerApellido;
                 beneficiario.SegundoApellido = datos.SegundoApellido;
                 beneficiario.FechaNacimiento = datos.FechaNacimiento;
-                beneficiario.Categoria = CategoriasBeneficiario.DerivarDesdeFechaNacimiento(datos.FechaNacimiento);
+                beneficiario.CodigoPaisTelefono = datos.CodigoPaisTelefono;
                 beneficiario.Telefono = datos.Telefono;
                 beneficiario.Direccion = datos.Direccion;
                 beneficiario.TipoDocumento = datos.TipoDocumento;
@@ -168,7 +184,7 @@ namespace SIGAC.Application.Services
                     PrimerApellido = b.PrimerApellido,
                     SegundoApellido = b.SegundoApellido,
                     FechaNacimiento = b.FechaNacimiento,
-                    Categoria = b.Categoria,
+                    CodigoPaisTelefono = b.CodigoPaisTelefono,
                     Telefono = b.Telefono,
                     Estado = b.Estado,
                     TipoDocumento = b.TipoDocumento,
@@ -182,6 +198,18 @@ namespace SIGAC.Application.Services
             catch (Exception ex)
             {
                 throw new Exception("Error al consultar beneficiarios.", ex);
+            }
+        }
+
+        public async Task<ResumenRegistrosDto> ObtenerResumenAsync()
+        {
+            try
+            {
+                return await _repository.ObtenerResumenAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al consultar el resumen de beneficiarios.", ex);
             }
         }
 

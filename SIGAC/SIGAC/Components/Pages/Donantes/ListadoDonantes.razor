@@ -1,4 +1,4 @@
-@page "/donantes"
+﻿@page "/donantes"
 @attribute [Authorize(Policy = Permisos.Donaciones.VerDonantes)]
 @using SIGAC.Application.DTOs
 @using SIGAC.Application.DTOs.Donaciones
@@ -8,7 +8,29 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
-<MudText Typo="Typo.h4" Class="mb-4">Donantes registrados</MudText>
+<EncabezadoPagina Titulo="Donantes registrados"
+                  Descripcion="Consulte, registre y administre a los donantes y sus aportes."
+                  TextoAccion="Registrar donante" HrefAccion="/donantes/registrar"
+                  PermisoAccion="@Permisos.Donaciones.RegistrarDonante" />
+
+@* Panorama general del módulo (no depende de los filtros de la grilla). Si la
+   consulta falla, las tarjetas simplemente no se muestran: el listado sigue. *@
+@if (resumen is not null)
+{
+    <section class="ac-kpis" aria-label="Resumen de donantes">
+        <TarjetaResumen Titulo="Donantes activos"
+                        Valor="@TextoResumen.Numero(resumen.Activos)"
+                        Detalle="@TextoResumen.Cantidad(resumen.Inactivos, "inactivo", "inactivos")"
+                        Icono="@Icons.Material.Filled.VolunteerActivism" />
+        <TarjetaResumen Titulo="Registrados este mes"
+                        Valor="@TextoResumen.Numero(resumen.NuevosEsteMes)"
+                        Detalle="@TextoResumen.VsMesAnterior(resumen.NuevosEsteMes, resumen.NuevosMesAnterior)"
+                        Icono="@Icons.Material.Filled.PersonAdd" />
+        <TarjetaResumen Titulo="Registrados el mes anterior"
+                        Valor="@TextoResumen.Numero(resumen.NuevosMesAnterior)"
+                        Icono="@Icons.Material.Filled.History" />
+    </section>
+}
 
 <MudCard Class="pa-4">
     <MudCardContent>
@@ -34,10 +56,10 @@
                 <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
                 <PropertyColumn Property="x => x.TipoPersona" Title="Tipo de persona" />
                 <PropertyColumn Property="x => x.Correo" Title="Correo" />
-                <PropertyColumn Property="x => x.Telefono" Title="Teléfono" />
+                <PropertyColumn Property="x => x.TelefonoCompleto" Title="Teléfono" />
                 <TemplateColumn Title="Estado">
                     <CellTemplate>
-                        @(context.Item.Estado ? "Activo" : "Inactivo")
+                        <EstadoChip Activo="@context.Item.Estado" />
                     </CellTemplate>
                 </TemplateColumn>
                 <TemplateColumn Title="Acciones">
@@ -48,18 +70,33 @@
                             <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/donantes/editar/{context.Item.Id}")">Editar</MudButton>
                             @if (context.Item.Estado)
                             {
-                                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.Nombre, false))">Desactivar</MudButton>
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error" Class="ac-btn-inactivar ml-1" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.Nombre, false))">Desactivar</MudButton>
                             }
                             else
                             {
-                                <MudButton Variant="Variant.Text" Color="Color.Success" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.Nombre, true))">Activar</MudButton>
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Success" Class="ac-btn-activar ml-1" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.Nombre, true))">Activar</MudButton>
                             }
                         </AuthorizeView>
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
+            <LoadingContent>
+                <CargandoGrilla />
+            </LoadingContent>
             <NoRecordsContent>
-                <MudText>No hay donantes que coincidan con los filtros.</MudText>
+                @if (HayFiltro)
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="Ningún donante coincide con los filtros"
+                                 Descripcion="Pruebe con otro nombre, tipo de persona o estado." />
+                }
+                else
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.VolunteerActivism"
+                                 Titulo="Todavía no hay donantes registrados"
+                                 TextoAccion="Registrar donante" HrefAccion="/donantes/registrar"
+                                 PermisoAccion="@Permisos.Donaciones.RegistrarDonante" />
+                }
             </NoRecordsContent>
             <PagerContent>
                 <MudDataGridPager T="DonanteListaDto" />
@@ -74,6 +111,27 @@
     private string? filtroTexto;
     private string? filtroTipoPersona;
     private bool? filtroEstado;
+
+    private bool HayFiltro =>
+        !string.IsNullOrWhiteSpace(filtroTexto) || !string.IsNullOrWhiteSpace(filtroTipoPersona) || filtroEstado.HasValue;
+
+    private ResumenRegistrosDto? resumen;
+
+    protected override async Task OnInitializedAsync() => await CargarResumenAsync();
+
+    // Las tarjetas son un complemento del listado: si la consulta falla se
+    // ocultan, en vez de romper la pantalla.
+    private async Task CargarResumenAsync()
+    {
+        try
+        {
+            resumen = await DonantesService.ObtenerResumenAsync();
+        }
+        catch (Exception)
+        {
+            resumen = null;
+        }
+    }
 
     // MudDataGrid con ServerData no dispara la primera carga solo: sin este
     // reload explícito la grilla se ve vacía al entrar aunque haya donantes,
@@ -139,7 +197,7 @@
         var accion = activar ? "activar" : "desactivar";
         var confirmado = await DialogService.ShowMessageBoxAsync(
             "Confirmar",
-            $"¿Seguro que querés {accion} a {nombre}?",
+            $"¿Seguro que desea {accion} a {nombre}?",
             yesText: "Confirmar",
             cancelText: "Cancelar");
 
@@ -160,12 +218,15 @@
 
             Snackbar.Add(activar ? "Donante activado." : "Donante desactivado.", Severity.Success);
 
+            // Activar o desactivar mueve los conteos de las tarjetas.
+            await CargarResumenAsync();
+
             if (grilla is not null)
                 await grilla.ReloadServerData();
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo actualizar el estado del donante. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo actualizar el estado del donante. Intente de nuevo.", Severity.Error);
         }
     }
 }

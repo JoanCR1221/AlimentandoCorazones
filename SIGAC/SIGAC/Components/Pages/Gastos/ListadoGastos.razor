@@ -10,7 +10,12 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
-<MudText Typo="Typo.h4" Class="mb-4">Gastos operativos</MudText>
+<EncabezadoPagina Titulo="Gastos operativos"
+                  Descripcion="Registre y consulte los gastos operativos de la asociación."
+                  TextoAccion="Registrar gasto" HrefAccion="/gastos/registrar"
+                  PermisoAccion="@Permisos.Gastos.Registrar" />
+
+<ResumenGastos @ref="resumenGastos" />
 
 <MudCard Class="pa-4">
     <MudCardContent>
@@ -30,7 +35,7 @@
 
         @* Un total por moneda y no un solo número: sumar colones con dólares en
            una sola cifra no representaría nada. *@
-        <MudText Typo="Typo.h6" Class="mb-4">
+        <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-4">
             Total acumulado:
             @if (totalesPorMoneda.Count == 0)
             {
@@ -43,7 +48,7 @@
             }
         </MudText>
 
-        <MudDataGrid T="GastoOperativoListaDto" Items="@gastos">
+        <MudDataGrid T="GastoOperativoListaDto" Items="@gastos" Loading="cargando">
             <Columns>
                 <PropertyColumn Property="x => x.Categoria" Title="Categoría" />
                 <TemplateColumn Title="Monto">
@@ -51,7 +56,13 @@
                 </TemplateColumn>
                 <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
                 <PropertyColumn Property="x => x.Descripcion" Title="Descripción" />
-                <PropertyColumn Property="x => x.Estado" Title="Estado" />
+                <TemplateColumn Title="Estado">
+                    <CellTemplate>
+                        @* Activo en verde; cualquier otro estado (Anulado) en rojo, con su propio texto. *@
+                        <EstadoChip Activo="@(context.Item.Estado == nameof(EstadoGastoOperativo.Activo))"
+                                    TextoInactivo="@context.Item.Estado" />
+                    </CellTemplate>
+                </TemplateColumn>
                 <TemplateColumn Title="Acciones">
                     <CellTemplate>
                         <AuthorizeView Policy="@Permisos.Gastos.Editar" Context="auth">
@@ -63,24 +74,44 @@
                         @if (context.Item.Estado == nameof(EstadoGastoOperativo.Activo))
                         {
                             <AuthorizeView Policy="@Permisos.Gastos.Anular" Context="auth">
-                                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="@(() => AnularAsync(context.Item.Id))">Anular</MudButton>
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error" Class="ac-btn-inactivar ml-1" OnClick="@(() => AnularAsync(context.Item.Id))">Anular</MudButton>
                             </AuthorizeView>
                         }
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
+            <LoadingContent>
+                <CargandoGrilla />
+            </LoadingContent>
             <NoRecordsContent>
-                <MudText>No hay gastos operativos registrados.</MudText>
+                @if (HayFiltro)
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="Ningún gasto coincide con los filtros"
+                                 Descripcion="Pruebe con otra categoría o rango de fechas." />
+                }
+                else
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.ReceiptLong"
+                                 Titulo="Todavía no hay gastos operativos registrados"
+                                 TextoAccion="Registrar gasto" HrefAccion="/gastos/registrar"
+                                 PermisoAccion="@Permisos.Gastos.Registrar" />
+                }
             </NoRecordsContent>
         </MudDataGrid>
     </MudCardContent>
 </MudCard>
 
 @code {
+    private ResumenGastos? resumenGastos;
+
     private List<GastoOperativoListaDto> gastos = new();
     private IReadOnlyList<MontoPorMonedaDto> totalesPorMoneda = Array.Empty<MontoPorMonedaDto>();
     private string? filtroCategoria;
     private DateRange? rangoFechas;
+    private bool cargando = true;
+
+    private bool HayFiltro => !string.IsNullOrWhiteSpace(filtroCategoria) || rangoFechas is not null;
 
     // A diferencia de Existencias de inventario (catálogo potencialmente enorme,
     // exige un filtro antes de mostrar algo), un listado de gastos operativos es
@@ -105,14 +136,23 @@
 
     private async Task CargarAsync()
     {
-        var resultado = await GastosService.ObtenerGastosAsync(new FiltrosGastoDto
+        cargando = true;
+
+        try
         {
-            Categoria = filtroCategoria,
-            FechaDesde = rangoFechas?.Start,
-            FechaHasta = rangoFechas?.End
-        });
-        gastos = resultado.Gastos.ToList();
-        totalesPorMoneda = resultado.TotalesPorMoneda;
+            var resultado = await GastosService.ObtenerGastosAsync(new FiltrosGastoDto
+            {
+                Categoria = filtroCategoria,
+                FechaDesde = rangoFechas?.Start,
+                FechaHasta = rangoFechas?.End
+            });
+            gastos = resultado.Gastos.ToList();
+            totalesPorMoneda = resultado.TotalesPorMoneda;
+        }
+        finally
+        {
+            cargando = false;
+        }
     }
 
     private async Task AnularAsync(int gastoId)
@@ -130,6 +170,9 @@
             await GastosService.AnularGastoAsync(new AnulacionGastoDto { GastoId = gastoId, MotivoAnulacion = motivo });
             Snackbar.Add("Gasto operativo anulado.", Severity.Success);
             await CargarAsync();
+            // Anular un gasto cambia el total y el conteo de las tarjetas.
+            if (resumenGastos is not null)
+                await resumenGastos.RecargarAsync();
         }
         catch (ValidationException ex)
         {
@@ -141,7 +184,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo anular el gasto operativo. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo anular el gasto operativo. Intente de nuevo.", Severity.Error);
         }
     }
 

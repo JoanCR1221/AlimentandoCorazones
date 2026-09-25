@@ -262,11 +262,10 @@ namespace SIGAC.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Categoria")
-                        .IsRequired()
-                        .HasMaxLength(50)
+                    b.Property<string>("CodigoPaisTelefono")
+                        .HasMaxLength(4)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("varchar(4)");
 
                     b.Property<string>("Direccion")
                         .HasMaxLength(200)
@@ -312,9 +311,9 @@ namespace SIGAC.Infrastructure.Migrations
                         .HasColumnType("varchar(100)");
 
                     b.Property<string>("Telefono")
-                        .HasMaxLength(8)
+                        .HasMaxLength(15)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(8)");
+                        .HasColumnType("varchar(15)");
 
                     b.Property<string>("TipoDocumento")
                         .HasMaxLength(50)
@@ -328,9 +327,9 @@ namespace SIGAC.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Categoria");
-
                     b.HasIndex("Estado");
+
+                    b.HasIndex("FechaNacimiento");
 
                     b.HasIndex("NumIdentidad")
                         .IsUnique()
@@ -591,6 +590,11 @@ namespace SIGAC.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CodigoPaisTelefono")
+                        .HasMaxLength(4)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(4)");
 
                     b.Property<string>("Correo")
                         .HasMaxLength(150)

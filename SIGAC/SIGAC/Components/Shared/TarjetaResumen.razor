@@ -1,0 +1,38 @@
+@* Tarjeta de resumen (KPI) que encabeza un listado: una cifra grande con su
+   título y, opcionalmente, un detalle. Solo presentación: quien la usa decide
+   qué número mostrar. Con Alerta=true se resalta (borde y icono de aviso) para
+   lo que requiere atención, como el stock bajo. Los estilos están en app.css
+   (.ac-kpi). *@
+<div class="@Clase" role="group" aria-label="@Titulo">
+    <div class="ac-kpi-titulo">
+        @if (!string.IsNullOrWhiteSpace(Icono))
+        {
+            <MudIcon Icon="@Icono" Size="Size.Small" Color="Color.Inherit" />
+        }
+        <span>@Titulo</span>
+    </div>
+    <div class="ac-kpi-valor">@Valor</div>
+    @if (!string.IsNullOrWhiteSpace(Detalle))
+    {
+        <div class="ac-kpi-detalle">@Detalle</div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Titulo { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public string Valor { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Detalle { get; set; }
+
+    [Parameter]
+    public string? Icono { get; set; }
+
+    [Parameter]
+    public bool Alerta { get; set; }
+
+    private string Clase => Alerta ? "ac-kpi ac-kpi-alerta" : "ac-kpi";
+}

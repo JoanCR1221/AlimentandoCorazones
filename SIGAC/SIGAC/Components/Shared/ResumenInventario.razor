@@ -1,0 +1,48 @@
+@using SIGAC.Application.DTOs
+@using SIGAC.Application.Interfaces
+@inject IResumenService ResumenService
+@inject IInventarioService InventarioService
+
+@* Tarjetas de resumen del módulo de Inventario. El stock bajo sale de
+   IInventarioService (la misma regla que usa la portada y el filtro de la
+   grilla); el resto, de las consultas agregadas del resumen. Autónomo: si la
+   consulta falla, no muestra nada. *@
+@if (datos is not null)
+{
+    <section class="ac-kpis" aria-label="Resumen de inventario">
+        <TarjetaResumen Titulo="Artículos con stock bajo"
+                        Valor="@TextoResumen.Numero(stockBajo)"
+                        Detalle="@(stockBajo > 0 ? "Conviene reponerlos pronto" : "Todo el inventario está en orden")"
+                        Icono="@(stockBajo > 0 ? Icons.Material.Filled.Warning : Icons.Material.Filled.CheckCircle)"
+                        Alerta="@(stockBajo > 0)" />
+        <TarjetaResumen Titulo="Artículos en el catálogo"
+                        Valor="@TextoResumen.Numero(datos.ArticulosEnCatalogo)"
+                        Icono="@Icons.Material.Filled.Inventory2" />
+        <TarjetaResumen Titulo="Unidades ingresadas este mes"
+                        Valor="@TextoResumen.Numero(datos.UnidadesIngresadasEsteMes)"
+                        Detalle="@TextoResumen.VsMesAnterior(datos.UnidadesIngresadasEsteMes, datos.UnidadesIngresadasMesAnterior)"
+                        Icono="@Icons.Material.Filled.AddBox" />
+    </section>
+}
+
+@code {
+    private ResumenInventarioDto? datos;
+    private int stockBajo;
+
+    protected override async Task OnInitializedAsync() => await RecargarAsync();
+
+    public async Task RecargarAsync()
+    {
+        try
+        {
+            datos = await ResumenService.ObtenerResumenInventarioAsync();
+            stockBajo = await InventarioService.ContarArticulosStockBajoAsync();
+        }
+        catch (Exception)
+        {
+            datos = null;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+}

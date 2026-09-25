@@ -8,7 +8,7 @@
 @inject ISnackbar Snackbar
 @inject NavigationManager NavigationManager
 
-<MudText Typo="Typo.h4" Class="mb-4">Registrar gasto operativo</MudText>
+<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Registrar gasto operativo</MudText>
 
 <EditForm Model="modelo" OnValidSubmit="Guardar">
     <DataAnnotationsValidator />
@@ -44,6 +44,7 @@
         </MudCardContent>
         <MudCardActions>
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+            <MudButton Variant="Variant.Text" Color="Color.Default" Href="/gastos" Class="mb-2">Cancelar</MudButton>
         </MudCardActions>
     </MudCard>
 </EditForm>
@@ -85,7 +86,7 @@
             if (categoriaRegistrada == CategoriasGastoOperativo.CompraInsumos)
             {
                 Snackbar.Add(
-                    "Este gasto es una compra de insumos. ¿Deseás registrar la entrada correspondiente en inventario?",
+                    "Este gasto es una compra de insumos. ¿Desea registrar la entrada correspondiente en inventario?",
                     Severity.Info,
                     config =>
                     {
@@ -107,7 +108,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo registrar el gasto operativo. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo registrar el gasto operativo. Intente de nuevo.", Severity.Error);
         }
     }
 }

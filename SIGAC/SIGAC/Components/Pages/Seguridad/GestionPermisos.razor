@@ -10,7 +10,7 @@
 
 <PageTitle>Permisos del usuario — SIGAC</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-4">Permisos del usuario</MudText>
+<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Permisos del usuario</MudText>
 
 @if (cargando)
 {
@@ -27,7 +27,7 @@ else
         <MudCardContent>
             <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Wrap="Wrap.Wrap">
                 <MudStack Spacing="0">
-                    <MudText Typo="Typo.h6">@usuario.Nombre</MudText>
+                    <MudText Typo="Typo.h6" HtmlTag="h2">@usuario.Nombre</MudText>
                     <MudText Typo="Typo.body2" Class="mud-text-secondary">@usuario.Correo</MudText>
                 </MudStack>
                 <MudChip T="string" Color="Color.Primary" Icon="@Icons.Material.Filled.Badge">@(usuario.Rol ?? "sin rol")</MudChip>
@@ -127,7 +127,7 @@ else
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudieron cargar los permisos. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudieron cargar los permisos. Intente de nuevo.", Severity.Error);
         }
         finally
         {
@@ -188,7 +188,7 @@ else
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudieron guardar los permisos. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudieron guardar los permisos. Intente de nuevo.", Severity.Error);
         }
         finally
         {

@@ -10,7 +10,14 @@
 
 <PageTitle>Usuarios — SIGAC</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-4">Usuarios del sistema</MudText>
+<EncabezadoPagina Titulo="Usuarios del sistema" Descripcion="Administre los usuarios del sistema, sus roles y sus permisos.">
+    <Acciones>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/usuarios/registrar"
+                   StartIcon="@Icons.Material.Filled.PersonAdd">
+            Registrar usuario
+        </MudButton>
+    </Acciones>
+</EncabezadoPagina>
 
 <MudCard Class="pa-4">
     <MudCardContent>
@@ -28,11 +35,6 @@
             <MudSelectItem T="bool?" Value="false">Inactivo</MudSelectItem>
         </MudSelect>
 
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/usuarios/registrar"
-                   StartIcon="@Icons.Material.Filled.PersonAdd" Class="mb-4">
-            Registrar usuario
-        </MudButton>
-
         @* Items y no ServerData: el listado completo cabe en memoria (decenas de
            usuarios) y el filtrado ya lo hace el servicio en SQL. *@
         <MudDataGrid T="UsuarioListaDto" Items="@usuarios" Loading="cargando"
@@ -45,7 +47,7 @@
                     <CellTemplate>
                         @if (!context.Item.Estado)
                         {
-                            <MudChip T="string" Color="Color.Default" Size="Size.Small" Icon="@Icons.Material.Filled.Block">Inactivo</MudChip>
+                            <EstadoChip Activo="false" />
                         }
                         else if (context.Item.BloqueadoTemporalmente)
                         {
@@ -56,7 +58,7 @@
                         }
                         else
                         {
-                            <MudChip T="string" Color="Color.Success" Size="Size.Small" Icon="@Icons.Material.Filled.CheckCircle">Activo</MudChip>
+                            <EstadoChip Activo="true" />
                         }
                     </CellTemplate>
                 </TemplateColumn>
@@ -105,14 +107,27 @@
                             @if (esElMismo)
                             {
                                 <MudDivider />
-                                <MudMenuItem Disabled="true">Tu propio usuario: cambiá tu contraseña desde Configuración.</MudMenuItem>
+                                <MudMenuItem Disabled="true">Su propio usuario: cambie su contraseña desde Configuración.</MudMenuItem>
                             }
                         </MudMenu>
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
+            <LoadingContent>
+                <CargandoGrilla />
+            </LoadingContent>
             <NoRecordsContent>
-                <MudText>No hay usuarios que coincidan con los filtros.</MudText>
+                @if (HayFiltro)
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="Ningún usuario coincide con los filtros"
+                                 Descripcion="Pruebe con otro nombre, correo, rol o estado." />
+                }
+                else
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.ManageAccounts"
+                                 Titulo="Todavía no hay usuarios registrados" />
+                }
             </NoRecordsContent>
         </MudDataGrid>
     </MudCardContent>
@@ -129,6 +144,9 @@
     private string? filtroTexto;
     private string? filtroRol;
     private bool? filtroEstado;
+
+    private bool HayFiltro =>
+        !string.IsNullOrWhiteSpace(filtroTexto) || !string.IsNullOrWhiteSpace(filtroRol) || filtroEstado.HasValue;
 
     protected override async Task OnInitializedAsync()
     {
@@ -156,7 +174,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudieron cargar los usuarios. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudieron cargar los usuarios. Intente de nuevo.", Severity.Error);
         }
         finally
         {
@@ -199,14 +217,14 @@
         await EjecutarAsync(
             () => UsuariosService.CambiarRolAsync(new CambioRolDto { UsuarioId = usuario.Id, NuevoRol = nuevoRol }),
             $"Rol de {usuario.Nombre} cambiado a {nuevoRol}. Su sesión se cierra en menos de un minuto.",
-            "No se pudo cambiar el rol. Intentá de nuevo.");
+            "No se pudo cambiar el rol. Intente de nuevo.");
     }
 
     private async Task ConfirmarCambioEstadoAsync(UsuarioListaDto usuario, bool activar)
     {
         var pregunta = activar
-            ? $"¿Seguro que querés activar a {usuario.Nombre}? Va a poder iniciar sesión de inmediato."
-            : $"¿Seguro que querés desactivar a {usuario.Nombre}? No va a poder iniciar sesión y, si tiene una sesión abierta, se cierra en menos de un minuto. Su historial se conserva.";
+            ? $"¿Seguro que desea activar a {usuario.Nombre}? Va a poder iniciar sesión de inmediato."
+            : $"¿Seguro que desea desactivar a {usuario.Nombre}? No va a poder iniciar sesión y, si tiene una sesión abierta, se cierra en menos de un minuto. Su historial se conserva.";
 
         var confirmado = await DialogService.ShowMessageBoxAsync(
             "Confirmar",
@@ -220,7 +238,7 @@
         await EjecutarAsync(
             () => activar ? UsuariosService.ActivarUsuarioAsync(usuario.Id) : UsuariosService.DesactivarUsuarioAsync(usuario.Id),
             activar ? "Usuario activado." : "Usuario desactivado.",
-            "No se pudo actualizar el estado del usuario. Intentá de nuevo.");
+            "No se pudo actualizar el estado del usuario. Intente de nuevo.");
     }
 
     private async Task RestablecerPasswordAsync(UsuarioListaDto usuario)
@@ -241,7 +259,7 @@
         await EjecutarAsync(
             () => UsuariosService.RestablecerPasswordAsync(dto),
             $"Contraseña de {usuario.Nombre} restablecida. Indicale que la cambie desde Configuración al entrar.",
-            "No se pudo restablecer la contraseña. Intentá de nuevo.");
+            "No se pudo restablecer la contraseña. Intente de nuevo.");
     }
 
     // Un solo lugar para el patrón "ejecutar, avisar, recargar": las cuatro

@@ -10,9 +10,34 @@
         public ValidationException(string mensaje) : base(mensaje) { }
     }
 
+    // La operación principal YA quedó guardada, pero no se pudo anotar en la
+    // bitácora (que escribe por su propia conexión, fuera de la transacción).
+    // Se distingue del error genérico para que la pantalla no diga "no se pudo"
+    // sobre algo que sí se hizo: el usuario reintentaría y chocaría con su
+    // propio registro como duplicado.
+    public class BitacoraNoRegistradaException : Exception
+    {
+        public BitacoraNoRegistradaException(string mensaje, Exception inner) : base(mensaje, inner) { }
+    }
+
     public class DuplicateException : Exception
     {
         public DuplicateException(string mensaje) : base(mensaje) { }
+    }
+
+    // Duplicado de beneficiario con el registro que ya existe identificado: la
+    // pantalla puede ofrecer abrirlo o, si está inactivo, reactivarlo en vez de
+    // cargar a la misma persona dos veces.
+    public class BeneficiarioDuplicadoException : DuplicateException
+    {
+        public int BeneficiarioId { get; }
+        public bool Activo { get; }
+
+        public BeneficiarioDuplicadoException(int beneficiarioId, bool activo, string mensaje) : base(mensaje)
+        {
+            BeneficiarioId = beneficiarioId;
+            Activo = activo;
+        }
     }
 
     // Caso particular de ValidationException: el beneficiario existe pero está

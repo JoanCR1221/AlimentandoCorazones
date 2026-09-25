@@ -7,7 +7,12 @@
 @inject IAsistenciaService AsistenciaService
 @inject IBeneficiariosService BeneficiariosService
 
-<MudText Typo="Typo.h4" Class="mb-4">Historial de asistencia</MudText>
+<EncabezadoPagina Titulo="Historial de asistencia"
+                  Descripcion="Consulte la asistencia diaria al comedor."
+                  TextoAccion="Registrar asistencia" HrefAccion="/asistencia/registrar"
+                  PermisoAccion="@Permisos.Asistencia.Registrar" />
+
+<ResumenAsistencia />
 
 <MudCard Class="pa-4">
     <MudCardContent>
@@ -38,14 +43,29 @@
             </MudText>
         }
 
-        <MudDataGrid T="HistorialAsistenciaDto" Items="@resultado.Registros">
+        <MudDataGrid T="HistorialAsistenciaDto" Items="@resultado.Registros" Loading="cargando">
             <Columns>
                 <PropertyColumn Property="x => x.NombreBeneficiario" Title="Beneficiario" />
                 <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
                 <PropertyColumn Property="x => x.TiempoComida" Title="Tiempo de comida" />
             </Columns>
+            <LoadingContent>
+                <CargandoGrilla />
+            </LoadingContent>
             <NoRecordsContent>
-                <MudText>No hay asistencias registradas para los filtros seleccionados.</MudText>
+                @if (HayFiltro)
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="Ninguna asistencia coincide con los filtros"
+                                 Descripcion="Pruebe con otro beneficiario, tiempo de comida o rango de fechas." />
+                }
+                else
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.Restaurant"
+                                 Titulo="Todavía no hay asistencias registradas"
+                                 TextoAccion="Registrar asistencia" HrefAccion="/asistencia/registrar"
+                                 PermisoAccion="@Permisos.Asistencia.Registrar" />
+                }
             </NoRecordsContent>
         </MudDataGrid>
     </MudCardContent>
@@ -56,9 +76,13 @@
     private BeneficiarioListaDto? beneficiarioSeleccionado;
     private string? filtroTiempoComida;
     private DateRange? rangoFechas;
+    private bool cargando = true;
+
+    private bool HayFiltro =>
+        beneficiarioSeleccionado is not null || !string.IsNullOrWhiteSpace(filtroTiempoComida) || rangoFechas is not null;
 
     private static readonly string AyudaBusqueda =
-        $"Escribí al menos {FiltrosBeneficiarioDto.MinimoCaracteresBusqueda} caracteres para buscar por nombre o número de identidad.";
+        $"Escriba al menos {FiltrosBeneficiarioDto.MinimoCaracteresBusqueda} caracteres para buscar por nombre o número de identidad.";
 
     protected override async Task OnInitializedAsync()
     {
@@ -100,12 +124,21 @@
 
     private async Task CargarAsync()
     {
-        resultado = await AsistenciaService.ObtenerHistorialAsistenciaAsync(new FiltrosAsistenciaDto
+        cargando = true;
+
+        try
         {
-            BeneficiarioId = beneficiarioSeleccionado?.Id,
-            TiempoComida = filtroTiempoComida,
-            FechaDesde = rangoFechas?.Start,
-            FechaHasta = rangoFechas?.End
-        });
+            resultado = await AsistenciaService.ObtenerHistorialAsistenciaAsync(new FiltrosAsistenciaDto
+            {
+                BeneficiarioId = beneficiarioSeleccionado?.Id,
+                TiempoComida = filtroTiempoComida,
+                FechaDesde = rangoFechas?.Start,
+                FechaHasta = rangoFechas?.End
+            });
+        }
+        finally
+        {
+            cargando = false;
+        }
     }
 }
