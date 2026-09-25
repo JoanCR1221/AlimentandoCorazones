@@ -88,6 +88,33 @@ namespace SIGAC.Tests.Domain
                 CategoriasBeneficiario.DerivarDesdeFechaNacimiento(DateTime.Parse(nacimiento), referencia));
         }
 
+        // El filtro del listado usa el rango de fechas y la columna usa la
+        // derivación: para cualquier fecha de nacimiento tienen que coincidir, o
+        // una persona aparecería bajo un filtro y con otra categoría en la grilla.
+        [Theory]
+        [InlineData("2026-09-24")]
+        [InlineData("2026-02-28")] // año no bisiesto: bordes del 29 de febrero
+        [InlineData("2028-02-29")]
+        [InlineData("2028-03-01")]
+        public void Rango_de_nacimiento_coincide_con_la_categoria_derivada(string fechaReferencia)
+        {
+            var referencia = DateTime.Parse(fechaReferencia);
+
+            for (var nacimiento = referencia.AddYears(-110); nacimiento <= referencia; nacimiento = nacimiento.AddDays(1))
+            {
+                var categoria = CategoriasBeneficiario.DerivarDesdeFechaNacimiento(nacimiento, referencia);
+
+                foreach (var candidata in CategoriasBeneficiario.Todas)
+                {
+                    var (despuesDe, hasta) = CategoriasBeneficiario.RangoDeNacimiento(candidata, referencia);
+                    var dentro = (despuesDe is null || nacimiento > despuesDe) && (hasta is null || nacimiento <= hasta);
+
+                    Assert.True(dentro == (candidata == categoria),
+                        $"Nacido {nacimiento:yyyy-MM-dd}: derivada {categoria}, rango de {candidata} dice {dentro}.");
+                }
+            }
+        }
+
         // En los años no bisiestos cumple el 1 de marzo, no el 28 de febrero.
         [Fact]
         public void Edad_de_quien_nacio_un_29_de_febrero()

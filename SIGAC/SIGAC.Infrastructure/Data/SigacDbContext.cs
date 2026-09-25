@@ -238,11 +238,6 @@ namespace SIGAC.Infrastructure.Data
                 entity.Property(b => b.FechaNacimiento)
                     .IsRequired();
 
-                entity.Property(b => b.Categoria)
-                    .IsRequired()
-                    .IsUnicode(false)
-                    .HasMaxLength(50);
-
                 // Teléfono en dos columnas: código de país y número local, solo
                 // dígitos (ver ReglasTelefono). El número entra en el tope E.164.
                 entity.Property(b => b.CodigoPaisTelefono)
@@ -299,7 +294,11 @@ namespace SIGAC.Infrastructure.Data
 
                 // Índices en los campos de filtro frecuente. El índice único anterior
                 // ya cubre las búsquedas que empiezan por PrimerNombre.
-                entity.HasIndex(b => b.Categoria);
+                //
+                // FechaNacimiento: el filtro por categoría se traduce a un rango de
+                // fechas (la categoría no se guarda) y el chequeo de duplicados
+                // busca por fecha exacta.
+                entity.HasIndex(b => b.FechaNacimiento);
                 entity.HasIndex(b => b.Estado);
             });
 

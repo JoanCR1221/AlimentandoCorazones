@@ -210,8 +210,19 @@ namespace SIGAC.Infrastructure.Repositories
 
             if (!string.IsNullOrWhiteSpace(filtros.Categoria))
             {
-                var categoria = filtros.Categoria;
-                consulta = consulta.Where(b => b.Categoria == categoria);
+                // La categoría no se guarda: se traduce al rango de fechas de
+                // nacimiento que le corresponde hoy (ver CategoriasBeneficiario).
+                // Una categoría que no existe no devuelve nada, igual que antes.
+                if (!CategoriasBeneficiario.EsValida(filtros.Categoria))
+                    return consulta.Where(_ => false);
+
+                var (nacidoDespuesDe, nacidoHasta) = CategoriasBeneficiario.RangoDeNacimiento(filtros.Categoria);
+
+                if (nacidoDespuesDe is DateTime despuesDe)
+                    consulta = consulta.Where(b => b.FechaNacimiento > despuesDe);
+
+                if (nacidoHasta is DateTime hasta)
+                    consulta = consulta.Where(b => b.FechaNacimiento <= hasta);
             }
 
             if (!string.IsNullOrWhiteSpace(filtros.TipoDocumento))

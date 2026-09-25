@@ -21,7 +21,7 @@ namespace SIGAC.Application.DTOs.Beneficiarios
 
         public DateTime FechaNacimiento { get; set; }
 
-        // La categoría ya no se captura: la deriva el servicio desde FechaNacimiento.
+        // La categoría no se captura ni se guarda: se deriva de FechaNacimiento.
 
         // Código de país sin "+" ("506") y número local; ver ReglasTelefono.
         public string? CodigoPaisTelefono { get; set; }
@@ -69,7 +69,8 @@ namespace SIGAC.Application.DTOs.Beneficiarios
             ReglasBeneficiario.ComponerNombreCompleto(PrimerNombre, SegundoNombre, PrimerApellido, SegundoApellido);
 
         public DateTime FechaNacimiento { get; set; }
-        public string Categoria { get; set; } = string.Empty;
+        // Calculada al mostrar, con la edad de hoy: no se guarda en la base.
+        public string Categoria => CategoriasBeneficiario.DerivarDesdeFechaNacimiento(FechaNacimiento);
         public string? CodigoPaisTelefono { get; set; }
         public string? Telefono { get; set; }
 
