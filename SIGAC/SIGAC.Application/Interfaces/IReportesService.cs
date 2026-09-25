@@ -8,5 +8,10 @@ namespace SIGAC.Application.Interfaces
     public interface IReportesService
     {
         Task<ReporteBeneficiariosResultadoDto> GenerarReporteBeneficiariosAsync(FiltrosReporteBeneficiariosDto filtros);
+
+        // Panorama gráfico de Beneficiarios: cifras agregadas para las gráficas de
+        // /reportes/beneficiarios/panorama, sobre una ventana fija de meses hacia
+        // atrás (no depende de filtros de pantalla, a diferencia del reporte de arriba).
+        Task<PanoramaBeneficiariosDto> ObtenerPanoramaBeneficiariosAsync();
     }
 }

@@ -300,6 +300,10 @@ namespace SIGAC.Infrastructure.Data
                 // busca por fecha exacta.
                 entity.HasIndex(b => b.FechaNacimiento);
                 entity.HasIndex(b => b.Estado);
+
+                // El panorama gráfico agrupa las altas por mes de FechaRegistro; sin
+                // este índice esa consulta sería un table scan.
+                entity.HasIndex(b => b.FechaRegistro);
             });
 
             modelBuilder.Entity<AsistenciaComedor>(entity =>

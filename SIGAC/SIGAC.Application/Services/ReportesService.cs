@@ -10,11 +10,18 @@ namespace SIGAC.Application.Services
     // el volumen de un período de asistencia no justifica un GROUP BY en SQL.
     public class ReportesService : IReportesService
     {
-        private readonly IAsistenciaRepository _asistenciaRepository;
+        // Meses hacia atrás que cubre el panorama gráfico (incluye el mes actual).
+        // Fijo por ahora: no hay pantalla que lo filtre, a diferencia del reporte
+        // exportable de arriba.
+        private const int MesesPanoramaPorDefecto = 12;
 
-        public ReportesService(IAsistenciaRepository asistenciaRepository)
+        private readonly IAsistenciaRepository _asistenciaRepository;
+        private readonly IBeneficiariosRepository _beneficiariosRepository;
+
+        public ReportesService(IAsistenciaRepository asistenciaRepository, IBeneficiariosRepository beneficiariosRepository)
         {
             _asistenciaRepository = asistenciaRepository;
+            _beneficiariosRepository = beneficiariosRepository;
         }
 
         public async Task<ReporteBeneficiariosResultadoDto> GenerarReporteBeneficiariosAsync(FiltrosReporteBeneficiariosDto filtros)
@@ -48,6 +55,41 @@ namespace SIGAC.Application.Services
             catch (Exception ex)
             {
                 throw new Exception("Error al generar el reporte de beneficiarios atendidos.", ex);
+            }
+        }
+
+        public async Task<PanoramaBeneficiariosDto> ObtenerPanoramaBeneficiariosAsync()
+        {
+            try
+            {
+                var porCategoria = await _beneficiariosRepository.ObtenerConteoPorCategoriaAsync();
+                var resumenRegistros = await _beneficiariosRepository.ObtenerResumenAsync();
+                var altasPorMes = await _beneficiariosRepository.ObtenerAltasPorMesAsync(MesesPanoramaPorDefecto);
+                var comidas = await _asistenciaRepository.ObtenerComidasPorTiempoYMesAsync(MesesPanoramaPorDefecto);
+                var personasPorMes = await _asistenciaRepository.ObtenerPersonasAtendidasPorMesAsync(MesesPanoramaPorDefecto);
+
+                return new PanoramaBeneficiariosDto
+                {
+                    BeneficiariosPorCategoria = porCategoria,
+                    Activos = resumenRegistros.Activos,
+                    Inactivos = resumenRegistros.Inactivos,
+                    AltasPorMes = altasPorMes,
+                    Desayunos = comidas.Where(c => c.TiempoComida == TiemposComida.Desayuno).Sum(c => c.Cantidad),
+                    Almuerzos = comidas.Where(c => c.TiempoComida == TiemposComida.Almuerzo).Sum(c => c.Cantidad),
+                    Meriendas = comidas.Where(c => c.TiempoComida == TiemposComida.Merienda).Sum(c => c.Cantidad),
+                    // Total del mes sin importar el tiempo de comida: se colapsa acá
+                    // porque la consulta viene agrupada también por TiempoComida.
+                    ComidasPorMes = comidas
+                        .GroupBy(c => new { c.Anio, c.Mes })
+                        .Select(g => new ConteoPorMesDto(g.Key.Anio, g.Key.Mes, g.Sum(c => c.Cantidad)))
+                        .OrderBy(c => c.Anio).ThenBy(c => c.Mes)
+                        .ToList(),
+                    PersonasAtendidasPorMes = personasPorMes
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al generar el panorama de beneficiarios.", ex);
             }
         }
     }

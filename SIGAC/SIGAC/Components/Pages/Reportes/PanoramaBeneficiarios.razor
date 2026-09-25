@@ -1,0 +1,174 @@
+@page "/reportes/beneficiarios/panorama"
+@attribute [Authorize(Policy = Permisos.Reportes.VerBeneficiarios)]
+@using SIGAC.Application.DTOs.Reportes
+@using SIGAC.Application.Interfaces
+@inject IReportesService ReportesService
+
+<EncabezadoPagina Titulo="Panorama de beneficiarios"
+                   Descripcion="Cifras generales de los últimos 12 meses: a quién atendemos y cómo ha evolucionado el comedor. No depende de filtros: es el mismo panorama para cualquiera que lo abra." />
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        @if (cargando)
+        {
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Class="my-4" />
+        }
+        else if (error)
+        {
+            <MudAlert Severity="Severity.Error">
+                No se pudo cargar el panorama de beneficiarios. Intentá de nuevo más tarde.
+            </MudAlert>
+        }
+        else
+        {
+            <MudGrid Spacing="3">
+                <MudItem xs="12" md="4">
+                    <MudList T="Estadistica" SelectionMode="SelectionMode.SingleSelection" Color="Color.Primary"
+                             SelectedValue="_seleccionada" SelectedValueChanged="@(v => _seleccionada = v)">
+                        @foreach (var opcion in Opciones)
+                        {
+                            <MudListItem T="Estadistica" Value="opcion.Clave" Text="@opcion.Titulo"
+                                         Icon="@opcion.Icono" IconColor="Color.Secondary" />
+                        }
+                    </MudList>
+                </MudItem>
+                <MudItem xs="12" md="8">
+                    @if (_graficas.TryGetValue(_seleccionada, out var grafica))
+                    {
+                        <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-3">@grafica.Titulo</MudText>
+                        <MudChart T="double" ChartType="grafica.Tipo" ChartSeries="grafica.Series"
+                                  ChartLabels="grafica.Etiquetas" Width="100%" Height="350px" />
+                    }
+                </MudItem>
+            </MudGrid>
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private enum Estadistica
+    {
+        PorCategoria,
+        ActivosInactivos,
+        AltasPorMes,
+        PorTiempoComida,
+        TendenciaComidas,
+        PersonasPorMes
+    }
+
+    private sealed record OpcionEstadistica(Estadistica Clave, string Titulo, string Icono);
+
+    private sealed record GraficaVista(string Titulo, ChartType Tipo, List<ChartSeries<double>> Series, string[] Etiquetas);
+
+    // Datos como lista, igual que los grupos de NavMenu: agregar una estadística
+    // nueva es una entrada más acá, no un bloque de MudListItem repetido.
+    private static readonly OpcionEstadistica[] Opciones =
+    {
+        new(Estadistica.PorCategoria, "Beneficiarios por categoría", Icons.Material.Filled.DonutLarge),
+        new(Estadistica.ActivosInactivos, "Activos vs. inactivos", Icons.Material.Filled.DonutLarge),
+        new(Estadistica.AltasPorMes, "Altas de beneficiarios por mes", Icons.Material.Filled.BarChart),
+        new(Estadistica.PorTiempoComida, "Comidas por tiempo de comida", Icons.Material.Filled.BarChart),
+        new(Estadistica.TendenciaComidas, "Tendencia de comidas servidas", Icons.Material.Filled.ShowChart),
+        new(Estadistica.PersonasPorMes, "Personas distintas atendidas", Icons.Material.Filled.ShowChart)
+    };
+
+    private static readonly string[] MesesAbreviados =
+        { "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic" };
+
+    // Debe coincidir con ReportesService.MesesPanoramaPorDefecto: acá se arma la
+    // ventana de meses del eje X, allá se filtran los datos de esa misma ventana.
+    private const int MesesPanorama = 12;
+
+    private bool cargando = true;
+    private bool error;
+    private Estadistica _seleccionada = Estadistica.PorCategoria;
+    private Dictionary<Estadistica, GraficaVista> _graficas = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var panorama = await ReportesService.ObtenerPanoramaBeneficiariosAsync();
+            _graficas = ArmarGraficas(panorama);
+        }
+        catch (Exception)
+        {
+            error = true;
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private static Dictionary<Estadistica, GraficaVista> ArmarGraficas(PanoramaBeneficiariosDto datos)
+    {
+        // Las tres consultas mensuales del backend solo traen los meses que
+        // tuvieron al menos un registro: un mes sin altas, por ejemplo, no
+        // aparecería en AltasPorMes. Se alinean acá contra una ventana calendario
+        // completa para que las tres gráficas usen el mismo eje X y un mes sin
+        // datos se vea como cero y no como un hueco que corre las etiquetas.
+        var ventana = VentanaMeses();
+        var etiquetasMeses = ventana.Select(m => EtiquetaMes(m.Anio, m.Mes)).ToArray();
+
+        return new Dictionary<Estadistica, GraficaVista>
+        {
+            [Estadistica.PorCategoria] = new(
+                "Beneficiarios por categoría",
+                ChartType.Donut,
+                new() { new() { Name = "Beneficiarios", Data = datos.BeneficiariosPorCategoria.Select(c => (double)c.Cantidad).ToArray() } },
+                datos.BeneficiariosPorCategoria.Select(c => c.Categoria).ToArray()),
+
+            [Estadistica.ActivosInactivos] = new(
+                "Beneficiarios activos vs. inactivos",
+                ChartType.Donut,
+                new() { new() { Name = "Beneficiarios", Data = new double[] { datos.Activos, datos.Inactivos } } },
+                new[] { "Activos", "Inactivos" }),
+
+            [Estadistica.AltasPorMes] = new(
+                "Altas de beneficiarios por mes",
+                ChartType.Bar,
+                new() { new() { Name = "Altas", Data = AlinearPorMes(ventana, datos.AltasPorMes) } },
+                etiquetasMeses),
+
+            [Estadistica.PorTiempoComida] = new(
+                "Comidas servidas por tiempo de comida",
+                ChartType.Bar,
+                new() { new() { Name = "Comidas", Data = new double[] { datos.Desayunos, datos.Almuerzos, datos.Meriendas } } },
+                TiemposComida.Todos.ToArray()),
+
+            [Estadistica.TendenciaComidas] = new(
+                "Tendencia de comidas servidas",
+                ChartType.Line,
+                new() { new() { Name = "Comidas servidas", Data = AlinearPorMes(ventana, datos.ComidasPorMes) } },
+                etiquetasMeses),
+
+            [Estadistica.PersonasPorMes] = new(
+                "Personas distintas atendidas por mes",
+                ChartType.Line,
+                new() { new() { Name = "Personas atendidas", Data = AlinearPorMes(ventana, datos.PersonasAtendidasPorMes) } },
+                etiquetasMeses)
+        };
+    }
+
+    // Los MesesPanorama meses calendario hasta el actual, contándolo como el
+    // primero: con MesesPanorama = 12 cubre este mes y los 11 anteriores. Mismo
+    // criterio que ReportesService/BeneficiariosRepositoryEfCore.InicioVentana.
+    private static List<(int Anio, int Mes)> VentanaMeses()
+    {
+        var inicio = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).AddMonths(-(MesesPanorama - 1));
+
+        return Enumerable.Range(0, MesesPanorama)
+            .Select(inicio.AddMonths)
+            .Select(f => (f.Year, f.Month))
+            .ToList();
+    }
+
+    private static double[] AlinearPorMes(List<(int Anio, int Mes)> ventana, IReadOnlyList<ConteoPorMesDto> datos)
+    {
+        var porMes = datos.ToDictionary(c => (c.Anio, c.Mes), c => (double)c.Cantidad);
+        return ventana.Select(m => porMes.TryGetValue(m, out var cantidad) ? cantidad : 0.0).ToArray();
+    }
+
+    private static string EtiquetaMes(int anio, int mes) => $"{MesesAbreviados[mes - 1]} {anio}";
+}
