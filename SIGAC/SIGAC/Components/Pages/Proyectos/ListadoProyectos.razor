@@ -35,7 +35,12 @@
            agrega paginación al repositorio, esta grilla pasa a ServerData. *@
         <MudDataGrid T="ProyectoListaDto" Items="@proyectos" Loading="cargando">
             <Columns>
-                <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
+                @* El nombre abre la ficha del proyecto, donde están los participantes. *@
+                <TemplateColumn Title="Nombre">
+                    <CellTemplate>
+                        <MudLink Href="@($"/proyectos/{context.Item.Id}")">@context.Item.Nombre</MudLink>
+                    </CellTemplate>
+                </TemplateColumn>
                 <PropertyColumn Property="x => x.FechaInicio" Title="Inicio" Format="dd/MM/yyyy" />
                 <PropertyColumn Property="x => x.FechaEstimadaFin" Title="Fin estimado" Format="dd/MM/yyyy" />
                 <TemplateColumn Title="Estado">
@@ -48,20 +53,21 @@
                 <PropertyColumn Property="x => x.TotalParticipantes" Title="Participantes" />
                 <TemplateColumn Title="Acciones">
                     <CellTemplate>
+                        @* Ver siempre, también en un proyecto cerrado: la ficha es de
+                           consulta. Los participantes se agregan y quitan desde ahí. *@
+                        <MudButton Variant="Variant.Text" Color="Color.Secondary" Href="@($"/proyectos/{context.Item.Id}")">Ver</MudButton>
+
                         @* Finalizado y Cancelado son estados de cierre: el servicio
-                           rechaza editarlos y agregarles participantes, así que los
-                           botones se ocultan en vez de dejar que el usuario descubra
-                           el error al guardar. Mismo criterio que ListadoGastos.razor
-                           con el botón Anular de un gasto ya anulado. *@
+                           rechaza editarlos, así que los botones se ocultan en vez de
+                           dejar que el usuario descubra el error al guardar. Mismo
+                           criterio que ListadoGastos.razor con el botón Anular de un
+                           gasto ya anulado. *@
                         @if (!EsEstadoTerminal(context.Item.Estado))
                         {
                             @* Cada acción solo si el usuario tiene su permiso (módulo de
                                seguridad). Context="auth" para no pisar el context de la celda. *@
                             <AuthorizeView Policy="@Permisos.Proyectos.Editar" Context="auth">
                                 <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/proyectos/editar/{context.Item.Id}")">Editar</MudButton>
-                            </AuthorizeView>
-                            <AuthorizeView Policy="@Permisos.Proyectos.RegistrarParticipante" Context="auth">
-                                <MudButton Variant="Variant.Text" Color="Color.Secondary" Href="@($"/proyectos/{context.Item.Id}/participantes/registrar")">Participantes</MudButton>
                             </AuthorizeView>
                             @* Cancelado no aparece acá aunque también sea terminal:
                                un proyecto cancelado no se finaliza (el servicio lo

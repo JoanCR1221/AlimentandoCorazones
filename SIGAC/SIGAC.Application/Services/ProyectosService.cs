@@ -56,6 +56,72 @@ namespace SIGAC.Application.Services
             }
         }
 
+        // Con la descripción incluida: antes la pantalla de edición se prellenaba
+        // con una fila del listado (que no la trae) y obligaba a reescribirla.
+        public async Task<ProyectoEditarDto?> ObtenerParaEditarAsync(int id)
+        {
+            try
+            {
+                var proyecto = await _repository.ObtenerPorIdAsync(id);
+                if (proyecto is null)
+                    return null;
+
+                return new ProyectoEditarDto
+                {
+                    Nombre = proyecto.Nombre,
+                    Descripcion = proyecto.Descripcion,
+                    FechaInicio = proyecto.FechaInicio,
+                    FechaEstimadaFin = proyecto.FechaEstimadaFin,
+                    Estado = proyecto.Estado
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al consultar el proyecto comunitario.", ex);
+            }
+        }
+
+        public async Task<ProyectoDetalleDto?> ObtenerDetalleAsync(int id)
+        {
+            try
+            {
+                var proyecto = await _repository.ObtenerConParticipantesAsync(id);
+                if (proyecto is null)
+                    return null;
+
+                return new ProyectoDetalleDto
+                {
+                    Id = proyecto.Id,
+                    Nombre = proyecto.Nombre,
+                    Descripcion = proyecto.Descripcion,
+                    FechaInicio = proyecto.FechaInicio,
+                    FechaEstimadaFin = proyecto.FechaEstimadaFin,
+                    FechaFinalizacionReal = proyecto.FechaFinalizacionReal,
+                    Estado = proyecto.Estado,
+                    FechaRegistro = proyecto.FechaRegistro,
+                    Participantes = proyecto.Participantes
+                        .Select(p => new ParticipanteListaDto
+                        {
+                            Id = p.Id,
+                            EsBeneficiario = p.EsBeneficiario,
+                            BeneficiarioId = p.BeneficiarioId,
+                            Nombre = NombreDe(p),
+                            Contacto = p.EsBeneficiario
+                                ? ReglasTelefono.Formatear(p.Beneficiario?.CodigoPaisTelefono, p.Beneficiario?.Telefono)
+                                : p.ContactoExterno,
+                            BeneficiarioActivo = p.Beneficiario?.Estado ?? false,
+                            FechaRegistro = p.FechaRegistro
+                        })
+                        .OrderBy(p => p.Nombre, StringComparer.CurrentCultureIgnoreCase)
+                        .ToList()
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al consultar el proyecto comunitario.", ex);
+            }
+        }
+
         public async Task EditarProyectoAsync(int id, ProyectoEditarDto dto)
         {
             try
@@ -189,6 +255,45 @@ namespace SIGAC.Application.Services
                 throw new Exception("Error al registrar el participante.", ex);
             }
         }
+
+        // Quitar corrige una carga equivocada (se agregó a quien no correspondía).
+        // Mismo límite que agregar: un proyecto cerrado conserva la lista con la que
+        // se cerró.
+        public async Task QuitarParticipanteAsync(int proyectoId, int participanteId)
+        {
+            try
+            {
+                var proyecto = await _repository.ObtenerConParticipantesAsync(proyectoId)
+                    ?? throw new NotFoundException("El proyecto no existe.");
+
+                if (EsEstadoTerminal(proyecto.Estado))
+                    throw new ValidationException(
+                        "No se pueden quitar participantes de un proyecto finalizado o cancelado.");
+
+                var participante = proyecto.Participantes.FirstOrDefault(p => p.Id == participanteId)
+                    ?? throw new NotFoundException("El participante no pertenece a este proyecto.");
+
+                // Si otro usuario lo quitó entre la lectura y este borrado, se avisa
+                // en vez de dar por hecha una operación que no ocurrió.
+                if (!await _repository.QuitarParticipanteAsync(proyectoId, participanteId))
+                    throw new NotFoundException("El participante ya no pertenece a este proyecto.");
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Eliminar, ModulosSistema.Proyectos,
+                    $"Participante quitado del proyecto #{proyectoId}: {NombreDe(participante)}");
+            }
+            catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
+            {
+                throw new Exception("Error al quitar el participante.", ex);
+            }
+        }
+
+        // Cómo se nombra a un participante en la lista y en la bitácora. El
+        // beneficiario se lee de su ficha (requiere el Include del repositorio);
+        // si no vino cargada se cae al id para no mostrar un nombre vacío.
+        private static string NombreDe(ParticipanteProyecto participante) =>
+            participante.EsBeneficiario
+                ? participante.Beneficiario?.NombreCompleto ?? $"Beneficiario #{participante.BeneficiarioId}"
+                : participante.NombreExterno ?? string.Empty;
 
         // Finalizado y Cancelado son los dos estados de cierre: ninguno admite
         // edición posterior ni nuevos participantes.

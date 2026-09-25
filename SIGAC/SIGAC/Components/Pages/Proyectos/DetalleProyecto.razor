@@ -1,0 +1,169 @@
+@page "/proyectos/{Id:int}"
+@attribute [Authorize(Policy = Permisos.Proyectos.Ver)]
+@using SIGAC.Application.DTOs.Proyectos
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@using SIGAC.Domain.Entities
+@inject IProyectosService ProyectosService
+@inject IDialogService DialogService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+@* Ficha de un proyecto: sus datos y la lista de participantes. Antes el listado
+   solo mostraba cuántos había y no existía forma de ver quiénes eran. *@
+
+@if (proyecto is null)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <EncabezadoPagina Titulo="@proyecto.Nombre" Descripcion="@($"Proyecto comunitario · {EtiquetaEstado(proyecto.Estado)}")">
+        <Acciones>
+            @if (!proyecto.EstaCerrado)
+            {
+                <AuthorizeView Policy="@Permisos.Proyectos.Editar" Context="auth">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit"
+                               Href="@($"/proyectos/editar/{proyecto.Id}")">Editar</MudButton>
+                </AuthorizeView>
+            }
+        </Acciones>
+    </EncabezadoPagina>
+
+    <MudCard Class="pa-4 mb-4">
+        <MudCardContent>
+            <MudText Typo="Typo.body1" Class="mb-4" Style="white-space: pre-line;">@proyecto.Descripcion</MudText>
+
+            <MudSimpleTable Dense="true" Elevation="0">
+                <tbody>
+                    <tr><th scope="row">Estado</th><td>@EtiquetaEstado(proyecto.Estado)</td></tr>
+                    <tr><th scope="row">Inicio</th><td>@proyecto.FechaInicio.ToString("dd/MM/yyyy")</td></tr>
+                    <tr><th scope="row">Fin estimado</th><td>@proyecto.FechaEstimadaFin.ToString("dd/MM/yyyy")</td></tr>
+                    @if (proyecto.FechaFinalizacionReal is DateTime finalizacion)
+                    {
+                        <tr><th scope="row">Finalizado el</th><td>@finalizacion.ToString("dd/MM/yyyy")</td></tr>
+                    }
+                    <tr><th scope="row">Registrado el</th><td>@proyecto.FechaRegistro.ToString("dd/MM/yyyy")</td></tr>
+                </tbody>
+            </MudSimpleTable>
+        </MudCardContent>
+    </MudCard>
+
+    <MudCard Class="pa-4">
+        <MudCardContent>
+            <div class="d-flex align-center flex-wrap mb-4" style="gap: 12px;">
+                <MudText Typo="Typo.h6" HtmlTag="h2">Participantes (@proyecto.Participantes.Count)</MudText>
+                <MudSpacer />
+                @* Un proyecto cerrado conserva la lista con la que se cerró: ni se
+                   agrega ni se quita (el servicio también lo rechaza). *@
+                @if (!proyecto.EstaCerrado)
+                {
+                    <AuthorizeView Policy="@Permisos.Proyectos.RegistrarParticipante" Context="auth">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd"
+                                   Href="@($"/proyectos/{proyecto.Id}/participantes/registrar")">Agregar participante</MudButton>
+                    </AuthorizeView>
+                }
+            </div>
+
+            <MudDataGrid T="ParticipanteListaDto" Items="@proyecto.Participantes" SortMode="SortMode.None" Filterable="false">
+                <Columns>
+                    <TemplateColumn Title="Nombre">
+                        <CellTemplate>
+                            @context.Item.Nombre
+                            @if (context.Item.EsBeneficiario && !context.Item.BeneficiarioActivo)
+                            {
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary"> (beneficiario inactivo)</MudText>
+                            }
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Tipo">
+                        <CellTemplate>@(context.Item.EsBeneficiario ? "Beneficiario" : "Externo")</CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="x => x.Contacto" Title="Contacto" />
+                    <PropertyColumn Property="x => x.FechaRegistro" Title="Agregado el" Format="dd/MM/yyyy" />
+                    @if (!proyecto.EstaCerrado)
+                    {
+                        <TemplateColumn Title="Acciones">
+                            <CellTemplate>
+                                <AuthorizeView Policy="@Permisos.Proyectos.RegistrarParticipante" Context="auth">
+                                    <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error"
+                                               OnClick="@(() => QuitarAsync(context.Item))">Quitar</MudButton>
+                                </AuthorizeView>
+                            </CellTemplate>
+                        </TemplateColumn>
+                    }
+                </Columns>
+                <NoRecordsContent>
+                    <EstadoVacio Icono="@Icons.Material.Filled.GroupAdd"
+                                 Titulo="Este proyecto todavía no tiene participantes"
+                                 Descripcion="@(proyecto.EstaCerrado ? "El proyecto se cerró sin participantes registrados." : null)" />
+                </NoRecordsContent>
+            </MudDataGrid>
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton Variant="Variant.Text" Color="Color.Default" Href="/proyectos" Class="mb-2">Volver al listado</MudButton>
+        </MudCardActions>
+    </MudCard>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private ProyectoDetalleDto? proyecto;
+
+    protected override async Task OnParametersSetAsync() => await CargarAsync();
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            proyecto = await ProyectosService.ObtenerDetalleAsync(Id);
+
+            // Mismo destino que las demás pantallas del módulo con un id inexistente.
+            if (proyecto is null)
+                NavigationManager.NavigateTo("/proyectos");
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo cargar el proyecto. Intente de nuevo.", Severity.Error);
+            NavigationManager.NavigateTo("/proyectos");
+        }
+    }
+
+    private async Task QuitarAsync(ParticipanteListaDto participante)
+    {
+        var confirmado = await DialogService.ShowMessageBoxAsync(
+            "Confirmar",
+            $"¿Quitar a {participante.Nombre} de este proyecto?",
+            yesText: "Quitar",
+            cancelText: "Cancelar");
+
+        if (confirmado != true)
+            return;
+
+        try
+        {
+            await ProyectosService.QuitarParticipanteAsync(Id, participante.Id);
+            Snackbar.Add("Participante quitado del proyecto.", Severity.Success);
+        }
+        catch (Exception ex) when (ex is ValidationException or NotFoundException)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo quitar el participante. Intente de nuevo.", Severity.Error);
+        }
+
+        // Se recarga en los dos casos: si otro usuario ya lo había quitado o cerró
+        // el proyecto, la lista queda como está realmente en la base.
+        await CargarAsync();
+    }
+
+    private static string EtiquetaEstado(EstadoProyecto estado) => estado switch
+    {
+        EstadoProyecto.EnCurso => "En curso",
+        _ => estado.ToString()
+    };
+}
