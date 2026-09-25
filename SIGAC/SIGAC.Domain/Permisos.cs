@@ -79,6 +79,11 @@ namespace SIGAC.Domain
             public const string VerBitacora = "Seguridad.VerBitacora";
         }
 
+        public static class Reportes
+        {
+            public const string VerBeneficiarios = "Reportes.VerBeneficiarios";
+        }
+
         // Orden de aparición en el panel: por módulo, y dentro de cada módulo
         // primero consultar y después las acciones.
         public static readonly IReadOnlyList<Permiso> Definiciones = new[]
@@ -119,7 +124,9 @@ namespace SIGAC.Domain
             new Permiso(Proyectos.RegistrarParticipante, ModulosSistema.Proyectos, "Registrar participantes en proyectos"),
 
             new Permiso(Seguridad.GestionarUsuarios, ModulosSistema.Seguridad, "Gestionar usuarios, roles y permisos"),
-            new Permiso(Seguridad.VerBitacora, ModulosSistema.Seguridad, "Consultar la bitácora de acciones")
+            new Permiso(Seguridad.VerBitacora, ModulosSistema.Seguridad, "Consultar la bitácora de acciones"),
+
+            new Permiso(Reportes.VerBeneficiarios, ModulosSistema.Reportes, "Generar el reporte de beneficiarios atendidos")
         };
 
         public static readonly IReadOnlyList<string> Todos =

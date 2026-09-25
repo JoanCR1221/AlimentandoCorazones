@@ -150,6 +150,9 @@ builder.Services.AddScoped<IProyectosService, ProyectosService>();
 // sin registrar nada nuevo acá cuando se agregue la siguiente.
 builder.Services.AddScoped<IExportacionService, ExportacionService>();
 
+// Reportes institucionales consolidados (Beneficiarios, y los que sigan).
+builder.Services.AddScoped<IReportesService, ReportesService>();
+
 // Cifras de las tarjetas de resumen de los módulos (solo lectura)
 builder.Services.AddScoped<IResumenService, ResumenService>();
 

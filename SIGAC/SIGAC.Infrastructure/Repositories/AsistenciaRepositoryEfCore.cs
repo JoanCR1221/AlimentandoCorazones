@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using SIGAC.Application.DTOs.Asistencia;
+using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Application.Interfaces;
+using SIGAC.Domain;
 using SIGAC.Domain.Entities;
 using SIGAC.Infrastructure.Data;
 
@@ -69,6 +71,47 @@ namespace SIGAC.Infrastructure.Repositories
                 .OrderByDescending(a => a.Fecha)
                 .ThenByDescending(a => a.Id)
                 .ToListAsync();
+        }
+
+        public async Task<IEnumerable<AsistenciaComedor>> ObtenerParaReporteBeneficiariosAsync(FiltrosReporteBeneficiariosDto filtros)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            IQueryable<AsistenciaComedor> consulta = context.AsistenciasComedor
+                .AsNoTracking()
+                .Include(a => a.Beneficiario);
+
+            if (filtros.FechaDesde.HasValue)
+            {
+                var desde = filtros.FechaDesde.Value.Date;
+                consulta = consulta.Where(a => a.Fecha >= desde);
+            }
+
+            if (filtros.FechaHasta.HasValue)
+            {
+                var hasta = filtros.FechaHasta.Value.Date;
+                consulta = consulta.Where(a => a.Fecha <= hasta);
+            }
+
+            if (!string.IsNullOrWhiteSpace(filtros.Categoria))
+            {
+                // La categoría no se guarda: se traduce al rango de fecha de
+                // nacimiento que le corresponde hoy, mismo criterio que
+                // BeneficiariosRepositoryEfCore. Una categoría que no existe no
+                // devuelve nada, en vez de fallar.
+                if (!CategoriasBeneficiario.EsValida(filtros.Categoria))
+                    return Array.Empty<AsistenciaComedor>();
+
+                var (nacidoDespuesDe, nacidoHasta) = CategoriasBeneficiario.RangoDeNacimiento(filtros.Categoria);
+
+                if (nacidoDespuesDe is DateTime despuesDe)
+                    consulta = consulta.Where(a => a.Beneficiario!.FechaNacimiento > despuesDe);
+
+                if (nacidoHasta is DateTime hasta)
+                    consulta = consulta.Where(a => a.Beneficiario!.FechaNacimiento <= hasta);
+            }
+
+            return await consulta.ToListAsync();
         }
 
         // Compone los filtros sobre un IQueryable: todo viaja a la base como WHERE.
