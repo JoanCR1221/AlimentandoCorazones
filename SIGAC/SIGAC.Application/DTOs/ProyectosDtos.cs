@@ -86,6 +86,8 @@ namespace SIGAC.Application.DTOs.Proyectos
 
     public class FiltrosProyectoDto
     {
+        // Texto libre sobre el nombre del proyecto, sin distinguir tildes.
+        public string? Nombre { get; set; }
         public EstadoProyecto? Estado { get; set; }
     }
 
