@@ -189,16 +189,22 @@ namespace SIGAC.Infrastructure.Repositories
         // El OrderBy es obligatorio para que Skip/Take sea determinista. Se traduce
         // a ORDER BY ... OFFSET n ROWS FETCH NEXT m ROWS ONLY: la base devuelve solo
         // las filas de la página, no se descarta nada en memoria.
+        //
+        // Alfabético en el mismo orden en que se lee NombreCompleto (nombres y
+        // después apellidos), que es como lo muestran el listado y los buscadores
+        // de beneficiario. Ordenar por apellido mientras se muestra el nombre
+        // primero hacía que la lista no pareciera ordenada. Coincide además con
+        // las primeras columnas del índice único, así que SQL puede recorrerlo.
         private static IQueryable<Beneficiario> AplicarOrdenYPaginado(
             IQueryable<Beneficiario> consulta, FiltrosBeneficiarioDto filtros)
         {
             var tamanoPagina = filtros.TamanoPaginaEfectivo;
 
             return consulta
-                .OrderBy(b => b.PrimerApellido)
-                .ThenBy(b => b.SegundoApellido)
-                .ThenBy(b => b.PrimerNombre)
+                .OrderBy(b => b.PrimerNombre)
                 .ThenBy(b => b.SegundoNombre)
+                .ThenBy(b => b.PrimerApellido)
+                .ThenBy(b => b.SegundoApellido)
                 .ThenBy(b => b.Id)
                 .Skip(filtros.PaginaEfectiva * tamanoPagina)
                 .Take(tamanoPagina);

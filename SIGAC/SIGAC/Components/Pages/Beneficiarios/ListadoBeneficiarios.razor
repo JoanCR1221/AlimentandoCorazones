@@ -111,12 +111,18 @@
                                  Titulo="Ningún beneficiario coincide con los filtros"
                                  Descripcion="Pruebe con otro nombre, número de identidad o categoría." />
                 }
-                else
+                else if (NoHayBeneficiarios)
                 {
                     <EstadoVacio Icono="@Icons.Material.Filled.PeopleOutline"
                                  Titulo="Todavía no hay beneficiarios registrados"
                                  TextoAccion="Registrar beneficiario" HrefAccion="/beneficiarios/registrar"
                                  PermisoAccion="@Permisos.Beneficiarios.Registrar" />
+                }
+                else
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.PersonSearch"
+                                 Titulo="Busque por nombre o número de identidad, o elija un filtro"
+                                 Descripcion="Así se consultan solo los beneficiarios que necesita, sin cargar la lista completa." />
                 }
             </NoRecordsContent>
             <PagerContent>
@@ -135,11 +141,18 @@
     private string? filtroTipoDocumento;
     private bool? filtroEstado;
 
+    // IsNullOrWhiteSpace, el mismo criterio con el que el repositorio decide si
+    // aplica cada filtro: un texto con solo espacios allá se ignora, así que acá
+    // tampoco cuenta como búsqueda (si contara, traería la lista completa).
     private bool HayFiltro =>
         !string.IsNullOrWhiteSpace(filtroTexto) || !string.IsNullOrWhiteSpace(filtroCategoria) ||
         !string.IsNullOrWhiteSpace(filtroTipoDocumento) || filtroEstado.HasValue;
 
     private ResumenRegistrosDto? resumen;
+
+    // Sale del resumen de las tarjetas (un conteo, no filas): permite decir
+    // "todavía no hay beneficiarios" sin consultar la lista.
+    private bool NoHayBeneficiarios => resumen is { Activos: 0, Inactivos: 0 };
 
     protected override async Task OnInitializedAsync() => await CargarResumenAsync();
 
@@ -162,6 +175,15 @@
     private async Task<GridData<BeneficiarioListaDto>> CargarPaginaAsync(
         GridState<BeneficiarioListaDto> estado, CancellationToken cancellationToken)
     {
+        // La pantalla abre sin consultar la lista: sin ningún criterio no se va a
+        // la base y la grilla queda vacía, con la invitación a buscar. Antes
+        // cargaba la primera página de todos los beneficiarios sin que nadie
+        // hubiera buscado nada. Mismo criterio que ExistenciasInventario.
+        // Cubre también borrar todos los filtros: la grilla se vacía en vez de
+        // volver a traer la lista completa.
+        if (!HayFiltro)
+            return new GridData<BeneficiarioListaDto> { Items = Array.Empty<BeneficiarioListaDto>(), TotalItems = 0 };
+
         var resultado = await BeneficiariosService.ObtenerBeneficiariosAsync(new FiltrosBeneficiarioDto
         {
             Nombre = filtroTexto,
