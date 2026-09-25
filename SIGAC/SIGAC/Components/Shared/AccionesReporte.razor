@@ -1,0 +1,138 @@
+@typeparam TFila
+@using SIGAC.Application.Interfaces
+@implements IAsyncDisposable
+@inject IExportacionService ExportacionService
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+@* Botones de exportar/imprimir para cualquier pantalla de reporte: PDF, Excel
+   e imprimir sobre los datos ya filtrados de la pantalla. Un solo lugar para
+   el indicador de carga, la descarga (js/reportes.js, Blazor Server no puede
+   bajar archivos por su cuenta) y los mensajes de error, así que un reporte
+   nuevo (Donaciones, Inventario, Gastos) no repite este código. *@
+<MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PictureAsPdf"
+               Disabled="@(exportando || Datos.Count == 0)" OnClick="ExportarPdfAsync">
+        Exportar PDF
+    </MudButton>
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.GridOn"
+               Disabled="@(exportando || Datos.Count == 0)" OnClick="ExportarExcelAsync">
+        Exportar Excel
+    </MudButton>
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Print"
+               Disabled="@(exportando || Datos.Count == 0)" OnClick="ImprimirAsync" id="@idBotonImprimir">
+        Imprimir
+    </MudButton>
+    @if (exportando)
+    {
+        <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Primary" />
+    }
+</MudStack>
+
+@code {
+    // Título del reporte: encabezado del PDF y base del nombre de archivo.
+    [Parameter, EditorRequired]
+    public string Titulo { get; set; } = string.Empty;
+
+    // Los datos que la pantalla ya tiene filtrados y a la vista, no una
+    // consulta propia: exportar lo mismo que se está mirando.
+    [Parameter, EditorRequired]
+    public IReadOnlyList<TFila> Datos { get; set; } = Array.Empty<TFila>();
+
+    // Único por instancia: la pantalla podría tener más de un reporte, y un id
+    // duplicado en el HTML rompería getElementById en la otra.
+    private readonly string idBotonImprimir = $"acciones-reporte-imprimir-{Guid.NewGuid():N}";
+    private IJSObjectReference? moduloParaEngancharImprimir;
+    private bool exportando;
+
+    // El clic de Blazor viaja al servidor antes de que este componente pueda
+    // volver a llamar a JS, así que para cuando ImprimirAsync corre ya no hay
+    // "gesto de usuario" reciente y window.open() se bloquearía. Por eso el
+    // botón se engancha acá con un listener nativo (fuera del ciclo de
+    // eventos de Blazor) que abre la pestaña en blanco de forma síncrona; ver
+    // la nota completa en js/reportes.js.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        moduloParaEngancharImprimir = await JS.InvokeAsync<IJSObjectReference>("import", "./js/reportes.js");
+        await moduloParaEngancharImprimir.InvokeVoidAsync("engancharBotonImprimir", idBotonImprimir);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (moduloParaEngancharImprimir is not null)
+            await moduloParaEngancharImprimir.DisposeAsync();
+    }
+
+    private Task ExportarPdfAsync() => EjecutarAsync(
+        () => ExportacionService.ExportarPDFAsync(Datos, Titulo),
+        NombreArchivo("pdf"),
+        "application/pdf");
+
+    private Task ExportarExcelAsync() => EjecutarAsync(
+        () => ExportacionService.ExportarExcelAsync(Datos, Titulo),
+        NombreArchivo("xlsx"),
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+    private async Task ImprimirAsync()
+    {
+        if (exportando)
+            return;
+
+        exportando = true;
+
+        try
+        {
+            var pdf = await ExportacionService.ExportarPDFAsync(Datos, Titulo);
+
+            await using var modulo = await JS.InvokeAsync<IJSObjectReference>("import", "./js/reportes.js");
+            await modulo.InvokeVoidAsync("imprimirPdf", Convert.ToBase64String(pdf));
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo generar el reporte para imprimir. Intentá de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            exportando = false;
+        }
+    }
+
+    // Un solo lugar para "generar, descargar, avisar": lo que cambia entre PDF
+    // y Excel es solo qué método del servicio llamar y con qué nombre/tipo.
+    private async Task EjecutarAsync(Func<Task<byte[]>> exportar, string nombreArchivo, string tipoMime)
+    {
+        if (exportando)
+            return;
+
+        exportando = true;
+
+        try
+        {
+            var archivo = await exportar();
+
+            await using var modulo = await JS.InvokeAsync<IJSObjectReference>("import", "./js/reportes.js");
+            await modulo.InvokeVoidAsync("descargarArchivo", nombreArchivo, tipoMime, Convert.ToBase64String(archivo));
+        }
+        catch (NotImplementedException)
+        {
+            // ExportacionService.ExportarExcelAsync: pendiente de decidir la
+            // librería (FastReport Community no genera XLSX). Mensaje propio
+            // para no confundirlo con un error real de generación.
+            Snackbar.Add("La exportación a Excel todavía no está disponible.", Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo generar el archivo del reporte. Intentá de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            exportando = false;
+        }
+    }
+
+    private string NombreArchivo(string extension) =>
+        $"{TextoNormalizador.ClaveComparacion(Titulo).Replace(' ', '_')}_{DateTime.Now:yyyyMMdd}.{extension}";
+}
