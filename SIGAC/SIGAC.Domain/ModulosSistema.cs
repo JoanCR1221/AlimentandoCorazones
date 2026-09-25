@@ -14,6 +14,7 @@ namespace SIGAC.Domain
         public const string Gastos = "Gastos";
         public const string Proyectos = "Proyectos";
         public const string Seguridad = "Seguridad";
+        public const string Reportes = "Reportes";
 
         public static readonly IReadOnlyList<string> Todos = new[]
         {
@@ -23,7 +24,8 @@ namespace SIGAC.Domain
             Donaciones,
             Gastos,
             Proyectos,
-            Seguridad
+            Seguridad,
+            Reportes
         };
 
         public static bool EsValido(string? modulo) =>

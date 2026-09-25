@@ -1,0 +1,224 @@
+@page "/reportes/beneficiarios/panorama"
+@attribute [Authorize(Policy = Permisos.Reportes.VerBeneficiarios)]
+@using SIGAC.Application.DTOs.Reportes
+@using SIGAC.Application.Interfaces
+@inject IReportesService ReportesService
+
+<EncabezadoPagina Titulo="Panorama de beneficiarios"
+                  Descripcion="Vea a quién atiende el comedor y cómo ha evolucionado en los últimos 12 meses." />
+
+@* Cifras del mes en curso, igual que las tarjetas de los listados de los otros
+   módulos. Salen del mismo panorama, así que sin datos (o si la consulta
+   falla) simplemente no se muestran. *@
+@if (_panorama is not null)
+{
+    <section class="ac-kpis" aria-label="Resumen de beneficiarios y asistencia">
+        <TarjetaResumen Titulo="Beneficiarios activos"
+                        Valor="@TextoResumen.Numero(_panorama.Activos)"
+                        Detalle="@TextoResumen.Cantidad(_panorama.Inactivos, "inactivo", "inactivos")"
+                        Icono="@Icons.Material.Filled.People" />
+        <TarjetaResumen Titulo="Comidas servidas este mes"
+                        Valor="@TextoResumen.Numero(ComidasEsteMes)"
+                        Detalle="@TextoResumen.VsMesAnterior(ComidasEsteMes, ComidasMesAnterior)"
+                        Icono="@Icons.Material.Filled.Restaurant" />
+        <TarjetaResumen Titulo="Personas atendidas este mes"
+                        Valor="@TextoResumen.Numero(PersonasEsteMes)"
+                        Detalle="@TextoResumen.VsMesAnterior(PersonasEsteMes, PersonasMesAnterior)"
+                        Icono="@Icons.Material.Filled.Groups" />
+    </section>
+}
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        @if (cargando)
+        {
+            <CargandoGrilla />
+        }
+        else if (error)
+        {
+            <EstadoVacio Icono="@Icons.Material.Filled.ErrorOutline"
+                         Titulo="No se pudo cargar el panorama de beneficiarios"
+                         Descripcion="Intente de nuevo en unos momentos." />
+        }
+        else if (NoHayBeneficiarios)
+        {
+            <EstadoVacio Icono="@Icons.Material.Filled.PeopleOutline"
+                         Titulo="Todavía no hay beneficiarios registrados"
+                         Descripcion="Las gráficas se llenan a medida que se registran beneficiarios y su asistencia." />
+        }
+        else
+        {
+            @* Desplegable en vez de un listado fijo: ocupa una sola fila y deja
+               todo el ancho al gráfico, también en celular. Lista cerrada de
+               estadísticas: ver Opciones. *@
+            <MudGrid Spacing="2" Class="mb-2">
+                <MudItem xs="12" sm="8" md="5">
+                    <MudSelect T="Estadistica" Label="Estadística" Variant="Variant.Outlined"
+                               Value="_seleccionada" ValueChanged="@(v => _seleccionada = v)"
+                               ToStringFunc="@(e => Opciones.First(o => o.Clave == e).Titulo)"
+                               Adornment="Adornment.Start" AdornmentIcon="@IconoSeleccionado"
+                               AdornmentColor="Color.Secondary">
+                        @foreach (var opcion in Opciones)
+                        {
+                            <MudSelectItem T="Estadistica" Value="opcion.Clave">
+                                <MudIcon Icon="@opcion.Icono" Color="Color.Secondary" Size="Size.Small" Class="mr-2" />
+                                @opcion.Titulo
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+
+            @if (_graficas.TryGetValue(_seleccionada, out var grafica))
+            {
+                <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-3">@grafica.Titulo</MudText>
+                <MudChart T="double" ChartType="grafica.Tipo" ChartSeries="grafica.Series"
+                          ChartLabels="grafica.Etiquetas" Width="100%" Height="350px" />
+            }
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private enum Estadistica
+    {
+        PorCategoria,
+        ActivosInactivos,
+        AltasPorMes,
+        PorTiempoComida,
+        TendenciaComidas,
+        PersonasPorMes
+    }
+
+    private sealed record OpcionEstadistica(Estadistica Clave, string Titulo, string Icono);
+
+    private sealed record GraficaVista(string Titulo, ChartType Tipo, List<ChartSeries<double>> Series, string[] Etiquetas);
+
+    // Datos como lista, igual que los grupos de NavMenu: agregar una estadística
+    // nueva es una entrada más acá, no un bloque de MudListItem repetido.
+    private static readonly OpcionEstadistica[] Opciones =
+    {
+        new(Estadistica.PorCategoria, "Beneficiarios por categoría", Icons.Material.Filled.DonutLarge),
+        new(Estadistica.ActivosInactivos, "Activos vs. inactivos", Icons.Material.Filled.DonutLarge),
+        new(Estadistica.AltasPorMes, "Altas de beneficiarios por mes", Icons.Material.Filled.BarChart),
+        new(Estadistica.PorTiempoComida, "Comidas por tiempo de comida", Icons.Material.Filled.BarChart),
+        new(Estadistica.TendenciaComidas, "Tendencia de comidas servidas", Icons.Material.Filled.ShowChart),
+        new(Estadistica.PersonasPorMes, "Personas distintas atendidas", Icons.Material.Filled.ShowChart)
+    };
+
+    private static readonly string[] MesesAbreviados =
+        { "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic" };
+
+    // Debe coincidir con ReportesService.MesesPanoramaPorDefecto: acá se arma la
+    // ventana de meses del eje X, allá se filtran los datos de esa misma ventana.
+    private const int MesesPanorama = 12;
+
+    private bool cargando = true;
+    private bool error;
+    private Estadistica _seleccionada = Estadistica.PorCategoria;
+    private PanoramaBeneficiariosDto? _panorama;
+
+    private string IconoSeleccionado => Opciones.First(o => o.Clave == _seleccionada).Icono;
+
+    // Sale de las cifras del panorama (conteos, no filas): permite decir
+    // "todavía no hay beneficiarios" sin otra consulta.
+    private bool NoHayBeneficiarios => _panorama is { Activos: 0, Inactivos: 0 };
+
+    private int ComidasEsteMes => ValorDelMes(_panorama?.ComidasPorMes, DateTime.Now);
+    private int ComidasMesAnterior => ValorDelMes(_panorama?.ComidasPorMes, DateTime.Now.AddMonths(-1));
+    private int PersonasEsteMes => ValorDelMes(_panorama?.PersonasAtendidasPorMes, DateTime.Now);
+    private int PersonasMesAnterior => ValorDelMes(_panorama?.PersonasAtendidasPorMes, DateTime.Now.AddMonths(-1));
+
+    // Las series mensuales solo traen los meses con registros: un mes ausente es 0.
+    private static int ValorDelMes(IReadOnlyList<ConteoPorMesDto>? serie, DateTime referencia) =>
+        serie?.FirstOrDefault(c => c.Anio == referencia.Year && c.Mes == referencia.Month)?.Cantidad ?? 0;
+    private Dictionary<Estadistica, GraficaVista> _graficas = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _panorama = await ReportesService.ObtenerPanoramaBeneficiariosAsync();
+            _graficas = ArmarGraficas(_panorama);
+        }
+        catch (Exception)
+        {
+            error = true;
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private static Dictionary<Estadistica, GraficaVista> ArmarGraficas(PanoramaBeneficiariosDto datos)
+    {
+        // Las tres consultas mensuales del backend solo traen los meses que
+        // tuvieron al menos un registro: un mes sin altas, por ejemplo, no
+        // aparecería en AltasPorMes. Se alinean acá contra una ventana calendario
+        // completa para que las tres gráficas usen el mismo eje X y un mes sin
+        // datos se vea como cero y no como un hueco que corre las etiquetas.
+        var ventana = VentanaMeses();
+        var etiquetasMeses = ventana.Select(m => EtiquetaMes(m.Anio, m.Mes)).ToArray();
+
+        return new Dictionary<Estadistica, GraficaVista>
+        {
+            [Estadistica.PorCategoria] = new(
+                "Beneficiarios por categoría",
+                ChartType.Donut,
+                new() { new() { Name = "Beneficiarios", Data = datos.BeneficiariosPorCategoria.Select(c => (double)c.Cantidad).ToArray() } },
+                datos.BeneficiariosPorCategoria.Select(c => c.Categoria).ToArray()),
+
+            [Estadistica.ActivosInactivos] = new(
+                "Beneficiarios activos vs. inactivos",
+                ChartType.Donut,
+                new() { new() { Name = "Beneficiarios", Data = new double[] { datos.Activos, datos.Inactivos } } },
+                new[] { "Activos", "Inactivos" }),
+
+            [Estadistica.AltasPorMes] = new(
+                "Altas de beneficiarios por mes",
+                ChartType.Bar,
+                new() { new() { Name = "Altas", Data = AlinearPorMes(ventana, datos.AltasPorMes) } },
+                etiquetasMeses),
+
+            [Estadistica.PorTiempoComida] = new(
+                "Comidas servidas por tiempo de comida",
+                ChartType.Bar,
+                new() { new() { Name = "Comidas", Data = new double[] { datos.Desayunos, datos.Almuerzos, datos.Meriendas } } },
+                TiemposComida.Todos.ToArray()),
+
+            [Estadistica.TendenciaComidas] = new(
+                "Tendencia de comidas servidas",
+                ChartType.Line,
+                new() { new() { Name = "Comidas servidas", Data = AlinearPorMes(ventana, datos.ComidasPorMes) } },
+                etiquetasMeses),
+
+            [Estadistica.PersonasPorMes] = new(
+                "Personas distintas atendidas por mes",
+                ChartType.Line,
+                new() { new() { Name = "Personas atendidas", Data = AlinearPorMes(ventana, datos.PersonasAtendidasPorMes) } },
+                etiquetasMeses)
+        };
+    }
+
+    // Los MesesPanorama meses calendario hasta el actual, contándolo como el
+    // primero: con MesesPanorama = 12 cubre este mes y los 11 anteriores. Mismo
+    // criterio que ReportesService/BeneficiariosRepositoryEfCore.InicioVentana.
+    private static List<(int Anio, int Mes)> VentanaMeses()
+    {
+        var inicio = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).AddMonths(-(MesesPanorama - 1));
+
+        return Enumerable.Range(0, MesesPanorama)
+            .Select(inicio.AddMonths)
+            .Select(f => (f.Year, f.Month))
+            .ToList();
+    }
+
+    private static double[] AlinearPorMes(List<(int Anio, int Mes)> ventana, IReadOnlyList<ConteoPorMesDto> datos)
+    {
+        var porMes = datos.ToDictionary(c => (c.Anio, c.Mes), c => (double)c.Cantidad);
+        return ventana.Select(m => porMes.TryGetValue(m, out var cantidad) ? cantidad : 0.0).ToArray();
+    }
+
+    private static string EtiquetaMes(int anio, int mes) => $"{MesesAbreviados[mes - 1]} {anio}";
+}

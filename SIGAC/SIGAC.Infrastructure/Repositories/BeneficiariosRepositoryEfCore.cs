@@ -2,6 +2,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Beneficiarios;
+using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
 using SIGAC.Domain;
@@ -301,6 +302,67 @@ namespace SIGAC.Infrastructure.Repositories
                 .FirstOrDefaultAsync();
 
             return resumen ?? ResumenRegistrosDto.Vacio;
+        }
+
+        public async Task<IReadOnlyList<ConteoPorCategoriaDto>> ObtenerConteoPorCategoriaAsync()
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            // Solo activos: el panorama por categoría es "a quién atendemos hoy",
+            // no el histórico completo del padrón (eso ya lo separa Activos/Inactivos).
+            var activos = context.Beneficiarios.AsNoTracking().Where(b => b.Estado);
+
+            var resultado = new List<ConteoPorCategoriaDto>();
+
+            // Una consulta por categoría, mismo criterio que el filtro de categoría
+            // en ObtenerPaginaAsync: la categoría no se guarda, se traduce al rango
+            // de fecha de nacimiento que le corresponde hoy (CategoriasBeneficiario
+            // es la única fuente de esos rangos).
+            foreach (var categoria in CategoriasBeneficiario.Todas)
+            {
+                var (nacidoDespuesDe, nacidoHasta) = CategoriasBeneficiario.RangoDeNacimiento(categoria);
+
+                var consulta = activos;
+
+                if (nacidoDespuesDe is DateTime despuesDe)
+                    consulta = consulta.Where(b => b.FechaNacimiento > despuesDe);
+
+                if (nacidoHasta is DateTime hasta)
+                    consulta = consulta.Where(b => b.FechaNacimiento <= hasta);
+
+                resultado.Add(new ConteoPorCategoriaDto(categoria, await consulta.CountAsync()));
+            }
+
+            return resultado;
+        }
+
+        public async Task<IReadOnlyList<ConteoPorMesDto>> ObtenerAltasPorMesAsync(int mesesHaciaAtras)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            var inicioVentana = InicioVentana(mesesHaciaAtras);
+
+            // Se proyecta a un tipo anónimo y no directamente al record: EF Core no
+            // traduce un GroupBy + Select a un constructor posicional seguido de
+            // OrderBy, y falla en tiempo de ejecución (no en compilación).
+            var filas = await context.Beneficiarios
+                .AsNoTracking()
+                .Where(b => b.FechaRegistro >= inicioVentana)
+                .GroupBy(b => new { b.FechaRegistro.Year, b.FechaRegistro.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Cantidad = g.Count() })
+                .OrderBy(f => f.Year).ThenBy(f => f.Month)
+                .ToListAsync();
+
+            return filas.Select(f => new ConteoPorMesDto(f.Year, f.Month, f.Cantidad)).ToList();
+        }
+
+        // Primer día del mes que queda mesesHaciaAtras meses atrás, contando el mes
+        // actual como el primero: con mesesHaciaAtras = 12 la ventana cubre este mes
+        // y los 11 anteriores.
+        private static DateTime InicioVentana(int mesesHaciaAtras)
+        {
+            var inicioMesActual = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            return inicioMesActual.AddMonths(-(mesesHaciaAtras - 1));
         }
     }
 }

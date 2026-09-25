@@ -1,0 +1,112 @@
+@page "/reportes/beneficiarios"
+@attribute [Authorize(Policy = Permisos.Reportes.VerBeneficiarios)]
+@using SIGAC.Application.DTOs.Reportes
+@using SIGAC.Application.Interfaces
+@inject IReportesService ReportesService
+@inject ISnackbar Snackbar
+
+<EncabezadoPagina Titulo="Reporte de beneficiarios atendidos"
+                   Descripcion="Asistencias por beneficiario y tiempo de comida en el período, para mostrar el impacto ante donantes y autoridades." />
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        <MudGrid Spacing="2" Class="mb-2">
+            <MudItem xs="12" sm="4">
+                @* Lista cerrada: la fuente es SIGAC.Domain.CategoriasBeneficiario. *@
+                <MudSelect T="string" Value="filtroCategoria" ValueChanged="@(v => filtroCategoria = v)"
+                           Label="Categoría" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var categoria in CategoriasBeneficiario.Todas)
+                    {
+                        <MudSelectItem T="string" Value="@categoria">@categoria</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="8">
+                <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="@(v => rangoFechas = v)"
+                                    Label="Rango de fechas" Variant="Variant.Outlined"
+                                    DateFormat="dd/MM/yyyy" Clearable="true" MaxDate="DateTime.Today" />
+            </MudItem>
+        </MudGrid>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Assessment"
+                   Disabled="generando" OnClick="GenerarAsync" Class="mb-4">
+            @(generando ? "Generando..." : "Generar reporte")
+        </MudButton>
+
+        @if (generando)
+        {
+            <CargandoGrilla />
+        }
+        else if (seGenero)
+        {
+            @* Mismo tipo de tarjetas que los listados de los otros módulos. El
+               total general del período es el que pide el criterio de aceptación
+               del PBI; el desglose por tiempo de comida va de detalle. *@
+            <section class="ac-kpis" aria-label="Resumen del reporte">
+                <TarjetaResumen Titulo="Total de asistencias en el período"
+                                Valor="@TextoResumen.Numero(resultado.TotalGeneral)"
+                                Detalle="@DesgloseTiemposComida"
+                                Icono="@Icons.Material.Filled.Restaurant" />
+                <TarjetaResumen Titulo="Beneficiarios atendidos"
+                                Valor="@TextoResumen.Numero(resultado.Filas.Count)"
+                                Icono="@Icons.Material.Filled.People" />
+            </section>
+
+            <MudDataGrid T="ReporteBeneficiariosDto" Items="@resultado.Filas" Class="mb-4"
+                         SortMode="SortMode.None" Filterable="false" Dense="true">
+                <Columns>
+                    <PropertyColumn Property="x => x.NombreCompleto" Title="Nombre" />
+                    <PropertyColumn Property="x => x.Categoria" Title="Categoría" />
+                    <PropertyColumn Property="x => x.Desayunos" Title="Desayunos" />
+                    <PropertyColumn Property="x => x.Almuerzos" Title="Almuerzos" />
+                    <PropertyColumn Property="x => x.Meriendas" Title="Meriendas" />
+                    <PropertyColumn Property="x => x.TotalAsistencias" Title="Total" />
+                </Columns>
+                <NoRecordsContent>
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="No hay asistencias registradas con estos filtros"
+                                 Descripcion="Pruebe con otra categoría o con un rango de fechas distinto." />
+                </NoRecordsContent>
+            </MudDataGrid>
+
+            <AccionesReporte TFila="ReporteBeneficiariosDto" Titulo="Reporte de beneficiarios atendidos" Datos="resultado.Filas" />
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private string? filtroCategoria;
+    private DateRange? rangoFechas;
+    private bool generando;
+    private bool seGenero;
+    private ReporteBeneficiariosResultadoDto resultado = new();
+
+    private string DesgloseTiemposComida => string.Join(" · ",
+        TextoResumen.Cantidad(resultado.Filas.Sum(f => f.Desayunos), "desayuno", "desayunos"),
+        TextoResumen.Cantidad(resultado.Filas.Sum(f => f.Almuerzos), "almuerzo", "almuerzos"),
+        TextoResumen.Cantidad(resultado.Filas.Sum(f => f.Meriendas), "merienda", "meriendas"));
+
+    private async Task GenerarAsync()
+    {
+        generando = true;
+
+        try
+        {
+            resultado = await ReportesService.GenerarReporteBeneficiariosAsync(new FiltrosReporteBeneficiariosDto
+            {
+                Categoria = filtroCategoria,
+                FechaDesde = rangoFechas?.Start,
+                FechaHasta = rangoFechas?.End
+            });
+            seGenero = true;
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo generar el reporte. Intentá de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            generando = false;
+        }
+    }
+}

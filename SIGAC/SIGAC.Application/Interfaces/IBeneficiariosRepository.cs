@@ -1,6 +1,7 @@
 ﻿using SIGAC.Domain.Entities;
 using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Beneficiarios;
+using SIGAC.Application.DTOs.Reportes;
 
 namespace SIGAC.Application.Interfaces
 {
@@ -28,5 +29,13 @@ namespace SIGAC.Application.Interfaces
         // Conteos generales (activos, inactivos, altas de este mes y del anterior)
         // en una sola consulta agregada: no trae filas, solo cuatro números.
         Task<ResumenRegistrosDto> ObtenerResumenAsync();
+
+        // Beneficiarios activos agrupados por categoría (ver CategoriasBeneficiario),
+        // para el panorama gráfico.
+        Task<IReadOnlyList<ConteoPorCategoriaDto>> ObtenerConteoPorCategoriaAsync();
+
+        // Altas de beneficiarios por mes calendario, de los últimos mesesHaciaAtras
+        // meses (incluye el mes actual), para el panorama gráfico.
+        Task<IReadOnlyList<ConteoPorMesDto>> ObtenerAltasPorMesAsync(int mesesHaciaAtras);
     }
 }

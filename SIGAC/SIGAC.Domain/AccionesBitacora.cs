@@ -23,6 +23,7 @@ namespace SIGAC.Domain
         public const string Rechazar = "Rechazar";
         public const string Finalizar = "Finalizar";
         public const string Entregar = "Entregar";
+        public const string Exportar = "Exportar";
 
         // Gestión de usuarios
         public const string CambiarRol = "CambiarRol";
@@ -46,6 +47,7 @@ namespace SIGAC.Domain
             Rechazar,
             Finalizar,
             Entregar,
+            Exportar,
             CambiarRol,
             CambiarPermisos,
             CambiarPassword,

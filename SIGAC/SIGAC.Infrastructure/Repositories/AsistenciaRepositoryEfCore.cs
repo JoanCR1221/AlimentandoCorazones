@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using SIGAC.Application.DTOs.Asistencia;
+using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Application.Interfaces;
+using SIGAC.Domain;
 using SIGAC.Domain.Entities;
 using SIGAC.Infrastructure.Data;
 
@@ -69,6 +71,93 @@ namespace SIGAC.Infrastructure.Repositories
                 .OrderByDescending(a => a.Fecha)
                 .ThenByDescending(a => a.Id)
                 .ToListAsync();
+        }
+
+        public async Task<IEnumerable<AsistenciaComedor>> ObtenerParaReporteBeneficiariosAsync(FiltrosReporteBeneficiariosDto filtros)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            IQueryable<AsistenciaComedor> consulta = context.AsistenciasComedor
+                .AsNoTracking()
+                .Include(a => a.Beneficiario);
+
+            if (filtros.FechaDesde.HasValue)
+            {
+                var desde = filtros.FechaDesde.Value.Date;
+                consulta = consulta.Where(a => a.Fecha >= desde);
+            }
+
+            if (filtros.FechaHasta.HasValue)
+            {
+                var hasta = filtros.FechaHasta.Value.Date;
+                consulta = consulta.Where(a => a.Fecha <= hasta);
+            }
+
+            if (!string.IsNullOrWhiteSpace(filtros.Categoria))
+            {
+                // La categoría no se guarda: se traduce al rango de fecha de
+                // nacimiento que le corresponde hoy, mismo criterio que
+                // BeneficiariosRepositoryEfCore. Una categoría que no existe no
+                // devuelve nada, en vez de fallar.
+                if (!CategoriasBeneficiario.EsValida(filtros.Categoria))
+                    return Array.Empty<AsistenciaComedor>();
+
+                var (nacidoDespuesDe, nacidoHasta) = CategoriasBeneficiario.RangoDeNacimiento(filtros.Categoria);
+
+                if (nacidoDespuesDe is DateTime despuesDe)
+                    consulta = consulta.Where(a => a.Beneficiario!.FechaNacimiento > despuesDe);
+
+                if (nacidoHasta is DateTime hasta)
+                    consulta = consulta.Where(a => a.Beneficiario!.FechaNacimiento <= hasta);
+            }
+
+            return await consulta.ToListAsync();
+        }
+
+        public async Task<IReadOnlyList<ConteoComidaMensualDto>> ObtenerComidasPorTiempoYMesAsync(int mesesHaciaAtras)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            var inicioVentana = InicioVentana(mesesHaciaAtras);
+
+            // Se proyecta a un tipo anónimo y no directamente al record: EF Core no
+            // traduce un GroupBy + Select a un constructor posicional seguido de
+            // OrderBy, y falla en tiempo de ejecución (no en compilación).
+            var filas = await context.AsistenciasComedor
+                .AsNoTracking()
+                .Where(a => a.Fecha >= inicioVentana)
+                .GroupBy(a => new { a.Fecha.Year, a.Fecha.Month, a.TiempoComida })
+                .Select(g => new { g.Key.Year, g.Key.Month, g.Key.TiempoComida, Cantidad = g.Count() })
+                .OrderBy(f => f.Year).ThenBy(f => f.Month)
+                .ToListAsync();
+
+            return filas.Select(f => new ConteoComidaMensualDto(f.Year, f.Month, f.TiempoComida, f.Cantidad)).ToList();
+        }
+
+        public async Task<IReadOnlyList<ConteoPorMesDto>> ObtenerPersonasAtendidasPorMesAsync(int mesesHaciaAtras)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            var inicioVentana = InicioVentana(mesesHaciaAtras);
+
+            var filas = await context.AsistenciasComedor
+                .AsNoTracking()
+                .Where(a => a.Fecha >= inicioVentana)
+                .GroupBy(a => new { a.Fecha.Year, a.Fecha.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Cantidad = g.Select(a => a.BeneficiarioId).Distinct().Count() })
+                .OrderBy(f => f.Year).ThenBy(f => f.Month)
+                .ToListAsync();
+
+            return filas.Select(f => new ConteoPorMesDto(f.Year, f.Month, f.Cantidad)).ToList();
+        }
+
+        // Primer día del mes que queda mesesHaciaAtras meses atrás, contando el mes
+        // actual como el primero: con mesesHaciaAtras = 12 la ventana cubre este mes
+        // y los 11 anteriores. Mismo criterio que BeneficiariosRepositoryEfCore.
+        private static DateTime InicioVentana(int mesesHaciaAtras)
+        {
+            var inicioMesActual = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            return inicioMesActual.AddMonths(-(mesesHaciaAtras - 1));
         }
 
         // Compone los filtros sobre un IQueryable: todo viaja a la base como WHERE.

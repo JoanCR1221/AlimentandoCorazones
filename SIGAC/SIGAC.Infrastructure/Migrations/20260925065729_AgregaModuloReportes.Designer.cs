@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SIGAC.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using SIGAC.Infrastructure.Data;
 namespace SIGAC.Infrastructure.Migrations
 {
     [DbContext(typeof(SigacDbContext))]
-    partial class SigacDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260925065729_AgregaModuloReportes")]
+    partial class AgregaModuloReportes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -338,8 +341,6 @@ namespace SIGAC.Infrastructure.Migrations
 
                     b.HasIndex("FechaNacimiento");
 
-                    b.HasIndex("FechaRegistro");
-
                     b.HasIndex("NumIdentidad")
                         .IsUnique()
                         .HasDatabaseName("UX_Beneficiarios_NumIdentidad")
@@ -408,7 +409,7 @@ namespace SIGAC.Infrastructure.Migrations
 
                     b.ToTable("Bitacora", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Bitacora_Accion", "[Accion] IN ('IniciarSesion', 'IniciarSesionFallido', 'CerrarSesion', 'AccesoDenegado', 'Registrar', 'Editar', 'Eliminar', 'Anular', 'Activar', 'Desactivar', 'Aprobar', 'Rechazar', 'Finalizar', 'Entregar', 'Exportar', 'CambiarRol', 'CambiarPermisos', 'CambiarPassword', 'RestablecerPassword')");
+                            t.HasCheckConstraint("CK_Bitacora_Accion", "[Accion] IN ('IniciarSesion', 'IniciarSesionFallido', 'CerrarSesion', 'AccesoDenegado', 'Registrar', 'Editar', 'Eliminar', 'Anular', 'Activar', 'Desactivar', 'Aprobar', 'Rechazar', 'Finalizar', 'Entregar', 'CambiarRol', 'CambiarPermisos', 'CambiarPassword', 'RestablecerPassword')");
 
                             t.HasCheckConstraint("CK_Bitacora_Modulo", "[Modulo] IN ('Beneficiarios', 'Asistencia', 'Inventario', 'Donaciones', 'Gastos', 'Proyectos', 'Seguridad', 'Reportes')");
 
