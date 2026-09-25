@@ -150,6 +150,18 @@
         },
         new Grupo
         {
+            Titulo = "Reportes",
+            Icono = Icons.Material.Filled.Assessment,
+            Prefijos = new[] { "reportes" },
+            Enlaces = new[]
+            {
+                // Por ahora solo Beneficiarios: Donaciones, Inventario y Gastos se
+                // agregan acá mismo cuando les toque, sin tocar el resto del grupo.
+                new Enlace("Beneficiarios atendidos", "/reportes/beneficiarios", Icons.Material.Filled.Assessment, Permisos.Reportes.VerBeneficiarios, NavLinkMatch.All)
+            }
+        },
+        new Grupo
+        {
             Titulo = "Seguridad",
             Icono = Icons.Material.Filled.Security,
             Prefijos = new[] { "usuarios", "bitacora" },
