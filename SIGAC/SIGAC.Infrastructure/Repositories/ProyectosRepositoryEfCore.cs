@@ -13,6 +13,10 @@ namespace SIGAC.Infrastructure.Repositories
     // compartido queda expuesto a que dos operaciones lo usen a la vez.
     public class ProyectosRepositoryEfCore : IProyectosRepository
     {
+        // Collation acentuada-insensible para la búsqueda por nombre, igual que en
+        // Beneficiarios e Inventario: "reciclaje" encuentra "Campaña de Reciclaje".
+        private const string ColacionSinTildes = "Latin1_General_CI_AI";
+
         private readonly IDbContextFactory<SigacDbContext> _contextFactory;
 
         public ProyectosRepositoryEfCore(IDbContextFactory<SigacDbContext> contextFactory)
@@ -90,6 +94,12 @@ namespace SIGAC.Infrastructure.Repositories
                 .Include(p => p.Participantes)
                 .AsNoTracking()
                 .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(filtros.Nombre))
+            {
+                var busqueda = filtros.Nombre.Trim();
+                query = query.Where(p => EF.Functions.Collate(p.Nombre, ColacionSinTildes).Contains(busqueda));
+            }
 
             if (filtros.Estado.HasValue)
                 query = query.Where(p => p.Estado == filtros.Estado.Value);

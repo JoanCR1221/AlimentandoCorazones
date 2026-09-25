@@ -17,6 +17,9 @@
 
 <MudCard Class="pa-4">
     <MudCardContent>
+        <MudTextField T="string" Value="filtroNombre" ValueChanged="OnFiltroNombreCambiadoAsync" Immediate="true" DebounceInterval="300"
+                      Label="Buscar por nombre del proyecto" Variant="Variant.Outlined" Class="mb-4" Clearable="true" />
+
         @* Lista cerrada: la fuente es el enum SIGAC.Domain.Entities.EstadoProyecto,
            no la pantalla. Mismo criterio que el filtro de categoría en
            ListadoGastos.razor: si esta lista tuviera sus propios literales, podría
@@ -83,16 +86,20 @@
                 <CargandoGrilla />
             </LoadingContent>
             <NoRecordsContent>
-                @if (filtroEstado.HasValue)
+                @if (HayFiltro)
                 {
                     <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
-                                 Titulo="Ningún proyecto coincide con el filtro"
-                                 Descripcion="Pruebe con otro estado." />
+                                 Titulo="Ningún proyecto coincide con la búsqueda"
+                                 Descripcion="Pruebe con otro nombre o estado." />
                 }
                 else
                 {
+                    @* Sin filtros no se consulta nada, así que acá no se sabe si hay
+                       proyectos: la invitación a buscar también ofrece registrar
+                       uno, para cuando todavía no hay ninguno. *@
                     <EstadoVacio Icono="@Icons.Material.Filled.Groups"
-                                 Titulo="Todavía no hay proyectos comunitarios registrados"
+                                 Titulo="Busque un proyecto por nombre o elija un estado"
+                                 Descripcion="Así se consultan solo los proyectos que necesita, sin cargar la lista completa."
                                  TextoAccion="Registrar proyecto" HrefAccion="/proyectos/registrar"
                                  PermisoAccion="@Permisos.Proyectos.Registrar" />
                 }
@@ -103,14 +110,21 @@
 
 @code {
     private IReadOnlyList<ProyectoListaDto> proyectos = Array.Empty<ProyectoListaDto>();
+    private string? filtroNombre;
     private EstadoProyecto? filtroEstado;
-    private bool cargando = true;
+    private bool cargando;
 
-    // Se carga todo al abrir, igual que ListadoGastos: es un registro de gestión
-    // chico, no un catálogo que exija filtrar antes de mostrar algo (que es lo que
-    // sí hace Existencias de inventario).
-    protected override async Task OnInitializedAsync()
+    // IsNullOrWhiteSpace, el mismo criterio con el que el repositorio decide si
+    // aplica el filtro: un texto con solo espacios no cuenta como búsqueda.
+    private bool HayFiltro => !string.IsNullOrWhiteSpace(filtroNombre) || filtroEstado.HasValue;
+
+    // Sin OnInitializedAsync a propósito: la pantalla abre sin consultar la lista,
+    // igual que Ver Beneficiarios y Existencias de inventario. Las tarjetas de
+    // arriba (ResumenProyectos) siguen mostrando los conteos por estado.
+
+    private async Task OnFiltroNombreCambiadoAsync(string? valor)
     {
+        filtroNombre = valor;
         await CargarAsync();
     }
 
@@ -122,12 +136,21 @@
 
     private async Task CargarAsync()
     {
+        // Sin ningún criterio no se va a la base. Cubre también borrar el texto y
+        // quitar el estado: la grilla se vacía en vez de traer todos los proyectos.
+        if (!HayFiltro)
+        {
+            proyectos = Array.Empty<ProyectoListaDto>();
+            return;
+        }
+
         cargando = true;
 
         try
         {
             proyectos = await ProyectosService.ObtenerProyectosAsync(new FiltrosProyectoDto
             {
+                Nombre = filtroNombre,
                 Estado = filtroEstado
             });
         }
