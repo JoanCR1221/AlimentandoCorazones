@@ -5,42 +5,76 @@
 @inject IReportesService ReportesService
 
 <EncabezadoPagina Titulo="Panorama de beneficiarios"
-                   Descripcion="Cifras generales de los últimos 12 meses: a quién atendemos y cómo ha evolucionado el comedor. No depende de filtros: es el mismo panorama para cualquiera que lo abra." />
+                  Descripcion="Vea a quién atiende el comedor y cómo ha evolucionado en los últimos 12 meses." />
+
+@* Cifras del mes en curso, igual que las tarjetas de los listados de los otros
+   módulos. Salen del mismo panorama, así que sin datos (o si la consulta
+   falla) simplemente no se muestran. *@
+@if (_panorama is not null)
+{
+    <section class="ac-kpis" aria-label="Resumen de beneficiarios y asistencia">
+        <TarjetaResumen Titulo="Beneficiarios activos"
+                        Valor="@TextoResumen.Numero(_panorama.Activos)"
+                        Detalle="@TextoResumen.Cantidad(_panorama.Inactivos, "inactivo", "inactivos")"
+                        Icono="@Icons.Material.Filled.People" />
+        <TarjetaResumen Titulo="Comidas servidas este mes"
+                        Valor="@TextoResumen.Numero(ComidasEsteMes)"
+                        Detalle="@TextoResumen.VsMesAnterior(ComidasEsteMes, ComidasMesAnterior)"
+                        Icono="@Icons.Material.Filled.Restaurant" />
+        <TarjetaResumen Titulo="Personas atendidas este mes"
+                        Valor="@TextoResumen.Numero(PersonasEsteMes)"
+                        Detalle="@TextoResumen.VsMesAnterior(PersonasEsteMes, PersonasMesAnterior)"
+                        Icono="@Icons.Material.Filled.Groups" />
+    </section>
+}
 
 <MudCard Class="pa-4">
     <MudCardContent>
         @if (cargando)
         {
-            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Class="my-4" />
+            <CargandoGrilla />
         }
         else if (error)
         {
-            <MudAlert Severity="Severity.Error">
-                No se pudo cargar el panorama de beneficiarios. Intentá de nuevo más tarde.
-            </MudAlert>
+            <EstadoVacio Icono="@Icons.Material.Filled.ErrorOutline"
+                         Titulo="No se pudo cargar el panorama de beneficiarios"
+                         Descripcion="Intente de nuevo en unos momentos." />
+        }
+        else if (NoHayBeneficiarios)
+        {
+            <EstadoVacio Icono="@Icons.Material.Filled.PeopleOutline"
+                         Titulo="Todavía no hay beneficiarios registrados"
+                         Descripcion="Las gráficas se llenan a medida que se registran beneficiarios y su asistencia." />
         }
         else
         {
-            <MudGrid Spacing="3">
-                <MudItem xs="12" md="4">
-                    <MudList T="Estadistica" SelectionMode="SelectionMode.SingleSelection" Color="Color.Primary"
-                             SelectedValue="_seleccionada" SelectedValueChanged="@(v => _seleccionada = v)">
+            @* Desplegable en vez de un listado fijo: ocupa una sola fila y deja
+               todo el ancho al gráfico, también en celular. Lista cerrada de
+               estadísticas: ver Opciones. *@
+            <MudGrid Spacing="2" Class="mb-2">
+                <MudItem xs="12" sm="8" md="5">
+                    <MudSelect T="Estadistica" Label="Estadística" Variant="Variant.Outlined"
+                               Value="_seleccionada" ValueChanged="@(v => _seleccionada = v)"
+                               ToStringFunc="@(e => Opciones.First(o => o.Clave == e).Titulo)"
+                               Adornment="Adornment.Start" AdornmentIcon="@IconoSeleccionado"
+                               AdornmentColor="Color.Secondary">
                         @foreach (var opcion in Opciones)
                         {
-                            <MudListItem T="Estadistica" Value="opcion.Clave" Text="@opcion.Titulo"
-                                         Icon="@opcion.Icono" IconColor="Color.Secondary" />
+                            <MudSelectItem T="Estadistica" Value="opcion.Clave">
+                                <MudIcon Icon="@opcion.Icono" Color="Color.Secondary" Size="Size.Small" Class="mr-2" />
+                                @opcion.Titulo
+                            </MudSelectItem>
                         }
-                    </MudList>
-                </MudItem>
-                <MudItem xs="12" md="8">
-                    @if (_graficas.TryGetValue(_seleccionada, out var grafica))
-                    {
-                        <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-3">@grafica.Titulo</MudText>
-                        <MudChart T="double" ChartType="grafica.Tipo" ChartSeries="grafica.Series"
-                                  ChartLabels="grafica.Etiquetas" Width="100%" Height="350px" />
-                    }
+                    </MudSelect>
                 </MudItem>
             </MudGrid>
+
+            @if (_graficas.TryGetValue(_seleccionada, out var grafica))
+            {
+                <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-3">@grafica.Titulo</MudText>
+                <MudChart T="double" ChartType="grafica.Tipo" ChartSeries="grafica.Series"
+                          ChartLabels="grafica.Etiquetas" Width="100%" Height="350px" />
+            }
         }
     </MudCardContent>
 </MudCard>
@@ -82,14 +116,30 @@
     private bool cargando = true;
     private bool error;
     private Estadistica _seleccionada = Estadistica.PorCategoria;
+    private PanoramaBeneficiariosDto? _panorama;
+
+    private string IconoSeleccionado => Opciones.First(o => o.Clave == _seleccionada).Icono;
+
+    // Sale de las cifras del panorama (conteos, no filas): permite decir
+    // "todavía no hay beneficiarios" sin otra consulta.
+    private bool NoHayBeneficiarios => _panorama is { Activos: 0, Inactivos: 0 };
+
+    private int ComidasEsteMes => ValorDelMes(_panorama?.ComidasPorMes, DateTime.Now);
+    private int ComidasMesAnterior => ValorDelMes(_panorama?.ComidasPorMes, DateTime.Now.AddMonths(-1));
+    private int PersonasEsteMes => ValorDelMes(_panorama?.PersonasAtendidasPorMes, DateTime.Now);
+    private int PersonasMesAnterior => ValorDelMes(_panorama?.PersonasAtendidasPorMes, DateTime.Now.AddMonths(-1));
+
+    // Las series mensuales solo traen los meses con registros: un mes ausente es 0.
+    private static int ValorDelMes(IReadOnlyList<ConteoPorMesDto>? serie, DateTime referencia) =>
+        serie?.FirstOrDefault(c => c.Anio == referencia.Year && c.Mes == referencia.Month)?.Cantidad ?? 0;
     private Dictionary<Estadistica, GraficaVista> _graficas = new();
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            var panorama = await ReportesService.ObtenerPanoramaBeneficiariosAsync();
-            _graficas = ArmarGraficas(panorama);
+            _panorama = await ReportesService.ObtenerPanoramaBeneficiariosAsync();
+            _graficas = ArmarGraficas(_panorama);
         }
         catch (Exception)
         {
