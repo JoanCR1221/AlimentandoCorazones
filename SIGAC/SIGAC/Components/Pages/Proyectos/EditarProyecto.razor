@@ -9,7 +9,8 @@
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 
-<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Editar proyecto comunitario</MudText>
+<EncabezadoPagina Titulo="Editar proyecto comunitario"
+                  Descripcion="Actualice los datos, las fechas o el estado del proyecto." />
 
 @if (!cargado)
 {
@@ -23,27 +24,6 @@ else
 
         <MudCard Class="pa-4">
             <MudCardContent>
-                @* LIMITACIÓN CONOCIDA DEL CONTRATO ACTUAL.
-                   IProyectosService no tiene ObtenerParaEditarAsync (sí lo tienen
-                   Beneficiarios, Donantes, Gastos e Inventario), así que esta
-                   pantalla se prellena con la fila que devuelve ObtenerProyectosAsync.
-                   Esa fila es ProyectoListaDto y NO trae Descripcion, que el
-                   validador exige obligatoria: el campo arranca vacío y hay que
-                   volver a escribirlo.
-
-                   El aviso está acá y no solo en un comentario porque, sin él, el
-                   usuario guardaría creyendo que conserva la descripción anterior y
-                   en realidad la estaría reemplazando por lo que teclee.
-
-                   Se resuelve agregando ObtenerParaEditarAsync(int id) al servicio
-                   (devolviendo un ProyectoEditarDto completo); cuando exista, se
-                   borra este MudAlert y OnInitializedAsync pasa a llamarlo, igual
-                   que EditarGasto.razor. *@
-                <MudAlert Severity="Severity.Warning" Class="mb-4">
-                    La descripción no se puede precargar con el contrato actual del servicio y
-                    se guardará con lo que escriba aquí. Vuelva a redactarla completa antes de guardar.
-                </MudAlert>
-
                 <MudTextField @bind-Value="modelo.Nombre" For="@(() => modelo.Nombre)" Label="Nombre" Variant="Variant.Outlined"
                               MaxLength="ProyectoValidator.LongitudMaximaNombre"
                               HelperText="@($"Máximo {ProyectoValidator.LongitudMaximaNombre} caracteres.")" />
@@ -78,7 +58,7 @@ else
             </MudCardContent>
             <MudCardActions>
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
-                <MudButton Variant="Variant.Text" Color="Color.Default" Href="/proyectos" Class="mb-2">Cancelar</MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Default" Href="@($"/proyectos/{Id}")" Class="mb-2">Cancelar</MudButton>
             </MudCardActions>
         </MudCard>
     </EditForm>
@@ -115,17 +95,13 @@ else
             fechaEstimadaFin = null;
     }
 
-    // Sin filtro de estado: se busca el proyecto por Id entre todos, porque acá no
-    // se sabe de antemano en cuál está. Es el sustituto de un ObtenerParaEditarAsync
-    // que el servicio todavía no expone (ver el MudAlert de arriba).
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            var proyectos = await ProyectosService.ObtenerProyectosAsync(new FiltrosProyectoDto());
-            var proyecto = proyectos.FirstOrDefault(p => p.Id == Id);
+            var datos = await ProyectosService.ObtenerParaEditarAsync(Id);
 
-            if (proyecto is null)
+            if (datos is null)
             {
                 // Mismo destino que EditarBeneficiario con un id inexistente: se
                 // vuelve al listado del módulo.
@@ -136,23 +112,14 @@ else
             // Un proyecto finalizado o cancelado es un registro cerrado y
             // EditarProyectoAsync lo rechaza. Se avisa acá en vez de dejar que el
             // usuario llene el formulario para chocar recién al guardar.
-            if (proyecto.Estado is nameof(EstadoProyecto.Finalizado) or nameof(EstadoProyecto.Cancelado))
+            if (datos.Estado is EstadoProyecto.Finalizado or EstadoProyecto.Cancelado)
             {
                 Snackbar.Add("No se puede editar un proyecto finalizado o cancelado.", Severity.Warning);
-                NavigationManager.NavigateTo("/proyectos");
+                NavigationManager.NavigateTo($"/proyectos/{Id}");
                 return;
             }
 
-            modelo = new ProyectoEditarDto
-            {
-                Nombre = proyecto.Nombre,
-                // Descripcion queda vacía: ProyectoListaDto no la trae.
-                Descripcion = string.Empty,
-                FechaInicio = proyecto.FechaInicio,
-                FechaEstimadaFin = proyecto.FechaEstimadaFin,
-                Estado = Enum.Parse<EstadoProyecto>(proyecto.Estado)
-            };
-
+            modelo = datos;
             cargado = true;
         }
         catch (Exception)
@@ -168,16 +135,15 @@ else
         _ => estado.ToString()
     };
 
-    // Vuelve al listado al guardar, igual que EditarBeneficiario.razor: acá sí
-    // existe el listado al que volver (que es lo que a EditarGasto.razor le faltaba
-    // cuando se escribió).
+    // Al guardar vuelve a la ficha del proyecto, que es desde donde se llega a
+    // editar y donde se ve el resultado.
     private async Task Guardar()
     {
         try
         {
             await ProyectosService.EditarProyectoAsync(Id, modelo);
             Snackbar.Add("Proyecto comunitario actualizado correctamente.", Severity.Success);
-            NavigationManager.NavigateTo("/proyectos");
+            NavigationManager.NavigateTo($"/proyectos/{Id}");
         }
         catch (ValidationException ex)
         {

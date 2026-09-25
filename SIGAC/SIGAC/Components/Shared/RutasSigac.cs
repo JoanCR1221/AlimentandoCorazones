@@ -79,6 +79,9 @@ namespace SIGAC.Components.Shared
                 ("/proyectos", new[] { new Miga("Proyectos", null) }),
                 ("/proyectos/registrar", new[] { proyectos, new Miga("Registrar proyecto", null) }),
                 ("/proyectos/editar/{id}", new[] { proyectos, new Miga("Editar proyecto", null) }),
+                // Después de "/proyectos/registrar": gana la primera plantilla que
+                // coincide, y "{id}" también aceptaría "registrar".
+                ("/proyectos/{id}", new[] { proyectos, new Miga("Detalle del proyecto", null) }),
                 ("/proyectos/{id}/participantes/registrar", new[] { proyectos, new Miga("Registrar participante", null) }),
 
                 ("/reportes/beneficiarios", new[] { new Miga("Reportes", null) }),

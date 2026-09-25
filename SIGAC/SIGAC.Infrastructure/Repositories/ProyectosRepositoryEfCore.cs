@@ -35,6 +35,20 @@ namespace SIGAC.Infrastructure.Repositories
                 .FirstOrDefaultAsync(p => p.Id == id);
         }
 
+        public async Task<ProyectoComunitario?> ObtenerConParticipantesAsync(int id)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            // Un solo proyecto: traer sus participantes con la ficha del beneficiario
+            // es acotado. ThenInclude trae nombre, teléfono y estado del beneficiario
+            // en el mismo viaje; los externos lo dejan en null.
+            return await context.ProyectosComunitarios
+                .AsNoTracking()
+                .Include(p => p.Participantes)
+                    .ThenInclude(pp => pp.Beneficiario)
+                .FirstOrDefaultAsync(p => p.Id == id);
+        }
+
         public async Task ActualizarAsync(ProyectoComunitario proyecto)
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
@@ -117,6 +131,19 @@ namespace SIGAC.Infrastructure.Repositories
             await using var context = await _contextFactory.CreateDbContextAsync();
             context.ParticipantesProyecto.Add(participante);
             await context.SaveChangesAsync();
+        }
+
+        public async Task<bool> QuitarParticipanteAsync(int proyectoId, int participanteId)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            // DELETE directo con las dos condiciones: el participante tiene que ser
+            // de ESE proyecto, así una URL con otro proyecto no borra filas ajenas.
+            var filas = await context.ParticipantesProyecto
+                .Where(p => p.Id == participanteId && p.ProyectoId == proyectoId)
+                .ExecuteDeleteAsync();
+
+            return filas > 0;
         }
 
         public async Task<bool> ExisteParticipanteAsync(int proyectoId, int beneficiarioId)

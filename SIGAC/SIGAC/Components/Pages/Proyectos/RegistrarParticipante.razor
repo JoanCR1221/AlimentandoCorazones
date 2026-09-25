@@ -11,7 +11,8 @@
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 
-<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Registrar participante</MudText>
+<EncabezadoPagina Titulo="Registrar participante"
+                  Descripcion="Agregue un beneficiario registrado o a una persona externa al proyecto." />
 
 @if (!cargado)
 {
@@ -70,7 +71,7 @@ else
             </MudCardContent>
             <MudCardActions>
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Agregar participante</MudButton>
-                <MudButton Variant="Variant.Text" Color="Color.Default" Href="/proyectos" Class="mb-2">Cancelar</MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Default" Href="@($"/proyectos/{Id}")" Class="mb-2">Volver al proyecto</MudButton>
             </MudCardActions>
         </MudCard>
     </EditForm>
@@ -85,17 +86,15 @@ else
     private string nombreProyecto = string.Empty;
     private bool cargado;
 
-    // Se lee del listado por el mismo motivo que en EditarProyecto.razor: el
-    // servicio no expone un ObtenerPorId. Acá solo hace falta para el encabezado y
-    // para no dejar entrar a un proyecto ya cerrado.
+    // Solo hace falta para el encabezado y para no dejar entrar a un proyecto ya
+    // cerrado.
     protected override async Task OnInitializedAsync()
     {
         modelo.ProyectoId = Id;
 
         try
         {
-            var proyectos = await ProyectosService.ObtenerProyectosAsync(new FiltrosProyectoDto());
-            var proyecto = proyectos.FirstOrDefault(p => p.Id == Id);
+            var proyecto = await ProyectosService.ObtenerDetalleAsync(Id);
 
             if (proyecto is null)
             {
@@ -105,10 +104,10 @@ else
 
             // Finalizado y Cancelado no admiten participantes nuevos: el servicio lo
             // rechaza, así que se avisa antes de llenar el formulario.
-            if (proyecto.Estado is nameof(EstadoProyecto.Finalizado) or nameof(EstadoProyecto.Cancelado))
+            if (proyecto.EstaCerrado)
             {
                 Snackbar.Add("No se pueden agregar participantes a un proyecto finalizado o cancelado.", Severity.Warning);
-                NavigationManager.NavigateTo("/proyectos");
+                NavigationManager.NavigateTo($"/proyectos/{Id}");
                 return;
             }
 
@@ -160,10 +159,10 @@ else
             await ProyectosService.RegistrarParticipanteAsync(modelo);
             Snackbar.Add("Participante agregado correctamente.", Severity.Success);
 
-            // Se queda en la pantalla con el formulario limpio, no vuelve al listado:
+            // Se queda en la pantalla con el formulario limpio, no vuelve a la ficha:
             // los participantes se cargan de a tandas, y volver obligaría a reabrir
-            // el proyecto por cada persona. El botón "Volver al listado" está ahí
-            // para cuando se termine.
+            // el formulario por cada persona. "Volver al proyecto" está ahí para
+            // cuando se termine.
             var esBeneficiario = modelo.EsBeneficiario;
             modelo = new ParticipanteCrearDto { ProyectoId = Id, EsBeneficiario = esBeneficiario };
             beneficiarioSeleccionado = null;
