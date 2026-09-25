@@ -59,6 +59,20 @@
                         }
                     </MudSelect>
 
+                    @* Estado del Equipo donado: es el que llevará el artículo al entrar
+                       al inventario, donde forma parte de su identidad. Solo aparece
+                       para Equipo; el servicio lo exige ahí y lo descarta en el resto. *@
+                    @if (EstadosArticulo.AplicaACategoria(articulo.Categoria))
+                    {
+                        <MudSelect T="string" @bind-Value="articulo.Estado" Label="Estado" Variant="Variant.Outlined" Class="mt-4"
+                                   Required="true" HelperText="Obligatorio para Equipo.">
+                            @foreach (var estado in EstadosArticulo.Todos)
+                            {
+                                <MudSelectItem T="string" Value="@estado">@estado</MudSelectItem>
+                            }
+                        </MudSelect>
+                    }
+
                     @* Mismas opciones que valida el servicio: filtradas por la categoría
                        elegida en esta línea, igual que en Inventario. *@
                     <MudSelect T="string" @bind-Value="articulo.UnidadMedida" Label="Unidad de medida" Variant="Variant.Outlined" Class="mt-4"
@@ -155,6 +169,9 @@
 
         if (!UnidadesMedidaArticulo.EsValidaParaCategoria(articulo.Categoria, articulo.UnidadMedida))
             articulo.UnidadMedida = string.Empty;
+
+        if (!EstadosArticulo.AplicaACategoria(articulo.Categoria))
+            articulo.Estado = null;
     }
 
     private void AgregarArticulo()

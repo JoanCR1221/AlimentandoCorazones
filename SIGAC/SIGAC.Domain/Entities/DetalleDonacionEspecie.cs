@@ -20,6 +20,11 @@ namespace SIGAC.Domain.Entities
         // así lo donado se puede dar de alta en inventario sin traducir categorías.
         public string Categoria { get; set; } = string.Empty;
 
+        // Estado del Equipo donado (ver EstadosArticulo): obligatorio si la
+        // categoría es Equipo y NULL en las demás. Es el mismo valor con el que la
+        // línea entra al inventario como artículo.
+        public string? Estado { get; set; }
+
         // Debe ser una unidad válida PARA esa categoría, no cualquiera de la lista
         // completa: se valida con UnidadesMedidaArticulo.EsValidaParaCategoria, para
         // no acabar con "Calzado" medido en "Litro".

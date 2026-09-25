@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using SIGAC.Domain.Entities;
 
 namespace SIGAC.Application.DTOs.Inventario
 {
@@ -14,6 +15,12 @@ namespace SIGAC.Application.DTOs.Inventario
 
         [Required(ErrorMessage = "La categoría es obligatoria.")]
         public string Categoria { get; set; } = string.Empty;
+
+        // Solo aplica a Equipo (ver EstadosArticulo), donde es obligatorio y forma
+        // parte de la identidad del artículo: junto con el nombre decide a QUÉ
+        // artículo del catálogo suma la entrada. Sin [Required] aquí porque depende
+        // de la categoría, que un atributo no puede ver; lo valida el servicio.
+        public string? Estado { get; set; }
 
         [Required(ErrorMessage = "La unidad de medida es obligatoria.")]
         public string UnidadMedida { get; set; } = string.Empty;
@@ -55,10 +62,18 @@ namespace SIGAC.Application.DTOs.Inventario
         public string Nombre { get; set; } = string.Empty;
         public string? Codigo { get; set; }
         public string Categoria { get; set; } = string.Empty;
+
+        // Null salvo en Equipo (ver EstadosArticulo).
+        public string? Estado { get; set; }
+
         public string UnidadMedida { get; set; } = string.Empty;
         public string? Ubicacion { get; set; }
         public int StockActual { get; set; }
         public bool StockBajo { get; set; }
+
+        // Nombre + estado, para donde el nombre solo es ambiguo (buscadores de
+        // préstamo y entrega, donde dos sillas en distinto estado se confundirían).
+        public string Etiqueta => Articulo.EtiquetaDe(Nombre, Estado);
     }
 
     public class FiltrosExistenciaDto
@@ -73,6 +88,10 @@ namespace SIGAC.Application.DTOs.Inventario
         // en la mano puede escribir cualquiera de los dos.
         public string? Nombre { get; set; }
         public string? Categoria { get; set; }
+
+        // Igualdad exacta, igual que Categoria: se elige de la lista de estados.
+        // Cuenta como filtro por sí solo (ver HayFiltro en ExistenciasInventario).
+        public string? Estado { get; set; }
 
         // Cuenta como filtro por sí solo, igual que Nombre y Categoria: activarlo
         // sin ningún otro criterio tiene que mostrar igual los artículos con poco
@@ -106,6 +125,9 @@ namespace SIGAC.Application.DTOs.Inventario
 
         [Required(ErrorMessage = "La categoría es obligatoria.")]
         public string Categoria { get; set; } = string.Empty;
+
+        // Obligatorio solo si la categoría es Equipo; lo valida el servicio.
+        public string? Estado { get; set; }
 
         [Required(ErrorMessage = "La unidad de medida es obligatoria.")]
         public string UnidadMedida { get; set; } = string.Empty;

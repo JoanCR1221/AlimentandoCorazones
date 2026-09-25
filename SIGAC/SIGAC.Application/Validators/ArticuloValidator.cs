@@ -10,13 +10,15 @@ namespace SIGAC.Application.Validators
         string Nombre,
         string? Codigo,
         string Categoria,
+        string? Estado,
         string UnidadMedida,
         string? Ubicacion,
         int StockMinimo);
 
     // Toda la normalización y validación de entrada del artículo, centralizada por
     // el mismo motivo que BeneficiarioValidator: el nombre es la clave natural del
-    // catálogo (índice único UX_Articulos_Nombre), así que la forma en que se
+    // catálogo (junto con el estado, en el índice único UX_Articulos_Nombre_Estado),
+    // así que la forma en que se
     // COMPARA tiene que ser exactamente la misma en que se GUARDA.
     //
     // Sin compactar los espacios antes de comparar, " Arroz" no encontraba a
@@ -47,9 +49,45 @@ namespace SIGAC.Application.Validators
                 ValidarNombre(dto.Nombre),
                 ValidarCodigo(dto.Codigo),
                 categoria,
+                ValidarEstado(categoria, dto.Estado),
                 unidadMedida,
                 ValidarUbicacion(dto.Ubicacion),
                 dto.StockMinimo);
+        }
+
+        // El estado depende de la categoría, igual que la unidad: solo el Equipo lo
+        // lleva, y para el Equipo es obligatorio. Recibe la categoría YA validada.
+        //
+        // En una categoría que no lleva estado se DESCARTA lo que llegue en vez de
+        // rechazarlo: al cambiar la categoría de Equipo a Ropa en un formulario, el
+        // estado que quedó elegido es un residuo de la pantalla y no un error del
+        // usuario. Lo que se guarda es siempre NULL, que es lo que exige el CHECK
+        // CK_Articulos_Estado_Coherente.
+        public static string? ValidarEstado(string categoria, string? estado)
+        {
+            if (!EstadosArticulo.AplicaACategoria(categoria))
+                return null;
+
+            var normalizado = TextoNormalizador.CompactarEspacios(estado);
+
+            if (normalizado.Length == 0)
+                throw new ValidationException(
+                    $"El estado es obligatorio para los artículos de categoría {CategoriasArticulo.Equipo}.");
+
+            // Se resuelve contra la lista y se devuelve el valor canónico: guardar
+            // "nuevo" tal como llegó rompería el CHECK de la base, que compara contra
+            // los valores exactos de EstadosArticulo.
+            var canonico = EstadosArticulo.Todos.FirstOrDefault(e =>
+                string.Equals(e, normalizado, StringComparison.OrdinalIgnoreCase));
+
+            if (canonico is null)
+            {
+                throw new ValidationException(
+                    $"El estado '{normalizado}' no es válido. " +
+                    $"Estados válidos: {string.Join(", ", EstadosArticulo.Todos)}.");
+            }
+
+            return canonico;
         }
 
         // Categoría y unidad de medida se validan JUNTAS y no por separado porque la

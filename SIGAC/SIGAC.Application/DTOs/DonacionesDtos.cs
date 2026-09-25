@@ -224,6 +224,10 @@ namespace SIGAC.Application.DTOs.Donaciones
         [StringLength(LongitudesDonaciones.Categoria)]
         public string Categoria { get; set; } = string.Empty;
 
+        // Obligatorio solo si la categoría es Equipo (ver EstadosArticulo); por la
+        // misma razón que la unidad, lo valida el servicio y no un atributo.
+        public string? Estado { get; set; }
+
         // Sin validación de coherencia con la categoría acá: que la unidad sea
         // válida PARA esa categoría es una matriz
         // (UnidadesMedidaArticulo.EsValidaParaCategoria) que mira dos propiedades a

@@ -356,9 +356,24 @@ namespace SIGAC.Infrastructure.Data
                     t.HasCheckConstraint(
                         "CK_Articulos_StockMinimo_NoNegativo",
                         "[StockMinimo] >= 0");
+
+                    // El estado solo existe para el Equipo y ahí es obligatorio: un
+                    // Equipo sin estado, o un Alimento con estado, son filas
+                    // incoherentes que el servicio ya rechaza y que esto impide
+                    // también ante escrituras externas. Ojo: a diferencia de la
+                    // columna Categoria, que no tiene CHECK, esta regla sí lo tiene
+                    // porque nace junto con la columna Estado.
+                    t.HasCheckConstraint(
+                        "CK_Articulos_Estado_Coherente",
+                        $"([Categoria] = '{CategoriasArticulo.Equipo}' AND [Estado] IN " +
+                        $"('{EstadosArticulo.Nuevo}', '{EstadosArticulo.EnBuenEstado}', '{EstadosArticulo.Danado}')) " +
+                        $"OR ([Categoria] <> '{CategoriasArticulo.Equipo}' AND [Estado] IS NULL)");
                 });
 
                 entity.HasKey(a => a.Id);
+
+                // Etiqueta es solo para mostrar (Nombre + Estado): no es una columna.
+                entity.Ignore(a => a.Etiqueta);
 
                 // Convención del proyecto: VARCHAR en lugar de NVARCHAR (IsUnicode(false)).
 
@@ -397,15 +412,33 @@ namespace SIGAC.Infrastructure.Data
                     .IsUnicode(false)
                     .HasMaxLength(100);
 
-                // Unicidad de nombre: el servicio busca el artículo por nombre y lo
-                // crea si no existe (ObtenerArticuloPorNombreAsync en
-                // RegistrarEntradaAsync), así que el nombre es la clave natural del
-                // catálogo. Sin este índice, dos entradas simultáneas del mismo
-                // artículo nuevo crearían dos filas y el stock quedaría partido.
+                // Subcategoría del Equipo (ver EstadosArticulo). NULL para el resto de
+                // categorías, por eso es nullable; la coherencia con Categoria la
+                // impone CK_Articulos_Estado_Coherente.
+                entity.Property(a => a.Estado)
+                    .IsUnicode(false)
+                    .HasMaxLength(50);
+
+                // Unicidad de (Nombre, Estado): el servicio busca el artículo por
+                // nombre y estado y lo crea si no existe (ObtenerArticulosPorNombreAsync
+                // en RegistrarEntradaAsync), así que esa pareja es la clave natural del
+                // catálogo. Antes la clave era solo el Nombre (UX_Articulos_Nombre);
+                // el estado la amplía para que "Silla / Nuevo" y "Silla / Dañado"
+                // convivan con stock propio. Sin este índice, dos entradas simultáneas
+                // del mismo artículo nuevo crearían dos filas y el stock quedaría partido.
+                //
+                // SIN filtro (HasFilter(null)) a propósito: SQL Server trata los NULL
+                // como iguales en un índice único, así que "Arroz" sin estado sigue
+                // siendo único, igual que antes. El provider agregaría por su cuenta
+                // "[Estado] IS NOT NULL" a un índice único con columna nullable, y eso
+                // dejaría a todo lo que no es Equipo sin ninguna unicidad de nombre.
+                // Además, al empezar por Nombre, cubre las búsquedas por nombre.
+                //
                 // El "sin distinguir mayúsculas" lo aporta la collation CI de SQL Server.
-                entity.HasIndex(a => a.Nombre)
+                entity.HasIndex(a => new { a.Nombre, a.Estado })
                     .IsUnique()
-                    .HasDatabaseName("UX_Articulos_Nombre");
+                    .HasFilter(null)
+                    .HasDatabaseName("UX_Articulos_Nombre_Estado");
 
                 // Unicidad de código, igual que NumIdentidad en Beneficiario: índice
                 // FILTRADO porque Código es opcional y dos artículos sin código no
@@ -789,7 +822,7 @@ namespace SIGAC.Infrastructure.Data
                 entity.Property(d => d.FechaRegistro)
                     .IsRequired();
 
-                // Índice NO único, a diferencia de UX_Articulos_Nombre.
+                // Índice NO único, a diferencia de UX_Articulos_Nombre_Estado.
                 //
                 // El nombre de un artículo es la clave natural del catálogo: el
                 // servicio busca por nombre y crea si no existe, así que dos filas
@@ -921,6 +954,15 @@ namespace SIGAC.Infrastructure.Data
                         "CK_DetallesDonacionEspecie_Categoria",
                         $"[Categoria] IN ('{CategoriasArticulo.Alimento}', '{CategoriasArticulo.Ropa}', " +
                         $"'{CategoriasArticulo.Calzado}', '{CategoriasArticulo.Equipo}')");
+
+                    // Mismo criterio que CK_Articulos_Estado_Coherente: la línea se
+                    // convierte en un artículo al entrar al stock, así que tiene que
+                    // cumplir la misma regla (Equipo con estado, el resto sin).
+                    t.HasCheckConstraint(
+                        "CK_DetallesDonacionEspecie_Estado_Coherente",
+                        $"([Categoria] = '{CategoriasArticulo.Equipo}' AND [Estado] IN " +
+                        $"('{EstadosArticulo.Nuevo}', '{EstadosArticulo.EnBuenEstado}', '{EstadosArticulo.Danado}')) " +
+                        $"OR ([Categoria] <> '{CategoriasArticulo.Equipo}' AND [Estado] IS NULL)");
                 });
 
                 entity.HasKey(d => d.Id);
@@ -940,6 +982,12 @@ namespace SIGAC.Infrastructure.Data
                     .IsRequired()
                     .IsUnicode(false)
                     .HasMaxLength(100);
+
+                // Estado del Equipo donado; NULL en las demás categorías. Misma
+                // longitud que Articulos.Estado.
+                entity.Property(d => d.Estado)
+                    .IsUnicode(false)
+                    .HasMaxLength(50);
 
                 // Sin CHECK: que la unidad sea coherente CON la categoría es una matriz
                 // (UnidadesMedidaArticulo.EsValidaParaCategoria), no una lista de

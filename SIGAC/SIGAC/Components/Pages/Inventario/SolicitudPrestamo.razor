@@ -30,7 +30,7 @@
                               SearchFunc="BuscarArticulosAsync"
                               MinCharacters="1" DebounceInterval="300"
                               HelperText="@($"Escriba para buscar. Solo se prestan artículos de categoría {CategoriasArticulo.Equipo}.")"
-                              ToStringFunc="@(a => a is null ? null : $"{a.Nombre} (stock: {a.StockActual} {a.UnidadMedida})")" />
+                              ToStringFunc="@(a => a is null ? null : $"{a.Etiqueta} (stock: {a.StockActual} {a.UnidadMedida})")" />
 
             <MudNumericField T="int" @bind-Value="modelo.Cantidad" For="@(() => modelo.Cantidad)" Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
 

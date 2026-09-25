@@ -45,6 +45,17 @@
                     Ya existe este artículo (stock actual: @articuloExistente.StockActual @articuloExistente.UnidadMedida). Se usará su categoría, unidad de medida, código y ubicación registrados.
                 </MudAlert>
             }
+            else if (NombreEsEquipoExistente)
+            {
+                @* El nombre existe pero en otro estado (o todavía sin elegir el
+                   estado de esta entrada): el estado es lo que decide a qué artículo
+                   suma. Si coincide con uno existente se suma a su stock; si no, se da
+                   de alta como un artículo nuevo en ese estado. *@
+                <MudAlert Severity="Severity.Info" Class="mt-2">
+                    Este equipo ya existe en estado: @string.Join(", ", coincidencias.Select(a => a.Estado)).
+                    Elija el estado de esta entrada: si ya existe, se suma a su stock; si no, se crea como un artículo nuevo en ese estado.
+                </MudAlert>
+            }
 
             @* Código y Ubicación quedan deshabilitados igual que categoría y unidad
                cuando el artículo ya existe: en ese caso el servicio usa los valores
@@ -52,14 +63,32 @@
             <MudTextField @bind-Value="modelo.Codigo" Label="Código (opcional)" Variant="Variant.Outlined" Class="mt-4"
                           Disabled="articuloExistente is not null" />
 
+            @* Con el nombre de un Equipo ya registrado la categoría queda fija en
+               Equipo: todas las filas de un mismo nombre son de la misma categoría. *@
             <MudSelect T="string" @bind-Value="modelo.Categoria" For="@(() => modelo.Categoria)"
                        @bind-Value:after="OnCategoriaCambiada"
-                       Label="Categoría" Variant="Variant.Outlined" Class="mt-4" Disabled="articuloExistente is not null">
+                       Label="Categoría" Variant="Variant.Outlined" Class="mt-4"
+                       Disabled="articuloExistente is not null || NombreEsEquipoExistente">
                 @foreach (var categoria in CategoriasArticulo.Todos)
                 {
                     <MudSelectItem T="string" Value="@categoria">@categoria</MudSelectItem>
                 }
             </MudSelect>
+
+            @* Subcategoría del Equipo. Nunca se deshabilita, ni siquiera con el
+               artículo ya existente: el estado es justamente lo que elige QUÉ fila
+               del catálogo recibe la entrada. *@
+            @if (EstadosArticulo.AplicaACategoria(modelo.Categoria))
+            {
+                <MudSelect T="string" @bind-Value="modelo.Estado" @bind-Value:after="OnEstadoCambiado"
+                           Label="Estado" Variant="Variant.Outlined" Class="mt-4" Required="true"
+                           HelperText="Obligatorio para Equipo. Cada estado lleva su propio stock.">
+                    @foreach (var estado in EstadosArticulo.Todos)
+                    {
+                        <MudSelectItem T="string" Value="@estado">@estado</MudSelectItem>
+                    }
+                </MudSelect>
+            }
 
             @* Las opciones salen de UnidadesMedidaArticulo según la categoría elegida,
                la misma fuente que valida el servicio: no se puede ofrecer una unidad
@@ -162,6 +191,11 @@
     public int? GastoOperativoId { get; set; }
 
     private EntradaInventarioCrearDto modelo = new();
+
+    // Filas del catálogo cuyo nombre coincide EXACTO con el escrito (sin distinguir
+    // mayúsculas): una sola si no es Equipo, una por estado si lo es. De acá sale
+    // articuloExistente, que es la que además coincide con el estado elegido.
+    private List<ArticuloExistenciaDto> coincidencias = new();
     private ArticuloExistenciaDto? articuloExistente;
     private DonanteListaDto? donanteSeleccionado;
     private GastoOperativoListaDto? gastoSeleccionado;
@@ -205,28 +239,89 @@
             return Array.Empty<string>();
 
         var existencias = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto { Nombre = valor });
-        return existencias.Elementos.Select(a => a.Nombre);
+
+        // Distinct: un Equipo con varios estados aparece varias veces con el mismo
+        // nombre, y el desplegable no tiene que ofrecerlo repetido. El estado se
+        // elige después, en su propio campo.
+        return existencias.Elementos
+            .Select(a => a.Nombre)
+            .Distinct(StringComparer.OrdinalIgnoreCase);
     }
+
+    // El nombre escrito ya existe como Equipo (en algún estado).
+    private bool NombreEsEquipoExistente =>
+        coincidencias.Count > 0 && EstadosArticulo.AplicaACategoria(coincidencias[0].Categoria);
 
     private async Task OnNombreArticuloCambiadoAsync(string? valor)
     {
         modelo.NombreArticulo = valor ?? string.Empty;
-        articuloExistente = null;
+        coincidencias = new();
 
         if (!string.IsNullOrWhiteSpace(modelo.NombreArticulo))
         {
             var existencias = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto { Nombre = modelo.NombreArticulo });
-            articuloExistente = existencias.Elementos.FirstOrDefault(a => string.Equals(a.Nombre, modelo.NombreArticulo, StringComparison.OrdinalIgnoreCase));
+            coincidencias = existencias.Elementos
+                .Where(a => string.Equals(a.Nombre, modelo.NombreArticulo, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        ResolverArticuloExistente();
+    }
+
+    // Decide, con el nombre y el estado elegidos, si la entrada va a un artículo que
+    // ya existe o a uno nuevo, y ajusta el formulario en consecuencia. Trabaja sobre
+    // `coincidencias` (ya traídas), así que cambiar el estado no consulta de nuevo.
+    private void ResolverArticuloExistente()
+    {
+        var teniaArticulo = articuloExistente is not null;
+        articuloExistente = null;
+
+        if (coincidencias.Count > 0)
+        {
+            var hermano = coincidencias[0];
+
+            if (EstadosArticulo.AplicaACategoria(hermano.Categoria))
+            {
+                // Equipo: el estado elige la fila. Si el estado elegido no existe,
+                // queda en null y la entrada da de alta ese estado como artículo nuevo.
+                articuloExistente = coincidencias.FirstOrDefault(a => a.Estado == modelo.Estado);
+                modelo.Categoria = hermano.Categoria;
+
+                if (articuloExistente is null)
+                {
+                    // Punto de partida razonable para el estado nuevo: misma unidad
+                    // y ubicación que sus hermanos. El código NO se hereda: es único
+                    // por artículo y repetirlo chocaría contra UX_Articulos_Codigo.
+                    if (string.IsNullOrWhiteSpace(modelo.UnidadMedida))
+                        modelo.UnidadMedida = hermano.UnidadMedida;
+
+                    if (string.IsNullOrWhiteSpace(modelo.Ubicacion))
+                        modelo.Ubicacion = hermano.Ubicacion;
+                }
+            }
+            else
+            {
+                articuloExistente = hermano;
+            }
         }
 
         if (articuloExistente is not null)
         {
             modelo.Categoria = articuloExistente.Categoria;
+            modelo.Estado = articuloExistente.Estado;
             modelo.UnidadMedida = articuloExistente.UnidadMedida;
             modelo.Codigo = articuloExistente.Codigo;
             modelo.Ubicacion = articuloExistente.Ubicacion;
         }
+        else if (teniaArticulo)
+        {
+            // Se pasó de un artículo existente a uno nuevo (otro estado u otro
+            // nombre): el código que se había copiado era del artículo anterior.
+            modelo.Codigo = null;
+        }
     }
+
+    private void OnEstadoCambiado() => ResolverArticuloExistente();
 
     // Al cambiar de categoría, la unidad ya elegida puede dejar de pertenecer a la
     // nueva lista (por ejemplo "Litro" al pasar de Alimento a Calzado). Si se dejara,
@@ -236,6 +331,11 @@
     {
         if (!UnidadesMedidaArticulo.EsValidaParaCategoria(modelo.Categoria, modelo.UnidadMedida))
             modelo.UnidadMedida = string.Empty;
+
+        // El estado solo existe para Equipo: si se cambia a otra categoría se limpia
+        // el que había quedado elegido, para que no viaje como residuo.
+        if (!EstadosArticulo.AplicaACategoria(modelo.Categoria))
+            modelo.Estado = null;
     }
 
     // Las dos listas se traen recién al elegir el origen, no al abrir la pantalla:
@@ -332,6 +432,7 @@
             Snackbar.Add("Entrada de inventario registrada correctamente.", Severity.Success);
 
             modelo = new();
+            coincidencias = new();
             articuloExistente = null;
             donanteSeleccionado = null;
             gastoSeleccionado = null;

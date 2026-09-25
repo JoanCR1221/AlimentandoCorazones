@@ -24,6 +24,15 @@
                 <MudSelectItem T="string" Value="@categoria">@categoria</MudSelectItem>
             }
         </MudSelect>
+        @* Subcategoría del Equipo (ver EstadosArticulo). Solo el Equipo tiene
+           estado, así que elegir uno deja fuera a todo lo demás. Cuenta como filtro
+           por sí solo, igual que la categoría. *@
+        <MudSelect T="string" Value="filtroEstado" ValueChanged="OnFiltroEstadoCambiadoAsync" Label="Estado (solo Equipo)" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
+            @foreach (var estado in EstadosArticulo.Todos)
+            {
+                <MudSelectItem T="string" Value="@estado">@estado</MudSelectItem>
+            }
+        </MudSelect>
         @* Cuenta como filtro por sí solo (ver HayFiltro): activarlo sin escribir
            nada tiene que mostrar igual los artículos con poco stock, que es el
            caso de uso (entrar a reponer). Ordena de menor a mayor stock mientras
@@ -37,6 +46,13 @@
                 <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
                 <PropertyColumn Property="x => x.Codigo" Title="Código" />
                 <PropertyColumn Property="x => x.Categoria" Title="Categoría" />
+                @* Guion y no vacío para lo que no lleva estado: una celda en blanco
+                   se lee como "falta el dato", y acá simplemente no aplica. *@
+                <TemplateColumn Title="Estado">
+                    <CellTemplate>
+                        @(context.Item.Estado ?? "—")
+                    </CellTemplate>
+                </TemplateColumn>
                 <PropertyColumn Property="x => x.UnidadMedida" Title="Unidad de medida" />
                 <PropertyColumn Property="x => x.Ubicacion" Title="Ubicación" />
                 <TemplateColumn Title="Stock actual">
@@ -97,6 +113,7 @@
     private IEnumerable<ArticuloExistenciaDto> articulos = Array.Empty<ArticuloExistenciaDto>();
     private string? filtroNombre;
     private string? filtroCategoria;
+    private string? filtroEstado;
     private bool filtroSoloStockBajo;
     private bool cargando;
 
@@ -105,7 +122,8 @@
     // allá se ignora, así que acá tampoco puede contar como búsqueda; si contara,
     // pedir " " devolvería el catálogo entero.
     private bool HayFiltro =>
-        !string.IsNullOrWhiteSpace(filtroNombre) || !string.IsNullOrWhiteSpace(filtroCategoria) || filtroSoloStockBajo;
+        !string.IsNullOrWhiteSpace(filtroNombre) || !string.IsNullOrWhiteSpace(filtroCategoria)
+        || !string.IsNullOrWhiteSpace(filtroEstado) || filtroSoloStockBajo;
 
     // Sin OnInitializedAsync general a propósito: la pantalla abre sin consultar
     // nada. Antes cargaba con los filtros vacíos, y como el repositorio los
@@ -130,6 +148,12 @@
     private async Task OnFiltroCategoriaCambiadoAsync(string? valor)
     {
         filtroCategoria = valor;
+        await CargarAsync();
+    }
+
+    private async Task OnFiltroEstadoCambiadoAsync(string? valor)
+    {
+        filtroEstado = valor;
         await CargarAsync();
     }
 
@@ -160,6 +184,7 @@
             {
                 Nombre = filtroNombre,
                 Categoria = filtroCategoria,
+                Estado = filtroEstado,
                 SoloStockBajo = filtroSoloStockBajo
             });
             articulos = pagina.Elementos;

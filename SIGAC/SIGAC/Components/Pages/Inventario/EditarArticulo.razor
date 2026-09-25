@@ -29,6 +29,22 @@
                 }
             </MudSelect>
 
+            @* Subcategoría del Equipo. Junto con el nombre identifica al artículo:
+               cambiarlo mueve este stock a otro estado, no lo suma al de otra fila
+               (si ya existe otro artículo con ese nombre y estado, el guardado lo
+               rechaza en vez de fusionarlos). *@
+            @if (EstadosArticulo.AplicaACategoria(modelo.Categoria))
+            {
+                <MudSelect T="string" @bind-Value="modelo.Estado" For="@(() => modelo.Estado)"
+                           Label="Estado" Variant="Variant.Outlined" Class="mt-4" Required="true"
+                           HelperText="Obligatorio para Equipo.">
+                    @foreach (var estado in EstadosArticulo.Todos)
+                    {
+                        <MudSelectItem T="string" Value="@estado">@estado</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+
             @* Mismas opciones que valida el servicio: se filtran por la categoría
                elegida en vez de ofrecer siempre las cinco unidades. *@
             <MudSelect T="string" @bind-Value="modelo.UnidadMedida" For="@(() => modelo.UnidadMedida)"
@@ -79,6 +95,11 @@
     {
         if (!UnidadesMedidaArticulo.EsValidaParaCategoria(modelo.Categoria, modelo.UnidadMedida))
             modelo.UnidadMedida = string.Empty;
+
+        // Sin estado fuera de Equipo. Al pasar A Equipo el campo aparece vacío y hay
+        // que elegirlo antes de guardar: no se inventa uno.
+        if (!EstadosArticulo.AplicaACategoria(modelo.Categoria))
+            modelo.Estado = null;
     }
 
     private async Task Guardar()

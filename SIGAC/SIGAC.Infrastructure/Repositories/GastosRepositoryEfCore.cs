@@ -190,11 +190,11 @@ namespace SIGAC.Infrastructure.Repositories
                 // false: que el artículo no exista. Hoy es inalcanzable —ArticuloId es
                 // FK obligatoria con Restrict, así que un artículo con entradas no se
                 // puede borrar— pero sin esto el mensaje saldría con comillas vacías.
-                var nombreArticulo = await context.Articulos
+                var articuloDeLaEntrada = await context.Articulos
                     .AsNoTracking()
-                    .Where(a => a.Id == entrada.ArticuloId)
-                    .Select(a => a.Nombre)
-                    .FirstOrDefaultAsync() ?? "artículo desconocido";
+                    .FirstOrDefaultAsync(a => a.Id == entrada.ArticuloId);
+
+                var nombreArticulo = articuloDeLaEntrada?.Etiqueta ?? "artículo desconocido";
 
                 throw new ValidationException(
                     $"No se puede anular el gasto: la entrada de {entrada.Cantidad} de " +

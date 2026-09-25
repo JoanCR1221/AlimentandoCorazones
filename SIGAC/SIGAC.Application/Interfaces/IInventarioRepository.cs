@@ -7,7 +7,11 @@ namespace SIGAC.Application.Interfaces
     public interface IInventarioRepository
     {
         // Artículos
-        Task<Articulo?> ObtenerArticuloPorNombreAsync(string nombre);
+        // Todos los artículos con ese nombre, uno por cada estado si es Equipo (ver
+        // EstadosArticulo). Antes devolvía uno solo porque el nombre era único; ahora
+        // la clave es (Nombre, Estado) y quien llama decide cuál le corresponde, o si
+        // el nombre ya está tomado por otra categoría.
+        Task<IReadOnlyList<Articulo>> ObtenerArticulosPorNombreAsync(string nombre);
         Task<Articulo?> ObtenerArticuloPorIdAsync(int id);
         Task ActualizarArticuloAsync(Articulo articulo);
         // Devuelve una sola página, ya filtrada y ordenada en SQL, junto con el
@@ -15,10 +19,10 @@ namespace SIGAC.Application.Interfaces
         // saber cuántas páginas hay). Nunca materializa el catálogo entero.
         Task<ResultadoPaginado<Articulo>> ObtenerExistenciasAsync(FiltrosExistenciaDto filtros);
 
-        // idExcluir permite editar un artículo sin chocar consigo mismo. El nombre
-        // es la clave natural del catálogo (ver UX_Articulos_Nombre); el código es
-        // opcional y solo choca cuando ambos lo tienen definido (ver UX_Articulos_Codigo).
-        Task<bool> ExisteNombreAsync(string nombre, int? idExcluir = null);
+        // idExcluir permite editar un artículo sin chocar consigo mismo. La clave
+        // natural del catálogo es (Nombre, Estado) (ver UX_Articulos_Nombre_Estado y
+        // UX_Articulos_Nombre_SinEstado); el código es opcional y solo choca cuando
+        // ambos lo tienen definido (ver UX_Articulos_Codigo).
         Task<bool> ExisteCodigoAsync(string? codigo, int? idExcluir = null);
 
         // Cuenta en SQL (COUNT) en vez de traer artículos para contarlos en memoria:

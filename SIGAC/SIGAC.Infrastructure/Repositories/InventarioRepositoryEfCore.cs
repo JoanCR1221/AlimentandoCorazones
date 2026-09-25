@@ -21,7 +21,7 @@ namespace SIGAC.Infrastructure.Repositories
 
         // Números de error de SQL Server para violación de unicidad: 2627 es una
         // restricción UNIQUE/PK y 2601 un índice único. Se usan para traducir el
-        // choque contra UX_Articulos_Nombre y UX_SalidasInventario_SolicitudPrestamo
+        // choque contra UX_Articulos_Nombre_Estado y UX_SalidasInventario_SolicitudPrestamo
         // a excepciones con mensaje entendible en vez de un DbUpdateException crudo.
         private const int ErrorSqlRestriccionUnica = 2627;
         private const int ErrorSqlIndiceUnico = 2601;
@@ -37,7 +37,8 @@ namespace SIGAC.Infrastructure.Repositories
         // CUÁL de los dos rechazó la escritura y dar el mensaje que corresponde.
         // El nombre del índice va en el mensaje aunque el servidor esté en otro
         // idioma, así que no depende de la localización.
-        private const string IndiceUnicoNombreArticulo = "UX_Articulos_Nombre";
+        // (El de nombre es UX_Articulos_Nombre_Estado; no hace falta una constante
+        // porque es el caso por omisión de DescribirDuplicadoDeArticulo.)
         private const string IndiceUnicoCodigoArticulo = "UX_Articulos_Codigo";
 
         // Factory y no un DbContext inyectado: en Blazor Server el scope dura toda
@@ -56,20 +57,25 @@ namespace SIGAC.Infrastructure.Repositories
         // Artículos
         // ------------------------------------------------------------------
 
-        public async Task<Articulo?> ObtenerArticuloPorNombreAsync(string nombre)
+        public async Task<IReadOnlyList<Articulo>> ObtenerArticulosPorNombreAsync(string nombre)
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
 
             // Igualdad directa y SIN collation explícita: es exactamente la misma
-            // comparación que hace el índice único UX_Articulos_Nombre, así que el
-            // código y la base coinciden en qué es "el mismo artículo" y la consulta
-            // puede hacer seek sobre ese índice. Con Collate AI se encontrarían filas
-            // que el índice considera distintas, y el servicio daría por existente un
-            // artículo que al insertarse no chocaría con nada.
+            // comparación que hace el índice único UX_Articulos_Nombre_Estado (que
+            // empieza por Nombre), así que el código y la base coinciden en qué es "el
+            // mismo artículo" y la consulta puede hacer seek sobre ese índice. Con
+            // Collate AI se encontrarían filas que el índice considera distintas, y el
+            // servicio daría por existente un artículo que al insertarse no chocaría
+            // con nada.
             // El "sin distinguir mayúsculas" lo aporta la collation CI de SQL Server.
+            //
+            // Devuelve una lista y no una fila: el Equipo puede tener una por estado.
             return await context.Articulos
                 .AsNoTracking()
-                .FirstOrDefaultAsync(a => a.Nombre == nombre);
+                .Where(a => a.Nombre == nombre)
+                .OrderBy(a => a.Id)
+                .ToListAsync();
         }
 
         public async Task<Articulo?> ObtenerArticuloPorIdAsync(int id)
@@ -103,6 +109,7 @@ namespace SIGAC.Infrastructure.Repositories
             existente.Nombre = articulo.Nombre;
             existente.Codigo = articulo.Codigo;
             existente.Categoria = articulo.Categoria;
+            existente.Estado = articulo.Estado;
             existente.UnidadMedida = articulo.UnidadMedida;
             existente.Ubicacion = articulo.Ubicacion;
             existente.StockMinimo = articulo.StockMinimo;
@@ -113,7 +120,7 @@ namespace SIGAC.Infrastructure.Repositories
             }
             catch (DbUpdateException ex) when (EsViolacionDeUnicidad(ex))
             {
-                // Choque contra UX_Articulos_Nombre o UX_Articulos_Codigo al editar
+                // Choque contra UX_Articulos_Nombre_Estado o UX_Articulos_Codigo al editar
                 // hacia un valor ya usado. Antes salía como DbUpdateException y el
                 // servicio la envolvía en un Exception genérico, así que el usuario no
                 // sabía el motivo; y una vez traducido, el mensaje hablaba siempre del
@@ -149,6 +156,14 @@ namespace SIGAC.Infrastructure.Repositories
                 consulta = consulta.Where(a => a.Categoria == categoriaFiltro);
             }
 
+            if (!string.IsNullOrWhiteSpace(filtros.Estado))
+            {
+                // Igualdad exacta, igual que la categoría: se elige de una lista.
+                // Los artículos sin estado (todo lo que no es Equipo) nunca coinciden.
+                var estadoFiltro = filtros.Estado;
+                consulta = consulta.Where(a => a.Estado == estadoFiltro);
+            }
+
             if (filtros.SoloStockBajo)
             {
                 // Misma condición que ArticuloExistenciaDto.StockBajo en el servicio
@@ -170,28 +185,18 @@ namespace SIGAC.Infrastructure.Repositories
                 ? await consulta
                     .OrderBy(a => a.StockActual)
                     .ThenBy(a => a.Nombre)
+                    .ThenBy(a => a.Estado)
                     .Skip(filtros.PaginaEfectiva * filtros.TamanoPaginaEfectivo)
                     .Take(filtros.TamanoPaginaEfectivo)
                     .ToListAsync()
                 : await consulta
                     .OrderBy(a => a.Nombre)
+                    .ThenBy(a => a.Estado)
                     .Skip(filtros.PaginaEfectiva * filtros.TamanoPaginaEfectivo)
                     .Take(filtros.TamanoPaginaEfectivo)
                     .ToListAsync();
 
             return new ResultadoPaginado<Articulo>(elementos, total);
-        }
-
-        public async Task<bool> ExisteNombreAsync(string nombre, int? idExcluir = null)
-        {
-            await using var context = await _contextFactory.CreateDbContextAsync();
-
-            // Igualdad directa, sin collation: es la misma comparación que hace
-            // UX_Articulos_Nombre. El "sin distinguir mayúsculas" lo aporta la
-            // collation CI de SQL Server, igual que en ObtenerArticuloPorNombreAsync.
-            return await context.Articulos
-                .AsNoTracking()
-                .AnyAsync(a => a.Nombre == nombre && (idExcluir == null || a.Id != idExcluir));
         }
 
         public async Task<int> ContarStockBajoAsync()
@@ -320,11 +325,11 @@ namespace SIGAC.Infrastructure.Repositories
                 }
                 catch (DbUpdateException ex) when (EsViolacionDeUnicidad(ex))
                 {
-                    // Choque contra UX_Articulos_Nombre: otro usuario creó el mismo
+                    // Choque contra UX_Articulos_Nombre_Estado: otro usuario creó el mismo
                     // artículo entre la búsqueda por nombre del servicio y este
                     // INSERT. La transacción revierte y el mensaje explica qué hacer.
                     throw new DuplicateException(
-                        $"Otro usuario acaba de crear el artículo '{articuloNuevo.Nombre}'. " +
+                        $"Otro usuario acaba de crear el artículo '{articuloNuevo.Etiqueta}'. " +
                         "Vuelva a registrar la entrada para que se sume a ese artículo.");
                 }
 
@@ -461,7 +466,7 @@ namespace SIGAC.Infrastructure.Repositories
                 return $"Ya existe otro artículo con el código '{articulo.Codigo}'.";
             }
 
-            return $"Ya existe otro artículo con el nombre '{articulo.Nombre}'.";
+            return $"Ya existe otro artículo con el nombre '{articulo.Etiqueta}'.";
         }
 
         // ------------------------------------------------------------------

@@ -156,6 +156,7 @@ namespace SIGAC.Application.Services
                         NombreArticulo = l.NombreArticulo,
                         Cantidad = l.Cantidad,
                         Categoria = l.Categoria,
+                        Estado = l.Estado,
                         UnidadMedida = l.UnidadMedida
                     }).ToList()
                 };
@@ -232,6 +233,7 @@ namespace SIGAC.Application.Services
                     {
                         NombreArticulo = linea.NombreArticulo,
                         Categoria = linea.Categoria,
+                        Estado = linea.Estado,
                         UnidadMedida = linea.UnidadMedida,
                         Cantidad = linea.Cantidad,
                         Fecha = donacion.Fecha,
@@ -246,7 +248,7 @@ namespace SIGAC.Application.Services
                 {
                     var faltantes = lineas
                         .Skip(ingresados.Count)
-                        .Select(l => $"{l.Cantidad} {l.UnidadMedida} de {l.NombreArticulo}");
+                        .Select(l => $"{l.Cantidad} {l.UnidadMedida} de {Articulo.EtiquetaDe(l.NombreArticulo, l.Estado)}");
 
                     // ValidationException y no un Exception genérico: es el único tipo
                     // que el filtro de excepciones deja pasar sin envolver, así que es
@@ -446,7 +448,7 @@ namespace SIGAC.Application.Services
                 var filas = entregas.Select(e => new HistorialDonacionEntregadaDto
                 {
                     Id = e.Id,
-                    Articulo = e.Articulo?.Nombre ?? string.Empty,
+                    Articulo = e.Articulo?.Etiqueta ?? string.Empty,
                     Cantidad = e.Cantidad,
                     UnidadMedida = e.Articulo?.UnidadMedida ?? string.Empty,
                     Fecha = e.Fecha,
@@ -609,6 +611,7 @@ namespace SIGAC.Application.Services
             string NombreArticulo,
             int Cantidad,
             string Categoria,
+            string? Estado,
             string UnidadMedida);
 
         private static LineaValidada ValidarLinea(DetalleArticuloDto linea)
@@ -630,7 +633,15 @@ namespace SIGAC.Application.Services
             var (categoria, unidadMedida) =
                 ArticuloValidator.ValidarCategoriaYUnidad(linea.Categoria, linea.UnidadMedida);
 
-            return new LineaValidada(nombre, linea.Cantidad, categoria, unidadMedida);
+            // Mismo validador que Inventario: el estado de la línea es el que va a
+            // llevar el artículo al entrar al stock, así que una línea de Equipo sin
+            // estado válido tiene que rechazarse ACÁ, antes de guardar la donación.
+            // Si se dejara para RegistrarEntradaAsync, fallaría a mitad de camino con
+            // la donación ya registrada y el stock a medias (ver el bloque de
+            // comentarios de RegistrarEntradasEnInventarioAsync).
+            var estado = ArticuloValidator.ValidarEstado(categoria, linea.Estado);
+
+            return new LineaValidada(nombre, linea.Cantidad, categoria, estado, unidadMedida);
         }
 
         // "3 Kilogramo de Arroz, 2 Paquete de Frijoles". Incluye la unidad porque sin
@@ -646,7 +657,7 @@ namespace SIGAC.Application.Services
             }
 
             return string.Join(", ", donacion.Detalles
-                .Select(d => $"{d.Cantidad} {d.UnidadMedida} de {d.NombreArticulo}"));
+                .Select(d => $"{d.Cantidad} {d.UnidadMedida} de {Articulo.EtiquetaDe(d.NombreArticulo, d.Estado)}"));
         }
 
         // Una sola columna de texto para las dos clases de destinatario: la grilla no

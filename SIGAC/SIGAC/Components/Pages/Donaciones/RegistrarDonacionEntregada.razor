@@ -65,7 +65,7 @@
                     <MudAutocomplete T="ArticuloExistenciaDto" Label="Artículo" Variant="Variant.Outlined"
                                       Value="linea.Articulo" ValueChanged="@(valor => OnArticuloCambiado(indice, valor))"
                                       SearchFunc="BuscarArticulosAsync" MinCharacters="1" DebounceInterval="300"
-                                      ToStringFunc="@(a => a is null ? null : $"{a.Nombre} (stock: {a.StockActual} {a.UnidadMedida})")"
+                                      ToStringFunc="@(a => a is null ? null : $"{a.Etiqueta} (stock: {a.StockActual} {a.UnidadMedida})")"
                                       HelperText="Escriba para buscar el artículo a entregar." />
 
                     <MudNumericField T="int" @bind-Value="linea.Cantidad" Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />

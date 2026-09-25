@@ -17,10 +17,10 @@ namespace SIGAC.Application.Interfaces
 
         // Sirve para AVISAR de un posible homónimo, no para bloquear el registro.
         //
-        // Es la diferencia con ExisteNombreAsync de IInventarioRepository, que tiene
-        // la misma firma pero otro significado: allá el nombre es la clave natural
-        // del catálogo y está respaldado por UX_Articulos_Nombre, así que un true
-        // impide guardar. Acá IX_Donantes_Nombre NO es único a propósito (dos
+        // Es la diferencia con el catálogo de artículos, donde el nombre (junto con
+        // el estado) es la clave natural y está respaldado por
+        // UX_Articulos_Nombre_Estado, así que un duplicado impide guardar. Acá
+        // IX_Donantes_Nombre NO es único a propósito (dos
         // personas distintas pueden llamarse igual y Donante no tiene número de
         // documento con el cual desempatarlas), así que un true solo justifica
         // preguntarle al usuario si no está registrando dos veces al mismo.

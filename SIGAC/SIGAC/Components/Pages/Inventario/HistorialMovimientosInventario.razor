@@ -11,7 +11,7 @@
     <MudCardContent>
         <MudAutocomplete T="ArticuloExistenciaDto" Label="Artículo" Variant="Variant.Outlined" Class="mb-4"
                           Value="articuloSeleccionado" ValueChanged="OnArticuloCambiadoAsync"
-                          SearchFunc="BuscarArticulosAsync" ToStringFunc="@(a => a?.Nombre)" Clearable="true" />
+                          SearchFunc="BuscarArticulosAsync" ToStringFunc="@(a => a?.Etiqueta)" Clearable="true" />
 
         <MudSelect T="string" Value="filtroTipoMovimiento" ValueChanged="OnTipoMovimientoCambiadoAsync"
                    Label="Tipo de movimiento" Variant="Variant.Outlined" Class="mb-4" Clearable="true">

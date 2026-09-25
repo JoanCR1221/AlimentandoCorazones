@@ -40,7 +40,29 @@ namespace SIGAC.Application.Services
                 // partiendo el stock en dos filas.
                 var nombreArticulo = ArticuloValidator.ValidarNombre(dto.NombreArticulo);
 
-                var articulo = await _repository.ObtenerArticuloPorNombreAsync(nombreArticulo);
+                // La clave del catálogo es (Nombre, Estado): un mismo nombre puede
+                // tener varias filas, una por estado, cuando es Equipo. Todas las
+                // filas de un nombre son de la misma categoría (ver
+                // ValidarNombreLibreDeOtraCategoria), así que basta mirar la primera
+                // para saber si el nombre lleva estado.
+                var coincidencias = await _repository.ObtenerArticulosPorNombreAsync(nombreArticulo);
+                Articulo? articulo = null;
+
+                if (coincidencias.Count > 0)
+                {
+                    if (EstadosArticulo.AplicaACategoria(coincidencias[0].Categoria))
+                    {
+                        // Equipo: el estado elige la fila. Es "sin fila" (artículo
+                        // nuevo) cuando ese nombre existe pero en otro estado.
+                        var estadoEntrada = ArticuloValidator.ValidarEstado(
+                            coincidencias[0].Categoria, dto.Estado);
+                        articulo = coincidencias.FirstOrDefault(a => a.Estado == estadoEntrada);
+                    }
+                    else
+                    {
+                        articulo = coincidencias[0];
+                    }
+                }
 
                 // La entrada se registra el día en que ocurre: una fecha futura no
                 // representa un movimiento real todavía. Antes solo lo restringía el
@@ -68,6 +90,13 @@ namespace SIGAC.Application.Services
                     var (categoria, unidadMedida) =
                         ArticuloValidator.ValidarCategoriaYUnidad(dto.Categoria, dto.UnidadMedida);
 
+                    // Un nombre que ya existe en otro estado (Equipo) no puede darse
+                    // de alta en otra categoría: esa fila y las de acá compartirían
+                    // nombre siendo de mundos distintos.
+                    ValidarNombreLibreDeOtraCategoria(coincidencias, categoria, nombreArticulo);
+
+                    var estado = ArticuloValidator.ValidarEstado(categoria, dto.Estado);
+
                     // Normalizados con el mismo criterio que EditarArticuloAsync: el
                     // valor que se compara contra el índice único tiene que ser el
                     // mismo que se persiste. Comparar "P001 " en crudo y guardar
@@ -87,6 +116,7 @@ namespace SIGAC.Application.Services
                         Nombre = nombreArticulo,
                         Codigo = codigo,
                         Categoria = categoria,
+                        Estado = estado,
                         UnidadMedida = unidadMedida,
                         Ubicacion = ubicacion,
                         StockActual = 0
@@ -115,12 +145,30 @@ namespace SIGAC.Application.Services
                 await _repository.RegistrarEntradaConStockAsync(entrada, articuloNuevo);
 
                 await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Inventario,
-                    $"Entrada de {entrada.Cantidad} de '{nombreArticulo}' ({entrada.Origen})" +
+                    $"Entrada de {entrada.Cantidad} de '{(articulo ?? articuloNuevo)!.Etiqueta}' ({entrada.Origen})" +
                     (articuloNuevo is not null ? ", artículo nuevo" : string.Empty));
             }
             catch (Exception ex) when (ex is not ValidationException and not DuplicateException)
             {
                 throw new Exception("Error al registrar la entrada de inventario.", ex);
+            }
+        }
+
+        // Todas las filas de un mismo nombre tienen que ser de la misma categoría. La
+        // base solo garantiza que (Nombre, Estado) no se repita, no que "Mesa" no
+        // exista a la vez como Alimento (sin estado) y como Equipo (con estado):
+        // para evitarlo la búsqueda por nombre de RegistrarEntradaAsync, que decide
+        // con la primera fila, no tendría de qué fiarse.
+        private static void ValidarNombreLibreDeOtraCategoria(
+            IReadOnlyList<Articulo> otrosConEseNombre, string categoria, string nombre)
+        {
+            var enOtraCategoria = otrosConEseNombre.FirstOrDefault(a => a.Categoria != categoria);
+
+            if (enOtraCategoria is not null)
+            {
+                throw new ValidationException(
+                    $"Ya existe un artículo llamado '{nombre}' en la categoría {enOtraCategoria.Categoria}. " +
+                    "Un mismo nombre no puede repetirse en otra categoría.");
             }
         }
 
@@ -179,6 +227,7 @@ namespace SIGAC.Application.Services
                     Nombre = a.Nombre,
                     Codigo = a.Codigo,
                     Categoria = a.Categoria,
+                    Estado = a.Estado,
                     UnidadMedida = a.UnidadMedida,
                     Ubicacion = a.Ubicacion,
                     StockActual = a.StockActual,
@@ -224,6 +273,7 @@ namespace SIGAC.Application.Services
                     Nombre = articulo.Nombre,
                     Codigo = articulo.Codigo,
                     Categoria = articulo.Categoria,
+                    Estado = articulo.Estado,
                     UnidadMedida = articulo.UnidadMedida,
                     Ubicacion = articulo.Ubicacion,
                     StockMinimo = articulo.StockMinimo,
@@ -256,8 +306,20 @@ namespace SIGAC.Application.Services
                 // Antes no se comprobaba: renombrar un artículo a un nombre ya usado
                 // por otro solo se detectaba cuando el índice único lo rechazaba con
                 // un error genérico. Se excluye el propio id para no chocar consigo mismo.
-                if (await _repository.ExisteNombreAsync(datos.Nombre, id))
-                    throw new DuplicateException($"Ya existe otro artículo con el nombre \"{datos.Nombre}\".");
+                //
+                // La identidad es (Nombre, Estado): repetir el nombre solo choca si
+                // también coincide el estado (dos sillas en distinto estado conviven).
+                var otrosConEseNombre = (await _repository.ObtenerArticulosPorNombreAsync(datos.Nombre))
+                    .Where(a => a.Id != id)
+                    .ToList();
+
+                ValidarNombreLibreDeOtraCategoria(otrosConEseNombre, datos.Categoria, datos.Nombre);
+
+                if (otrosConEseNombre.Any(a => a.Estado == datos.Estado))
+                {
+                    throw new DuplicateException(
+                        $"Ya existe otro artículo con el nombre \"{Articulo.EtiquetaDe(datos.Nombre, datos.Estado)}\".");
+                }
 
                 if (await _repository.ExisteCodigoAsync(datos.Codigo, id))
                     throw new DuplicateException($"Ya existe otro artículo con el código \"{datos.Codigo}\".");
@@ -265,6 +327,7 @@ namespace SIGAC.Application.Services
                 articulo.Nombre = datos.Nombre;
                 articulo.Codigo = datos.Codigo;
                 articulo.Categoria = datos.Categoria;
+                articulo.Estado = datos.Estado;
                 articulo.UnidadMedida = datos.UnidadMedida;
                 articulo.Ubicacion = datos.Ubicacion;
                 articulo.StockMinimo = datos.StockMinimo;
@@ -272,7 +335,7 @@ namespace SIGAC.Application.Services
                 await _repository.ActualizarArticuloAsync(articulo);
 
                 await _bitacora.RegistrarAsync(AccionesBitacora.Editar, ModulosSistema.Inventario,
-                    $"Artículo #{articulo.Id}: {articulo.Nombre}");
+                    $"Artículo #{articulo.Id}: {articulo.Etiqueta}");
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException and not DuplicateException)
             {
@@ -333,7 +396,7 @@ namespace SIGAC.Application.Services
                 movimientos.AddRange(entradas.Select(e => new MovimientoInventarioDto
                 {
                     Id = e.Id,
-                    Articulo = e.Articulo?.Nombre ?? string.Empty,
+                    Articulo = e.Articulo?.Etiqueta ?? string.Empty,
                     TipoMovimiento = "Entrada",
                     Cantidad = e.Cantidad,
                     Fecha = e.Fecha,
@@ -343,7 +406,7 @@ namespace SIGAC.Application.Services
                 movimientos.AddRange(salidas.Select(s => new MovimientoInventarioDto
                 {
                     Id = s.Id,
-                    Articulo = s.Articulo?.Nombre ?? string.Empty,
+                    Articulo = s.Articulo?.Etiqueta ?? string.Empty,
                     TipoMovimiento = s.TipoSalida,
                     Cantidad = s.Cantidad,
                     Fecha = s.Fecha,
@@ -538,7 +601,7 @@ namespace SIGAC.Application.Services
                 return solicitudes.Select(s => new SolicitudPrestamoListaDto
                 {
                     Id = s.Id,
-                    Articulo = s.Articulo?.Nombre ?? string.Empty,
+                    Articulo = s.Articulo?.Etiqueta ?? string.Empty,
                     Cantidad = s.Cantidad,
                     Fecha = s.Fecha,
                     Actividad = s.Actividad,

@@ -40,7 +40,7 @@
             <MudItem xs="12" sm="6" md="3">
                 <MudAutocomplete T="ArticuloExistenciaDto" Label="Artículo" Variant="Variant.Outlined"
                                   Value="articuloSeleccionado" ValueChanged="OnArticuloCambiadoAsync"
-                                  SearchFunc="BuscarArticulosAsync" ToStringFunc="@(a => a?.Nombre)" Clearable="true" />
+                                  SearchFunc="BuscarArticulosAsync" ToStringFunc="@(a => a?.Etiqueta)" Clearable="true" />
             </MudItem>
             <MudItem xs="12" sm="6" md="3">
                 <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
