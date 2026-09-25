@@ -9,6 +9,7 @@ using SIGAC.Application.Services;
 using SIGAC.Domain;
 using SIGAC.Infrastructure.Data;
 using SIGAC.Infrastructure.Identity;
+using SIGAC.Infrastructure.Reportes;
 using SIGAC.Infrastructure.Repositories;
 using SIGAC.Components;
 using SIGAC.Services;
@@ -143,6 +144,11 @@ builder.Services.AddScoped<IDonacionesService, DonacionesService>();
 
 // Servicio del módulo de Gestión de Proyectos
 builder.Services.AddScoped<IProyectosService, ProyectosService>();
+
+// Exportación de reportes a PDF/Excel (módulo de Generación de reportes),
+// sobre FastReport.OpenSource. Genérico: lo usa cualquier pantalla de reporte,
+// sin registrar nada nuevo acá cuando se agregue la siguiente.
+builder.Services.AddScoped<IExportacionService, ExportacionService>();
 
 // Cifras de las tarjetas de resumen de los módulos (solo lectura)
 builder.Services.AddScoped<IResumenService, ResumenService>();
