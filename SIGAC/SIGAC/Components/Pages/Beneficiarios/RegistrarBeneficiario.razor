@@ -9,65 +9,15 @@
 @inject ISnackbar Snackbar
 @inject NavigationManager NavigationManager
 
-<MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Registrar beneficiario</MudText>
+<EncabezadoPagina Titulo="Registrar beneficiario"
+                  Descripcion="Complete los datos de la persona que se incorpora al comedor." />
 
 <EditForm Model="modelo" OnValidSubmit="Guardar">
     <DataAnnotationsValidator />
 
     <MudCard Class="pa-4">
         <MudCardContent>
-            <MudTextField @bind-Value="modelo.PrimerNombre" For="@(() => modelo.PrimerNombre)" Label="Primer nombre" Variant="Variant.Outlined"
-                          MaxLength="ReglasBeneficiario.LongitudMaximaNombre" />
-            <MudTextField @bind-Value="modelo.SegundoNombre" Label="Segundo nombre (opcional)" Variant="Variant.Outlined" Class="mt-4"
-                          MaxLength="ReglasBeneficiario.LongitudMaximaNombre" />
-            <MudTextField @bind-Value="modelo.PrimerApellido" For="@(() => modelo.PrimerApellido)" Label="Primer apellido" Variant="Variant.Outlined" Class="mt-4"
-                          MaxLength="ReglasBeneficiario.LongitudMaximaApellido" />
-            <MudTextField @bind-Value="modelo.SegundoApellido" Label="Segundo apellido (opcional)" Variant="Variant.Outlined" Class="mt-4"
-                          MaxLength="ReglasBeneficiario.LongitudMaximaApellido" />
-            <MudDatePicker @bind-Date="fechaNacimiento" Label="Fecha de nacimiento" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
-
-            @* La categoría ya no se elige: se deriva de la fecha de nacimiento. *@
-            @if (modelo.FechaNacimiento != default)
-            {
-                <MudText Typo="Typo.body2" Class="mt-2">
-                    Categoría: @CategoriasBeneficiario.DerivarDesdeFechaNacimiento(modelo.FechaNacimiento)
-                </MudText>
-            }
-
-            <PhoneInput @bind-Value="modelo.Telefono" @bind-CodigoPais="modelo.CodigoPaisTelefono"
-                        Label="Teléfono (opcional)" Class="mt-4" />
-            <MudTextField @bind-Value="modelo.Direccion" Label="Dirección (opcional)" Variant="Variant.Outlined" Class="mt-4"
-                          MaxLength="ReglasBeneficiario.LongitudMaximaDireccion" Lines="2"
-                          HelperText="@($"Máximo {ReglasBeneficiario.LongitudMaximaDireccion} caracteres. Ej: Del parque 150 metros suroeste, casa verde.")" />
-
-            @* Lista cerrada: la fuente es SIGAC.Domain.TiposDocumento, no la pantalla. *@
-            <MudSelect T="string" Value="modelo.TipoDocumento" ValueChanged="OnTipoDocumentoCambiado" Label="Tipo de documento" Variant="Variant.Outlined" Class="mt-4">
-                @foreach (var tipo in TiposDocumento.Todos)
-                {
-                    <MudSelectItem T="string" Value="@tipo">@tipo</MudSelectItem>
-                }
-            </MudSelect>
-
-            @* "Otro" pide además cómo se llama el documento. *@
-            @if (TiposDocumento.RequiereNombreDelDocumento(modelo.TipoDocumento))
-            {
-                <MudTextField @bind-Value="modelo.TipoDocumentoOtro" Label="¿Cómo se llama el documento?" Variant="Variant.Outlined" Class="mt-4"
-                              MaxLength="ReglasBeneficiario.LongitudMaximaTipoDocumentoOtro" />
-            }
-
-            @* "Sin documento" no pide número: el campo se oculta.
-               MaxLength, teclado y ayuda salen de ReglasBeneficiario según el tipo
-               elegido, que es la misma fuente que usa el validador. Sin atributo
-               pattern: el navegador bloqueaba el envío con su propio globo, y el
-               filtro de OnNumIdentidadCambiado ya descarta lo que no corresponde. *@
-            @if (TiposDocumento.RequiereNumIdentidad(modelo.TipoDocumento))
-            {
-                <MudTextField T="string" Value="modelo.NumIdentidad" ValueChanged="OnNumIdentidadCambiado" Immediate="true"
-                              Label="Número de identidad" Variant="Variant.Outlined" Class="mt-4"
-                              MaxLength="ReglasBeneficiario.LongitudMaximaNumIdentidadPara(modelo.TipoDocumento)"
-                              InputMode="@ModoEntradaNumIdentidad"
-                              HelperText="@ReglasBeneficiario.DescribirNumIdentidad(modelo.TipoDocumento)" />
-            }
+            <CamposBeneficiario Modelo="modelo" AlCambiarTipoDocumento="OnTipoDocumentoCambiado" />
         </MudCardContent>
         <MudCardActions>
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
@@ -81,24 +31,6 @@
     private Task<AuthenticationState>? EstadoAutenticacion { get; set; }
 
     private BeneficiarioCrearDto modelo = new();
-
-    private DateTime? fechaNacimiento
-    {
-        get => modelo.FechaNacimiento == default ? null : modelo.FechaNacimiento;
-        set => modelo.FechaNacimiento = value ?? default;
-    }
-
-    // Teclado numérico en móvil para los tipos que solo admiten dígitos.
-    private InputMode ModoEntradaNumIdentidad =>
-        ReglasBeneficiario.NumIdentidadEsSoloDigitos(modelo.TipoDocumento) ? InputMode.numeric : InputMode.text;
-
-    // Descarta lo que no corresponde al tipo mientras se escribe. Es comodidad: el
-    // validador del servidor vuelve a comprobar el valor completo igual que antes.
-    private void OnNumIdentidadCambiado(string? valor)
-    {
-        var filtrado = ReglasBeneficiario.FiltrarNumIdentidad(modelo.TipoDocumento, valor);
-        modelo.NumIdentidad = filtrado.Length == 0 ? null : filtrado;
-    }
 
     private void OnTipoDocumentoCambiado(string? valor)
     {

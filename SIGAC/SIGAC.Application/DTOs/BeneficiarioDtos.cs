@@ -3,9 +3,27 @@ using System.ComponentModel.DataAnnotations;
 
 namespace SIGAC.Application.DTOs.Beneficiarios
 {
+    // Campos que comparten el alta y la edición. Existe para que el formulario
+    // (CamposBeneficiario.razor) sea uno solo para las dos pantallas; cada DTO
+    // sigue siendo un tipo aparte.
+    public interface IDatosBeneficiario
+    {
+        string PrimerNombre { get; set; }
+        string SegundoNombre { get; set; }
+        string PrimerApellido { get; set; }
+        string SegundoApellido { get; set; }
+        DateTime FechaNacimiento { get; set; }
+        string? CodigoPaisTelefono { get; set; }
+        string? Telefono { get; set; }
+        string? Direccion { get; set; }
+        string? TipoDocumento { get; set; }
+        string? NumIdentidad { get; set; }
+        string? TipoDocumentoOtro { get; set; }
+    }
+
     // Solo lo que captura el formulario: Id, Estado y FechaRegistro los pone el
     // servicio al crear la entidad.
-    public class BeneficiarioCrearDto
+    public class BeneficiarioCrearDto : IDatosBeneficiario
     {
         [Required(ErrorMessage = "El primer nombre es obligatorio.")]
         public string PrimerNombre { get; set; } = string.Empty;
@@ -33,7 +51,7 @@ namespace SIGAC.Application.DTOs.Beneficiarios
         public string? TipoDocumentoOtro { get; set; }
     }
 
-    public class BeneficiarioEditarDto
+    public class BeneficiarioEditarDto : IDatosBeneficiario
     {
         [Required(ErrorMessage = "El primer nombre es obligatorio.")]
         public string PrimerNombre { get; set; } = string.Empty;
