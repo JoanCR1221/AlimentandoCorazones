@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Bitacora;
 using SIGAC.Application.Interfaces;
@@ -42,6 +43,14 @@ namespace SIGAC.Application.Services
             string? usuarioId, string nombreUsuario, string? rol,
             string accion, string modulo, string? detalle = null)
         {
+            // La bitácora es un efecto secundario de la operación real (el gasto,
+            // el beneficiario, el login...), que para cuando se llega acá ya quedó
+            // guardada. Un fallo acá NUNCA debe propagarse: los servicios que
+            // llaman a este método no distinguen "no se guardó tu gasto" de "se
+            // guardó pero no se pudo anotar en la bitácora", así que dejar que la
+            // excepción suba haría que una operación exitosa se reporte como
+            // error (y, peor, invita a reintentar algo que ya se hizo). Mismo
+            // criterio que ya usa AccesoDenegadoContenido.razor.
             try
             {
                 // Los CHECK de la base rechazarían igual un valor fuera del catálogo,
@@ -68,7 +77,13 @@ namespace SIGAC.Application.Services
             }
             catch (Exception ex)
             {
-                throw new Exception("Error al registrar la acción en la bitácora.", ex);
+                // Trace y no relanzar: Application no depende de un logger externo
+                // (ver SIGAC.Application.csproj), y de todos modos nadie que llame a
+                // este método puede hacer nada útil con el error. Queda al menos en
+                // la salida de diagnóstico para no perderlo del todo.
+                Trace.TraceError(
+                    "No se pudo registrar en la bitácora (usuario {0}, acción {1}, módulo {2}): {3}",
+                    usuarioId, accion, modulo, ex);
             }
         }
 
