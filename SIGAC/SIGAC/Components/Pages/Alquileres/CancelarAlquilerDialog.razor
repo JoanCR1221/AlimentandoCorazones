@@ -1,0 +1,25 @@
+@using SIGAC.Application.Validators
+
+@* Mismo diálogo que AnularGastoDialog: el motivo es obligatorio y se guarda en
+   MotivoCancelacion. *@
+<MudDialog>
+    <DialogContent>
+        <MudTextField @bind-Value="motivo" Label="Motivo de cancelación" Variant="Variant.Outlined" Lines="3"
+                      MaxLength="AlquilerValidator.LongitudMaximaMotivoCancelacion" Immediate="true" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cerrar">Volver</MudButton>
+        <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="Confirmar" Disabled="@string.IsNullOrWhiteSpace(motivo)">Cancelar alquiler</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string? motivo;
+
+    private void Cerrar() => MudDialog.Cancel();
+
+    private void Confirmar() => MudDialog.Close(DialogResult.Ok(motivo));
+}

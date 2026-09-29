@@ -1,0 +1,88 @@
+@page "/alquileres/arrendatarios/registrar"
+@attribute [Authorize(Policy = Permisos.Alquileres.RegistrarArrendatario)]
+@using SIGAC.Application.DTOs.Alquileres
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@using SIGAC.Application.Validators
+@inject IArrendatariosService ArrendatariosService
+@inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
+
+<EncabezadoPagina Titulo="Registrar arrendatario"
+                  Descripcion="Persona o entidad que alquila un espacio de la asociación." />
+
+<EditForm Model="modelo" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <MudCard Class="pa-4">
+        <MudCardContent>
+            <MudTextField @bind-Value="modelo.Nombre" For="@(() => modelo.Nombre)" Label="Nombre" Variant="Variant.Outlined"
+                          MaxLength="ArrendatarioValidator.LongitudMaximaNombre"
+                          HelperText="Persona física, razón social o nombre del grupo." />
+
+            @* Mismo catálogo cerrado que Donantes: SIGAC.Domain.TiposPersonaDonante. *@
+            <MudSelect @bind-Value="modelo.TipoPersona" For="@(() => modelo.TipoPersona)" Label="Tipo de persona" Variant="Variant.Outlined" Class="mt-4">
+                @foreach (var tipo in TiposPersonaDonante.Todos)
+                {
+                    <MudSelectItem T="string" Value="@tipo">@tipo</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudTextField @bind-Value="modelo.Identificacion" For="@(() => modelo.Identificacion)" Label="Identificación (opcional)" Variant="Variant.Outlined" Class="mt-4"
+                          MaxLength="ArrendatarioValidator.LongitudMaximaIdentificacion"
+                          HelperText="Cédula física o jurídica. Si se indica, no puede repetirse. Los guiones y espacios se ignoran." />
+
+            <PhoneInput @bind-Value="modelo.Telefono" @bind-CodigoPais="modelo.CodigoPaisTelefono" Label="Teléfono" Class="mt-4" />
+            <MudTextField @bind-Value="modelo.Correo" For="@(() => modelo.Correo)" Label="Correo (opcional)" Variant="Variant.Outlined" Class="mt-4" />
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+            <MudButton Variant="Variant.Text" Color="Color.Default" Href="/alquileres" Class="mb-2">Cancelar</MudButton>
+        </MudCardActions>
+    </MudCard>
+</EditForm>
+
+@code {
+    private ArrendatarioCrearDto modelo = new();
+
+    private async Task Guardar()
+    {
+        try
+        {
+            var arrendatarioId = await ArrendatariosService.RegistrarArrendatarioAsync(modelo);
+            Snackbar.Add("Arrendatario registrado correctamente.", Severity.Success);
+
+            // Lo habitual es registrar al arrendatario porque viene a alquilar: se
+            // ofrece seguir con el alquiler ya con él elegido, mismo recurso que
+            // RegistrarProyecto.razor con los participantes.
+            Snackbar.Add(
+                "¿Desea registrarle un alquiler ahora?",
+                Severity.Info,
+                config =>
+                {
+                    config.Action = "Registrar alquiler";
+                    config.ActionColor = Color.Primary;
+                    config.OnClick = _ =>
+                    {
+                        NavigationManager.NavigateTo($"/alquileres/registrar?arrendatarioId={arrendatarioId}");
+                        return Task.CompletedTask;
+                    };
+                });
+
+            modelo = new();
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (DuplicateException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo registrar el arrendatario. Intente de nuevo.", Severity.Error);
+        }
+    }
+}

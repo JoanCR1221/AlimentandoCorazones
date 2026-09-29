@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SIGAC.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using SIGAC.Infrastructure.Data;
 namespace SIGAC.Infrastructure.Migrations
 {
     [DbContext(typeof(SigacDbContext))]
-    partial class SigacDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260929015512_AddTablaAlquileres")]
+    partial class AddTablaAlquileres
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1081,45 +1084,6 @@ namespace SIGAC.Infrastructure.Migrations
                             t.HasCheckConstraint("CK_GastosOperativos_Monto", "[Monto] > 0");
 
                             t.HasCheckConstraint("CK_GastosOperativos_MotivoAnulacion", "([Estado] = 'Anulado' AND [MotivoAnulacion] IS NOT NULL) OR ([Estado] <> 'Anulado' AND [MotivoAnulacion] IS NULL)");
-                        });
-                });
-
-            modelBuilder.Entity("SIGAC.Domain.Entities.HorarioAlquiler", b =>
-                {
-                    b.Property<int>("Id")
-                        .HasColumnType("int");
-
-                    b.Property<TimeSpan>("AperturaEntreSemana")
-                        .HasColumnType("time");
-
-                    b.Property<TimeSpan>("AperturaFinDeSemana")
-                        .HasColumnType("time");
-
-                    b.Property<TimeSpan>("CierreEntreSemana")
-                        .HasColumnType("time");
-
-                    b.Property<TimeSpan>("CierreFinDeSemana")
-                        .HasColumnType("time");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("HorarioAlquiler", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_HorarioAlquiler_EntreSemana", "[CierreEntreSemana] > [AperturaEntreSemana]");
-
-                            t.HasCheckConstraint("CK_HorarioAlquiler_FilaUnica", "[Id] = 1");
-
-                            t.HasCheckConstraint("CK_HorarioAlquiler_FinDeSemana", "[CierreFinDeSemana] > [AperturaFinDeSemana]");
-                        });
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            AperturaEntreSemana = new TimeSpan(0, 8, 0, 0, 0),
-                            AperturaFinDeSemana = new TimeSpan(0, 8, 0, 0, 0),
-                            CierreEntreSemana = new TimeSpan(0, 20, 0, 0, 0),
-                            CierreFinDeSemana = new TimeSpan(0, 17, 0, 0, 0)
                         });
                 });
 

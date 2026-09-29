@@ -41,6 +41,13 @@ namespace SIGAC.Infrastructure.Data
         public DbSet<ProyectoComunitario> ProyectosComunitarios { get; set; }
         public DbSet<ParticipanteProyecto> ParticipantesProyecto { get; set; }
 
+        // Módulo de Alquiler de espacios físicos
+        public DbSet<Arrendatario> Arrendatarios { get; set; }
+        public DbSet<EspacioFisico> EspaciosFisicos { get; set; }
+        public DbSet<CaracteristicaEspacio> CaracteristicasEspacio { get; set; }
+        public DbSet<AlquilerEspacio> AlquileresEspacio { get; set; }
+        public DbSet<HorarioAlquiler> HorariosAlquiler { get; set; }
+
         // Módulo de Gestión de autenticación y seguridad. Los DbSet de usuarios y
         // roles (Users, Roles, UserRoles...) los aporta IdentityDbContext.
         public DbSet<PermisoRevocadoUsuario> PermisosRevocados { get; set; }
@@ -1335,6 +1342,313 @@ namespace SIGAC.Infrastructure.Data
                 // beneficiario, igual que IX_DonacionesEntregadas_Beneficiario.
                 entity.HasIndex(p => p.BeneficiarioId)
                     .HasDatabaseName("IX_ParticipantesProyecto_Beneficiario");
+            });
+
+            // Módulo de Alquiler de espacios físicos
+
+            modelBuilder.Entity<Arrendatario>(entity =>
+            {
+                // Mismo dominio cerrado y mismo CHECK que CK_Donantes_TipoPersona.
+                entity.ToTable("Arrendatarios", t =>
+                    t.HasCheckConstraint(
+                        "CK_Arrendatarios_TipoPersona",
+                        $"[TipoPersona] IN ('{TiposPersonaDonante.Fisica}', '{TiposPersonaDonante.Juridica}')"));
+
+                entity.HasKey(a => a.Id);
+
+                // Convención del proyecto: VARCHAR en lugar de NVARCHAR (IsUnicode(false)).
+                // Mismas longitudes que Donantes: es el mismo tipo de dato.
+                entity.Property(a => a.Nombre)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(150);
+
+                entity.Property(a => a.TipoPersona)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(20);
+
+                // Se guarda sin espacios ni guiones y en mayúsculas
+                // (ArrendatarioValidator.NormalizarIdentificacion).
+                entity.Property(a => a.Identificacion)
+                    .IsUnicode(false)
+                    .HasMaxLength(30);
+
+                // Obligatorios, a diferencia de Donantes (ver Arrendatario).
+                entity.Property(a => a.CodigoPaisTelefono)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(ReglasTelefono.LongitudMaximaCodigoPais);
+
+                entity.Property(a => a.Telefono)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(ReglasTelefono.MaximoDigitosInternacional);
+
+                entity.Property(a => a.Correo)
+                    .IsUnicode(false)
+                    .HasMaxLength(150);
+
+                entity.Property(a => a.Estado)
+                    .IsRequired();
+
+                entity.Property(a => a.FechaRegistro)
+                    .IsRequired();
+
+                // Unicidad de la identificación, cuando se da. FILTRADO, igual que
+                // UX_Beneficiarios_NumIdentidad: los arrendatarios sin identificación
+                // la guardan en NULL y sin el filtro chocarían todos entre sí.
+                entity.HasIndex(a => a.Identificacion)
+                    .IsUnique()
+                    .HasFilter("[Identificacion] IS NOT NULL")
+                    .HasDatabaseName("UX_Arrendatarios_Identificacion");
+
+                // NO único, mismo razonamiento que IX_Donantes_Nombre: dos
+                // arrendatarios pueden llamarse igual. Sostiene el buscador.
+                entity.HasIndex(a => a.Nombre)
+                    .HasDatabaseName("IX_Arrendatarios_Nombre");
+
+                // El buscador solo ofrece activos.
+                entity.HasIndex(a => a.Estado);
+            });
+
+            modelBuilder.Entity<EspacioFisico>(entity =>
+            {
+                entity.ToTable("EspaciosFisicos", t =>
+                    t.HasCheckConstraint(
+                        "CK_EspaciosFisicos_Capacidad",
+                        "[Capacidad] IS NULL OR [Capacidad] > 0"));
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Nombre)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.Estado)
+                    .IsRequired();
+
+                // El nombre es la clave natural del catálogo, igual que en Articulos:
+                // dos "Sala de servicio" serían el mismo sector cargado dos veces y
+                // los choques de horario se calcularían sobre filas distintas.
+                entity.HasIndex(e => e.Nombre)
+                    .IsUnique()
+                    .HasDatabaseName("UX_EspaciosFisicos_Nombre");
+
+                // Sectores del local que nombraba la propuesta, sembrados con ids fijos
+                // (mismo recurso que los roles de Identity) para que el módulo se pueda
+                // usar apenas se aplica la migración. Sin capacidad: la asociación la
+                // carga desde "Espacios y características".
+                entity.HasData(
+                    new EspacioFisico { Id = 1, Nombre = "Área de juego", Estado = true },
+                    new EspacioFisico { Id = 2, Nombre = "Sala de servicio", Estado = true },
+                    new EspacioFisico { Id = 3, Nombre = "Baños", Estado = true },
+                    new EspacioFisico { Id = 4, Nombre = "Cocina (solo para servir)", Estado = true });
+            });
+
+            modelBuilder.Entity<CaracteristicaEspacio>(entity =>
+            {
+                entity.ToTable("CaracteristicasEspacio");
+
+                entity.HasKey(c => c.Id);
+
+                entity.Property(c => c.Nombre)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(100);
+
+                entity.Property(c => c.Estado)
+                    .IsRequired();
+
+                entity.HasIndex(c => c.Nombre)
+                    .IsUnique()
+                    .HasDatabaseName("UX_CaracteristicasEspacio_Nombre");
+
+                entity.HasData(
+                    new CaracteristicaEspacio { Id = 1, Nombre = "Luz", Estado = true },
+                    new CaracteristicaEspacio { Id = 2, Nombre = "Agua", Estado = true },
+                    new CaracteristicaEspacio { Id = 3, Nombre = "Internet", Estado = true },
+                    new CaracteristicaEspacio { Id = 4, Nombre = "Decoración adicional", Estado = true },
+                    new CaracteristicaEspacio { Id = 5, Nombre = "Mobiliario", Estado = true });
+            });
+
+            modelBuilder.Entity<AlquilerEspacio>(entity =>
+            {
+                entity.ToTable("AlquileresEspacio", t =>
+                {
+                    // El alquiler no cruza la medianoche y dura algo. La duración
+                    // mínima y el horario permitido (ReglasAlquiler) son reglas de la
+                    // asociación que pueden cambiar, así que viven en el servicio y no
+                    // acá; esto solo impide filas sin sentido.
+                    t.HasCheckConstraint(
+                        "CK_AlquileresEspacio_Horas",
+                        "[HoraFin] > [HoraInicio]");
+
+                    t.HasCheckConstraint(
+                        "CK_AlquileresEspacio_CantidadPersonas",
+                        "[CantidadPersonas] > 0");
+
+                    // >= 0 y no > 0 como en DonacionesDinero: un préstamo sin costo
+                    // también es un alquiler que ocupa el local.
+                    t.HasCheckConstraint(
+                        "CK_AlquileresEspacio_Monto",
+                        "[Monto] >= 0");
+
+                    t.HasCheckConstraint(
+                        "CK_AlquileresEspacio_Moneda",
+                        $"[Moneda] IN ('{string.Join("', '", TiposMoneda.Todos)}')");
+
+                    t.HasCheckConstraint(
+                        "CK_AlquileresEspacio_Estado",
+                        $"[Estado] IN ('{nameof(EstadoAlquiler.Reservado)}', '{nameof(EstadoAlquiler.Cancelado)}')");
+
+                    // Mismo criterio que CK_GastosOperativos_MotivoAnulacion.
+                    t.HasCheckConstraint(
+                        "CK_AlquileresEspacio_MotivoCancelacion",
+                        $"([Estado] = '{nameof(EstadoAlquiler.Cancelado)}' AND [MotivoCancelacion] IS NOT NULL) OR " +
+                        $"([Estado] <> '{nameof(EstadoAlquiler.Cancelado)}' AND [MotivoCancelacion] IS NULL)");
+                });
+
+                entity.HasKey(a => a.Id);
+
+                // "date" y no datetime2 como en los movimientos de inventario: la hora
+                // del alquiler vive en HoraInicio/HoraFin, y el choque se busca por
+                // día exacto (igual que AsistenciasComedor.Fecha).
+                entity.Property(a => a.Fecha)
+                    .IsRequired()
+                    .HasColumnType("date");
+
+                // TimeSpan se mapea a "time" en SQL Server.
+                entity.Property(a => a.HoraInicio)
+                    .IsRequired();
+
+                entity.Property(a => a.HoraFin)
+                    .IsRequired();
+
+                entity.Property(a => a.CantidadPersonas)
+                    .IsRequired();
+
+                // Convención de montos del proyecto (ver DonacionDinero.Monto).
+                entity.Property(a => a.Monto)
+                    .IsRequired()
+                    .HasPrecision(18, 2);
+
+                entity.Property(a => a.Moneda)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(20);
+
+                // Enum como texto, igual que Estado en GastoOperativo.
+                entity.Property(a => a.Estado)
+                    .IsRequired()
+                    .HasConversion<string>()
+                    .IsUnicode(false)
+                    .HasMaxLength(20);
+
+                entity.Property(a => a.MotivoCancelacion)
+                    .IsUnicode(false)
+                    .HasMaxLength(500);
+
+                entity.Property(a => a.Observaciones)
+                    .IsUnicode(false)
+                    .HasMaxLength(500);
+
+                entity.Property(a => a.FechaRegistro)
+                    .IsRequired();
+
+                // Restrict, igual que el resto de las FK hacia datos maestros: un
+                // arrendatario con alquileres se desactiva, no se borra.
+                entity.HasOne(a => a.Arrendatario)
+                    .WithMany()
+                    .HasForeignKey(a => a.ArrendatarioId)
+                    .IsRequired()
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Sectores del alquiler. Cascade desde el alquiler (la fila intermedia
+                // es un detalle suyo, como DetalleDonacionEspecie) y Restrict desde el
+                // sector (un sector que ya se alquiló no se borra: se desactiva).
+                entity.HasMany(a => a.Espacios)
+                    .WithMany()
+                    .UsingEntity<Dictionary<string, object>>(
+                        "EspaciosAlquiler",
+                        r => r.HasOne<EspacioFisico>().WithMany().HasForeignKey("EspacioFisicoId").OnDelete(DeleteBehavior.Restrict),
+                        l => l.HasOne<AlquilerEspacio>().WithMany().HasForeignKey("AlquilerEspacioId").OnDelete(DeleteBehavior.Cascade),
+                        j =>
+                        {
+                            j.ToTable("EspaciosAlquiler");
+                            j.HasKey("AlquilerEspacioId", "EspacioFisicoId");
+
+                            // El "Sector" de la propuesta: filtro del calendario por
+                            // sector y búsqueda de choques. La PK empieza por
+                            // AlquilerEspacioId y no sirve para esto.
+                            j.HasIndex("EspacioFisicoId")
+                                .HasDatabaseName("IX_EspaciosAlquiler_EspacioFisico");
+                        });
+
+                // Características pedidas, mismo esquema que los sectores.
+                entity.HasMany(a => a.Caracteristicas)
+                    .WithMany()
+                    .UsingEntity<Dictionary<string, object>>(
+                        "CaracteristicasAlquiler",
+                        r => r.HasOne<CaracteristicaEspacio>().WithMany().HasForeignKey("CaracteristicaEspacioId").OnDelete(DeleteBehavior.Restrict),
+                        l => l.HasOne<AlquilerEspacio>().WithMany().HasForeignKey("AlquilerEspacioId").OnDelete(DeleteBehavior.Cascade),
+                        j =>
+                        {
+                            j.ToTable("CaracteristicasAlquiler");
+                            j.HasKey("AlquilerEspacioId", "CaracteristicaEspacioId");
+
+                            j.HasIndex("CaracteristicaEspacioId")
+                                .HasDatabaseName("IX_CaracteristicasAlquiler_CaracteristicaEspacio");
+                        });
+
+                // Fecha primero: el calendario filtra por rango de fechas y ordena por
+                // fecha y hora, y la búsqueda de choques es "mismo día". Con
+                // HoraInicio como segunda columna el orden del calendario sale del
+                // índice.
+                entity.HasIndex(a => new { a.Fecha, a.HoraInicio })
+                    .HasDatabaseName("IX_AlquileresEspacio_Fecha_HoraInicio");
+
+                // Índice de la FK: "qué ha alquilado este arrendatario".
+                entity.HasIndex(a => a.ArrendatarioId)
+                    .HasDatabaseName("IX_AlquileresEspacio_Arrendatario");
+            });
+
+            modelBuilder.Entity<HorarioAlquiler>(entity =>
+            {
+                entity.ToTable("HorarioAlquiler", t =>
+                {
+                    // Una sola fila: el horario vigente se edita, no se agregan otros.
+                    t.HasCheckConstraint(
+                        "CK_HorarioAlquiler_FilaUnica",
+                        $"[Id] = {HorarioAlquiler.IdUnico}");
+
+                    // Cada franja con cierre posterior a la apertura. La duración
+                    // mínima (ReglasAlquiler.DuracionMinimaMinutos) la exige el
+                    // validador; esto solo impide filas sin sentido.
+                    t.HasCheckConstraint(
+                        "CK_HorarioAlquiler_EntreSemana",
+                        "[CierreEntreSemana] > [AperturaEntreSemana]");
+
+                    t.HasCheckConstraint(
+                        "CK_HorarioAlquiler_FinDeSemana",
+                        "[CierreFinDeSemana] > [AperturaFinDeSemana]");
+                });
+
+                entity.HasKey(h => h.Id);
+
+                // Id fijo (1), no identidad: la fila siempre es la misma.
+                entity.Property(h => h.Id)
+                    .ValueGeneratedNever();
+
+                entity.Property(h => h.AperturaEntreSemana).IsRequired();
+                entity.Property(h => h.CierreEntreSemana).IsRequired();
+                entity.Property(h => h.AperturaFinDeSemana).IsRequired();
+                entity.Property(h => h.CierreFinDeSemana).IsRequired();
+
+                // El horario con el que se creó el módulo (L-V 8-20, S-D 8-17), que
+                // antes eran constantes en ReglasAlquiler.
+                entity.HasData(HorarioAlquiler.PorDefecto());
             });
         }
     }

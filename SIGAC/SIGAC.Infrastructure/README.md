@@ -203,6 +203,19 @@ Esto tiene una consecuencia al filtrar por rango: el límite superior se compara
 | `PermisosRevocados` | `Id`, `UsuarioId` (`nvarchar(450)`, FK → `AspNetUsers`, Restrict), `Permiso` (`varchar(100)`), `FechaRegistro` | Solo lo que el administrador le quitó a un usuario; los permisos efectivos son los del rol menos estas filas. `UX_PermisosRevocados_Usuario_Permiso` (único). **Sin CHECK sobre `Permiso` a propósito:** una pantalla nueva agrega una clave al catálogo `Permisos` y no debe exigir migración; la validez la garantiza el servicio. |
 | `Bitacora` | `Id`, `UsuarioId` (nullable, FK → `AspNetUsers`, Restrict), `NombreUsuario` (`varchar(256)`), `Rol` (nullable), `Accion`, `Modulo`, `Detalle` (`varchar(500)`), `Fecha` (`datetime2`) | `CK_Bitacora_Accion`, `CK_Bitacora_Modulo` y `CK_Bitacora_Rol` sobre los catálogos `AccionesBitacora`, `ModulosSistema` y `RolesSistema`. `UsuarioId` admite NULL porque un inicio de sesión fallido con un correo inexistente no tiene usuario. Índices por `Fecha`, `UsuarioId` y `Modulo`. |
 
+### Módulo de alquiler de espacios
+
+| Tabla | Columnas | |
+|---|---|---|
+| `Arrendatarios` | `Nombre`, `TipoPersona` (`Física`/`Jurídica`), `Identificacion` (opcional), `CodigoPaisTelefono` + `Telefono` (obligatorios), `Correo`, `Estado`, `FechaRegistro` | `UX_Arrendatarios_Identificacion` (único, **filtrado** por `IS NOT NULL`): la identificación se guarda sin guiones ni espacios, así "1-2345-6789" y "123456789" chocan. El nombre no es único (homónimos), igual que en `Donantes`. |
+| `EspaciosFisicos` | `Nombre` (único), `Capacidad` (opcional, > 0), `Estado` | Los sectores del local. Se siembran Área de juego, Sala de servicio, Baños y Cocina (solo para servir). |
+| `CaracteristicasEspacio` | `Nombre` (único), `Estado` | Luz, Agua, Internet, Decoración adicional y Mobiliario, sembradas. |
+| `AlquileresEspacio` | `ArrendatarioId` (FK, Restrict), `Fecha` (`date`), `HoraInicio`/`HoraFin` (`time`), `CantidadPersonas`, `Monto` (`decimal(18,2)`, >= 0) + `Moneda`, `Estado` (`Reservado`/`Cancelado`), `MotivoCancelacion`, `Observaciones`, `FechaRegistro` | CHECK de horas (`HoraFin > HoraInicio`), monto, moneda, estado y coherencia estado/motivo. `IX_AlquileresEspacio_Fecha_HoraInicio` para el calendario y los choques. |
+| `EspaciosAlquiler` / `CaracteristicasAlquiler` | PK compuesta (alquiler, sector o característica) | Tablas intermedias: Cascade desde el alquiler, Restrict desde el catálogo. Un sector o una característica se puede eliminar solo si nunca se usó en un alquiler (`EspaciosService` lo consulta antes y el Restrict es la última red); si ya se usó, se desactiva. |
+| `HorarioAlquiler` | `Id` (siempre 1), `AperturaEntreSemana`/`CierreEntreSemana`, `AperturaFinDeSemana`/`CierreFinDeSemana` (`time`) | Una sola fila (`CK_HorarioAlquiler_FilaUnica`) con el horario en que se puede alquilar, editable desde "Espacios y características". Se siembra con L-V 8-20 y S-D 8-17. Cambiarlo afecta solo a los alquileres nuevos. |
+
+**Los choques de horario no se pueden garantizar con un índice único** (son traslapes de rangos, no valores repetidos). `AlquileresRepositoryEfCore.AgregarAlquilerAsync` los cierra con un `sp_getapplock` por día dentro de la transacción del `INSERT`: dos registros del mismo día se hacen uno detrás del otro y el segundo vuelve a buscar choques viendo el primero. El horario permitido vive en `HorarioAlquiler` y lo aplica `ReglasAlquiler`.
+
 **`Bitacora` es de solo inserción.** El repositorio no expone actualizar ni borrar, y el trigger `TR_Bitacora_SoloInsercion` (`INSTEAD OF UPDATE, DELETE`, con `THROW`) rechaza cualquier modificación desde cualquier conexión, incluida la de un sysadmin. Es un trigger y no un `REVOKE`/`DENY` porque los permisos se otorgan a un login concreto y en desarrollo la aplicación entra con la cuenta de Windows del desarrollador, a quien no se le puede denegar nada.
 
 ## Migraciones
@@ -230,6 +243,9 @@ En orden cronológico:
 | `20260913072504_AddMonedaADonacionesYGastos` | Agrega `Moneda` (con CHECK y default `Colones`) a `DonacionesDinero` y `GastosOperativos`. |
 | `20260915091630_AddTablaUsuariosIdentity` | Las siete tablas de ASP.NET Identity, con `Nombre`, `Estado` y `FechaRegistro` en `AspNetUsers`, y el seed de los tres roles. |
 | `20260915092029_AddTablasPermisosRevocadosYBitacora` | Tablas `PermisosRevocados` y `Bitacora`, y el trigger `TR_Bitacora_SoloInsercion`. |
+| `20260929015202_AddTablaArrendatarios` | Tabla `Arrendatarios` y `Alquileres` en `CK_Bitacora_Modulo`. |
+| `20260929015512_AddTablaAlquileres` | Tablas `EspaciosFisicos`, `CaracteristicasEspacio`, `AlquileresEspacio` y sus dos tablas intermedias, con los sectores y características iniciales. |
+| `20260929030306_AddHorarioAlquilerConfigurable` | Tabla `HorarioAlquiler` (una fila) con el horario inicial L-V 8-20 y S-D 8-17, que antes estaba fijo en el código. |
 
 Varias de estas migraciones llevan bloques `migrationBuilder.Sql(...)` que **arreglan los datos ya guardados** antes de apretar una restricción. Es deliberado: no alcanza con cambiar el esquema si las filas existentes no cumplen la regla nueva.
 

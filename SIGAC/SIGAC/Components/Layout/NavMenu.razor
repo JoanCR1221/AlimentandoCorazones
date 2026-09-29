@@ -150,6 +150,19 @@
         },
         new Grupo
         {
+            Titulo = "Alquiler de Espacios",
+            Icono = Icons.Material.Filled.MeetingRoom,
+            Prefijos = new[] { "alquileres" },
+            Enlaces = new[]
+            {
+                new Enlace("Calendario de Alquileres", "/alquileres", Icons.Material.Filled.EventAvailable, Permisos.Alquileres.Ver, NavLinkMatch.All),
+                new Enlace("Registrar Alquiler", "/alquileres/registrar", Icons.Material.Filled.AddCircle, Permisos.Alquileres.Registrar),
+                new Enlace("Registrar Arrendatario", "/alquileres/arrendatarios/registrar", Icons.Material.Filled.PersonAdd, Permisos.Alquileres.RegistrarArrendatario),
+                new Enlace("Espacios y Características", "/alquileres/espacios", Icons.Material.Filled.Tune, Permisos.Alquileres.GestionarEspacios)
+            }
+        },
+        new Grupo
+        {
             Titulo = "Reportes",
             Icono = Icons.Material.Filled.Assessment,
             Prefijos = new[] { "reportes" },

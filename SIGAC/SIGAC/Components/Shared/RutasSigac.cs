@@ -41,6 +41,7 @@ namespace SIGAC.Components.Shared
             var inventario = new Miga("Inventario", "/inventario/existencias");
             var proyectos = new Miga("Proyectos", "/proyectos");
             var reportes = new Miga("Reportes", "/reportes/beneficiarios");
+            var alquileres = new Miga("Alquiler de espacios", "/alquileres");
             var seguridad = new Miga("Seguridad", "/usuarios");
 
             var plantillas = new (string Plantilla, Miga[] Migas)[]
@@ -83,6 +84,11 @@ namespace SIGAC.Components.Shared
                 // coincide, y "{id}" también aceptaría "registrar".
                 ("/proyectos/{id}", new[] { proyectos, new Miga("Detalle del proyecto", null) }),
                 ("/proyectos/{id}/participantes/registrar", new[] { proyectos, new Miga("Registrar participante", null) }),
+
+                ("/alquileres", new[] { new Miga("Alquiler de espacios", null) }),
+                ("/alquileres/registrar", new[] { alquileres, new Miga("Registrar alquiler", null) }),
+                ("/alquileres/arrendatarios/registrar", new[] { alquileres, new Miga("Registrar arrendatario", null) }),
+                ("/alquileres/espacios", new[] { alquileres, new Miga("Espacios y características", null) }),
 
                 ("/reportes/beneficiarios", new[] { new Miga("Reportes", null) }),
                 ("/reportes/beneficiarios/panorama", new[] { reportes, new Miga("Panorama de beneficiarios", null) }),

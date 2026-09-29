@@ -204,6 +204,33 @@
         </MudItem>
     }
 
+    @if (Tiene(Permisos.Alquileres.Ver) || Tiene(Permisos.Alquileres.Registrar))
+    {
+        <MudItem xs="12" sm="6" md="4">
+            <MudCard Class="pa-4 ac-card-modulo">
+                <MudStack Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.MeetingRoom" Color="Color.Secondary" Size="Size.Large" />
+                    <MudText Typo="Typo.h6" HtmlTag="h2">Alquiler de espacios</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                        Reserve los sectores del local, evite choques de horario y lleve el registro de arrendatarios e ingresos.
+                    </MudText>
+                    @if (Tiene(Permisos.Alquileres.Ver))
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/alquileres" Class="mt-2">
+                            Ver calendario
+                        </MudButton>
+                    }
+                    @if (Tiene(Permisos.Alquileres.Registrar))
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/alquileres/registrar">
+                            Registrar alquiler
+                        </MudButton>
+                    }
+                </MudStack>
+            </MudCard>
+        </MudItem>
+    }
+
     @if (Tiene(Permisos.Reportes.VerBeneficiarios))
     {
         <MudItem xs="12" sm="6" md="4">
