@@ -78,14 +78,15 @@
                 </TemplateColumn>
                 <TemplateColumn Title="Acciones">
                     <CellTemplate>
-                        <AuthorizeView Policy="@Permisos.Gastos.Editar" Context="auth">
-                            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/gastos/editar/{context.Item.Id}")">Editar</MudButton>
-                        </AuthorizeView>
-                        @* Un gasto ya anulado no se puede volver a anular (AB#2572 lo
-                           rechaza igual del lado del servicio, pero ocultar el botón
-                           evita el viaje al servidor para un error ya previsible). *@
+                        @* Un gasto anulado es un registro cerrado: no se edita ni se
+                           vuelve a anular. El servicio rechaza las dos cosas igual
+                           (EditarGastoAsync, AB#2572), pero ocultar los botones evita
+                           llevar a la persona a un formulario que no va a poder guardar. *@
                         @if (context.Item.Estado == nameof(EstadoGastoOperativo.Activo))
                         {
+                            <AuthorizeView Policy="@Permisos.Gastos.Editar" Context="auth">
+                                <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/gastos/editar/{context.Item.Id}")">Editar</MudButton>
+                            </AuthorizeView>
                             <AuthorizeView Policy="@Permisos.Gastos.Anular" Context="auth">
                                 <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error" Class="ac-btn-inactivar ml-1" OnClick="@(() => AnularAsync(context.Item.Id))">Anular</MudButton>
                             </AuthorizeView>

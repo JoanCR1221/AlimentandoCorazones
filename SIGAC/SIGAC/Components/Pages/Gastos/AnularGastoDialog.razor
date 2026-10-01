@@ -1,6 +1,8 @@
 <MudDialog>
     <DialogContent>
-        <MudTextField @bind-Value="motivo" Label="Motivo de anulación" Variant="Variant.Outlined" Lines="3" />
+        @* Immediate: sin él, motivo se actualiza recién al salir del campo, y el
+           botón Anular seguía deshabilitado con el texto ya escrito. *@
+        <MudTextField @bind-Value="motivo" Immediate="true" Label="Motivo de anulación" Variant="Variant.Outlined" Lines="3" />
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancelar">Cancelar</MudButton>

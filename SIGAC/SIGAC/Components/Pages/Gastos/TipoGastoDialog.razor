@@ -4,7 +4,9 @@
    anulación al listado de gastos. *@
 <MudDialog>
     <DialogContent>
-        <MudTextField @bind-Value="Modelo.Nombre" Label="Nombre" Variant="Variant.Outlined"
+        @* Immediate: sin él, Nombre se actualiza recién al salir del campo, y el
+           botón Guardar seguía deshabilitado con el nombre ya escrito. *@
+        <MudTextField @bind-Value="Modelo.Nombre" Immediate="true" Label="Nombre" Variant="Variant.Outlined"
                       MaxLength="ReglasGastoOperativo.LongitudMaximaNombreTipo" />
 
         <MudTextField @bind-Value="Modelo.CuentaContablePorDefecto" Label="Cuenta contable por defecto (opcional)" Variant="Variant.Outlined" Class="mt-4"
