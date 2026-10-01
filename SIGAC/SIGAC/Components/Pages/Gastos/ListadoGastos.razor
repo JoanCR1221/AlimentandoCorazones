@@ -54,7 +54,9 @@
             }
         </MudText>
 
-        <MudDataGrid T="GastoOperativoListaDto" Items="@gastos" Loading="cargando">
+        @* Breakpoint Sm: por debajo de 960 px cada fila se muestra como tarjeta con
+           sus etiquetas, en vez de cortar las columnas de Estado y Acciones. *@
+        <MudDataGrid T="GastoOperativoListaDto" Items="@gastos" Loading="cargando" Breakpoint="Breakpoint.Sm">
             <Columns>
                 <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
                 <PropertyColumn Property="x => x.TipoGasto" Title="Tipo de gasto" />

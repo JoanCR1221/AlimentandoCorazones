@@ -1,9 +1,19 @@
 @using SIGAC.Application.DTOs.Gastos
-@* Alta y edición de un tipo de gasto. Solo captura los datos: el guardado y sus
-   errores los maneja ListadoTiposGasto, igual que AnularGastoDialog deja la
-   anulación al listado de gastos. *@
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@inject ITiposGastoService TiposGastoService
+@* Alta y edición de un tipo de gasto. Guarda desde acá y no desde el listado:
+   así un error (nombre repetido, por ejemplo) se muestra dentro del diálogo y
+   la persona corrige lo que escribió, en vez de que el diálogo se cierre y haya
+   que tipear todo de nuevo. Solo se cierra cuando el guardado salió bien, y el
+   listado se encarga de avisar y recargar. *@
 <MudDialog>
     <DialogContent>
+        @if (error is not null)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mb-4">@error</MudAlert>
+        }
+
         @* Immediate: sin él, Nombre se actualiza recién al salir del campo, y el
            botón Guardar seguía deshabilitado con el nombre ya escrito. *@
         <MudTextField @bind-Value="Modelo.Nombre" Immediate="true" Label="Nombre" Variant="Variant.Outlined"
@@ -20,8 +30,9 @@
         </MudText>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancelar">Cancelar</MudButton>
-        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Confirmar" Disabled="@string.IsNullOrWhiteSpace(Modelo.Nombre)">Guardar</MudButton>
+        <MudButton OnClick="Cancelar" Disabled="guardando">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="GuardarAsync"
+                   Disabled="@(guardando || string.IsNullOrWhiteSpace(Modelo.Nombre))">Guardar</MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -34,7 +45,40 @@
     [Parameter]
     public TipoGastoGuardarDto Modelo { get; set; } = new();
 
+    // null: alta. Con valor: edición de ese tipo.
+    [Parameter]
+    public int? TipoId { get; set; }
+
+    private string? error;
+    private bool guardando;
+
     private void Cancelar() => MudDialog.Cancel();
 
-    private void Confirmar() => MudDialog.Close(DialogResult.Ok(Modelo));
+    private async Task GuardarAsync()
+    {
+        guardando = true;
+        error = null;
+
+        try
+        {
+            if (TipoId.HasValue)
+                await TiposGastoService.EditarAsync(TipoId.Value, Modelo);
+            else
+                await TiposGastoService.RegistrarAsync(Modelo);
+
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex) when (ex is ValidationException or DuplicateException or NotFoundException)
+        {
+            error = ex.Message;
+        }
+        catch (Exception)
+        {
+            error = "No se pudo guardar el tipo de gasto. Intente de nuevo.";
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
 }

@@ -16,7 +16,9 @@
 
 <MudCard Class="pa-4">
     <MudCardContent>
-        <MudDataGrid T="TipoGastoDto" Items="@tipos" Loading="cargando">
+        @* Breakpoint Sm: por debajo de 960 px cada fila se muestra como tarjeta con
+           sus etiquetas, en vez de cortar las columnas de Estado y Acciones. *@
+        <MudDataGrid T="TipoGastoDto" Items="@tipos" Loading="cargando" Breakpoint="Breakpoint.Sm">
             <Columns>
                 <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
                 <TemplateColumn Title="Genera inventario">
@@ -79,54 +81,34 @@
         }
     }
 
-    private async Task CrearAsync()
-    {
-        var datos = await PedirDatosAsync("Nuevo tipo de gasto", new TipoGastoGuardarDto());
-        if (datos is null)
-            return;
+    private Task CrearAsync() =>
+        AbrirDialogoAsync("Nuevo tipo de gasto", new TipoGastoGuardarDto(), tipoId: null, "Tipo de gasto registrado.");
 
-        await GuardarAsync(() => TiposGastoService.RegistrarAsync(datos), "Tipo de gasto registrado.");
-    }
-
-    private async Task EditarAsync(TipoGastoDto tipo)
-    {
-        var datos = await PedirDatosAsync("Editar tipo de gasto", new TipoGastoGuardarDto
+    private Task EditarAsync(TipoGastoDto tipo) =>
+        AbrirDialogoAsync("Editar tipo de gasto", new TipoGastoGuardarDto
         {
             Nombre = tipo.Nombre,
             GeneraInventario = tipo.GeneraInventario,
             CuentaContablePorDefecto = tipo.CuentaContablePorDefecto
-        });
-        if (datos is null)
-            return;
+        }, tipo.Id, "Tipo de gasto actualizado.");
 
-        await GuardarAsync(() => TiposGastoService.EditarAsync(tipo.Id, datos), "Tipo de gasto actualizado.");
-    }
-
-    private async Task<TipoGastoGuardarDto?> PedirDatosAsync(string titulo, TipoGastoGuardarDto modelo)
+    // El diálogo guarda por su cuenta y muestra sus propios errores (ver
+    // TipoGastoDialog); acá solo se avisa y se recarga cuando salió bien.
+    private async Task AbrirDialogoAsync(string titulo, TipoGastoGuardarDto modelo, int? tipoId, string mensajeExito)
     {
-        var parametros = new DialogParameters<TipoGastoDialog> { { d => d.Modelo, modelo } };
+        var parametros = new DialogParameters<TipoGastoDialog>
+        {
+            { d => d.Modelo, modelo },
+            { d => d.TipoId, tipoId }
+        };
         var dialog = await DialogService.ShowAsync<TipoGastoDialog>(titulo, parametros);
         var resultado = await dialog.Result;
 
-        return resultado is null || resultado.Canceled ? null : (TipoGastoGuardarDto)resultado.Data!;
-    }
+        if (resultado is null || resultado.Canceled)
+            return;
 
-    private async Task GuardarAsync(Func<Task> operacion, string mensajeExito)
-    {
-        try
-        {
-            await operacion();
-            Snackbar.Add(mensajeExito, Severity.Success);
-            await CargarAsync();
-        }
-        catch (Exception ex) when (ex is ValidationException or DuplicateException or NotFoundException)
-        {
-            Snackbar.Add(ex.Message, Severity.Warning);
-        }
-        catch (Exception)
-        {
-            Snackbar.Add("No se pudo guardar el tipo de gasto. Intente de nuevo.", Severity.Error);
-        }
+        Snackbar.Add(mensajeExito, Severity.Success);
+        await CargarAsync();
     }
 
     private async Task ConfirmarCambioEstadoAsync(TipoGastoDto tipo, bool activar)

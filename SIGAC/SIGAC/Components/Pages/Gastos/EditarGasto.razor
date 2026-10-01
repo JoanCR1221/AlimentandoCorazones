@@ -33,14 +33,18 @@
 
     private GastoOperativoEditarDto? modelo;
     private IReadOnlyList<TipoGastoDto> tipos = Array.Empty<TipoGastoDto>();
+    private bool noExiste;
 
     protected override async Task OnInitializedAsync()
     {
         var datos = await GastosService.ObtenerParaEditarAsync(Id);
         if (datos is null)
         {
-            Snackbar.Add("El gasto operativo no existe.", Severity.Warning);
-            NavigationManager.NavigateTo("/gastos");
+            // No se redirige acá: OnInitializedAsync corre también en el
+            // prerender, donde NavigateTo es una redirección HTTP y el aviso se
+            // perdía antes de llegar a mostrarse. Se redirige en
+            // OnAfterRenderAsync, que solo corre con la página ya interactiva.
+            noExiste = true;
             return;
         }
 
@@ -48,6 +52,15 @@
         // registrarlo: si no, el desplegable quedaría vacío.
         tipos = await GastosService.ObtenerTiposActivosAsync(incluirTipoId: datos.TipoGastoId);
         modelo = datos;
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender && noExiste)
+        {
+            Snackbar.Add("El gasto operativo no existe.", Severity.Warning);
+            NavigationManager.NavigateTo("/gastos");
+        }
     }
 
     private async Task Guardar()
