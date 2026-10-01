@@ -13,8 +13,8 @@ namespace SIGAC.Infrastructure.Repositories
     // Respeta el contrato de IGastosRepository sin cambiar su firma.
     public class GastosRepositoryEfCore : IGastosRepository
     {
-        // Collation acentuada-insensible (AI) para el autocompletado de proveedor:
-        // "Pali" encuentra a "Palí". Mismo criterio que BeneficiariosRepositoryEfCore.
+        // Collation acentuada-insensible (AI) para el autocompletado y la búsqueda
+        // por proveedor: "Pali" encuentra a "Palí". Mismo criterio que BeneficiariosRepositoryEfCore.
         private const string ColacionSinTildes = "Latin1_General_CI_AI";
 
         // Factory y no un DbContext inyectado, por lo mismo que en los demás
@@ -111,6 +111,14 @@ namespace SIGAC.Infrastructure.Repositories
                 .AsNoTracking()
                 .Include(g => g.TipoGasto)
                 .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(filtros.Texto))
+            {
+                var busqueda = filtros.Texto.Trim();
+                query = query.Where(g =>
+                    EF.Functions.Collate(g.Proveedor, ColacionSinTildes).Contains(busqueda) ||
+                    g.NumeroFactura.Contains(busqueda));
+            }
 
             if (filtros.TipoGastoId.HasValue)
                 query = query.Where(g => g.TipoGastoId == filtros.TipoGastoId.Value);

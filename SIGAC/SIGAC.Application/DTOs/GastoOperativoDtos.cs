@@ -142,6 +142,10 @@ namespace SIGAC.Application.DTOs.Gastos
 
     public class FiltrosGastoDto
     {
+        // Busca en el proveedor (sin distinguir tildes) o en el número de factura:
+        // son los dos datos que la persona tiene a mano con el papel delante.
+        public string? Texto { get; set; }
+
         public int? TipoGastoId { get; set; }
 
         // true: solo gastos cuyo tipo ingresa al inventario (TipoGasto.GeneraInventario).

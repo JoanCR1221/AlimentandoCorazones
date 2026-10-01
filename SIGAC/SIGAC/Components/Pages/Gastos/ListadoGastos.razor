@@ -20,6 +20,9 @@
 
 <MudCard Class="pa-4">
     <MudCardContent>
+        <MudTextField T="string" Value="filtroTexto" ValueChanged="OnFiltroTextoCambiadoAsync" Immediate="true" DebounceInterval="300"
+                      Label="Buscar por proveedor o número de factura" Variant="Variant.Outlined" Class="mb-4" Clearable="true" />
+
         @* Todos los tipos, también los inactivos: un tipo desactivado ya no se
            elige al registrar, pero sus gastos viejos siguen existiendo y tienen
            que poder filtrarse. *@
@@ -98,12 +101,17 @@
                 {
                     <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
                                  Titulo="Ningún gasto coincide con los filtros"
-                                 Descripcion="Pruebe con otro tipo de gasto o rango de fechas." />
+                                 Descripcion="Pruebe con otro proveedor, factura, tipo de gasto o rango de fechas." />
                 }
                 else
                 {
+                    @* Sin filtros no se consulta nada, así que acá no se sabe si hay
+                       gastos: la invitación a buscar también ofrece registrar uno,
+                       para cuando todavía no hay ninguno. Mismo criterio que
+                       ListadoProyectos. *@
                     <EstadoVacio Icono="@Icons.Material.Filled.ReceiptLong"
-                                 Titulo="Todavía no hay gastos operativos registrados"
+                                 Titulo="Busque un gasto por proveedor o factura, o elija un tipo o un rango de fechas"
+                                 Descripcion="Así se consultan solo los gastos que necesita, sin cargar la lista completa."
                                  TextoAccion="Registrar gasto" HrefAccion="/gastos/registrar"
                                  PermisoAccion="@Permisos.Gastos.Registrar" />
                 }
@@ -118,19 +126,28 @@
     private List<GastoOperativoListaDto> gastos = new();
     private IReadOnlyList<MontoPorMonedaDto> totalesPorMoneda = Array.Empty<MontoPorMonedaDto>();
     private IReadOnlyList<TipoGastoDto> tipos = Array.Empty<TipoGastoDto>();
+    private string? filtroTexto;
     private int? filtroTipoGastoId;
     private DateRange? rangoFechas;
-    private bool cargando = true;
+    private bool cargando;
 
-    private bool HayFiltro => filtroTipoGastoId.HasValue || rangoFechas is not null;
+    // IsNullOrWhiteSpace, el mismo criterio con el que el repositorio decide si
+    // aplica el filtro de texto: un texto con solo espacios no cuenta como búsqueda.
+    private bool HayFiltro =>
+        !string.IsNullOrWhiteSpace(filtroTexto) || filtroTipoGastoId.HasValue || rangoFechas is not null;
 
-    // A diferencia de Existencias de inventario (catálogo potencialmente enorme,
-    // exige un filtro antes de mostrar algo), un listado de gastos operativos es
-    // chico y funciona como un registro contable: se ve todo al abrir, y los
-    // filtros solo acotan lo que ya está a la vista.
+    // La pantalla abre sin consultar la lista de gastos, igual que Ver Proyectos,
+    // Ver Beneficiarios y Existencias de inventario. Solo se traen los tipos, que
+    // son el catálogo chico del desplegable de filtro; las tarjetas de arriba
+    // (ResumenGastos) siguen mostrando los números del mes.
     protected override async Task OnInitializedAsync()
     {
         tipos = await TiposGastoService.ObtenerTodosAsync();
+    }
+
+    private async Task OnFiltroTextoCambiadoAsync(string? valor)
+    {
+        filtroTexto = valor;
         await CargarAsync();
     }
 
@@ -148,12 +165,23 @@
 
     private async Task CargarAsync()
     {
+        // Sin ningún criterio no se va a la base. Cubre también borrar el texto y
+        // quitar los filtros: la grilla y el total se vacían en vez de traer
+        // todos los gastos.
+        if (!HayFiltro)
+        {
+            gastos = new();
+            totalesPorMoneda = Array.Empty<MontoPorMonedaDto>();
+            return;
+        }
+
         cargando = true;
 
         try
         {
             var resultado = await GastosService.ObtenerGastosAsync(new FiltrosGastoDto
             {
+                Texto = filtroTexto,
                 TipoGastoId = filtroTipoGastoId,
                 FechaDesde = rangoFechas?.Start,
                 FechaHasta = rangoFechas?.End
