@@ -22,9 +22,18 @@ namespace SIGAC.Tests.Domain
 
             var operativos = Permisos.Definiciones
                 .Where(p => p.Modulo != ModulosSistema.Seguridad)
-                .Select(p => p.Clave);
+                .Select(p => p.Clave)
+                .Except(PermisosPorRol.SoloAdministrador);
 
             Assert.Equal(operativos.OrderBy(p => p), permisos.OrderBy(p => p));
+        }
+
+        [Fact]
+        public void Administrar_tipos_de_gasto_es_solo_del_administrador()
+        {
+            Assert.Contains(Permisos.Gastos.AdministrarTipos, PermisosPorRol.Obtener(RolesSistema.Administrador));
+            Assert.DoesNotContain(Permisos.Gastos.AdministrarTipos, PermisosPorRol.Obtener(RolesSistema.Colaborador));
+            Assert.DoesNotContain(Permisos.Gastos.AdministrarTipos, PermisosPorRol.Obtener(RolesSistema.Asistente));
         }
 
         [Fact]

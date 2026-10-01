@@ -186,6 +186,42 @@ Así la tabla se entiende leyéndola, el `CHECK` se puede escribir sobre valores
 
 `IX_SolicitudesPrestamo_Estado` sostiene la bandeja de solicitudes pendientes.
 
+### `TiposGasto` y `GastosOperativos`
+
+`TiposGasto` es el catálogo con el que se agrupa el reporte mensual de la contadora. Es una tabla y no una clase estática porque la lista la mantiene la asociación desde `/gastos/tipos`. Nunca se borra un tipo: se desactiva (`Activo = 0`), sale de los desplegables y sigue apareciendo en los gastos que ya lo usan.
+
+| Columna | Tipo | |
+|---|---|---|
+| `Id` | `int` | PK |
+| `Nombre` | `varchar(100)` | único (`UX_TiposGasto_Nombre`) |
+| `Activo` | `bit` | default `1` |
+| `GeneraInventario` | `bit` | default `0`. Los gastos de este tipo son compras que ingresan al inventario |
+| `CuentaContablePorDefecto` | `varchar(100)` | opcional; precarga el formulario |
+
+`GastosOperativos` lleva las columnas del reporte de la contadora:
+
+| Columna | Tipo | |
+|---|---|---|
+| `Id` | `int` | PK |
+| `TipoGastoId` | `int` | FK → `TiposGasto`, Restrict, obligatoria |
+| `Proveedor` | `varchar(150)` | |
+| `NumeroFactura` | `varchar(50)` | |
+| `Fecha` | `datetime2` | |
+| `MontoSinIva` | `decimal(18,2)` | neto, `> 0` (columna MONTO del reporte) |
+| `Iva` | `decimal(18,2)` | `>= 0`, default `0` |
+| `Moneda` | `varchar(20)` | catálogo `TiposMoneda`, default `Colones` |
+| `FormaPago` | `varchar(30)` | catálogo `FormasPago`, default `Contado` |
+| `NumeroCheque` | `varchar(50)` | opcional |
+| `CuentaContable` | `varchar(100)` | default `1 CAJA Y BANCOS` |
+| `DescripcionCuenta` | `varchar(100)` | default `GASTOS ADMINISTRATIVOS` |
+| `Descripcion` | `varchar(500)` | |
+| `Responsable` | `varchar(150)` | |
+| `Estado` | `varchar(20)` | `'Activo'` o `'Anulado'` |
+| `FechaRegistro` | `datetime2` | |
+| `MotivoAnulacion` | `varchar(500)` | solo si está anulado |
+
+Lo que se pagó es `MontoSinIva + Iva`: eso es lo que suman los totales del listado y la tarjeta de resumen. Los largos salen de `SIGAC.Domain.ReglasGastoOperativo`, la misma fuente que usan el validador y los formularios.
+
 ### Por qué las fechas de inventario son `datetime2` y las de asistencia son `date`
 
 La asistencia es del día: no importa a qué hora comió alguien, y `date` hace el índice más chico. Los movimientos de inventario sí llevan hora, porque varios pueden caer el mismo día y la aprobación de un préstamo sella la salida con `DateTime.Now`. Sin la hora, el historial de una misma jornada quedaría en orden arbitrario.
@@ -230,6 +266,7 @@ En orden cronológico:
 | `20260913072504_AddMonedaADonacionesYGastos` | Agrega `Moneda` (con CHECK y default `Colones`) a `DonacionesDinero` y `GastosOperativos`. |
 | `20260915091630_AddTablaUsuariosIdentity` | Las siete tablas de ASP.NET Identity, con `Nombre`, `Estado` y `FechaRegistro` en `AspNetUsers`, y el seed de los tres roles. |
 | `20260915092029_AddTablasPermisosRevocadosYBitacora` | Tablas `PermisosRevocados` y `Bitacora`, y el trigger `TR_Bitacora_SoloInsercion`. |
+| `20261001201809_AgregaTiposGastoYCamposReporteContable` | Tabla `TiposGasto` (con seed de nueve tipos) y columnas del reporte contable en `GastosOperativos`; `Monto` pasa a `MontoSinIva` y `Categoria` a `TipoGastoId`. **Borra todos los gastos operativos** (eran datos de prueba), desvinculando antes sus entradas de inventario. |
 
 Varias de estas migraciones llevan bloques `migrationBuilder.Sql(...)` que **arreglan los datos ya guardados** antes de apretar una restricción. Es deliberado: no alcanza con cambiar el esquema si las filas existentes no cumplen la regla nueva.
 

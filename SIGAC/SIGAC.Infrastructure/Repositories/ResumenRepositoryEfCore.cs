@@ -153,7 +153,10 @@ namespace SIGAC.Infrastructure.Repositories
             var totalEsteMes = await activos
                 .Where(g => g.Fecha >= p.InicioMes && g.Fecha < p.InicioMesSiguiente)
                 .GroupBy(g => g.Moneda)
-                .Select(g => new MontoPorMonedaDto(g.Key, g.Sum(x => x.Monto)))
+                // MontoSinIva + Iva y no solo el neto: la tarjeta dice cuánto se
+                // gastó, y lo que la gente espera ver es lo que salió de la cuenta,
+                // impuesto incluido. Mismo criterio que GastosService.ObtenerGastosAsync.
+                .Select(g => new MontoPorMonedaDto(g.Key, g.Sum(x => x.MontoSinIva + x.Iva)))
                 .ToListAsync();
 
             var gastosEsteMes = await activos

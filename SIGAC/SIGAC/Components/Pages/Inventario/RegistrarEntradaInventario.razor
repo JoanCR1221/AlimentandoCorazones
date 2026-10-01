@@ -148,8 +148,9 @@
                 }
                 else
                 {
-                    @* Solo gastos de CompraInsumos todavía activos: son los únicos que
-                       una entrada de inventario puede respaldar. Un gasto anulado ya no
+                    @* Solo gastos activos cuyo tipo genera inventario
+                       (TipoGasto.GeneraInventario): son los únicos que una entrada de
+                       inventario puede respaldar. Un gasto anulado ya no
                        representa dinero gastado, y vincularle una entrada nueva la
                        dejaría viva colgando de él, porque la reversión de stock ocurre
                        en el momento de anular y ese momento ya pasó. Un mismo gasto sí
@@ -168,7 +169,7 @@
                     @if (gastosCargados && gastosVinculables.Count == 0)
                     {
                         <MudAlert Severity="Severity.Info" Class="mt-2">
-                            Todavía no hay gastos de compra de insumos activos. Puede guardar la entrada sin vincularla, o registrar el gasto primero en Gastos operativos.
+                            Todavía no hay gastos activos de un tipo que ingrese al inventario. Puede guardar la entrada sin vincularla, o registrar el gasto primero en Gastos operativos.
                         </MudAlert>
                     }
                 }
@@ -182,8 +183,8 @@
 </EditForm>
 
 @code {
-    // Llega desde RegistrarGasto.razor cuando se registra un gasto CompraInsumos
-    // (AB#2501): la persona decide desde ahí si quiere completar la entrada, así
+    // Llega desde RegistrarGasto.razor cuando se registra un gasto cuyo tipo
+    // genera inventario (AB#2501): la persona decide desde ahí si quiere completar la entrada, así
     // que acá solo se recibe el Id y se preselecciona el origen. No se crea ni
     // vincula nada automáticamente si el usuario llega sin este parámetro.
     [Parameter]
@@ -371,14 +372,16 @@
 
     private async Task CargarGastosVinculablesAsync()
     {
-        // Categoria viaja en el filtro y se resuelve en SQL. Estado se descarta acá
+        // GeneraInventario viaja en el filtro y se resuelve en SQL: es una propiedad
+        // del tipo de gasto y no una constante de texto, así que Inventario no
+        // necesita saber cómo se llaman los tipos de compra. Estado se descarta acá
         // porque FiltrosGastoDto no lo expresa; empujarlo al repositorio obligaría a
         // tocar el backend y, según acordamos entre sesiones, sería además el
         // disparador para revisar el índice de GastosOperativos. Sobre los gastos de
-        // una sola categoría el filtro en memoria no lo justifica.
+        // los tipos de compra el filtro en memoria no lo justifica.
         var consulta = await GastosService.ObtenerGastosAsync(new FiltrosGastoDto
         {
-            Categoria = CategoriasGastoOperativo.CompraInsumos
+            GeneraInventario = true
         });
 
         gastosVinculables = consulta.Gastos
@@ -417,12 +420,15 @@
     }
 
     // El id va al frente porque es lo que la persona ve en el aviso al llegar desde
-    // RegistrarGasto.razor ("gasto operativo #12"), y dos compras del mismo día por
-    // el mismo monto no se distinguirían sin él.
+    // RegistrarGasto.razor ("gasto operativo #12"). Proveedor y factura identifican
+    // la compra mucho mejor que la descripción: son lo que está impreso en el papel
+    // que la persona tiene en la mano. El símbolo sale de la moneda del gasto (antes
+    // era ₡ fijo, y una compra en dólares se mostraba como colones).
     private static string EtiquetaGasto(GastoOperativoListaDto? gasto) =>
         gasto is null
             ? string.Empty
-            : $"#{gasto.Id} · {gasto.Fecha:dd/MM/yyyy} · ₡{gasto.Monto:N2} · {gasto.Descripcion}";
+            : $"#{gasto.Id} · {gasto.Fecha:dd/MM/yyyy} · {gasto.Proveedor} · Fact. {gasto.NumeroFactura} · " +
+              $"{TiposMoneda.Simbolo(gasto.Moneda)}{gasto.Total:N2}";
 
     private async Task Guardar()
     {

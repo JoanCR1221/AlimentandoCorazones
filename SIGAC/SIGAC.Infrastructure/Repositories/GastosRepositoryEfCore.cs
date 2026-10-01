@@ -13,6 +13,10 @@ namespace SIGAC.Infrastructure.Repositories
     // Respeta el contrato de IGastosRepository sin cambiar su firma.
     public class GastosRepositoryEfCore : IGastosRepository
     {
+        // Collation acentuada-insensible (AI) para el autocompletado y la búsqueda
+        // por proveedor: "Pali" encuentra a "Palí". Mismo criterio que BeneficiariosRepositoryEfCore.
+        private const string ColacionSinTildes = "Latin1_General_CI_AI";
+
         // Factory y no un DbContext inyectado, por lo mismo que en los demás
         // repositorios del proyecto: en Blazor Server el scope dura toda la sesión
         // y un contexto compartido queda expuesto a que dos operaciones lo usen a
@@ -61,17 +65,31 @@ namespace SIGAC.Infrastructure.Repositories
             // MotivoAnulacion con lo que trajera la entidad desprendida.
             //
             // Esos dos se mueven por otro camino (AnularConEntradasVinculadasAsync),
-            // así que una anulación
-            // hecha entre la lectura y el guardado quedaría pisada: el UPDATE llevaría
-            // Estado = Activo y MotivoAnulacion = NULL, el gasto se des-anularía solo
-            // y el motivo desaparecería sin rastro. CK_GastosOperativos_MotivoAnulacion
-            // no puede atrapar eso, porque esa combinación es válida por diseño.
+            // así que una anulación hecha entre la lectura y el guardado quedaría
+            // pisada: el UPDATE llevaría Estado = Activo y MotivoAnulacion = NULL, el
+            // gasto se des-anularía solo y el motivo desaparecería sin rastro.
+            // CK_GastosOperativos_MotivoAnulacion no puede atrapar eso, porque esa
+            // combinación es válida por diseño.
             //
             // FechaRegistro queda fuera por lo mismo que en Donantes: es un dato
             // histórico que la edición no corrige.
-            existente.Categoria = gasto.Categoria;
-            existente.Monto = gasto.Monto;
+            //
+            // ATENCIÓN: cada campo editable que se agregue a GastoOperativo tiene que
+            // sumarse a esta lista. Si falta, la edición lo descarta EN SILENCIO: la
+            // pantalla dice "actualizado", la bitácora registra el valor nuevo y la
+            // base conserva el viejo. Es exactamente lo que pasó con Moneda, que se
+            // agregó a la entidad y nunca llegó acá.
+            existente.TipoGastoId = gasto.TipoGastoId;
+            existente.Proveedor = gasto.Proveedor;
+            existente.NumeroFactura = gasto.NumeroFactura;
             existente.Fecha = gasto.Fecha;
+            existente.MontoSinIva = gasto.MontoSinIva;
+            existente.Iva = gasto.Iva;
+            existente.Moneda = gasto.Moneda;
+            existente.FormaPago = gasto.FormaPago;
+            existente.NumeroCheque = gasto.NumeroCheque;
+            existente.CuentaContable = gasto.CuentaContable;
+            existente.DescripcionCuenta = gasto.DescripcionCuenta;
             existente.Descripcion = gasto.Descripcion;
             existente.Responsable = gasto.Responsable;
 
@@ -87,11 +105,26 @@ namespace SIGAC.Infrastructure.Repositories
             await using var context = await _contextFactory.CreateDbContextAsync();
 
             // AsNoTracking: es una consulta de solo lectura que alimenta la grilla,
-            // no se edita nada de lo que devuelve.
-            var query = context.GastosOperativos.AsNoTracking().AsQueryable();
+            // no se edita nada de lo que devuelve. Include del tipo: el listado
+            // muestra su nombre y no el Id.
+            var query = context.GastosOperativos
+                .AsNoTracking()
+                .Include(g => g.TipoGasto)
+                .AsQueryable();
 
-            if (!string.IsNullOrWhiteSpace(filtros.Categoria))
-                query = query.Where(g => g.Categoria == filtros.Categoria);
+            if (!string.IsNullOrWhiteSpace(filtros.Texto))
+            {
+                var busqueda = filtros.Texto.Trim();
+                query = query.Where(g =>
+                    EF.Functions.Collate(g.Proveedor, ColacionSinTildes).Contains(busqueda) ||
+                    g.NumeroFactura.Contains(busqueda));
+            }
+
+            if (filtros.TipoGastoId.HasValue)
+                query = query.Where(g => g.TipoGastoId == filtros.TipoGastoId.Value);
+
+            if (filtros.GeneraInventario.HasValue)
+                query = query.Where(g => g.TipoGasto!.GeneraInventario == filtros.GeneraInventario.Value);
 
             if (filtros.FechaDesde.HasValue)
             {
@@ -112,6 +145,22 @@ namespace SIGAC.Infrastructure.Repositories
 
             return await query
                 .OrderByDescending(g => g.Fecha)
+                .ToListAsync();
+        }
+
+        // Incluye proveedores de gastos anulados: el proveedor existió igual, y
+        // ofrecerlo evita que se escriba de otra forma la próxima vez.
+        public async Task<IReadOnlyList<string>> BuscarProveedoresAsync(string texto, int maximo)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            return await context.GastosOperativos
+                .AsNoTracking()
+                .Where(g => EF.Functions.Collate(g.Proveedor, ColacionSinTildes).Contains(texto))
+                .Select(g => g.Proveedor)
+                .Distinct()
+                .OrderBy(p => p)
+                .Take(maximo)
                 .ToListAsync();
         }
 
@@ -155,9 +204,10 @@ namespace SIGAC.Infrastructure.Repositories
             // dejaba a las demás vivas, colgando de un gasto anulado y con su
             // cantidad todavía sumada al stock.
             //
-            // Sin filtrar por categoría: si una entrada quedó vinculada al gasto, hay
-            // que revertirla sea cual sea su categoría. Que el enlace se ofrezca solo
-            // para CompraInsumos es una regla de la pantalla, no de los datos.
+            // Sin filtrar por tipo de gasto: si una entrada quedó vinculada al gasto,
+            // hay que revertirla sea cual sea su tipo. Que el enlace se ofrezca solo
+            // para tipos con GeneraInventario es una regla de las pantallas, no de
+            // los datos (y un tipo puede dejar de generar inventario después).
             var entradas = await context.EntradasInventario
                 .Where(e => e.GastoOperativoId == gastoId && !e.Anulada)
                 .OrderBy(e => e.Id)

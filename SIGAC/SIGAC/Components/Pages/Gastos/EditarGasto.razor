@@ -3,97 +3,76 @@
 @using SIGAC.Application.DTOs.Gastos
 @using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces
-@using SIGAC.Domain
 @inject IGastosService GastosService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 
 <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Editar gasto operativo</MudText>
 
-<EditForm Model="modelo" OnValidSubmit="Guardar">
-    <DataAnnotationsValidator />
-    <ValidationSummary />
+@if (modelo is not null)
+{
+    <EditForm Model="modelo" OnValidSubmit="Guardar">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
 
-    <MudCard Class="pa-4">
-        <MudCardContent>
-            <MudSelect T="string" @bind-Value="modelo.Categoria" For="@(() => modelo.Categoria)" Label="Categoría" Variant="Variant.Outlined">
-                @foreach (var categoria in CategoriasGastoOperativo.Todos)
-                {
-                    <MudSelectItem T="string" Value="@categoria">@EtiquetaCategoria(categoria)</MudSelectItem>
-                }
-            </MudSelect>
-
-            <MudSelect T="string" @bind-Value="modelo.Moneda" For="@(() => modelo.Moneda)" Label="Moneda" Variant="Variant.Outlined" Class="mt-4">
-                @foreach (var moneda in TiposMoneda.Todos)
-                {
-                    <MudSelectItem T="string" Value="@moneda">@moneda</MudSelectItem>
-                }
-            </MudSelect>
-
-            <MudNumericField T="decimal" @bind-Value="modelo.Monto" For="@(() => modelo.Monto)" Label="Monto" Variant="Variant.Outlined" Class="mt-4"
-                              Min="0.01m" Format="N2" Adornment="Adornment.Start" AdornmentText="@TiposMoneda.Simbolo(modelo.Moneda)" />
-
-            <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
-
-            <MudTextField @bind-Value="modelo.Descripcion" For="@(() => modelo.Descripcion)" Label="Descripción" Variant="Variant.Outlined" Class="mt-4" Lines="2" />
-
-            <MudTextField @bind-Value="modelo.Responsable" For="@(() => modelo.Responsable)" Label="Responsable" Variant="Variant.Outlined" Class="mt-4" />
-        </MudCardContent>
-        <MudCardActions>
-            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
-            <MudButton Variant="Variant.Text" Color="Color.Default" Href="/gastos" Class="mb-2">Cancelar</MudButton>
-        </MudCardActions>
-    </MudCard>
-</EditForm>
+        <MudCard Class="pa-4">
+            <MudCardContent>
+                <CamposGasto Modelo="modelo" Tipos="tipos" />
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Default" Href="/gastos" Class="mb-2">Cancelar</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </EditForm>
+}
 
 @code {
     [Parameter]
     public int Id { get; set; }
 
-    private GastoOperativoEditarDto modelo = new();
+    private GastoOperativoEditarDto? modelo;
+    private IReadOnlyList<TipoGastoDto> tipos = Array.Empty<TipoGastoDto>();
+    private bool noExiste;
 
-    private DateTime? fecha
-    {
-        get => modelo.Fecha == default ? null : modelo.Fecha;
-        set => modelo.Fecha = value ?? default;
-    }
-
-    // Todavía no existe ListadoGastos.razor (AB#2552, sin empezar): mientras
-    // tanto, un id inexistente o un guardado exitoso vuelven a Registrar, la
-    // única otra pantalla del módulo. Cuando exista el listado, este destino
-    // cambia a esa ruta.
     protected override async Task OnInitializedAsync()
     {
         var datos = await GastosService.ObtenerParaEditarAsync(Id);
         if (datos is null)
         {
-            NavigationManager.NavigateTo("/gastos/registrar");
+            // No se redirige acá: OnInitializedAsync corre también en el
+            // prerender, donde NavigateTo es una redirección HTTP y el aviso se
+            // perdía antes de llegar a mostrarse. Se redirige en
+            // OnAfterRenderAsync, que solo corre con la página ya interactiva.
+            noExiste = true;
             return;
         }
 
+        // El tipo del gasto se incluye aunque se haya desactivado después de
+        // registrarlo: si no, el desplegable quedaría vacío.
+        tipos = await GastosService.ObtenerTiposActivosAsync(incluirTipoId: datos.TipoGastoId);
         modelo = datos;
     }
 
-    // Los valores internos (los que valida el servicio y guarda la base) son
-    // PascalCase sin espacios; acá solo se traducen para mostrarse. Mismo
-    // criterio que RegistrarGasto.razor.
-    private static string EtiquetaCategoria(string categoria) => categoria switch
+    protected override void OnAfterRender(bool firstRender)
     {
-        "ServiciosBasicos" => "Servicios básicos",
-        "CompraInsumos" => "Compra de insumos",
-        "Viaticos" => "Viáticos",
-        _ => categoria
-    };
+        if (firstRender && noExiste)
+        {
+            Snackbar.Add("El gasto operativo no existe.", Severity.Warning);
+            NavigationManager.NavigateTo("/gastos");
+        }
+    }
 
-    // Sin redirección al guardar: todavía no existe ListadoGastos.razor
-    // (AB#2552) al que volver, así que la persona se queda en el formulario
-    // con los datos ya actualizados.
     private async Task Guardar()
     {
+        if (modelo is null)
+            return;
+
         try
         {
             await GastosService.EditarGastoAsync(Id, modelo);
             Snackbar.Add("Gasto operativo actualizado correctamente.", Severity.Success);
+            NavigationManager.NavigateTo("/gastos");
         }
         catch (ValidationException ex)
         {
