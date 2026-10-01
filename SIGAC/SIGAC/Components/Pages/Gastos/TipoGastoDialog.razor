@@ -1,0 +1,38 @@
+@using SIGAC.Application.DTOs.Gastos
+@* Alta y edición de un tipo de gasto. Solo captura los datos: el guardado y sus
+   errores los maneja ListadoTiposGasto, igual que AnularGastoDialog deja la
+   anulación al listado de gastos. *@
+<MudDialog>
+    <DialogContent>
+        <MudTextField @bind-Value="Modelo.Nombre" Label="Nombre" Variant="Variant.Outlined"
+                      MaxLength="ReglasGastoOperativo.LongitudMaximaNombreTipo" />
+
+        <MudTextField @bind-Value="Modelo.CuentaContablePorDefecto" Label="Cuenta contable por defecto (opcional)" Variant="Variant.Outlined" Class="mt-4"
+                      MaxLength="ReglasGastoOperativo.LongitudMaximaCuentaContable"
+                      HelperText="Se precarga en el formulario de gasto al elegir este tipo." />
+
+        <MudSwitch T="bool" @bind-Value="Modelo.GeneraInventario" Color="Color.Primary" Class="mt-4"
+                   Label="Genera inventario" />
+        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+            Los gastos de este tipo son compras que ingresan al inventario: al registrarlos se ofrece cargar la entrada, y aparecen en el selector de gastos de Registrar entrada.
+        </MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancelar">Cancelar</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Confirmar" Disabled="@string.IsNullOrWhiteSpace(Modelo.Nombre)">Guardar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    // La pantalla pasa una copia: si el usuario cancela, la fila del listado no
+    // queda modificada a medias.
+    [Parameter]
+    public TipoGastoGuardarDto Modelo { get; set; } = new();
+
+    private void Cancelar() => MudDialog.Cancel();
+
+    private void Confirmar() => MudDialog.Close(DialogResult.Ok(Modelo));
+}

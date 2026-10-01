@@ -7,6 +7,7 @@
 @using SIGAC.Domain
 @using SIGAC.Domain.Entities
 @inject IGastosService GastosService
+@inject ITiposGastoService TiposGastoService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
@@ -19,14 +20,15 @@
 
 <MudCard Class="pa-4">
     <MudCardContent>
-        @* Mismo catálogo cerrado que usan Registrar y Editar: si esta lista tuviera
-           sus propios literales, el filtro podría ofrecer una categoría que ya
-           nadie puede guardar. *@
-        <MudSelect T="string" Value="filtroCategoria" ValueChanged="OnFiltroCategoriaCambiadoAsync"
-                   Label="Categoría" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
-            @foreach (var categoria in CategoriasGastoOperativo.Todos)
+        @* Todos los tipos, también los inactivos: un tipo desactivado ya no se
+           elige al registrar, pero sus gastos viejos siguen existiendo y tienen
+           que poder filtrarse. *@
+        <MudSelect T="int?" Value="filtroTipoGastoId" ValueChanged="OnFiltroTipoCambiadoAsync"
+                   Label="Tipo de gasto" Variant="Variant.Outlined" Class="mb-4" Clearable="true"
+                   ToStringFunc="@(id => tipos.FirstOrDefault(t => t.Id == id)?.Nombre ?? string.Empty)">
+            @foreach (var tipo in tipos)
             {
-                <MudSelectItem T="string" Value="@categoria">@EtiquetaCategoria(categoria)</MudSelectItem>
+                <MudSelectItem T="int?" Value="@tipo.Id">@tipo.Nombre@(tipo.Activo ? string.Empty : " (inactivo)")</MudSelectItem>
             }
         </MudSelect>
 
@@ -34,7 +36,8 @@
                              Label="Rango de fechas" Variant="Variant.Outlined" Class="mb-4" />
 
         @* Un total por moneda y no un solo número: sumar colones con dólares en
-           una sola cifra no representaría nada. *@
+           una sola cifra no representaría nada. Es el total pagado (monto sin
+           IVA + IVA), igual que la columna Total. *@
         <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-4">
             Total acumulado:
             @if (totalesPorMoneda.Count == 0)
@@ -50,12 +53,19 @@
 
         <MudDataGrid T="GastoOperativoListaDto" Items="@gastos" Loading="cargando">
             <Columns>
-                <PropertyColumn Property="x => x.Categoria" Title="Categoría" />
-                <TemplateColumn Title="Monto">
-                    <CellTemplate>@TiposMoneda.Simbolo(context.Item.Moneda) @context.Item.Monto.ToString("N2")</CellTemplate>
-                </TemplateColumn>
                 <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
-                <PropertyColumn Property="x => x.Descripcion" Title="Descripción" />
+                <PropertyColumn Property="x => x.TipoGasto" Title="Tipo de gasto" />
+                <PropertyColumn Property="x => x.Proveedor" Title="Proveedor" />
+                <PropertyColumn Property="x => x.NumeroFactura" Title="Factura" />
+                <TemplateColumn Title="Monto sin IVA">
+                    <CellTemplate>@TiposMoneda.Simbolo(context.Item.Moneda) @context.Item.MontoSinIva.ToString("N2")</CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="IVA">
+                    <CellTemplate>@TiposMoneda.Simbolo(context.Item.Moneda) @context.Item.Iva.ToString("N2")</CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Total">
+                    <CellTemplate>@TiposMoneda.Simbolo(context.Item.Moneda) @context.Item.Total.ToString("N2")</CellTemplate>
+                </TemplateColumn>
                 <TemplateColumn Title="Estado">
                     <CellTemplate>
                         @* Activo en verde; cualquier otro estado (Anulado) en rojo, con su propio texto. *@
@@ -88,7 +98,7 @@
                 {
                     <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
                                  Titulo="Ningún gasto coincide con los filtros"
-                                 Descripcion="Pruebe con otra categoría o rango de fechas." />
+                                 Descripcion="Pruebe con otro tipo de gasto o rango de fechas." />
                 }
                 else
                 {
@@ -107,11 +117,12 @@
 
     private List<GastoOperativoListaDto> gastos = new();
     private IReadOnlyList<MontoPorMonedaDto> totalesPorMoneda = Array.Empty<MontoPorMonedaDto>();
-    private string? filtroCategoria;
+    private IReadOnlyList<TipoGastoDto> tipos = Array.Empty<TipoGastoDto>();
+    private int? filtroTipoGastoId;
     private DateRange? rangoFechas;
     private bool cargando = true;
 
-    private bool HayFiltro => !string.IsNullOrWhiteSpace(filtroCategoria) || rangoFechas is not null;
+    private bool HayFiltro => filtroTipoGastoId.HasValue || rangoFechas is not null;
 
     // A diferencia de Existencias de inventario (catálogo potencialmente enorme,
     // exige un filtro antes de mostrar algo), un listado de gastos operativos es
@@ -119,12 +130,13 @@
     // filtros solo acotan lo que ya está a la vista.
     protected override async Task OnInitializedAsync()
     {
+        tipos = await TiposGastoService.ObtenerTodosAsync();
         await CargarAsync();
     }
 
-    private async Task OnFiltroCategoriaCambiadoAsync(string? valor)
+    private async Task OnFiltroTipoCambiadoAsync(int? valor)
     {
-        filtroCategoria = valor;
+        filtroTipoGastoId = valor;
         await CargarAsync();
     }
 
@@ -142,7 +154,7 @@
         {
             var resultado = await GastosService.ObtenerGastosAsync(new FiltrosGastoDto
             {
-                Categoria = filtroCategoria,
+                TipoGastoId = filtroTipoGastoId,
                 FechaDesde = rangoFechas?.Start,
                 FechaHasta = rangoFechas?.End
             });
@@ -187,14 +199,4 @@
             Snackbar.Add("No se pudo anular el gasto operativo. Intente de nuevo.", Severity.Error);
         }
     }
-
-    // Los valores internos son PascalCase sin espacios; acá solo se traducen
-    // para mostrarse. Mismo criterio que RegistrarGasto.razor/EditarGasto.razor.
-    private static string EtiquetaCategoria(string categoria) => categoria switch
-    {
-        "ServiciosBasicos" => "Servicios básicos",
-        "CompraInsumos" => "Compra de insumos",
-        "Viaticos" => "Viáticos",
-        _ => categoria
-    };
 }

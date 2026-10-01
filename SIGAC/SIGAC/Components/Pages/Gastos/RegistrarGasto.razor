@@ -3,7 +3,6 @@
 @using SIGAC.Application.DTOs.Gastos
 @using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces
-@using SIGAC.Domain
 @inject IGastosService GastosService
 @inject ISnackbar Snackbar
 @inject NavigationManager NavigationManager
@@ -16,31 +15,7 @@
 
     <MudCard Class="pa-4">
         <MudCardContent>
-            <MudSelect T="string" @bind-Value="modelo.Categoria" For="@(() => modelo.Categoria)" Label="Categoría" Variant="Variant.Outlined">
-                @foreach (var categoria in CategoriasGastoOperativo.Todos)
-                {
-                    <MudSelectItem T="string" Value="@categoria">@EtiquetaCategoria(categoria)</MudSelectItem>
-                }
-            </MudSelect>
-
-            @* Lista cerrada: la fuente es SIGAC.Domain.TiposMoneda. Va antes que
-               Monto para que el símbolo de esa caja ya esté correcto cuando la
-               persona empieza a escribir el número. *@
-            <MudSelect T="string" @bind-Value="modelo.Moneda" For="@(() => modelo.Moneda)" Label="Moneda" Variant="Variant.Outlined" Class="mt-4">
-                @foreach (var moneda in TiposMoneda.Todos)
-                {
-                    <MudSelectItem T="string" Value="@moneda">@moneda</MudSelectItem>
-                }
-            </MudSelect>
-
-            <MudNumericField T="decimal" @bind-Value="modelo.Monto" For="@(() => modelo.Monto)" Label="Monto" Variant="Variant.Outlined" Class="mt-4"
-                              Min="0.01m" Format="N2" Adornment="Adornment.Start" AdornmentText="@TiposMoneda.Simbolo(modelo.Moneda)" />
-
-            <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
-
-            <MudTextField @bind-Value="modelo.Descripcion" For="@(() => modelo.Descripcion)" Label="Descripción" Variant="Variant.Outlined" Class="mt-4" Lines="2" />
-
-            <MudTextField @bind-Value="modelo.Responsable" For="@(() => modelo.Responsable)" Label="Responsable" Variant="Variant.Outlined" Class="mt-4" />
+            <CamposGasto Modelo="modelo" Tipos="tipos" />
         </MudCardContent>
         <MudCardActions>
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
@@ -51,42 +26,28 @@
 
 @code {
     private GastoOperativoCrearDto modelo = new();
+    private IReadOnlyList<TipoGastoDto> tipos = Array.Empty<TipoGastoDto>();
 
-    private DateTime? fecha
+    protected override async Task OnInitializedAsync()
     {
-        get => modelo.Fecha == default ? null : modelo.Fecha;
-        set => modelo.Fecha = value ?? default;
+        tipos = await GastosService.ObtenerTiposActivosAsync();
     }
-
-    protected override void OnInitialized()
-    {
-        modelo.Moneda = TiposMoneda.Colones;
-    }
-
-    // Los valores internos (los que valida el servicio y va a guardar la base)
-    // son PascalCase sin espacios; acá solo se traducen para mostrarse.
-    private static string EtiquetaCategoria(string categoria) => categoria switch
-    {
-        "ServiciosBasicos" => "Servicios básicos",
-        "CompraInsumos" => "Compra de insumos",
-        "Viaticos" => "Viáticos",
-        _ => categoria
-    };
 
     private async Task Guardar()
     {
         try
         {
-            var categoriaRegistrada = modelo.Categoria;
+            var tipoRegistrado = tipos.FirstOrDefault(t => t.Id == modelo.TipoGastoId);
             var gastoId = await GastosService.RegistrarGastoAsync(modelo);
             Snackbar.Add("Gasto operativo registrado correctamente.", Severity.Success);
 
-            // CompraInsumos no crea la entrada de inventario automáticamente (AB#2501):
-            // se ofrece el enlace y la persona completa artículo/cantidad/unidad a mano.
-            if (categoriaRegistrada == CategoriasGastoOperativo.CompraInsumos)
+            // Un gasto cuyo tipo genera inventario no crea la entrada automáticamente
+            // (AB#2501): se ofrece el enlace y la persona completa artículo, cantidad
+            // y unidad a mano. Lo decide TipoGasto.GeneraInventario, no el nombre.
+            if (tipoRegistrado?.GeneraInventario == true)
             {
                 Snackbar.Add(
-                    "Este gasto es una compra de insumos. ¿Desea registrar la entrada correspondiente en inventario?",
+                    "Este gasto es una compra que ingresa al inventario. ¿Desea registrar la entrada correspondiente?",
                     Severity.Info,
                     config =>
                     {
@@ -100,7 +61,7 @@
                     });
             }
 
-            modelo = new() { Moneda = TiposMoneda.Colones };
+            modelo = new();
         }
         catch (ValidationException ex)
         {

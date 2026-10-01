@@ -62,6 +62,10 @@ namespace SIGAC.Domain
             public const string Registrar = "Gastos.Registrar";
             public const string Editar = "Gastos.Editar";
             public const string Anular = "Gastos.Anular";
+
+            // Catálogo de tipos de gasto (/gastos/tipos). Solo Administrador: ver
+            // PermisosPorRol.SoloAdministrador.
+            public const string AdministrarTipos = "Gastos.AdministrarTipos";
         }
 
         public static class Proyectos
@@ -116,6 +120,7 @@ namespace SIGAC.Domain
             new Permiso(Gastos.Registrar, ModulosSistema.Gastos, "Registrar gastos operativos"),
             new Permiso(Gastos.Editar, ModulosSistema.Gastos, "Editar gastos operativos"),
             new Permiso(Gastos.Anular, ModulosSistema.Gastos, "Anular gastos operativos"),
+            new Permiso(Gastos.AdministrarTipos, ModulosSistema.Gastos, "Administrar los tipos de gasto"),
 
             new Permiso(Proyectos.Ver, ModulosSistema.Proyectos, "Ver el listado de proyectos comunitarios"),
             new Permiso(Proyectos.Registrar, ModulosSistema.Proyectos, "Registrar proyectos"),

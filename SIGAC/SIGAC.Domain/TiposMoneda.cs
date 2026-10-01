@@ -2,7 +2,7 @@ namespace SIGAC.Domain
 {
     // Monedas en las que se puede recibir una donación en dinero o pagar un gasto
     // operativo: lista cerrada, mismo criterio que TiposPersonaDonante y
-    // CategoriasGastoOperativo. Fuente única para el servicio, los CHECK de la
+    // FormasPago. Fuente única para el servicio, los CHECK de la
     // base y los desplegables de los formularios.
     public static class TiposMoneda
     {

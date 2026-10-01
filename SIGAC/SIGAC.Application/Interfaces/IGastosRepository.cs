@@ -8,7 +8,13 @@ namespace SIGAC.Application.Interfaces
         Task AgregarAsync(GastoOperativo gasto);
         Task<GastoOperativo?> ObtenerPorIdAsync(int id);
         Task ActualizarAsync(GastoOperativo gasto);
+
+        // Trae cada gasto con su TipoGasto cargado: el listado muestra el nombre.
         Task<IEnumerable<GastoOperativo>> ObtenerTodosAsync(FiltrosGastoDto filtros);
+
+        // Proveedores distintos que contienen el texto, ordenados, a lo sumo maximo.
+        Task<IReadOnlyList<string>> BuscarProveedoresAsync(string texto, int maximo);
+
         /// <summary>
         /// Anula el gasto y, en la misma operación, todas las entradas de inventario
         /// que lo respaldaban, revirtiendo el stock de cada una.

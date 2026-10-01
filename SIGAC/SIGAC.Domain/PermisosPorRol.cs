@@ -6,10 +6,21 @@ namespace SIGAC.Domain
     // (para dibujar los switches) y las pruebas usen exactamente la misma regla.
     public static class PermisosPorRol
     {
-        // Colaborador: todos los módulos operativos, nada de Seguridad.
+        // Permisos de un módulo operativo que igual quedan reservados al
+        // Administrador. Administrar los tipos de gasto cambia cómo se agrupa el
+        // reporte de la contadora y qué gastos se vinculan con inventario: es
+        // configuración del sistema, no operación diaria.
+        public static readonly IReadOnlyList<string> SoloAdministrador = new[]
+        {
+            Permisos.Gastos.AdministrarTipos
+        };
+
+        // Colaborador: todos los módulos operativos, nada de Seguridad ni de lo
+        // reservado al Administrador.
         private static readonly IReadOnlyList<string> DeColaborador = Permisos.Definiciones
             .Where(p => p.Modulo != ModulosSistema.Seguridad)
             .Select(p => p.Clave)
+            .Except(SoloAdministrador)
             .ToList();
 
         // Asistente: solo registra asistencia y entradas de inventario, sin ninguna

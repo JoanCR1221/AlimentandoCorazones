@@ -1,0 +1,166 @@
+@page "/gastos/tipos"
+@attribute [Authorize(Policy = Permisos.Gastos.AdministrarTipos)]
+@using SIGAC.Application.DTOs.Gastos
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@inject ITiposGastoService TiposGastoService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<EncabezadoPagina Titulo="Tipos de gasto"
+                  Descripcion="Tipos con los que se clasifican los gastos operativos. Son los mismos que agrupan el reporte mensual de la contadora.">
+    <Acciones>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="CrearAsync">Nuevo tipo</MudButton>
+    </Acciones>
+</EncabezadoPagina>
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        <MudDataGrid T="TipoGastoDto" Items="@tipos" Loading="cargando">
+            <Columns>
+                <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
+                <TemplateColumn Title="Genera inventario">
+                    <CellTemplate>@(context.Item.GeneraInventario ? "Sí" : "No")</CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.CuentaContablePorDefecto" Title="Cuenta contable por defecto" />
+                <TemplateColumn Title="Estado">
+                    <CellTemplate>
+                        <EstadoChip Activo="@context.Item.Activo" />
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Acciones">
+                    <CellTemplate>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => EditarAsync(context.Item))">Editar</MudButton>
+                        @* Baja lógica y nunca borrado: los gastos registrados apuntan al
+                           tipo (FK Restrict). Un tipo inactivo sale del desplegable del
+                           formulario de gastos y sigue mostrándose en los que ya lo usan. *@
+                        @if (context.Item.Activo)
+                        {
+                            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error" Class="ac-btn-inactivar ml-1" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item, false))">Desactivar</MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Success" Class="ac-btn-activar ml-1" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item, true))">Activar</MudButton>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+            <LoadingContent>
+                <CargandoGrilla />
+            </LoadingContent>
+            <NoRecordsContent>
+                <EstadoVacio Icono="@Icons.Material.Filled.Category"
+                             Titulo="Todavía no hay tipos de gasto" />
+            </NoRecordsContent>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private IReadOnlyList<TipoGastoDto> tipos = Array.Empty<TipoGastoDto>();
+    private bool cargando = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        cargando = true;
+
+        try
+        {
+            tipos = await TiposGastoService.ObtenerTodosAsync();
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task CrearAsync()
+    {
+        var datos = await PedirDatosAsync("Nuevo tipo de gasto", new TipoGastoGuardarDto());
+        if (datos is null)
+            return;
+
+        await GuardarAsync(() => TiposGastoService.RegistrarAsync(datos), "Tipo de gasto registrado.");
+    }
+
+    private async Task EditarAsync(TipoGastoDto tipo)
+    {
+        var datos = await PedirDatosAsync("Editar tipo de gasto", new TipoGastoGuardarDto
+        {
+            Nombre = tipo.Nombre,
+            GeneraInventario = tipo.GeneraInventario,
+            CuentaContablePorDefecto = tipo.CuentaContablePorDefecto
+        });
+        if (datos is null)
+            return;
+
+        await GuardarAsync(() => TiposGastoService.EditarAsync(tipo.Id, datos), "Tipo de gasto actualizado.");
+    }
+
+    private async Task<TipoGastoGuardarDto?> PedirDatosAsync(string titulo, TipoGastoGuardarDto modelo)
+    {
+        var parametros = new DialogParameters<TipoGastoDialog> { { d => d.Modelo, modelo } };
+        var dialog = await DialogService.ShowAsync<TipoGastoDialog>(titulo, parametros);
+        var resultado = await dialog.Result;
+
+        return resultado is null || resultado.Canceled ? null : (TipoGastoGuardarDto)resultado.Data!;
+    }
+
+    private async Task GuardarAsync(Func<Task> operacion, string mensajeExito)
+    {
+        try
+        {
+            await operacion();
+            Snackbar.Add(mensajeExito, Severity.Success);
+            await CargarAsync();
+        }
+        catch (Exception ex) when (ex is ValidationException or DuplicateException or NotFoundException)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo guardar el tipo de gasto. Intente de nuevo.", Severity.Error);
+        }
+    }
+
+    private async Task ConfirmarCambioEstadoAsync(TipoGastoDto tipo, bool activar)
+    {
+        var mensaje = activar
+            ? $"¿Seguro que desea activar el tipo '{tipo.Nombre}'? Volverá a aparecer en el formulario de gastos."
+            : $"¿Seguro que desea desactivar el tipo '{tipo.Nombre}'? Dejará de aparecer en el formulario de gastos; los gastos ya registrados lo conservan.";
+
+        var confirmado = await DialogService.ShowMessageBoxAsync(
+            "Confirmar",
+            mensaje,
+            yesText: "Confirmar",
+            cancelText: "Cancelar");
+
+        if (confirmado != true)
+            return;
+
+        try
+        {
+            if (activar)
+                await TiposGastoService.ActivarAsync(tipo.Id);
+            else
+                await TiposGastoService.DesactivarAsync(tipo.Id);
+
+            Snackbar.Add(activar ? "Tipo de gasto activado." : "Tipo de gasto desactivado.", Severity.Success);
+            await CargarAsync();
+        }
+        catch (NotFoundException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo actualizar el estado del tipo de gasto. Intente de nuevo.", Severity.Error);
+        }
+    }
+}
