@@ -88,6 +88,15 @@ namespace SIGAC.Domain
             public const string VerBeneficiarios = "Reportes.VerBeneficiarios";
         }
 
+        public static class Alquileres
+        {
+            public const string Ver = "Alquileres.Ver";
+            public const string Registrar = "Alquileres.Registrar";
+            public const string Cancelar = "Alquileres.Cancelar";
+            public const string RegistrarArrendatario = "Alquileres.RegistrarArrendatario";
+            public const string GestionarEspacios = "Alquileres.GestionarEspacios";
+        }
+
         // Orden de aparición en el panel: por módulo, y dentro de cada módulo
         // primero consultar y después las acciones.
         public static readonly IReadOnlyList<Permiso> Definiciones = new[]
@@ -131,7 +140,13 @@ namespace SIGAC.Domain
             new Permiso(Seguridad.GestionarUsuarios, ModulosSistema.Seguridad, "Gestionar usuarios, roles y permisos"),
             new Permiso(Seguridad.VerBitacora, ModulosSistema.Seguridad, "Consultar la bitácora de acciones"),
 
-            new Permiso(Reportes.VerBeneficiarios, ModulosSistema.Reportes, "Generar el reporte de beneficiarios atendidos")
+            new Permiso(Reportes.VerBeneficiarios, ModulosSistema.Reportes, "Generar el reporte de beneficiarios atendidos"),
+
+            new Permiso(Alquileres.Ver, ModulosSistema.Alquileres, "Consultar el calendario de alquileres"),
+            new Permiso(Alquileres.Registrar, ModulosSistema.Alquileres, "Registrar alquileres de espacios"),
+            new Permiso(Alquileres.Cancelar, ModulosSistema.Alquileres, "Cancelar alquileres"),
+            new Permiso(Alquileres.RegistrarArrendatario, ModulosSistema.Alquileres, "Registrar arrendatarios"),
+            new Permiso(Alquileres.GestionarEspacios, ModulosSistema.Alquileres, "Configurar el horario, los espacios y sus características")
         };
 
         public static readonly IReadOnlyList<string> Todos =

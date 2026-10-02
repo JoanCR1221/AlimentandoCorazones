@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SIGAC.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using SIGAC.Infrastructure.Data;
 namespace SIGAC.Infrastructure.Migrations
 {
     [DbContext(typeof(SigacDbContext))]
-    partial class SigacDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260929015202_AddTablaArrendatarios")]
+    partial class AddTablaArrendatarios
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,38 +24,6 @@ namespace SIGAC.Infrastructure.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("CaracteristicasAlquiler", b =>
-                {
-                    b.Property<int>("AlquilerEspacioId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("CaracteristicaEspacioId")
-                        .HasColumnType("int");
-
-                    b.HasKey("AlquilerEspacioId", "CaracteristicaEspacioId");
-
-                    b.HasIndex("CaracteristicaEspacioId")
-                        .HasDatabaseName("IX_CaracteristicasAlquiler_CaracteristicaEspacio");
-
-                    b.ToTable("CaracteristicasAlquiler", (string)null);
-                });
-
-            modelBuilder.Entity("EspaciosAlquiler", b =>
-                {
-                    b.Property<int>("AlquilerEspacioId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("EspacioFisicoId")
-                        .HasColumnType("int");
-
-                    b.HasKey("AlquilerEspacioId", "EspacioFisicoId");
-
-                    b.HasIndex("EspacioFisicoId")
-                        .HasDatabaseName("IX_EspaciosAlquiler_EspacioFisico");
-
-                    b.ToTable("EspaciosAlquiler", (string)null);
-                });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
                 {
@@ -185,82 +156,6 @@ namespace SIGAC.Infrastructure.Migrations
                     b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("AspNetUserTokens", (string)null);
-                });
-
-            modelBuilder.Entity("SIGAC.Domain.Entities.AlquilerEspacio", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("ArrendatarioId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("CantidadPersonas")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Estado")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<DateTime>("Fecha")
-                        .HasColumnType("date");
-
-                    b.Property<DateTime>("FechaRegistro")
-                        .HasColumnType("datetime2");
-
-                    b.Property<TimeSpan>("HoraFin")
-                        .HasColumnType("time");
-
-                    b.Property<TimeSpan>("HoraInicio")
-                        .HasColumnType("time");
-
-                    b.Property<string>("Moneda")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<decimal>("Monto")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("MotivoCancelacion")
-                        .HasMaxLength(500)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(500)");
-
-                    b.Property<string>("Observaciones")
-                        .HasMaxLength(500)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(500)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ArrendatarioId")
-                        .HasDatabaseName("IX_AlquileresEspacio_Arrendatario");
-
-                    b.HasIndex("Fecha", "HoraInicio")
-                        .HasDatabaseName("IX_AlquileresEspacio_Fecha_HoraInicio");
-
-                    b.ToTable("AlquileresEspacio", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_AlquileresEspacio_CantidadPersonas", "[CantidadPersonas] > 0");
-
-                            t.HasCheckConstraint("CK_AlquileresEspacio_Estado", "[Estado] IN ('Reservado', 'Cancelado')");
-
-                            t.HasCheckConstraint("CK_AlquileresEspacio_Horas", "[HoraFin] > [HoraInicio]");
-
-                            t.HasCheckConstraint("CK_AlquileresEspacio_Moneda", "[Moneda] IN ('Colones', 'Dólares', 'Euros')");
-
-                            t.HasCheckConstraint("CK_AlquileresEspacio_Monto", "[Monto] >= 0");
-
-                            t.HasCheckConstraint("CK_AlquileresEspacio_MotivoCancelacion", "([Estado] = 'Cancelado' AND [MotivoCancelacion] IS NOT NULL) OR ([Estado] <> 'Cancelado' AND [MotivoCancelacion] IS NULL)");
-                        });
                 });
 
             modelBuilder.Entity("SIGAC.Domain.Entities.Arrendatario", b =>
@@ -590,64 +485,6 @@ namespace SIGAC.Infrastructure.Migrations
                         });
                 });
 
-            modelBuilder.Entity("SIGAC.Domain.Entities.CaracteristicaEspacio", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("Estado")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Nombre")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Nombre")
-                        .IsUnique()
-                        .HasDatabaseName("UX_CaracteristicasEspacio_Nombre");
-
-                    b.ToTable("CaracteristicasEspacio", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Estado = true,
-                            Nombre = "Luz"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Estado = true,
-                            Nombre = "Agua"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Estado = true,
-                            Nombre = "Internet"
-                        },
-                        new
-                        {
-                            Id = 4,
-                            Estado = true,
-                            Nombre = "Decoración adicional"
-                        },
-                        new
-                        {
-                            Id = 5,
-                            Estado = true,
-                            Nombre = "Mobiliario"
-                        });
-                });
-
             modelBuilder.Entity("SIGAC.Domain.Entities.DetalleDonacionEspecie", b =>
                 {
                     b.Property<int>("Id")
@@ -952,64 +789,6 @@ namespace SIGAC.Infrastructure.Migrations
                         });
                 });
 
-            modelBuilder.Entity("SIGAC.Domain.Entities.EspacioFisico", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int?>("Capacidad")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("Estado")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Nombre")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Nombre")
-                        .IsUnique()
-                        .HasDatabaseName("UX_EspaciosFisicos_Nombre");
-
-                    b.ToTable("EspaciosFisicos", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_EspaciosFisicos_Capacidad", "[Capacidad] IS NULL OR [Capacidad] > 0");
-                        });
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Estado = true,
-                            Nombre = "Área de juego"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Estado = true,
-                            Nombre = "Sala de servicio"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Estado = true,
-                            Nombre = "Baños"
-                        },
-                        new
-                        {
-                            Id = 4,
-                            Estado = true,
-                            Nombre = "Cocina (solo para servir)"
-                        });
-                });
-
             modelBuilder.Entity("SIGAC.Domain.Entities.GastoOperativo", b =>
                 {
                     b.Property<int>("Id")
@@ -1018,27 +797,17 @@ namespace SIGAC.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("CuentaContable")
+                    b.Property<string>("Categoria")
                         .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(100)
+                        .HasMaxLength(30)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(100)")
-                        .HasDefaultValue("1 CAJA Y BANCOS");
+                        .HasColumnType("varchar(30)");
 
                     b.Property<string>("Descripcion")
                         .IsRequired()
                         .HasMaxLength(500)
                         .IsUnicode(false)
                         .HasColumnType("varchar(500)");
-
-                    b.Property<string>("DescripcionCuenta")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(100)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(100)")
-                        .HasDefaultValue("GASTOS ADMINISTRATIVOS");
 
                     b.Property<string>("Estado")
                         .IsRequired()
@@ -1052,20 +821,6 @@ namespace SIGAC.Infrastructure.Migrations
                     b.Property<DateTime>("FechaRegistro")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("FormaPago")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(30)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(30)")
-                        .HasDefaultValue("Contado");
-
-                    b.Property<decimal>("Iva")
-                        .ValueGeneratedOnAdd()
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)")
-                        .HasDefaultValue(0m);
-
                     b.Property<string>("Moneda")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -1074,7 +829,7 @@ namespace SIGAC.Infrastructure.Migrations
                         .HasColumnType("varchar(20)")
                         .HasDefaultValue("Colones");
 
-                    b.Property<decimal>("MontoSinIva")
+                    b.Property<decimal>("Monto")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
@@ -1083,92 +838,28 @@ namespace SIGAC.Infrastructure.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(500)");
 
-                    b.Property<string>("NumeroCheque")
-                        .HasMaxLength(50)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<string>("NumeroFactura")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<string>("Proveedor")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(150)");
-
                     b.Property<string>("Responsable")
                         .IsRequired()
                         .HasMaxLength(150)
                         .IsUnicode(false)
                         .HasColumnType("varchar(150)");
 
-                    b.Property<int>("TipoGastoId")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("TipoGastoId")
-                        .HasDatabaseName("IX_GastosOperativos_TipoGasto");
-
-                    b.HasIndex("Fecha", "TipoGastoId")
-                        .HasDatabaseName("IX_GastosOperativos_Fecha_TipoGasto");
+                    b.HasIndex("Fecha", "Categoria")
+                        .HasDatabaseName("IX_GastosOperativos_Fecha_Categoria");
 
                     b.ToTable("GastosOperativos", null, t =>
                         {
+                            t.HasCheckConstraint("CK_GastosOperativos_Categoria", "[Categoria] IN ('ServiciosBasicos', 'Transporte', 'CompraInsumos', 'Salarios', 'Viaticos')");
+
                             t.HasCheckConstraint("CK_GastosOperativos_Estado", "[Estado] IN ('Activo', 'Anulado')");
-
-                            t.HasCheckConstraint("CK_GastosOperativos_FormaPago", "[FormaPago] IN ('Contado', 'Crédito')");
-
-                            t.HasCheckConstraint("CK_GastosOperativos_Iva", "[Iva] >= 0");
 
                             t.HasCheckConstraint("CK_GastosOperativos_Moneda", "[Moneda] IN ('Colones', 'Dólares', 'Euros')");
 
-                            t.HasCheckConstraint("CK_GastosOperativos_MontoSinIva", "[MontoSinIva] > 0");
+                            t.HasCheckConstraint("CK_GastosOperativos_Monto", "[Monto] > 0");
 
                             t.HasCheckConstraint("CK_GastosOperativos_MotivoAnulacion", "([Estado] = 'Anulado' AND [MotivoAnulacion] IS NOT NULL) OR ([Estado] <> 'Anulado' AND [MotivoAnulacion] IS NULL)");
-                        });
-                });
-
-            modelBuilder.Entity("SIGAC.Domain.Entities.HorarioAlquiler", b =>
-                {
-                    b.Property<int>("Id")
-                        .HasColumnType("int");
-
-                    b.Property<TimeSpan>("AperturaEntreSemana")
-                        .HasColumnType("time");
-
-                    b.Property<TimeSpan>("AperturaFinDeSemana")
-                        .HasColumnType("time");
-
-                    b.Property<TimeSpan>("CierreEntreSemana")
-                        .HasColumnType("time");
-
-                    b.Property<TimeSpan>("CierreFinDeSemana")
-                        .HasColumnType("time");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("HorarioAlquiler", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_HorarioAlquiler_EntreSemana", "[CierreEntreSemana] > [AperturaEntreSemana]");
-
-                            t.HasCheckConstraint("CK_HorarioAlquiler_FilaUnica", "[Id] = 1");
-
-                            t.HasCheckConstraint("CK_HorarioAlquiler_FinDeSemana", "[CierreFinDeSemana] > [AperturaFinDeSemana]");
-                        });
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            AperturaEntreSemana = new TimeSpan(0, 8, 0, 0, 0),
-                            AperturaFinDeSemana = new TimeSpan(0, 8, 0, 0, 0),
-                            CierreEntreSemana = new TimeSpan(0, 20, 0, 0, 0),
-                            CierreFinDeSemana = new TimeSpan(0, 17, 0, 0, 0)
                         });
                 });
 
@@ -1416,118 +1107,6 @@ namespace SIGAC.Infrastructure.Migrations
                         });
                 });
 
-            modelBuilder.Entity("SIGAC.Domain.Entities.TipoGasto", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("Activo")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
-
-                    b.Property<string>("CuentaContablePorDefecto")
-                        .HasMaxLength(100)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<bool>("GeneraInventario")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
-
-                    b.Property<string>("Nombre")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Nombre")
-                        .IsUnique()
-                        .HasDatabaseName("UX_TiposGasto_Nombre");
-
-                    b.ToTable("TiposGasto", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Activo = true,
-                            CuentaContablePorDefecto = "1 CAJA Y BANCOS",
-                            GeneraInventario = false,
-                            Nombre = "Alquiler de Equipo"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Activo = true,
-                            CuentaContablePorDefecto = "1 CAJA Y BANCOS",
-                            GeneraInventario = false,
-                            Nombre = "Amenidades"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Activo = true,
-                            CuentaContablePorDefecto = "1 CAJA Y BANCOS",
-                            GeneraInventario = false,
-                            Nombre = "Combustible"
-                        },
-                        new
-                        {
-                            Id = 4,
-                            Activo = true,
-                            CuentaContablePorDefecto = "1 CAJA Y BANCOS",
-                            GeneraInventario = false,
-                            Nombre = "Mantenimiento de Vehículo"
-                        },
-                        new
-                        {
-                            Id = 5,
-                            Activo = true,
-                            CuentaContablePorDefecto = "1 CAJA Y BANCOS",
-                            GeneraInventario = true,
-                            Nombre = "Materiales y Suministros"
-                        },
-                        new
-                        {
-                            Id = 6,
-                            Activo = true,
-                            CuentaContablePorDefecto = "1 CAJA Y BANCOS",
-                            GeneraInventario = false,
-                            Nombre = "Servicio de Agua"
-                        },
-                        new
-                        {
-                            Id = 7,
-                            Activo = true,
-                            CuentaContablePorDefecto = "1 CAJA Y BANCOS",
-                            GeneraInventario = false,
-                            Nombre = "Servicio de Cable, Teléfono e Internet"
-                        },
-                        new
-                        {
-                            Id = 8,
-                            Activo = true,
-                            CuentaContablePorDefecto = "1 CAJA Y BANCOS",
-                            GeneraInventario = true,
-                            Nombre = "Suministros de Cocina"
-                        },
-                        new
-                        {
-                            Id = 9,
-                            Activo = true,
-                            CuentaContablePorDefecto = "1 CAJA Y BANCOS",
-                            GeneraInventario = false,
-                            Nombre = "Salarios"
-                        });
-                });
-
             modelBuilder.Entity("SIGAC.Infrastructure.Identity.UsuarioSigac", b =>
                 {
                     b.Property<string>("Id")
@@ -1608,36 +1187,6 @@ namespace SIGAC.Infrastructure.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-            modelBuilder.Entity("CaracteristicasAlquiler", b =>
-                {
-                    b.HasOne("SIGAC.Domain.Entities.AlquilerEspacio", null)
-                        .WithMany()
-                        .HasForeignKey("AlquilerEspacioId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("SIGAC.Domain.Entities.CaracteristicaEspacio", null)
-                        .WithMany()
-                        .HasForeignKey("CaracteristicaEspacioId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("EspaciosAlquiler", b =>
-                {
-                    b.HasOne("SIGAC.Domain.Entities.AlquilerEspacio", null)
-                        .WithMany()
-                        .HasForeignKey("AlquilerEspacioId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("SIGAC.Domain.Entities.EspacioFisico", null)
-                        .WithMany()
-                        .HasForeignKey("EspacioFisicoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -1687,17 +1236,6 @@ namespace SIGAC.Infrastructure.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-                });
-
-            modelBuilder.Entity("SIGAC.Domain.Entities.AlquilerEspacio", b =>
-                {
-                    b.HasOne("SIGAC.Domain.Entities.Arrendatario", "Arrendatario")
-                        .WithMany()
-                        .HasForeignKey("ArrendatarioId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Arrendatario");
                 });
 
             modelBuilder.Entity("SIGAC.Domain.Entities.AsistenciaComedor", b =>
@@ -1789,17 +1327,6 @@ namespace SIGAC.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Articulo");
-                });
-
-            modelBuilder.Entity("SIGAC.Domain.Entities.GastoOperativo", b =>
-                {
-                    b.HasOne("SIGAC.Domain.Entities.TipoGasto", "TipoGasto")
-                        .WithMany()
-                        .HasForeignKey("TipoGastoId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("TipoGasto");
                 });
 
             modelBuilder.Entity("SIGAC.Domain.Entities.ParticipanteProyecto", b =>

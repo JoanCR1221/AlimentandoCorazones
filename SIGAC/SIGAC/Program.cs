@@ -146,6 +146,11 @@ builder.Services.AddScoped<IDonacionesService, DonacionesService>();
 // Servicio del módulo de Gestión de Proyectos
 builder.Services.AddScoped<IProyectosService, ProyectosService>();
 
+// Servicios del módulo de Alquiler de espacios físicos
+builder.Services.AddScoped<IArrendatariosService, ArrendatariosService>();
+builder.Services.AddScoped<IEspaciosService, EspaciosService>();
+builder.Services.AddScoped<IAlquileresService, AlquileresService>();
+
 // Exportación de reportes a PDF/Excel (módulo de Generación de reportes),
 // sobre FastReport.OpenSource. Genérico: lo usa cualquier pantalla de reporte,
 // sin registrar nada nuevo acá cuando se agregue la siguiente.
@@ -177,6 +182,11 @@ builder.Services.AddScoped<IDonacionesRepository, DonacionesRepositoryEfCore>();
 
 // Repositorio de Proyectos Comunitarios con EF Core
 builder.Services.AddScoped<IProyectosRepository, ProyectosRepositoryEfCore>();
+
+// Repositorios del módulo de Alquiler de espacios físicos con EF Core
+builder.Services.AddScoped<IArrendatariosRepository, ArrendatariosRepositoryEfCore>();
+builder.Services.AddScoped<IEspaciosRepository, EspaciosRepositoryEfCore>();
+builder.Services.AddScoped<IAlquileresRepository, AlquileresRepositoryEfCore>();
 
 // Consultas agregadas de las tarjetas de resumen
 builder.Services.AddScoped<IResumenRepository, ResumenRepositoryEfCore>();

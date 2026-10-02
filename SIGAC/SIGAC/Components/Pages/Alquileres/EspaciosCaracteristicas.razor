@@ -1,0 +1,316 @@
+@page "/alquileres/espacios"
+@attribute [Authorize(Policy = Permisos.Alquileres.GestionarEspacios)]
+@using SIGAC.Application.DTOs.Alquileres
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@using SIGAC.Application.Validators
+@inject IEspaciosService EspaciosService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<EncabezadoPagina Titulo="Espacios y características"
+                  Descripcion="Defina el horario en que se alquila, los sectores del local y los servicios que se pueden pedir." />
+
+@* Horario configurable (antes eran constantes en ReglasAlquiler). Afecta solo a
+   los alquileres que se registren después de guardarlo. *@
+<MudCard Class="pa-4 mb-4">
+    <MudCardContent>
+        <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-2">Horario de alquiler</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
+            Horas en que se puede alquilar el local. Los alquileres ya registrados no cambian.
+        </MudText>
+
+        @if (horario is null)
+        {
+            <CargandoGrilla />
+        }
+        else
+        {
+            <MudGrid Spacing="3">
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">Lunes a viernes</MudText>
+                    <MudStack Row="true" Spacing="3">
+                        <MudTimePicker @bind-Time="horario.AperturaEntreSemana" Label="Apertura" Variant="Variant.Outlined"
+                                       AmPm="true" TimeFormat="h:mm tt" MinuteSelectionStep="15" />
+                        <MudTimePicker @bind-Time="horario.CierreEntreSemana" Label="Cierre" Variant="Variant.Outlined"
+                                       AmPm="true" TimeFormat="h:mm tt" MinuteSelectionStep="15" />
+                    </MudStack>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">Sábado y domingo</MudText>
+                    <MudStack Row="true" Spacing="3">
+                        <MudTimePicker @bind-Time="horario.AperturaFinDeSemana" Label="Apertura" Variant="Variant.Outlined"
+                                       AmPm="true" TimeFormat="h:mm tt" MinuteSelectionStep="15" />
+                        <MudTimePicker @bind-Time="horario.CierreFinDeSemana" Label="Cierre" Variant="Variant.Outlined"
+                                       AmPm="true" TimeFormat="h:mm tt" MinuteSelectionStep="15" />
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Class="mt-4"
+                       OnClick="GuardarHorarioAsync">Guardar horario</MudButton>
+        }
+    </MudCardContent>
+</MudCard>
+
+@* Eliminar solo funciona con lo que nunca se usó en un alquiler (EspaciosService
+   lo explica si no). Lo que ya se usó se desactiva: deja de ofrecerse en
+   alquileres nuevos y el historial lo sigue mostrando. *@
+@* Lado a lado solo en pantallas grandes (lg): con md las tablas quedaban tan
+   angostas que el botón de eliminar se iba detrás de una barra de desplazamiento. *@
+<MudGrid Spacing="3">
+    <MudItem xs="12" lg="7">
+        <MudCard Class="pa-4">
+            <MudCardContent>
+                <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-2">Sectores</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
+                    La capacidad es opcional (los baños o la cocina no la necesitan). Si se indica, al alquilar
+                    no se admiten más personas que la suma de los sectores elegidos.
+                </MudText>
+
+                <MudSimpleTable Dense="true" Hover="true">
+                    <thead>
+                        <tr>
+                            <th>Sector</th>
+                            <th style="width: 11rem;">Capacidad</th>
+                            <th>Activo</th>
+                            <th aria-label="Acciones"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var espacio in espacios)
+                        {
+                            <tr>
+                                <td>@espacio.Nombre</td>
+                                <td>
+                                    <MudNumericField T="int?" Value="espacio.Capacidad" ValueChanged="@(v => ActualizarCapacidadAsync(espacio, v))"
+                                                     Variant="Variant.Text" Placeholder="Sin definir" Margin="Margin.Dense"
+                                                     Min="1" Max="EspaciosValidator.CapacidadMaxima" Clearable="true"
+                                                     aria-label="@($"Capacidad de {espacio.Nombre}")" />
+                                </td>
+                                <td>
+                                    <MudSwitch T="bool" Value="espacio.Estado" ValueChanged="@(v => CambiarEstadoEspacioAsync(espacio, v))"
+                                               Color="Color.Primary" aria-label="@($"{espacio.Nombre} activo")" />
+                                </td>
+                                <td>
+                                    <MudTooltip Text="Eliminar">
+                                        <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Color="Color.Error" Size="Size.Small"
+                                                       OnClick="@(() => EliminarEspacioAsync(espacio))"
+                                                       aria-label="@($"Eliminar {espacio.Nombre}")" />
+                                    </MudTooltip>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+
+                <EditForm Model="nuevoEspacio" OnValidSubmit="RegistrarEspacioAsync" Class="mt-4">
+                    <DataAnnotationsValidator />
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Start">
+                        <MudTextField @bind-Value="nuevoEspacio.Nombre" For="@(() => nuevoEspacio.Nombre)" Label="Nuevo sector" Variant="Variant.Outlined"
+                                      MaxLength="EspaciosValidator.LongitudMaximaNombre" Margin="Margin.Dense" />
+                        <MudNumericField T="int?" @bind-Value="nuevoEspacio.Capacidad" For="@(() => nuevoEspacio.Capacidad)" Label="Capacidad" Variant="Variant.Outlined"
+                                         Min="1" Max="EspaciosValidator.CapacidadMaxima" Margin="Margin.Dense" Style="max-width: 9rem;" />
+                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Class="mt-2">Agregar</MudButton>
+                    </MudStack>
+                </EditForm>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12" lg="5">
+        <MudCard Class="pa-4">
+            <MudCardContent>
+                <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-2">Características</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
+                    Servicios que se pueden pedir en un alquiler: luz, agua, internet, mobiliario...
+                </MudText>
+
+                <MudSimpleTable Dense="true" Hover="true">
+                    <thead>
+                        <tr>
+                            <th>Característica</th>
+                            <th>Activa</th>
+                            <th aria-label="Acciones"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var caracteristica in caracteristicas)
+                        {
+                            <tr>
+                                <td>@caracteristica.Nombre</td>
+                                <td>
+                                    <MudSwitch T="bool" Value="caracteristica.Estado" ValueChanged="@(v => CambiarEstadoCaracteristicaAsync(caracteristica, v))"
+                                               Color="Color.Primary" aria-label="@($"{caracteristica.Nombre} activa")" />
+                                </td>
+                                <td>
+                                    <MudTooltip Text="Eliminar">
+                                        <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Color="Color.Error" Size="Size.Small"
+                                                       OnClick="@(() => EliminarCaracteristicaAsync(caracteristica))"
+                                                       aria-label="@($"Eliminar {caracteristica.Nombre}")" />
+                                    </MudTooltip>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+
+                <EditForm Model="nuevaCaracteristica" OnValidSubmit="RegistrarCaracteristicaAsync" Class="mt-4">
+                    <DataAnnotationsValidator />
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Start">
+                        <MudTextField @bind-Value="nuevaCaracteristica.Nombre" For="@(() => nuevaCaracteristica.Nombre)" Label="Nueva característica" Variant="Variant.Outlined"
+                                      MaxLength="EspaciosValidator.LongitudMaximaNombre" Margin="Margin.Dense" />
+                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Class="mt-2">Agregar</MudButton>
+                    </MudStack>
+                </EditForm>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private IReadOnlyList<EspacioFisicoDto> espacios = Array.Empty<EspacioFisicoDto>();
+    private IReadOnlyList<CaracteristicaDto> caracteristicas = Array.Empty<CaracteristicaDto>();
+    private EspacioFisicoCrearDto nuevoEspacio = new();
+    private CaracteristicaCrearDto nuevaCaracteristica = new();
+    private HorarioAlquilerDto? horario;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarAsync();
+        await CargarHorarioAsync();
+    }
+
+    // Aparte de CargarAsync: guardar un sector no debe pisar un horario que se está
+    // editando y todavía no se guardó.
+    private async Task CargarHorarioAsync()
+    {
+        try
+        {
+            horario = await EspaciosService.ObtenerHorarioAsync();
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo cargar el horario de alquiler. Intente de nuevo.", Severity.Error);
+        }
+    }
+
+    private async Task GuardarHorarioAsync()
+    {
+        if (horario is null)
+            return;
+
+        try
+        {
+            await EspaciosService.ActualizarHorarioAsync(horario);
+            Snackbar.Add("Horario de alquiler guardado. Aplica a los alquileres que se registren desde ahora.", Severity.Success);
+            await CargarHorarioAsync();
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo guardar el horario. Intente de nuevo.", Severity.Error);
+        }
+    }
+
+    private async Task CargarAsync()
+    {
+        try
+        {
+            espacios = await EspaciosService.ObtenerEspaciosAsync(soloActivos: false);
+            caracteristicas = await EspaciosService.ObtenerCaracteristicasAsync(soloActivos: false);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudieron cargar los espacios y características. Intente de nuevo.", Severity.Error);
+        }
+    }
+
+    // El formulario se limpia solo si se guardó: si el nombre ya existía, queda
+    // escrito para corregirlo.
+    private async Task RegistrarEspacioAsync()
+    {
+        if (await EjecutarAsync(() => EspaciosService.RegistrarEspacioAsync(nuevoEspacio), "Sector agregado."))
+            nuevoEspacio = new();
+    }
+
+    private async Task RegistrarCaracteristicaAsync()
+    {
+        if (await EjecutarAsync(() => EspaciosService.RegistrarCaracteristicaAsync(nuevaCaracteristica), "Característica agregada."))
+            nuevaCaracteristica = new();
+    }
+
+    private Task ActualizarCapacidadAsync(EspacioFisicoDto espacio, int? capacidad) =>
+        EjecutarAsync(() => EspaciosService.ActualizarCapacidadEspacioAsync(espacio.Id, capacidad),
+            $"Capacidad de {espacio.Nombre} actualizada.");
+
+    private Task CambiarEstadoEspacioAsync(EspacioFisicoDto espacio, bool estado) =>
+        EjecutarAsync(() => EspaciosService.CambiarEstadoEspacioAsync(espacio.Id, estado),
+            estado ? $"{espacio.Nombre} activado." : $"{espacio.Nombre} desactivado: ya no se ofrece en alquileres nuevos.");
+
+    private Task CambiarEstadoCaracteristicaAsync(CaracteristicaDto caracteristica, bool estado) =>
+        EjecutarAsync(() => EspaciosService.CambiarEstadoCaracteristicaAsync(caracteristica.Id, estado),
+            estado ? $"{caracteristica.Nombre} activada." : $"{caracteristica.Nombre} desactivada: ya no se ofrece en alquileres nuevos.");
+
+    private async Task EliminarEspacioAsync(EspacioFisicoDto espacio)
+    {
+        if (await ConfirmarEliminacionAsync(espacio.Nombre))
+            await EjecutarAsync(() => EspaciosService.EliminarEspacioAsync(espacio.Id), $"{espacio.Nombre} eliminado.");
+    }
+
+    private async Task EliminarCaracteristicaAsync(CaracteristicaDto caracteristica)
+    {
+        if (await ConfirmarEliminacionAsync(caracteristica.Nombre))
+            await EjecutarAsync(() => EspaciosService.EliminarCaracteristicaAsync(caracteristica.Id), $"{caracteristica.Nombre} eliminada.");
+    }
+
+    // Confirmación con ShowMessageBoxAsync, mismo recurso que "Quitar participante"
+    // en DetalleProyecto.razor: no pide ningún dato, solo el sí.
+    private async Task<bool> ConfirmarEliminacionAsync(string nombre)
+    {
+        var confirmado = await DialogService.ShowMessageBoxAsync(
+            "Confirmar",
+            $"¿Eliminar \"{nombre}\"? Solo se puede si nunca se usó en un alquiler; si ya se usó, desactívelo.",
+            yesText: "Eliminar",
+            cancelText: "Cancelar");
+
+        return confirmado == true;
+    }
+
+    // Todas las acciones de la pantalla terminan igual: aviso y recarga de las dos
+    // listas, para que lo que se ve sea siempre lo guardado (también si falló).
+    // Devuelve si se guardó.
+    private async Task<bool> EjecutarAsync(Func<Task> accion, string mensajeExito)
+    {
+        var guardado = false;
+
+        try
+        {
+            await accion();
+            Snackbar.Add(mensajeExito, Severity.Success);
+            guardado = true;
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (DuplicateException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (NotFoundException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo guardar el cambio. Intente de nuevo.", Severity.Error);
+        }
+
+        await CargarAsync();
+        return guardado;
+    }
+}
