@@ -1,6 +1,7 @@
 using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Bitacora;
 using SIGAC.Application.DTOs.Gastos;
+using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Application.Interfaces;
 using SIGAC.Domain;
 using SIGAC.Domain.Entities;
@@ -145,6 +146,73 @@ namespace SIGAC.Tests.Application
             gasto.MotivoAnulacion = motivo;
             Anulados.Add(gastoId);
             return Task.CompletedTask;
+        }
+
+        // Panorama gráfico de Gastos: mismo recorte que el repositorio real
+        // (activos, en colones, dentro de la ventana), pero en memoria.
+        public Task<IReadOnlyList<MontoPorTipoDto>> ObtenerMontoPorTipoAsync(int mesesHaciaAtras)
+        {
+            foreach (var g in Gastos)
+                g.TipoGasto = _tipos.Tipos.First(t => t.Id == g.TipoGastoId);
+
+            return Task.FromResult<IReadOnlyList<MontoPorTipoDto>>(GastosActivosEnColones(mesesHaciaAtras)
+                .GroupBy(g => g.TipoGasto!.Nombre)
+                .Select(g => new MontoPorTipoDto(g.Key, g.Sum(x => x.MontoSinIva + x.Iva)))
+                .OrderByDescending(f => f.Monto)
+                .ToList());
+        }
+
+        public Task<IReadOnlyList<MontoPorFormaPagoDto>> ObtenerMontoPorFormaPagoAsync(int mesesHaciaAtras) =>
+            Task.FromResult<IReadOnlyList<MontoPorFormaPagoDto>>(GastosActivosEnColones(mesesHaciaAtras)
+                .GroupBy(g => g.FormaPago)
+                .Select(g => new MontoPorFormaPagoDto(g.Key, g.Sum(x => x.MontoSinIva + x.Iva)))
+                .ToList());
+
+        public Task<IReadOnlyList<MontoPorMesDto>> ObtenerMontoPorMesAsync(int mesesHaciaAtras) =>
+            Task.FromResult<IReadOnlyList<MontoPorMesDto>>(GastosActivosEnColones(mesesHaciaAtras)
+                .GroupBy(g => new { g.Fecha.Year, g.Fecha.Month })
+                .Select(g => new MontoPorMesDto(g.Key.Year, g.Key.Month, g.Sum(x => x.MontoSinIva + x.Iva)))
+                .OrderBy(f => f.Anio).ThenBy(f => f.Mes)
+                .ToList());
+
+        public Task<IReadOnlyList<ConteoPorMesDto>> ObtenerCantidadPorMesAsync(int mesesHaciaAtras) =>
+            Task.FromResult<IReadOnlyList<ConteoPorMesDto>>(Gastos
+                .Where(g => g.Estado == EstadoGastoOperativo.Activo && g.Fecha >= InicioVentana(mesesHaciaAtras))
+                .GroupBy(g => new { g.Fecha.Year, g.Fecha.Month })
+                .Select(g => new ConteoPorMesDto(g.Key.Year, g.Key.Month, g.Count()))
+                .OrderBy(f => f.Anio).ThenBy(f => f.Mes)
+                .ToList());
+
+        public Task<IReadOnlyList<MontoPorProveedorDto>> ObtenerTopProveedoresAsync(int mesesHaciaAtras, int maximo) =>
+            Task.FromResult<IReadOnlyList<MontoPorProveedorDto>>(GastosActivosEnColones(mesesHaciaAtras)
+                .GroupBy(g => g.Proveedor)
+                .Select(g => new MontoPorProveedorDto(g.Key, g.Sum(x => x.MontoSinIva + x.Iva)))
+                .OrderByDescending(f => f.Monto)
+                .Take(maximo)
+                .ToList());
+
+        public Task<(int Activos, int Anulados)> ObtenerConteoPorEstadoAsync(int mesesHaciaAtras)
+        {
+            var ventana = Gastos.Where(g => g.Fecha >= InicioVentana(mesesHaciaAtras)).ToList();
+
+            return Task.FromResult((
+                ventana.Count(g => g.Estado == EstadoGastoOperativo.Activo),
+                ventana.Count(g => g.Estado == EstadoGastoOperativo.Anulado)));
+        }
+
+        private IEnumerable<GastoOperativo> GastosActivosEnColones(int mesesHaciaAtras)
+        {
+            var inicioVentana = InicioVentana(mesesHaciaAtras);
+            return Gastos.Where(g =>
+                g.Estado == EstadoGastoOperativo.Activo &&
+                g.Moneda == TiposMoneda.Colones &&
+                g.Fecha >= inicioVentana);
+        }
+
+        private static DateTime InicioVentana(int mesesHaciaAtras)
+        {
+            var inicioMesActual = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            return inicioMesActual.AddMonths(-(mesesHaciaAtras - 1));
         }
     }
 

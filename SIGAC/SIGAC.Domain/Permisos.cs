@@ -86,6 +86,7 @@ namespace SIGAC.Domain
         public static class Reportes
         {
             public const string VerBeneficiarios = "Reportes.VerBeneficiarios";
+            public const string VerGastos = "Reportes.VerGastos";
         }
 
         // Orden de aparición en el panel: por módulo, y dentro de cada módulo
@@ -131,7 +132,8 @@ namespace SIGAC.Domain
             new Permiso(Seguridad.GestionarUsuarios, ModulosSistema.Seguridad, "Gestionar usuarios, roles y permisos"),
             new Permiso(Seguridad.VerBitacora, ModulosSistema.Seguridad, "Consultar la bitácora de acciones"),
 
-            new Permiso(Reportes.VerBeneficiarios, ModulosSistema.Reportes, "Generar el reporte de beneficiarios atendidos")
+            new Permiso(Reportes.VerBeneficiarios, ModulosSistema.Reportes, "Generar el reporte de beneficiarios atendidos"),
+            new Permiso(Reportes.VerGastos, ModulosSistema.Reportes, "Ver el panorama de gastos operativos")
         };
 
         public static readonly IReadOnlyList<string> Todos =

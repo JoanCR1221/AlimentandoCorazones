@@ -15,13 +15,22 @@ namespace SIGAC.Application.Services
         // exportable de arriba.
         private const int MesesPanoramaPorDefecto = 12;
 
+        // Cuántos proveedores entran en el panorama de gastos. Una lista completa
+        // no cabe en una gráfica de barras legible.
+        private const int TopProveedoresPorDefecto = 5;
+
         private readonly IAsistenciaRepository _asistenciaRepository;
         private readonly IBeneficiariosRepository _beneficiariosRepository;
+        private readonly IGastosRepository _gastosRepository;
 
-        public ReportesService(IAsistenciaRepository asistenciaRepository, IBeneficiariosRepository beneficiariosRepository)
+        public ReportesService(
+            IAsistenciaRepository asistenciaRepository,
+            IBeneficiariosRepository beneficiariosRepository,
+            IGastosRepository gastosRepository)
         {
             _asistenciaRepository = asistenciaRepository;
             _beneficiariosRepository = beneficiariosRepository;
+            _gastosRepository = gastosRepository;
         }
 
         public async Task<ReporteBeneficiariosResultadoDto> GenerarReporteBeneficiariosAsync(FiltrosReporteBeneficiariosDto filtros)
@@ -90,6 +99,34 @@ namespace SIGAC.Application.Services
             catch (Exception ex)
             {
                 throw new Exception("Error al generar el panorama de beneficiarios.", ex);
+            }
+        }
+
+        public async Task<PanoramaGastosDto> ObtenerPanoramaGastosAsync()
+        {
+            try
+            {
+                var montoPorTipo = await _gastosRepository.ObtenerMontoPorTipoAsync(MesesPanoramaPorDefecto);
+                var montoPorFormaPago = await _gastosRepository.ObtenerMontoPorFormaPagoAsync(MesesPanoramaPorDefecto);
+                var montoPorMes = await _gastosRepository.ObtenerMontoPorMesAsync(MesesPanoramaPorDefecto);
+                var cantidadPorMes = await _gastosRepository.ObtenerCantidadPorMesAsync(MesesPanoramaPorDefecto);
+                var topProveedores = await _gastosRepository.ObtenerTopProveedoresAsync(MesesPanoramaPorDefecto, TopProveedoresPorDefecto);
+                var (activos, anulados) = await _gastosRepository.ObtenerConteoPorEstadoAsync(MesesPanoramaPorDefecto);
+
+                return new PanoramaGastosDto
+                {
+                    MontoPorTipo = montoPorTipo,
+                    MontoPorFormaPago = montoPorFormaPago,
+                    MontoPorMes = montoPorMes,
+                    CantidadPorMes = cantidadPorMes,
+                    TopProveedores = topProveedores,
+                    Activos = activos,
+                    Anulados = anulados
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al generar el panorama de gastos operativos.", ex);
             }
         }
     }

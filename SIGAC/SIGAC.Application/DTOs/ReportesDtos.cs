@@ -59,4 +59,29 @@ namespace SIGAC.Application.DTOs.Reportes
         public IReadOnlyList<ConteoPorMesDto> ComidasPorMes { get; set; } = Array.Empty<ConteoPorMesDto>();
         public IReadOnlyList<ConteoPorMesDto> PersonasAtendidasPorMes { get; set; } = Array.Empty<ConteoPorMesDto>();
     }
+
+    // Montos en colones agrupados por una dimensión del gasto. Solo colones:
+    // sumar monedas distintas no tiene sentido (ver ResumenGastosDto). El monto
+    // es MontoSinIva + Iva, igual que el resto del sistema: lo que de verdad
+    // salió de la cuenta.
+    public sealed record MontoPorTipoDto(string TipoGasto, decimal Monto);
+    public sealed record MontoPorFormaPagoDto(string FormaPago, decimal Monto);
+    public sealed record MontoPorMesDto(int Anio, int Mes, decimal Monto);
+    public sealed record MontoPorProveedorDto(string Proveedor, decimal Monto);
+
+    // Cifras del panorama gráfico de Gastos Operativos: mismo criterio que
+    // PanoramaBeneficiariosDto, una ventana fija de meses hacia atrás que no
+    // depende de filtros de pantalla (ver ReportesService.ObtenerPanoramaGastosAsync).
+    // Sugerido por el cliente, sin PBI propio: no reemplaza al reporte exportable
+    // de gastos, que sigue pendiente aparte.
+    public sealed class PanoramaGastosDto
+    {
+        public IReadOnlyList<MontoPorTipoDto> MontoPorTipo { get; set; } = Array.Empty<MontoPorTipoDto>();
+        public IReadOnlyList<MontoPorFormaPagoDto> MontoPorFormaPago { get; set; } = Array.Empty<MontoPorFormaPagoDto>();
+        public IReadOnlyList<MontoPorMesDto> MontoPorMes { get; set; } = Array.Empty<MontoPorMesDto>();
+        public IReadOnlyList<ConteoPorMesDto> CantidadPorMes { get; set; } = Array.Empty<ConteoPorMesDto>();
+        public IReadOnlyList<MontoPorProveedorDto> TopProveedores { get; set; } = Array.Empty<MontoPorProveedorDto>();
+        public int Activos { get; set; }
+        public int Anulados { get; set; }
+    }
 }

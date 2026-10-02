@@ -87,6 +87,7 @@ namespace SIGAC.Components.Shared
 
                 ("/reportes/beneficiarios", new[] { new Miga("Reportes", null) }),
                 ("/reportes/beneficiarios/panorama", new[] { reportes, new Miga("Panorama de beneficiarios", null) }),
+                ("/reportes/gastos/panorama", new[] { reportes, new Miga("Panorama de gastos", null) }),
 
                 ("/usuarios", new[] { new Miga("Seguridad", null) }),
                 ("/usuarios/registrar", new[] { seguridad, new Miga("Registrar usuario", null) }),

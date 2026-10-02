@@ -13,5 +13,10 @@ namespace SIGAC.Application.Interfaces
         // /reportes/beneficiarios/panorama, sobre una ventana fija de meses hacia
         // atrás (no depende de filtros de pantalla, a diferencia del reporte de arriba).
         Task<PanoramaBeneficiariosDto> ObtenerPanoramaBeneficiariosAsync();
+
+        // Panorama gráfico de Gastos Operativos: mismo criterio que el de
+        // Beneficiarios, sobre una ventana fija de meses hacia atrás. Sugerido por
+        // el cliente; no tiene un reporte exportable detrás todavía.
+        Task<PanoramaGastosDto> ObtenerPanoramaGastosAsync();
     }
 }

@@ -1,0 +1,220 @@
+@page "/reportes/gastos/panorama"
+@attribute [Authorize(Policy = Permisos.Reportes.VerGastos)]
+@using MudBlazor.Charts
+@using SIGAC.Application.DTOs.Reportes
+@using SIGAC.Application.Interfaces
+@inject IReportesService ReportesService
+
+<EncabezadoPagina Titulo="Panorama de gastos operativos"
+                  Descripcion="Vea en qué se gasta y cómo ha evolucionado en los últimos 12 meses." />
+
+@* Mismas tarjetas que encabezan /gastos: no hace falta otra consulta, es el
+   mismo componente que ya usa ListadoGastos. *@
+<ResumenGastos />
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        @if (cargando)
+        {
+            <CargandoGrilla />
+        }
+        else if (error)
+        {
+            <EstadoVacio Icono="@Icons.Material.Filled.ErrorOutline"
+                         Titulo="No se pudo cargar el panorama de gastos"
+                         Descripcion="Intente de nuevo en unos momentos." />
+        }
+        else if (NoHayGastos)
+        {
+            <EstadoVacio Icono="@Icons.Material.Filled.ReceiptLong"
+                         Titulo="Todavía no hay gastos registrados"
+                         Descripcion="Las gráficas se llenan a medida que se registran gastos operativos." />
+        }
+        else
+        {
+            @* Mismo patrón de PanoramaBeneficiarios: un desplegable en vez de un
+               listado fijo, y un solo gráfico a la vez. *@
+            <MudGrid Spacing="2" Class="mb-2">
+                <MudItem xs="12" sm="8" md="5">
+                    <MudSelect T="Estadistica" Label="Estadística" Variant="Variant.Outlined"
+                               Value="_seleccionada" ValueChanged="@(v => _seleccionada = v)"
+                               ToStringFunc="@(e => Opciones.First(o => o.Clave == e).Titulo)"
+                               Adornment="Adornment.Start" AdornmentIcon="@IconoSeleccionado"
+                               AdornmentColor="Color.Secondary">
+                        @foreach (var opcion in Opciones)
+                        {
+                            <MudSelectItem T="Estadistica" Value="opcion.Clave">
+                                <MudIcon Icon="@opcion.Icono" Color="Color.Secondary" Size="Size.Small" Class="mr-2" />
+                                @opcion.Titulo
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+
+            @if (_graficas.TryGetValue(_seleccionada, out var grafica))
+            {
+                <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-1">@grafica.Titulo</MudText>
+                @if (grafica.SoloColones)
+                {
+                    <MudText Typo="Typo.caption" Class="mb-2 mud-text-secondary d-block">
+                        Solo gastos en colones: no se pueden sumar montos de monedas distintas.
+                    </MudText>
+                }
+                <MudChart T="double" ChartType="grafica.Tipo" ChartSeries="grafica.Series"
+                          ChartLabels="grafica.Etiquetas" ChartOptions="grafica.Opciones" Width="100%" Height="350px" />
+            }
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private enum Estadistica
+    {
+        PorTipo,
+        PorFormaPago,
+        TendenciaMonto,
+        CantidadPorMes,
+        TopProveedores,
+        ActivosAnulados
+    }
+
+    private sealed record OpcionEstadistica(Estadistica Clave, string Titulo, string Icono);
+
+    private sealed record GraficaVista(string Titulo, ChartType Tipo, List<ChartSeries<double>> Series, string[] Etiquetas, bool SoloColones, IChartOptions? Opciones = null);
+
+    // Datos como lista, igual que PanoramaBeneficiarios y los grupos de NavMenu:
+    // agregar una estadística nueva es una entrada más acá.
+    private static readonly OpcionEstadistica[] Opciones =
+    {
+        new(Estadistica.PorTipo, "Gastos por tipo", Icons.Material.Filled.DonutLarge),
+        new(Estadistica.PorFormaPago, "Gastos por forma de pago", Icons.Material.Filled.DonutLarge),
+        new(Estadistica.TendenciaMonto, "Tendencia del gasto mensual", Icons.Material.Filled.ShowChart),
+        new(Estadistica.CantidadPorMes, "Cantidad de gastos por mes", Icons.Material.Filled.BarChart),
+        new(Estadistica.TopProveedores, "Proveedores con más gasto", Icons.Material.Filled.BarChart),
+        new(Estadistica.ActivosAnulados, "Gastos activos vs. anulados", Icons.Material.Filled.DonutLarge)
+    };
+
+    private static readonly string[] MesesAbreviados =
+        { "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic" };
+
+    // Debe coincidir con ReportesService.MesesPanoramaPorDefecto.
+    private const int MesesPanorama = 12;
+
+    private bool cargando = true;
+    private bool error;
+    private Estadistica _seleccionada = Estadistica.PorTipo;
+    private Dictionary<Estadistica, GraficaVista> _graficas = new();
+
+    private string IconoSeleccionado => Opciones.First(o => o.Clave == _seleccionada).Icono;
+
+    // Sale de las cifras del panorama (conteos, no filas): permite decir
+    // "todavía no hay gastos" sin otra consulta.
+    private bool NoHayGastos { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var panorama = await ReportesService.ObtenerPanoramaGastosAsync();
+            NoHayGastos = panorama is { Activos: 0, Anulados: 0 };
+            _graficas = ArmarGraficas(panorama);
+        }
+        catch (Exception)
+        {
+            error = true;
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private static Dictionary<Estadistica, GraficaVista> ArmarGraficas(PanoramaGastosDto datos)
+    {
+        // MontoPorMes y CantidadPorMes solo traen los meses con al menos un
+        // gasto: se alinean contra una ventana calendario completa para que un
+        // mes sin gastos se vea como cero y no corra las etiquetas del eje X.
+        // Mismo criterio que PanoramaBeneficiarios.
+        var ventana = VentanaMeses();
+        var etiquetasMeses = ventana.Select(m => EtiquetaMes(m.Anio, m.Mes)).ToArray();
+
+        return new Dictionary<Estadistica, GraficaVista>
+        {
+            [Estadistica.PorTipo] = new(
+                "Gastos por tipo",
+                ChartType.Donut,
+                new() { new() { Name = "Gastos", Data = datos.MontoPorTipo.Select(m => (double)m.Monto).ToArray() } },
+                datos.MontoPorTipo.Select(m => m.TipoGasto).ToArray(),
+                SoloColones: true),
+
+            [Estadistica.PorFormaPago] = new(
+                "Gastos por forma de pago",
+                ChartType.Donut,
+                new() { new() { Name = "Gastos", Data = datos.MontoPorFormaPago.Select(m => (double)m.Monto).ToArray() } },
+                datos.MontoPorFormaPago.Select(m => m.FormaPago).ToArray(),
+                SoloColones: true),
+
+            [Estadistica.TendenciaMonto] = new(
+                "Tendencia del gasto mensual",
+                ChartType.Line,
+                new() { new() { Name = "Monto gastado", Data = AlinearMontoPorMes(ventana, datos.MontoPorMes) } },
+                etiquetasMeses,
+                SoloColones: true),
+
+            [Estadistica.CantidadPorMes] = new(
+                "Cantidad de gastos por mes",
+                ChartType.Bar,
+                new() { new() { Name = "Gastos", Data = AlinearPorMes(ventana, datos.CantidadPorMes) } },
+                etiquetasMeses,
+                SoloColones: false),
+
+            [Estadistica.TopProveedores] = new(
+                "Proveedores con más gasto",
+                ChartType.Bar,
+                new() { new() { Name = "Monto gastado", Data = datos.TopProveedores.Select(p => (double)p.Monto).ToArray() } },
+                datos.TopProveedores.Select(p => p.Proveedor).ToArray(),
+                SoloColones: true,
+                // Nombre de proveedor inclinado: sin esto, un nombre largo como
+                // "Liberty Telecomunicaciones de Costa Rica" se monta sobre el de al
+                // lado (las otras gráficas usan meses o nombres de tipo, siempre cortos).
+                // La rotación le resta alto al área del gráfico, y con el paso de
+                // ticks que MudBlazor calcula por defecto para montos en colones
+                // (decenas de miles) terminaban amontonándose: se limita la cantidad.
+                Opciones: new BarChartOptions { XAxisLabelRotation = 45, MaxNumYAxisTicks = 6 }),
+
+            [Estadistica.ActivosAnulados] = new(
+                "Gastos activos vs. anulados",
+                ChartType.Donut,
+                new() { new() { Name = "Gastos", Data = new double[] { datos.Activos, datos.Anulados } } },
+                new[] { "Activos", "Anulados" },
+                SoloColones: false)
+        };
+    }
+
+    // Los MesesPanorama meses calendario hasta el actual, contándolo como el
+    // primero. Mismo criterio que PanoramaBeneficiarios/ReportesService.
+    private static List<(int Anio, int Mes)> VentanaMeses()
+    {
+        var inicio = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).AddMonths(-(MesesPanorama - 1));
+
+        return Enumerable.Range(0, MesesPanorama)
+            .Select(inicio.AddMonths)
+            .Select(f => (f.Year, f.Month))
+            .ToList();
+    }
+
+    private static double[] AlinearPorMes(List<(int Anio, int Mes)> ventana, IReadOnlyList<ConteoPorMesDto> datos)
+    {
+        var porMes = datos.ToDictionary(c => (c.Anio, c.Mes), c => (double)c.Cantidad);
+        return ventana.Select(m => porMes.TryGetValue(m, out var cantidad) ? cantidad : 0.0).ToArray();
+    }
+
+    private static double[] AlinearMontoPorMes(List<(int Anio, int Mes)> ventana, IReadOnlyList<MontoPorMesDto> datos)
+    {
+        var porMes = datos.ToDictionary(c => (c.Anio, c.Mes), c => (double)c.Monto);
+        return ventana.Select(m => porMes.TryGetValue(m, out var monto) ? monto : 0.0).ToArray();
+    }
+
+    private static string EtiquetaMes(int anio, int mes) => $"{MesesAbreviados[mes - 1]} {anio}";
+}
