@@ -36,6 +36,7 @@ namespace SIGAC.Infrastructure.Data
 
         // Módulo de Gastos Operativos
         public DbSet<GastoOperativo> GastosOperativos { get; set; }
+        public DbSet<TipoGasto> TiposGasto { get; set; }
 
         // Módulo de Gestión de Proyectos
         public DbSet<ProyectoComunitario> ProyectosComunitarios { get; set; }
@@ -132,7 +133,7 @@ namespace SIGAC.Infrastructure.Data
                 entity.ToTable("Bitacora", t =>
                 {
                     // Dominios cerrados respaldados en la base, mismo criterio que
-                    // CK_GastosOperativos_Categoria. Rol admite NULL (login fallido).
+                    // CK_GastosOperativos_Moneda. Rol admite NULL (login fallido).
                     t.HasCheckConstraint(
                         "CK_Bitacora_Accion",
                         $"[Accion] IN ('{string.Join("', '", AccionesBitacora.Todas)}')");
@@ -195,7 +196,7 @@ namespace SIGAC.Infrastructure.Data
 
                 // Fecha primero: el listado siempre ordena por fecha descendente y el
                 // rango de fechas es el filtro que más se usa (mismo razonamiento que
-                // IX_GastosOperativos_Fecha_Categoria).
+                // IX_GastosOperativos_Fecha_TipoGasto).
                 entity.HasIndex(b => b.Fecha)
                     .HasDatabaseName("IX_Bitacora_Fecha");
 
@@ -1119,25 +1120,86 @@ namespace SIGAC.Infrastructure.Data
                 entity.HasIndex(d => d.Fecha);
             });
 
+            modelBuilder.Entity<TipoGasto>(entity =>
+            {
+                entity.ToTable("TiposGasto");
+
+                entity.HasKey(t => t.Id);
+
+                entity.Property(t => t.Nombre)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(ReglasGastoOperativo.LongitudMaximaNombreTipo);
+
+                // HasSentinel(true) y no el default de bool (false): con el sentinel
+                // en false, EF Core trataría un Activo = false como "sin valor", lo
+                // omitiría del INSERT y la base pondría su default true, así que
+                // nunca se podría dar de alta un tipo ya inactivo. Con el sentinel en
+                // true lo que se omite es justamente el valor que coincide con el
+                // default, y el false viaja siempre.
+                entity.Property(t => t.Activo)
+                    .IsRequired()
+                    .HasDefaultValue(true)
+                    .HasSentinel(true);
+
+                entity.Property(t => t.GeneraInventario)
+                    .IsRequired()
+                    .HasDefaultValue(false);
+
+                entity.Property(t => t.CuentaContablePorDefecto)
+                    .IsUnicode(false)
+                    .HasMaxLength(ReglasGastoOperativo.LongitudMaximaCuentaContable);
+
+                // Dos tipos con el mismo nombre partirían en dos el mismo subtotal del
+                // reporte. El servicio lo verifica antes (sin distinguir tildes) y
+                // este índice es la red ante dos altas simultáneas.
+                entity.HasIndex(t => t.Nombre)
+                    .IsUnique()
+                    .HasDatabaseName("UX_TiposGasto_Nombre");
+
+                // Los ocho primeros salen de los reportes mensuales de la contadora
+                // (enero a abril 2026). Salarios se agrega porque la asociación tiene
+                // personal remunerado aunque la planilla no aparezca en ese reporte.
+                // Las categorías del catálogo anterior (ServiciosBasicos, Transporte,
+                // CompraInsumos, Viaticos) no se migran: quedan cubiertas por tipos
+                // más específicos, y lo que falte se agrega desde /gastos/tipos.
+                var cuenta = ReglasGastoOperativo.CuentaContablePorDefecto;
+                entity.HasData(
+                    new TipoGasto { Id = 1, Nombre = "Alquiler de Equipo", Activo = true, GeneraInventario = false, CuentaContablePorDefecto = cuenta },
+                    new TipoGasto { Id = 2, Nombre = "Amenidades", Activo = true, GeneraInventario = false, CuentaContablePorDefecto = cuenta },
+                    new TipoGasto { Id = 3, Nombre = "Combustible", Activo = true, GeneraInventario = false, CuentaContablePorDefecto = cuenta },
+                    new TipoGasto { Id = 4, Nombre = "Mantenimiento de Vehículo", Activo = true, GeneraInventario = false, CuentaContablePorDefecto = cuenta },
+                    new TipoGasto { Id = 5, Nombre = "Materiales y Suministros", Activo = true, GeneraInventario = true, CuentaContablePorDefecto = cuenta },
+                    new TipoGasto { Id = 6, Nombre = "Servicio de Agua", Activo = true, GeneraInventario = false, CuentaContablePorDefecto = cuenta },
+                    new TipoGasto { Id = 7, Nombre = "Servicio de Cable, Teléfono e Internet", Activo = true, GeneraInventario = false, CuentaContablePorDefecto = cuenta },
+                    new TipoGasto { Id = 8, Nombre = "Suministros de Cocina", Activo = true, GeneraInventario = true, CuentaContablePorDefecto = cuenta },
+                    new TipoGasto { Id = 9, Nombre = "Salarios", Activo = true, GeneraInventario = false, CuentaContablePorDefecto = cuenta });
+            });
+
             modelBuilder.Entity<GastoOperativo>(entity =>
             {
-                // CHECK a nivel de BD: Categoria es un dominio cerrado (respalda a
-                // CategoriasGastoOperativo) y el monto de un gasto siempre es
-                // positivo, nunca cero ni negativo. Mismo criterio que el CHECK de
-                // Origen en EntradasInventario y el de Cantidad en Articulos.
+                // CHECK a nivel de BD, mismo criterio que el CHECK de Origen en
+                // EntradasInventario y el de Cantidad en Articulos: el monto neto de
+                // un gasto siempre es positivo, el IVA nunca es negativo (sí puede
+                // ser 0, como en varias líneas del reporte) y Moneda, FormaPago y
+                // Estado son dominios cerrados.
                 entity.ToTable("GastosOperativos", t =>
                 {
                     t.HasCheckConstraint(
-                        "CK_GastosOperativos_Categoria",
-                        $"[Categoria] IN ('{string.Join("', '", CategoriasGastoOperativo.Todos)}')");
+                        "CK_GastosOperativos_MontoSinIva",
+                        "[MontoSinIva] > 0");
 
                     t.HasCheckConstraint(
-                        "CK_GastosOperativos_Monto",
-                        "[Monto] > 0");
+                        "CK_GastosOperativos_Iva",
+                        "[Iva] >= 0");
 
                     t.HasCheckConstraint(
                         "CK_GastosOperativos_Moneda",
                         $"[Moneda] IN ('{string.Join("', '", TiposMoneda.Todos)}')");
+
+                    t.HasCheckConstraint(
+                        "CK_GastosOperativos_FormaPago",
+                        $"[FormaPago] IN ('{string.Join("', '", FormasPago.Todos)}')");
 
                     // Estado también es un dominio cerrado guardado como texto, igual
                     // que en SolicitudesPrestamo: sin el CHECK la columna aceptaría
@@ -1158,25 +1220,64 @@ namespace SIGAC.Infrastructure.Data
 
                 entity.HasKey(g => g.Id);
 
+                // FK obligatoria al tipo de gasto. Restrict, igual que el resto de las
+                // FK del proyecto: un tipo con gastos registrados no se borra, se
+                // desactiva (TipoGasto.Activo) y sigue mostrándose en esos gastos.
+                entity.HasOne(g => g.TipoGasto)
+                    .WithMany()
+                    .HasForeignKey(g => g.TipoGastoId)
+                    .IsRequired()
+                    .OnDelete(DeleteBehavior.Restrict);
+
                 // Convención del proyecto: VARCHAR en lugar de NVARCHAR (IsUnicode(false)).
-                entity.Property(g => g.Categoria)
+                entity.Property(g => g.Proveedor)
                     .IsRequired()
                     .IsUnicode(false)
-                    .HasMaxLength(30);
+                    .HasMaxLength(ReglasGastoOperativo.LongitudMaximaProveedor);
 
-                entity.Property(g => g.Monto)
+                entity.Property(g => g.NumeroFactura)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(ReglasGastoOperativo.LongitudMaximaNumeroFactura);
+
+                entity.Property(g => g.MontoSinIva)
                     .IsRequired()
                     .HasPrecision(18, 2);
 
+                entity.Property(g => g.Iva)
+                    .IsRequired()
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0m);
+
                 // Con valor por defecto 'Colones', mismo motivo que en DonacionDinero:
-                // todo gasto registrado antes de este campo se pagó en colones (la
-                // única moneda que manejaba el sistema hasta ahora, de ahí el símbolo
-                // ₡ fijo que traían los formularios).
+                // es la moneda en que se paga casi todo.
                 entity.Property(g => g.Moneda)
                     .IsRequired()
                     .IsUnicode(false)
                     .HasMaxLength(20)
                     .HasDefaultValue(TiposMoneda.Colones);
+
+                entity.Property(g => g.FormaPago)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(ReglasGastoOperativo.LongitudMaximaFormaPago)
+                    .HasDefaultValue(FormasPago.Contado);
+
+                entity.Property(g => g.NumeroCheque)
+                    .IsUnicode(false)
+                    .HasMaxLength(ReglasGastoOperativo.LongitudMaximaNumeroCheque);
+
+                entity.Property(g => g.CuentaContable)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(ReglasGastoOperativo.LongitudMaximaCuentaContable)
+                    .HasDefaultValue(ReglasGastoOperativo.CuentaContablePorDefecto);
+
+                entity.Property(g => g.DescripcionCuenta)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(ReglasGastoOperativo.LongitudMaximaDescripcionCuenta)
+                    .HasDefaultValue(ReglasGastoOperativo.DescripcionCuentaPorDefecto);
 
                 // datetime2 y no "date", por lo mismo que en EntradasInventario: el
                 // listado ordena entre sí varios gastos del mismo día.
@@ -1186,12 +1287,12 @@ namespace SIGAC.Infrastructure.Data
                 entity.Property(g => g.Descripcion)
                     .IsRequired()
                     .IsUnicode(false)
-                    .HasMaxLength(500);
+                    .HasMaxLength(ReglasGastoOperativo.LongitudMaximaDescripcion);
 
                 entity.Property(g => g.Responsable)
                     .IsRequired()
                     .IsUnicode(false)
-                    .HasMaxLength(150);
+                    .HasMaxLength(ReglasGastoOperativo.LongitudMaximaResponsable);
 
                 // Enum como texto y no como int, igual que Estado en SolicitudesPrestamo:
                 // la columna se entiende leyendo la tabla, el CHECK de arriba puede
@@ -1209,15 +1310,22 @@ namespace SIGAC.Infrastructure.Data
                 // Solo se llena cuando el gasto se anula.
                 entity.Property(g => g.MotivoAnulacion)
                     .IsUnicode(false)
-                    .HasMaxLength(500);
+                    .HasMaxLength(ReglasGastoOperativo.LongitudMaximaMotivoAnulacion);
 
-                // Compuesto (Fecha, Categoria) y no al revés: el listado siempre ordena
-                // por fecha descendente y el filtro de rango de fechas es el que más se
-                // usa, mientras que el de categoría es opcional (AB#2549). Con Fecha
+                // Compuesto (Fecha, TipoGastoId) y no al revés: el listado siempre
+                // ordena por fecha descendente y el filtro de rango de fechas es el que
+                // más se usa, mientras que el de tipo es opcional (AB#2549). Con Fecha
                 // primero, el índice sirve tanto al filtro de rango solo como al
-                // combinado; empezando por Categoria no serviría al primero.
-                entity.HasIndex(g => new { g.Fecha, g.Categoria })
-                    .HasDatabaseName("IX_GastosOperativos_Fecha_Categoria");
+                // combinado, y también al reporte mensual, que filtra por mes y agrupa
+                // por tipo.
+                entity.HasIndex(g => new { g.Fecha, g.TipoGastoId })
+                    .HasDatabaseName("IX_GastosOperativos_Fecha_TipoGasto");
+
+                // Índice de la FK: el compuesto de arriba empieza por Fecha y no la
+                // cubre. Lo usa la verificación de Restrict al intentar borrar un tipo.
+                // Declararlo le fija el nombre, igual que IX_EntradasInventario_Donante.
+                entity.HasIndex(g => g.TipoGastoId)
+                    .HasDatabaseName("IX_GastosOperativos_TipoGasto");
             });
 
             modelBuilder.Entity<ProyectoComunitario>(entity =>

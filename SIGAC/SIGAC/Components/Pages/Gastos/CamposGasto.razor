@@ -1,0 +1,116 @@
+@using SIGAC.Application.DTOs.Gastos
+@using SIGAC.Application.Interfaces
+@inject IGastosService GastosService
+@* Campos del gasto operativo, compartidos por RegistrarGasto y EditarGasto para
+   que las dos pantallas no puedan divergir en límites, ayudas ni catálogos. Va
+   dentro del EditForm de cada pantalla, que pone el validador, el botón Guardar
+   y el manejo de errores. Mismo esquema que CamposBeneficiario.
+
+   El orden sigue las columnas del reporte de la contadora (tipo, proveedor,
+   factura, día, monto, IVA, cheque, cuenta), para que cargar una factura sea
+   leerla de izquierda a derecha. *@
+
+<MudSelect T="int" Value="Modelo.TipoGastoId" ValueChanged="OnTipoGastoCambiado" For="@(() => Modelo.TipoGastoId)"
+           Label="Tipo de gasto" Variant="Variant.Outlined"
+           ToStringFunc="@(id => Tipos.FirstOrDefault(t => t.Id == id)?.Nombre ?? string.Empty)">
+    @foreach (var tipo in Tipos)
+    {
+        <MudSelectItem T="int" Value="@tipo.Id">@tipo.Nombre@(tipo.Activo ? string.Empty : " (inactivo)")</MudSelectItem>
+    }
+</MudSelect>
+
+@* CoerceValue="true": permite confirmar un proveedor que todavía no está en la
+   lista, que es como se da de alta uno nuevo. MinCharacters="1" y el debounce,
+   por lo mismo que en RegistrarEntradaInventario: sin texto no se despliega la
+   lista entera al recibir el foco, y no se consulta por cada tecla. *@
+<MudAutocomplete T="string" Label="Proveedor" Variant="Variant.Outlined" Class="mt-4"
+                 @bind-Value="Modelo.Proveedor" For="@(() => Modelo.Proveedor)"
+                 SearchFunc="BuscarProveedoresAsync" CoerceText="false" CoerceValue="true"
+                 MinCharacters="1" DebounceInterval="300"
+                 MaxLength="ReglasGastoOperativo.LongitudMaximaProveedor"
+                 HelperText="Escriba para buscar un proveedor ya usado, o ingrese uno nuevo." />
+
+<MudTextField @bind-Value="Modelo.NumeroFactura" For="@(() => Modelo.NumeroFactura)" Label="Número de factura" Variant="Variant.Outlined" Class="mt-4"
+              MaxLength="ReglasGastoOperativo.LongitudMaximaNumeroFactura" />
+
+<MudDatePicker @bind-Date="Fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
+
+@* Va antes que los montos para que el símbolo de esas cajas ya esté correcto
+   cuando la persona empieza a escribir. *@
+<MudSelect T="string" @bind-Value="Modelo.Moneda" For="@(() => Modelo.Moneda)" Label="Moneda" Variant="Variant.Outlined" Class="mt-4">
+    @foreach (var moneda in TiposMoneda.Todos)
+    {
+        <MudSelectItem T="string" Value="@moneda">@moneda</MudSelectItem>
+    }
+</MudSelect>
+
+<MudNumericField T="decimal" @bind-Value="Modelo.MontoSinIva" For="@(() => Modelo.MontoSinIva)" Label="Monto sin IVA" Variant="Variant.Outlined" Class="mt-4"
+                 Min="0.01m" Format="N2" Adornment="Adornment.Start" AdornmentText="@TiposMoneda.Simbolo(Modelo.Moneda)" />
+
+<MudNumericField T="decimal" @bind-Value="Modelo.Iva" For="@(() => Modelo.Iva)" Label="IVA" Variant="Variant.Outlined" Class="mt-4"
+                 Min="0m" Format="N2" Adornment="Adornment.Start" AdornmentText="@TiposMoneda.Simbolo(Modelo.Moneda)"
+                 HelperText="Deje 0 si la factura no trae IVA." />
+
+<MudText Typo="Typo.body2" Class="mt-2">
+    Total pagado: @TiposMoneda.Simbolo(Modelo.Moneda) @((Modelo.MontoSinIva + Modelo.Iva).ToString("N2"))
+</MudText>
+
+<MudSelect T="string" @bind-Value="Modelo.FormaPago" For="@(() => Modelo.FormaPago)" Label="Forma de pago" Variant="Variant.Outlined" Class="mt-4">
+    @foreach (var forma in FormasPago.Todos)
+    {
+        <MudSelectItem T="string" Value="@forma">@forma</MudSelectItem>
+    }
+</MudSelect>
+
+<MudTextField @bind-Value="Modelo.NumeroCheque" Label="Número de cheque (opcional)" Variant="Variant.Outlined" Class="mt-4"
+              MaxLength="ReglasGastoOperativo.LongitudMaximaNumeroCheque" />
+
+@* Precargados con los valores que traen todas las líneas del reporte; quedan
+   editables por si la contadora indica otra cuenta. *@
+<MudTextField @bind-Value="Modelo.CuentaContable" For="@(() => Modelo.CuentaContable)" Label="Cuenta contable" Variant="Variant.Outlined" Class="mt-4"
+              MaxLength="ReglasGastoOperativo.LongitudMaximaCuentaContable" />
+
+<MudTextField @bind-Value="Modelo.DescripcionCuenta" For="@(() => Modelo.DescripcionCuenta)" Label="Descripción de cuenta" Variant="Variant.Outlined" Class="mt-4"
+              MaxLength="ReglasGastoOperativo.LongitudMaximaDescripcionCuenta" />
+
+<MudTextField @bind-Value="Modelo.Descripcion" For="@(() => Modelo.Descripcion)" Label="Descripción" Variant="Variant.Outlined" Class="mt-4" Lines="2"
+              MaxLength="ReglasGastoOperativo.LongitudMaximaDescripcion" />
+
+<MudTextField @bind-Value="Modelo.Responsable" For="@(() => Modelo.Responsable)" Label="Responsable" Variant="Variant.Outlined" Class="mt-4"
+              MaxLength="ReglasGastoOperativo.LongitudMaximaResponsable" />
+
+@code {
+    [Parameter, EditorRequired]
+    public IDatosGastoOperativo Modelo { get; set; } = default!;
+
+    // Los carga la pantalla: al registrar son los activos; al editar, los activos
+    // más el tipo que el gasto ya tiene aunque esté inactivo.
+    [Parameter, EditorRequired]
+    public IReadOnlyList<TipoGastoDto> Tipos { get; set; } = Array.Empty<TipoGastoDto>();
+
+    private DateTime? Fecha
+    {
+        get => Modelo.Fecha == default ? null : Modelo.Fecha;
+        set => Modelo.Fecha = value ?? default;
+    }
+
+    // Al elegir un tipo con cuenta propia, la cuenta del gasto pasa a ser esa.
+    // Solo al CAMBIAR de tipo: abrir un gasto para editarlo no toca la cuenta que
+    // ya tiene guardada.
+    private void OnTipoGastoCambiado(int tipoGastoId)
+    {
+        Modelo.TipoGastoId = tipoGastoId;
+
+        var cuenta = Tipos.FirstOrDefault(t => t.Id == tipoGastoId)?.CuentaContablePorDefecto;
+        if (!string.IsNullOrWhiteSpace(cuenta))
+            Modelo.CuentaContable = cuenta;
+    }
+
+    private async Task<IEnumerable<string>> BuscarProveedoresAsync(string valor, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(valor))
+            return Array.Empty<string>();
+
+        return await GastosService.BuscarProveedoresAsync(valor);
+    }
+}

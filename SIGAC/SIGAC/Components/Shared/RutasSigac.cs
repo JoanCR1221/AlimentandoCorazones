@@ -69,6 +69,7 @@ namespace SIGAC.Components.Shared
                 ("/gastos", new[] { new Miga("Gastos Operativos", null) }),
                 ("/gastos/registrar", new[] { gastos, new Miga("Registrar gasto", null) }),
                 ("/gastos/editar/{id}", new[] { gastos, new Miga("Editar gasto", null) }),
+                ("/gastos/tipos", new[] { gastos, new Miga("Tipos de gasto", null) }),
 
                 ("/inventario/existencias", new[] { new Miga("Inventario", null) }),
                 ("/inventario/entradas/registrar", new[] { inventario, new Miga("Registrar entrada", null) }),

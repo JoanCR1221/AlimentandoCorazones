@@ -3,7 +3,7 @@ namespace SIGAC.Domain
     // Módulos del sistema tal como los ve el usuario: agrupan los permisos en el
     // panel de gestión (Permisos.Definiciones) y etiquetan cada fila de la bitácora
     // (columna Modulo, respaldada por CK_Bitacora_Modulo). Lista cerrada, mismo
-    // criterio que CategoriasGastoOperativo: agregar un módulo acá exige una
+    // criterio que TiposMoneda: agregar un módulo acá exige una
     // migración que reescriba ese CHECK.
     public static class ModulosSistema
     {

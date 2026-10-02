@@ -7,60 +7,55 @@ namespace SIGAC.Application.Validators
     // Datos de un gasto ya validados y normalizados, listos para persistir.
     // El servicio solo los copia a la entidad: no vuelve a limpiar ni a decidir nada.
     public sealed record GastoOperativoValidado(
-        string Categoria,
-        decimal Monto,
-        string Moneda,
+        int TipoGastoId,
+        string Proveedor,
+        string NumeroFactura,
         DateTime Fecha,
+        decimal MontoSinIva,
+        decimal Iva,
+        string Moneda,
+        string FormaPago,
+        string? NumeroCheque,
+        string CuentaContable,
+        string DescripcionCuenta,
         string Descripcion,
         string Responsable);
 
     // Toda la validación y normalización de entrada del gasto, centralizada por
     // el mismo motivo que ArticuloValidator y BeneficiarioValidator.
     //
-    // Los largos máximos coinciden exactamente con las columnas reales de
-    // GastosOperativos (AB#2489/2491/2494, ya entregada): Descripcion
-    // varchar(500), Responsable varchar(150) y MotivoAnulacion varchar(500).
-    // Si cambia una columna, hay que mover también la constante de acá: de lo
-    // contrario el texto se corta o revienta recién al guardar.
+    // Los largos máximos salen de ReglasGastoOperativo, la misma fuente que usa
+    // SigacDbContext para las columnas: no pueden desalinearse.
+    //
+    // Que el tipo de gasto exista y esté activo NO se valida acá: hace falta la
+    // base, y este validador es puro. Lo resuelve GastosService.
     public static class GastoOperativoValidator
     {
-        public const int LongitudMaximaDescripcion = 500;
-        public const int LongitudMaximaResponsable = 150;
-        public const int LongitudMaximaMotivoAnulacion = 500;
+        // Recibe el DTO y no los campos sueltos: con trece valores, varios del
+        // mismo tipo (string), una lista de parámetros posicionales permitía
+        // cruzar dos argumentos sin que el compilador lo notara.
+        public static GastoOperativoValidado Validar(IDatosGastoOperativo dto) =>
+            new(
+                ValidarTipoGastoId(dto.TipoGastoId),
+                ValidarTextoObligatorio(dto.Proveedor, "El proveedor", "El proveedor es obligatorio.", ReglasGastoOperativo.LongitudMaximaProveedor),
+                ValidarTextoObligatorio(dto.NumeroFactura, "El número de factura", "El número de factura es obligatorio.", ReglasGastoOperativo.LongitudMaximaNumeroFactura),
+                ValidarFecha(dto.Fecha),
+                ValidarMontoSinIva(dto.MontoSinIva),
+                ValidarIva(dto.Iva),
+                ValidarMoneda(dto.Moneda),
+                ValidarFormaPago(dto.FormaPago),
+                ValidarNumeroCheque(dto.NumeroCheque),
+                ValidarTextoObligatorio(dto.CuentaContable, "La cuenta contable", "La cuenta contable es obligatoria.", ReglasGastoOperativo.LongitudMaximaCuentaContable),
+                ValidarTextoObligatorio(dto.DescripcionCuenta, "La descripción de cuenta", "La descripción de cuenta es obligatoria.", ReglasGastoOperativo.LongitudMaximaDescripcionCuenta),
+                ValidarTextoObligatorio(dto.Descripcion, "La descripción", "La descripción es obligatoria.", ReglasGastoOperativo.LongitudMaximaDescripcion),
+                ValidarTextoObligatorio(dto.Responsable, "El responsable", "El responsable es obligatorio.", ReglasGastoOperativo.LongitudMaximaResponsable));
 
-        public static GastoOperativoValidado Validar(GastoOperativoCrearDto dto) =>
-            Validar(dto.Categoria, dto.Monto, dto.Moneda, dto.Fecha, dto.Descripcion, dto.Responsable);
-
-        public static GastoOperativoValidado Validar(GastoOperativoEditarDto dto) =>
-            Validar(dto.Categoria, dto.Monto, dto.Moneda, dto.Fecha, dto.Descripcion, dto.Responsable);
-
-        private static GastoOperativoValidado Validar(
-            string? categoria, decimal monto, string? moneda, DateTime fecha, string? descripcion, string? responsable)
+        public static int ValidarTipoGastoId(int tipoGastoId)
         {
-            return new GastoOperativoValidado(
-                ValidarCategoria(categoria),
-                ValidarMonto(monto),
-                ValidarMoneda(moneda),
-                ValidarFecha(fecha),
-                ValidarDescripcion(descripcion),
-                ValidarResponsable(responsable));
-        }
+            if (tipoGastoId <= 0)
+                throw new ValidationException("El tipo de gasto es obligatorio.");
 
-        public static string ValidarCategoria(string? categoria)
-        {
-            var normalizada = TextoNormalizador.CompactarEspacios(categoria);
-
-            if (normalizada.Length == 0)
-                throw new ValidationException("La categoría es obligatoria.");
-
-            if (!CategoriasGastoOperativo.EsValido(normalizada))
-            {
-                throw new ValidationException(
-                    $"La categoría '{normalizada}' no es válida. " +
-                    $"Categorías válidas: {string.Join(", ", CategoriasGastoOperativo.Todos)}.");
-            }
-
-            return normalizada;
+            return tipoGastoId;
         }
 
         // Se elige de una lista en la pantalla, no se teclea, pero se comprueba
@@ -83,12 +78,57 @@ namespace SIGAC.Application.Validators
             return normalizada;
         }
 
-        public static decimal ValidarMonto(decimal monto)
+        public static string ValidarFormaPago(string? formaPago)
         {
-            if (monto <= 0)
-                throw new ValidationException("El monto debe ser mayor a 0.");
+            var normalizada = TextoNormalizador.CompactarEspacios(formaPago);
 
-            return monto;
+            if (normalizada.Length == 0)
+                throw new ValidationException("La forma de pago es obligatoria.");
+
+            if (!FormasPago.EsValido(normalizada))
+            {
+                throw new ValidationException(
+                    $"La forma de pago '{normalizada}' no es válida. " +
+                    $"Valores válidos: {string.Join(", ", FormasPago.Todos)}.");
+            }
+
+            return normalizada;
+        }
+
+        // Neto sin IVA: la columna MONTO del reporte de la contadora.
+        public static decimal ValidarMontoSinIva(decimal montoSinIva)
+        {
+            if (montoSinIva <= 0)
+                throw new ValidationException("El monto sin IVA debe ser mayor a 0.");
+
+            return montoSinIva;
+        }
+
+        // 0 es válido: varias líneas del reporte vienen sin IVA.
+        public static decimal ValidarIva(decimal iva)
+        {
+            if (iva < 0)
+                throw new ValidationException("El IVA no puede ser negativo.");
+
+            return iva;
+        }
+
+        // TODO: confirmar con la contadora cuándo es obligatorio el número de
+        // cheque. Se pensó en exigirlo para pagos a crédito, pero en el reporte
+        // el cheque aparece en pagos de contado hechos por banco, así que por
+        // ahora es opcional siempre. Vacío se guarda como NULL.
+        public static string? ValidarNumeroCheque(string? numeroCheque)
+        {
+            var normalizado = TextoNormalizador.CompactarEspacios(numeroCheque);
+
+            if (normalizado.Length == 0)
+                return null;
+
+            if (normalizado.Length > ReglasGastoOperativo.LongitudMaximaNumeroCheque)
+                throw new ValidationException(
+                    $"El número de cheque no puede superar los {ReglasGastoOperativo.LongitudMaximaNumeroCheque} caracteres.");
+
+            return normalizado;
         }
 
         // Igual que la fecha de una entrada de inventario: el gasto registra algo
@@ -104,44 +144,22 @@ namespace SIGAC.Application.Validators
             return fecha.Date;
         }
 
-        public static string ValidarDescripcion(string? descripcion)
+        public static string ValidarMotivoAnulacion(string? motivo) =>
+            ValidarTextoObligatorio(motivo, "El motivo de anulación", "El motivo de anulación es obligatorio.", ReglasGastoOperativo.LongitudMaximaMotivoAnulacion);
+
+        // Compacta espacios (también en el proveedor: así "Coopeagua  R.L." y
+        // "Coopeagua R.L." quedan iguales y el autocompletado no los ofrece dos
+        // veces), exige que no quede vacío y que entre en la columna. El mensaje
+        // de obligatorio llega armado porque el género cambia según el campo.
+        private static string ValidarTextoObligatorio(string? valor, string campo, string mensajeObligatorio, int longitudMaxima)
         {
-            var normalizada = TextoNormalizador.CompactarEspacios(descripcion);
-
-            if (normalizada.Length == 0)
-                throw new ValidationException("La descripción es obligatoria.");
-
-            if (normalizada.Length > LongitudMaximaDescripcion)
-                throw new ValidationException(
-                    $"La descripción no puede superar los {LongitudMaximaDescripcion} caracteres.");
-
-            return normalizada;
-        }
-
-        public static string ValidarResponsable(string? responsable)
-        {
-            var normalizado = TextoNormalizador.CompactarEspacios(responsable);
+            var normalizado = TextoNormalizador.CompactarEspacios(valor);
 
             if (normalizado.Length == 0)
-                throw new ValidationException("El responsable es obligatorio.");
+                throw new ValidationException(mensajeObligatorio);
 
-            if (normalizado.Length > LongitudMaximaResponsable)
-                throw new ValidationException(
-                    $"El responsable no puede superar los {LongitudMaximaResponsable} caracteres.");
-
-            return normalizado;
-        }
-
-        public static string ValidarMotivoAnulacion(string? motivo)
-        {
-            var normalizado = TextoNormalizador.CompactarEspacios(motivo);
-
-            if (normalizado.Length == 0)
-                throw new ValidationException("El motivo de anulación es obligatorio.");
-
-            if (normalizado.Length > LongitudMaximaMotivoAnulacion)
-                throw new ValidationException(
-                    $"El motivo de anulación no puede superar los {LongitudMaximaMotivoAnulacion} caracteres.");
+            if (normalizado.Length > longitudMaxima)
+                throw new ValidationException($"{campo} no puede superar los {longitudMaxima} caracteres.");
 
             return normalizado;
         }
