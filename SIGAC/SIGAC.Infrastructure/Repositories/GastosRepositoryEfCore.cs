@@ -1,7 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SIGAC.Application.DTOs.Gastos;
+using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
+using SIGAC.Domain;
 using SIGAC.Domain.Entities;
 using SIGAC.Infrastructure.Data;
 
@@ -254,6 +256,145 @@ namespace SIGAC.Infrastructure.Repositories
             }
 
             await transaccion.CommitAsync();
+        }
+
+        public async Task<IReadOnlyList<MontoPorTipoDto>> ObtenerMontoPorTipoAsync(int mesesHaciaAtras)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            var inicioVentana = InicioVentana(mesesHaciaAtras);
+
+            var filas = await GastosActivosEnColones(context, inicioVentana)
+                .GroupBy(g => g.TipoGasto!.Nombre)
+                .Select(g => new { Tipo = g.Key, Monto = g.Sum(x => x.MontoSinIva + x.Iva) })
+                .OrderByDescending(f => f.Monto)
+                .ToListAsync();
+
+            return filas.Select(f => new MontoPorTipoDto(f.Tipo, f.Monto)).ToList();
+        }
+
+        public async Task<IReadOnlyList<MontoPorFormaPagoDto>> ObtenerMontoPorFormaPagoAsync(int mesesHaciaAtras)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            var inicioVentana = InicioVentana(mesesHaciaAtras);
+
+            var filas = await GastosActivosEnColones(context, inicioVentana)
+                .GroupBy(g => g.FormaPago)
+                .Select(g => new { Forma = g.Key, Monto = g.Sum(x => x.MontoSinIva + x.Iva) })
+                .ToListAsync();
+
+            return filas.Select(f => new MontoPorFormaPagoDto(f.Forma, f.Monto)).ToList();
+        }
+
+        public async Task<IReadOnlyList<MontoPorMesDto>> ObtenerMontoPorMesAsync(int mesesHaciaAtras)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            var inicioVentana = InicioVentana(mesesHaciaAtras);
+
+            // Tipo anónimo y no el record directo: EF Core no traduce un GroupBy +
+            // Select a un constructor posicional seguido de OrderBy (ver
+            // BeneficiariosRepositoryEfCore.ObtenerAltasPorMesAsync).
+            var filas = await GastosActivosEnColones(context, inicioVentana)
+                .GroupBy(g => new { g.Fecha.Year, g.Fecha.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Monto = g.Sum(x => x.MontoSinIva + x.Iva) })
+                .OrderBy(f => f.Year).ThenBy(f => f.Month)
+                .ToListAsync();
+
+            return filas.Select(f => new MontoPorMesDto(f.Year, f.Month, f.Monto)).ToList();
+        }
+
+        public async Task<IReadOnlyList<ConteoPorMesDto>> ObtenerCantidadPorMesAsync(int mesesHaciaAtras)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            var inicioVentana = InicioVentana(mesesHaciaAtras);
+
+            // Todas las monedas: es un conteo de gastos, no una suma de montos.
+            var filas = await context.GastosOperativos
+                .AsNoTracking()
+                .Where(g => g.Estado == EstadoGastoOperativo.Activo && g.Fecha >= inicioVentana)
+                .GroupBy(g => new { g.Fecha.Year, g.Fecha.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Cantidad = g.Count() })
+                .OrderBy(f => f.Year).ThenBy(f => f.Month)
+                .ToListAsync();
+
+            return filas.Select(f => new ConteoPorMesDto(f.Year, f.Month, f.Cantidad)).ToList();
+        }
+
+        public async Task<IReadOnlyList<MontoPorProveedorDto>> ObtenerTopProveedoresAsync(int mesesHaciaAtras, int maximo)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            var inicioVentana = InicioVentana(mesesHaciaAtras);
+
+            var filas = await GastosActivosEnColones(context, inicioVentana)
+                .GroupBy(g => g.Proveedor)
+                .Select(g => new { Proveedor = g.Key, Monto = g.Sum(x => x.MontoSinIva + x.Iva) })
+                .OrderByDescending(f => f.Monto)
+                .Take(maximo)
+                .ToListAsync();
+
+            return filas.Select(f => new MontoPorProveedorDto(f.Proveedor, f.Monto)).ToList();
+        }
+
+        public async Task<(int Activos, int Anulados)> ObtenerConteoPorEstadoAsync(int mesesHaciaAtras)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            var inicioVentana = InicioVentana(mesesHaciaAtras);
+
+            // Los dos estados a propósito, a diferencia del resto de métodos de este
+            // panorama: acá el objetivo es contar cuántos gastos se anularon, no
+            // descartarlos.
+            var resumen = await context.GastosOperativos
+                .AsNoTracking()
+                .Where(g => g.Fecha >= inicioVentana)
+                .GroupBy(_ => 1)
+                .Select(g => new
+                {
+                    Activos = g.Count(x => x.Estado == EstadoGastoOperativo.Activo),
+                    Anulados = g.Count(x => x.Estado == EstadoGastoOperativo.Anulado)
+                })
+                .FirstOrDefaultAsync();
+
+            return (resumen?.Activos ?? 0, resumen?.Anulados ?? 0);
+        }
+
+        public async Task<IEnumerable<GastoOperativo>> ObtenerParaReporteAsync(int mes, int anio, string formaPago)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            var inicioMes = new DateTime(anio, mes, 1);
+            var inicioMesSiguiente = inicioMes.AddMonths(1);
+
+            // Solo colones: el reporte suma Monto e Iva por grupo y en el gran
+            // total, y mezclar monedas distintas en esa suma no tiene sentido
+            // (mismo criterio que el panorama gráfico). Los gastos en otra moneda
+            // quedan fuera del reporte, no del sistema.
+            return await context.GastosOperativos
+                .AsNoTracking()
+                .Include(g => g.TipoGasto)
+                .Where(g => g.Estado == EstadoGastoOperativo.Activo
+                    && g.FormaPago == formaPago
+                    && g.Moneda == TiposMoneda.Colones
+                    && g.Fecha >= inicioMes
+                    && g.Fecha < inicioMesSiguiente)
+                .ToListAsync();
+        }
+
+        // Base común de las consultas de monto del panorama: solo gastos activos
+        // y en colones, de la ventana de meses indicada. Solo colones porque sumar
+        // monedas distintas no tiene sentido (ver ResumenGastosDto).
+        private static IQueryable<GastoOperativo> GastosActivosEnColones(SigacDbContext context, DateTime inicioVentana) =>
+            context.GastosOperativos
+                .AsNoTracking()
+                .Where(g => g.Estado == EstadoGastoOperativo.Activo
+                    && g.Moneda == TiposMoneda.Colones
+                    && g.Fecha >= inicioVentana);
+
+        // Primer día del mes que queda mesesHaciaAtras meses atrás, contando el mes
+        // actual como el primero. Mismo criterio que BeneficiariosRepositoryEfCore
+        // y AsistenciaRepositoryEfCore.
+        private static DateTime InicioVentana(int mesesHaciaAtras)
+        {
+            var inicioMesActual = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            return inicioMesActual.AddMonths(-(mesesHaciaAtras - 1));
         }
     }
 }

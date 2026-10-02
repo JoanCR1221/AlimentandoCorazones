@@ -231,7 +231,7 @@
         </MudItem>
     }
 
-    @if (Tiene(Permisos.Reportes.VerBeneficiarios))
+    @if (Tiene(Permisos.Reportes.VerBeneficiarios) || Tiene(Permisos.Reportes.VerGastos))
     {
         <MudItem xs="12" sm="6" md="4">
             <MudCard Class="pa-4 ac-card-modulo">
@@ -241,9 +241,24 @@
                     <MudText Typo="Typo.body2" Class="mud-text-secondary">
                         Genere reportes institucionales para mostrar ante donantes y autoridades.
                     </MudText>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/reportes/beneficiarios" Class="mt-2">
-                        Beneficiarios atendidos
-                    </MudButton>
+                    @if (Tiene(Permisos.Reportes.VerBeneficiarios))
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/reportes/beneficiarios" Class="mt-2">
+                            Beneficiarios atendidos
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/reportes/beneficiarios/panorama">
+                            Panorama de beneficiarios
+                        </MudButton>
+                    }
+                    @if (Tiene(Permisos.Reportes.VerGastos))
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/reportes/gastos">
+                            Gastos operativos
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/reportes/gastos/panorama">
+                            Panorama de gastos
+                        </MudButton>
+                    }
                 </MudStack>
             </MudCard>
         </MudItem>

@@ -15,13 +15,22 @@ namespace SIGAC.Application.Services
         // exportable de arriba.
         private const int MesesPanoramaPorDefecto = 12;
 
+        // Cuántos proveedores entran en el panorama de gastos. Una lista completa
+        // no cabe en una gráfica de barras legible.
+        private const int TopProveedoresPorDefecto = 5;
+
         private readonly IAsistenciaRepository _asistenciaRepository;
         private readonly IBeneficiariosRepository _beneficiariosRepository;
+        private readonly IGastosRepository _gastosRepository;
 
-        public ReportesService(IAsistenciaRepository asistenciaRepository, IBeneficiariosRepository beneficiariosRepository)
+        public ReportesService(
+            IAsistenciaRepository asistenciaRepository,
+            IBeneficiariosRepository beneficiariosRepository,
+            IGastosRepository gastosRepository)
         {
             _asistenciaRepository = asistenciaRepository;
             _beneficiariosRepository = beneficiariosRepository;
+            _gastosRepository = gastosRepository;
         }
 
         public async Task<ReporteBeneficiariosResultadoDto> GenerarReporteBeneficiariosAsync(FiltrosReporteBeneficiariosDto filtros)
@@ -90,6 +99,79 @@ namespace SIGAC.Application.Services
             catch (Exception ex)
             {
                 throw new Exception("Error al generar el panorama de beneficiarios.", ex);
+            }
+        }
+
+        public async Task<PanoramaGastosDto> ObtenerPanoramaGastosAsync()
+        {
+            try
+            {
+                var montoPorTipo = await _gastosRepository.ObtenerMontoPorTipoAsync(MesesPanoramaPorDefecto);
+                var montoPorFormaPago = await _gastosRepository.ObtenerMontoPorFormaPagoAsync(MesesPanoramaPorDefecto);
+                var montoPorMes = await _gastosRepository.ObtenerMontoPorMesAsync(MesesPanoramaPorDefecto);
+                var cantidadPorMes = await _gastosRepository.ObtenerCantidadPorMesAsync(MesesPanoramaPorDefecto);
+                var topProveedores = await _gastosRepository.ObtenerTopProveedoresAsync(MesesPanoramaPorDefecto, TopProveedoresPorDefecto);
+                var (activos, anulados) = await _gastosRepository.ObtenerConteoPorEstadoAsync(MesesPanoramaPorDefecto);
+
+                return new PanoramaGastosDto
+                {
+                    MontoPorTipo = montoPorTipo,
+                    MontoPorFormaPago = montoPorFormaPago,
+                    MontoPorMes = montoPorMes,
+                    CantidadPorMes = cantidadPorMes,
+                    TopProveedores = topProveedores,
+                    Activos = activos,
+                    Anulados = anulados
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al generar el panorama de gastos operativos.", ex);
+            }
+        }
+
+        public async Task<ReporteGastosDto> GenerarReporteGastosAsync(FiltrosReporteGastosDto filtros)
+        {
+            try
+            {
+                var gastos = await _gastosRepository.ObtenerParaReporteAsync(filtros.Mes, filtros.Anio, filtros.FormaPago);
+
+                // Agrupado por tipo de gasto y descripción de cuenta, igual que el
+                // encabezado del papel ("POR TIPO DE GASTO Y DESCRIPCION CUENTA").
+                // Orden alfabético por tipo, y dentro de cada grupo por día: mismo
+                // orden en el que aparecen en el reporte de la contadora.
+                var grupos = gastos
+                    .GroupBy(g => (TipoGasto: g.TipoGasto!.Nombre, g.DescripcionCuenta))
+                    .OrderBy(g => g.Key.TipoGasto).ThenBy(g => g.Key.DescripcionCuenta)
+                    .Select(g =>
+                    {
+                        var filas = g
+                            .OrderBy(x => x.Fecha.Day)
+                            .Select(x => new FilaReporteGastosDto(
+                                x.Proveedor, x.NumeroFactura, x.Fecha.Day, x.MontoSinIva, x.Iva, x.NumeroCheque, x.CuentaContable))
+                            .ToList();
+
+                        return new GrupoReporteGastosDto
+                        {
+                            TipoGasto = g.Key.TipoGasto,
+                            DescripcionCuenta = g.Key.DescripcionCuenta,
+                            Filas = filas,
+                            SubtotalMonto = filas.Sum(f => f.Monto),
+                            SubtotalIva = filas.Sum(f => f.Iva)
+                        };
+                    })
+                    .ToList();
+
+                return new ReporteGastosDto
+                {
+                    Grupos = grupos,
+                    GranTotalMonto = grupos.Sum(g => g.SubtotalMonto),
+                    GranTotalIva = grupos.Sum(g => g.SubtotalIva)
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al generar el reporte de gastos operativos.", ex);
             }
         }
     }

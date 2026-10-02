@@ -1,3 +1,5 @@
+using SIGAC.Application.DTOs.Reportes;
+
 namespace SIGAC.Application.Interfaces
 {
     // Exportación genérica de reportes a PDF y Excel (módulo de Generación de
@@ -8,11 +10,20 @@ namespace SIGAC.Application.Interfaces
     //
     // Genérica y no una por tipo de reporte: arma las columnas reflexionando
     // sobre las propiedades públicas de T, así que un reporte nuevo (Donaciones,
-    // Inventario, Gastos) no necesita tocar este servicio.
+    // Inventario) no necesita tocar este servicio.
     public interface IExportacionService
     {
         Task<byte[]> ExportarPDFAsync<T>(IEnumerable<T> datos, string titulo);
 
         Task<byte[]> ExportarExcelAsync<T>(IEnumerable<T> datos, string titulo);
+
+        // Aparte y no genérico: el reporte de gastos no es una tabla plana, es un
+        // documento agrupado con subtotales por grupo y un gran total, igual al
+        // que ya usa la contadora, con bandas de grupo de FastReport.
+        Task<byte[]> ExportarReporteGastosPDFAsync(ReporteGastosDto reporte, int mes, int anio, string formaPago);
+
+        // Mismo documento que ExportarReporteGastosPDFAsync, en Excel: tampoco
+        // encaja en ExportarExcelAsync<T> porque no es una tabla plana.
+        Task<byte[]> ExportarReporteGastosExcelAsync(ReporteGastosDto reporte, int mes, int anio, string formaPago);
     }
 }
