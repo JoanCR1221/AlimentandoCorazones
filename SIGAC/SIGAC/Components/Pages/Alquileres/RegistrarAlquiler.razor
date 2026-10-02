@@ -1,0 +1,346 @@
+@page "/alquileres/registrar"
+@attribute [Authorize(Policy = Permisos.Alquileres.Registrar)]
+@using SIGAC.Application.DTOs.Alquileres
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@using SIGAC.Application.Validators
+@using SIGAC.Domain.Entities
+@inject IAlquileresService AlquileresService
+@inject IArrendatariosService ArrendatariosService
+@inject IEspaciosService EspaciosService
+@inject ISnackbar Snackbar
+
+<EncabezadoPagina Titulo="Registrar alquiler"
+                  Descripcion="Reserve uno o varios sectores del local para un arrendatario." />
+
+<EditForm Model="modelo" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <MudGrid Spacing="3">
+        <MudItem xs="12" md="7">
+            <MudCard Class="pa-4">
+                <MudCardContent>
+                    @* Solo activos: AlquileresService rechaza a un arrendatario
+                       inactivo, así que ofrecerlo acá solo llevaría a un error. *@
+                    <MudAutocomplete T="ArrendatarioListaDto" Label="Arrendatario" Variant="Variant.Outlined"
+                                      Value="arrendatarioSeleccionado" ValueChanged="OnArrendatarioCambiado"
+                                      SearchFunc="BuscarArrendatariosAsync" ToStringFunc="@(a => a?.Etiqueta)"
+                                      MinCharacters="2"
+                                      HelperText="Escriba al menos 2 letras del nombre o números de la identificación." />
+
+                    <AuthorizeView Policy="@Permisos.Alquileres.RegistrarArrendatario" Context="auth">
+                        <MudLink Href="/alquileres/arrendatarios/registrar" Typo="Typo.body2" Class="d-block mt-1">
+                            ¿No está en la lista? Registrar arrendatario
+                        </MudLink>
+                    </AuthorizeView>
+
+                    @* Sin MaxDate: se reserva a futuro. MinDate hoy, igual que la regla
+                       ReglasAlquiler.EsFechaValidaParaReservar que aplica el servidor. *@
+                    <MudDatePicker @bind-Date="fecha" @bind-Date:after="CargarOcupacionAsync"
+                                   Label="Fecha" Variant="Variant.Outlined" Class="mt-4"
+                                   MinDate="DateTime.Today" />
+
+                    @* Reemplaza al switch de "Horario de fines de semana" de la
+                       propuesta: el fin de semana se deduce de la fecha, así que no
+                       hay nada que la persona tenga que marcar (ni que pueda marcar
+                       mal). El horario es el configurado en "Espacios y
+                       características", y el texto sale de ReglasAlquiler, igual que
+                       el mensaje de error del servidor. Se pone en rojo si las horas
+                       elegidas quedan fuera: el servicio lo rechazaría al guardar. *@
+                    @if (fecha.HasValue && horario is not null)
+                    {
+                        var fueraDeHorario = ErrorDeHorario;
+                        <MudAlert Severity="@(fueraDeHorario is not null ? Severity.Error : ReglasAlquiler.EsFinDeSemana(fecha.Value) ? Severity.Warning : Severity.Info)"
+                                  Dense="true" Class="mt-2">
+                            @if (fueraDeHorario is not null)
+                            {
+                                @fueraDeHorario
+                            }
+                            else
+                            {
+                                @(ReglasAlquiler.EsFinDeSemana(fecha.Value) ? "Fin de semana. " : "")@ReglasAlquiler.DescribirHorario(fecha.Value, horario)
+                            }
+                        </MudAlert>
+                    }
+
+                    @* Reloj de 12 horas con selector a. m./p. m.: es como se habla de
+                       las horas al reservar ("de 2 a 5 de la tarde"). La hora se sigue
+                       guardando en 24 horas. *@
+                    <MudStack Row="true" Spacing="3" Class="mt-4">
+                        <MudTimePicker @bind-Time="modelo.HoraInicio" Label="Hora de inicio" Variant="Variant.Outlined"
+                                       AmPm="true" TimeFormat="h:mm tt" MinuteSelectionStep="15" />
+                        <MudTimePicker @bind-Time="modelo.HoraFin" Label="Hora de fin" Variant="Variant.Outlined"
+                                       AmPm="true" TimeFormat="h:mm tt" MinuteSelectionStep="15" />
+                    </MudStack>
+
+                    @* Uno o varios sectores (la propuesta tenía uno solo). *@
+                    <MudSelect T="int" Label="Sectores" Variant="Variant.Outlined" Class="mt-4"
+                               MultiSelection="true"
+                               SelectedValues="modelo.EspacioIds" SelectedValuesChanged="OnEspaciosCambiados"
+                               ToStringFunc="NombreEspacio"
+                               HelperText="Elija todos los sectores que va a usar el evento.">
+                        @foreach (var espacio in espacios)
+                        {
+                            <MudSelectItem T="int" Value="@espacio.Id">@espacio.Etiqueta</MudSelectItem>
+                        }
+                    </MudSelect>
+
+                    <MudSelect T="int" Label="Características solicitadas (opcional)" Variant="Variant.Outlined" Class="mt-4"
+                               MultiSelection="true"
+                               SelectedValues="modelo.CaracteristicaIds"
+                               SelectedValuesChanged="OnCaracteristicasCambiadas"
+                               ToStringFunc="NombreCaracteristica">
+                        @foreach (var caracteristica in caracteristicas)
+                        {
+                            <MudSelectItem T="int" Value="@caracteristica.Id">@caracteristica.Nombre</MudSelectItem>
+                        }
+                    </MudSelect>
+
+                    <MudNumericField T="int" @bind-Value="modelo.CantidadPersonas" For="@(() => modelo.CantidadPersonas)"
+                                     Label="Cantidad de personas" Variant="Variant.Outlined" Class="mt-4"
+                                     Min="1" Max="AlquilerValidator.CantidadPersonasMaxima"
+                                     HelperText="@AyudaCapacidad" />
+
+                    <MudStack Row="true" Spacing="3" Class="mt-4">
+                        <MudSelect T="string" @bind-Value="modelo.Moneda" For="@(() => modelo.Moneda)" Label="Moneda" Variant="Variant.Outlined">
+                            @foreach (var moneda in TiposMoneda.Todos)
+                            {
+                                <MudSelectItem T="string" Value="@moneda">@moneda</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <MudNumericField T="decimal" @bind-Value="modelo.Monto" For="@(() => modelo.Monto)" Label="Monto acordado" Variant="Variant.Outlined"
+                                         Min="0m" Format="N2" Adornment="Adornment.Start" AdornmentText="@TiposMoneda.Simbolo(modelo.Moneda)"
+                                         HelperText="0 si es un préstamo sin costo." />
+                    </MudStack>
+
+                    <MudTextField @bind-Value="modelo.Observaciones" For="@(() => modelo.Observaciones)" Label="Observaciones (opcional)"
+                                  Variant="Variant.Outlined" Class="mt-4" Lines="2"
+                                  MaxLength="AlquilerValidator.LongitudMaximaObservaciones"
+                                  HelperText="Ej: cumpleaños infantil; 30 sillas y 5 mesas." />
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Default" Href="/alquileres" Class="mb-2">Cancelar</MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+
+        @* Disponibilidad del día elegido: lo ya reservado, marcando lo que chocaría
+           con los sectores y el horario del formulario. Es solo ayuda; el choque lo
+           decide el servidor al guardar. *@
+        <MudItem xs="12" md="5">
+            <MudCard Class="pa-4">
+                <MudCardContent>
+                    <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-2">Ocupación del día</MudText>
+
+                    @if (!fecha.HasValue)
+                    {
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Elija una fecha para ver lo que ya está reservado.</MudText>
+                    }
+                    else if (cargandoOcupacion)
+                    {
+                        <CargandoGrilla />
+                    }
+                    else if (ocupacion.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                            No hay alquileres el @fecha.Value.ToString("dddd dd/MM/yyyy"). Todos los sectores están libres.
+                        </MudText>
+                    }
+                    else
+                    {
+                        <MudList T="string" Dense="true">
+                            @foreach (var alquiler in ocupacion)
+                            {
+                                <MudListItem T="string">
+                                    <div class="d-flex align-center" style="gap: 0.5rem; flex-wrap: wrap;">
+                                        <strong>@ReglasAlquiler.FormatearFranja(alquiler.HoraInicio, alquiler.HoraFin)</strong>
+                                        <span>@string.Join(", ", alquiler.Espacios)</span>
+                                        @if (ChocaConElFormulario(alquiler))
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Warning">Choca</MudChip>
+                                        }
+                                    </div>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@alquiler.Arrendatario</MudText>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</EditForm>
+
+@code {
+    [SupplyParameterFromQuery]
+    public int? ArrendatarioId { get; set; }
+
+    private AlquilerCrearDto modelo = NuevoModelo();
+    private ArrendatarioListaDto? arrendatarioSeleccionado;
+    private IReadOnlyList<EspacioFisicoDto> espacios = Array.Empty<EspacioFisicoDto>();
+    private IReadOnlyList<CaracteristicaDto> caracteristicas = Array.Empty<CaracteristicaDto>();
+    private List<AlquilerListaDto> ocupacion = new();
+    private bool cargandoOcupacion;
+
+    // Horario configurado. Null solo mientras carga (o si falló la carga): en ese
+    // caso no se muestra el aviso y el servidor igual lo valida al guardar.
+    private HorarioAlquiler? horario;
+
+    private DateTime? fecha
+    {
+        get => modelo.Fecha == default ? null : modelo.Fecha;
+        set => modelo.Fecha = value ?? default;
+    }
+
+    // Mismo texto que daría AlquileresService al guardar.
+    private string? ErrorDeHorario =>
+        horario is not null && fecha.HasValue && modelo.HoraInicio.HasValue && modelo.HoraFin.HasValue
+            ? AlquilerValidator.DescribirErrorDeHorarioPermitido(fecha.Value, modelo.HoraInicio.Value, modelo.HoraFin.Value, horario)
+            : null;
+
+    private static AlquilerCrearDto NuevoModelo() => new() { Moneda = TiposMoneda.Colones };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Solo activos: un sector o una característica desactivada no se ofrece
+            // en alquileres nuevos.
+            espacios = await EspaciosService.ObtenerEspaciosAsync(soloActivos: true);
+            caracteristicas = await EspaciosService.ObtenerCaracteristicasAsync(soloActivos: true);
+            horario = (await EspaciosService.ObtenerHorarioAsync()).AHorario();
+
+            // Llegada desde "Registrar arrendatario": se precarga el recién creado.
+            if (ArrendatarioId.HasValue)
+            {
+                var arrendatario = await ArrendatariosService.ObtenerArrendatarioActivoAsync(ArrendatarioId.Value);
+                if (arrendatario is not null)
+                    OnArrendatarioCambiado(arrendatario);
+            }
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudieron cargar los sectores y características. Intente de nuevo.", Severity.Error);
+        }
+    }
+
+    private string NombreEspacio(int id) => espacios.FirstOrDefault(e => e.Id == id)?.Nombre ?? string.Empty;
+
+    private string NombreCaracteristica(int id) => caracteristicas.FirstOrDefault(c => c.Id == id)?.Nombre ?? string.Empty;
+
+    // Misma regla que AlquileresService.ValidarCapacidad: suman los sectores que
+    // declaran capacidad.
+    private string AyudaCapacidad
+    {
+        get
+        {
+            var conCapacidad = espacios
+                .Where(e => modelo.EspacioIds.Contains(e.Id) && e.Capacidad.HasValue)
+                .ToList();
+
+            return conCapacidad.Count == 0
+                ? "Personas que se esperan en el evento."
+                : $"Capacidad de los sectores elegidos: {conCapacidad.Sum(e => e.Capacidad!.Value)} personas.";
+        }
+    }
+
+    private void OnArrendatarioCambiado(ArrendatarioListaDto? valor)
+    {
+        arrendatarioSeleccionado = valor;
+        modelo.ArrendatarioId = valor?.Id ?? 0;
+    }
+
+    private void OnEspaciosCambiados(IEnumerable<int> ids)
+    {
+        modelo.EspacioIds = ids.ToList();
+    }
+
+    private void OnCaracteristicasCambiadas(IEnumerable<int> ids)
+    {
+        modelo.CaracteristicaIds = ids.ToList();
+    }
+
+    private async Task<IEnumerable<ArrendatarioListaDto>> BuscarArrendatariosAsync(string valor, CancellationToken cancellationToken)
+    {
+        return await ArrendatariosService.BuscarArrendatariosActivosAsync(valor);
+    }
+
+    private async Task CargarOcupacionAsync()
+    {
+        ocupacion = new();
+
+        if (!fecha.HasValue)
+            return;
+
+        cargandoOcupacion = true;
+
+        try
+        {
+            var resultado = await AlquileresService.ObtenerHistorialAlquileresAsync(new FiltrosHistorialAlquilerDto
+            {
+                FechaDesde = fecha.Value,
+                FechaHasta = fecha.Value,
+                Estado = EstadoAlquiler.Reservado
+            });
+
+            ocupacion = resultado.Alquileres;
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo consultar la ocupación del día.", Severity.Error);
+        }
+        finally
+        {
+            cargandoOcupacion = false;
+        }
+    }
+
+    // Un alquiler del día choca con el formulario si comparte algún sector y las
+    // horas se superponen (ReglasAlquiler.SeTraslapan). Los nombres de sector son
+    // únicos (UX_EspaciosFisicos_Nombre), así que comparar por nombre alcanza.
+    private bool ChocaConElFormulario(AlquilerListaDto alquiler)
+    {
+        if (modelo.HoraInicio is null || modelo.HoraFin is null || modelo.EspacioIds.Count == 0)
+            return false;
+
+        var sectoresElegidos = modelo.EspacioIds.Select(NombreEspacio).ToHashSet();
+
+        return alquiler.Espacios.Any(sectoresElegidos.Contains)
+               && ReglasAlquiler.SeTraslapan(alquiler.HoraInicio, alquiler.HoraFin, modelo.HoraInicio.Value, modelo.HoraFin.Value);
+    }
+
+    private async Task Guardar()
+    {
+        try
+        {
+            await AlquileresService.RegistrarAlquilerAsync(modelo);
+            Snackbar.Add("Alquiler registrado correctamente.", Severity.Success);
+
+            // Se conserva la fecha para ver la ocupación actualizada con lo que se
+            // acaba de guardar; el resto del formulario se limpia.
+            var fechaRegistrada = modelo.Fecha;
+            modelo = NuevoModelo();
+            modelo.Fecha = fechaRegistrada;
+            arrendatarioSeleccionado = null;
+            await CargarOcupacionAsync();
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+            // Un choque detectado al guardar puede venir de un alquiler que se
+            // registró después de abrir el formulario: se refresca la ocupación.
+            await CargarOcupacionAsync();
+        }
+        catch (NotFoundException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo registrar el alquiler. Intente de nuevo.", Severity.Error);
+        }
+    }
+}

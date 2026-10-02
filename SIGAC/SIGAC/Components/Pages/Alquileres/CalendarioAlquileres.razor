@@ -1,0 +1,250 @@
+@page "/alquileres"
+@attribute [Authorize(Policy = Permisos.Alquileres.Ver)]
+@using SIGAC.Application.DTOs
+@using SIGAC.Application.DTOs.Alquileres
+@using SIGAC.Application.Exceptions
+@using SIGAC.Application.Interfaces
+@using SIGAC.Domain.Entities
+@inject IAlquileresService AlquileresService
+@inject IEspaciosService EspaciosService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<EncabezadoPagina Titulo="Calendario de alquileres"
+                  Descripcion="Consulte la disponibilidad de los espacios y los alquileres registrados."
+                  TextoAccion="Registrar alquiler" HrefAccion="/alquileres/registrar"
+                  PermisoAccion="@Permisos.Alquileres.Registrar" />
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        <MudGrid Spacing="3">
+            <MudItem xs="12" md="4">
+                @* Todos los sectores, también los desactivados: el calendario es
+                   historial y un sector en reparación sigue teniendo alquileres
+                   viejos. *@
+                <MudSelect T="int?" Value="filtroEspacioId" ValueChanged="OnEspacioCambiadoAsync"
+                           Label="Sector" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var espacio in espacios)
+                    {
+                        <MudSelectItem T="int?" Value="@espacio.Id">@espacio.Nombre</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
+                                     Label="Rango de fechas" Variant="Variant.Outlined" Clearable="true" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudSelect T="EstadoAlquiler?" Value="filtroEstado" ValueChanged="OnEstadoCambiadoAsync"
+                           Label="Estado" Variant="Variant.Outlined" Clearable="true" Placeholder="Todos"
+                           ToStringFunc="@(e => e is null ? "Todos" : e == EstadoAlquiler.Reservado ? "Reservados" : "Cancelados")">
+                    <MudSelectItem T="EstadoAlquiler?" Value="@EstadoAlquiler.Reservado">Reservados</MudSelectItem>
+                    <MudSelectItem T="EstadoAlquiler?" Value="@EstadoAlquiler.Cancelado">Cancelados</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+
+        @* Ingreso del período por moneda, solo de alquileres reservados: mismo
+           criterio que el total de ListadoGastos. *@
+        <MudText Typo="Typo.h6" HtmlTag="h2" Class="my-4">
+            Ingresos del período:
+            @if (totalesPorMoneda.Count == 0)
+            {
+                @:—
+            }
+            else
+            {
+                @string.Join("  ·  ", totalesPorMoneda.Select(
+                    t => $"{TiposMoneda.Simbolo(t.Moneda)} {t.Total:N2}"))
+            }
+        </MudText>
+
+        <MudDataGrid T="AlquilerListaDto" Items="@alquileres" Loading="cargando" Dense="true">
+            <Columns>
+                <TemplateColumn Title="Fecha">
+                    <CellTemplate>
+                        <div>@context.Item.Fecha.ToString("ddd dd/MM/yyyy")</div>
+                        @if (context.Item.EsFinDeSemana)
+                        {
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">Fin de semana</MudText>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Horario">
+                    <CellTemplate>
+                        <div style="white-space: nowrap;">@ReglasAlquiler.FormatearHora(context.Item.HoraInicio)</div>
+                        <div style="white-space: nowrap;">a @ReglasAlquiler.FormatearHora(context.Item.HoraFin)</div>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Arrendatario">
+                    <CellTemplate>
+                        <div>@context.Item.Arrendatario</div>
+                        @if (!string.IsNullOrWhiteSpace(context.Item.TelefonoArrendatario))
+                        {
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Item.TelefonoArrendatario</MudText>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Sectores">
+                    <CellTemplate>@string.Join(", ", context.Item.Espacios)</CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Características">
+                    <CellTemplate>@(context.Item.Caracteristicas.Count == 0 ? "—" : string.Join(", ", context.Item.Caracteristicas))</CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.CantidadPersonas" Title="Personas" />
+                <TemplateColumn Title="Monto">
+                    <CellTemplate>@TiposMoneda.Simbolo(context.Item.Moneda) @context.Item.Monto.ToString("N2")</CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Estado">
+                    <CellTemplate>
+                        <EstadoChip Activo="@(context.Item.Estado == EstadoAlquiler.Reservado)"
+                                    TextoActivo="Reservado" TextoInactivo="Cancelado" />
+                        @if (context.Item.Estado == EstadoAlquiler.Cancelado && !string.IsNullOrWhiteSpace(context.Item.MotivoCancelacion))
+                        {
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">@context.Item.MotivoCancelacion</MudText>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Acciones">
+                    <CellTemplate>
+                        @* Un alquiler cancelado no se vuelve a cancelar (el servicio lo
+                           rechaza igual; ocultar el botón evita el viaje). *@
+                        @if (context.Item.Estado == EstadoAlquiler.Reservado)
+                        {
+                            <AuthorizeView Policy="@Permisos.Alquileres.Cancelar" Context="auth">
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error" Class="ac-btn-inactivar"
+                                           OnClick="@(() => CancelarAsync(context.Item))">Cancelar</MudButton>
+                            </AuthorizeView>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+            <LoadingContent>
+                <CargandoGrilla />
+            </LoadingContent>
+            <NoRecordsContent>
+                @if (HayFiltro)
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="Ningún alquiler coincide con los filtros"
+                                 Descripcion="Pruebe con otro sector, rango de fechas o estado." />
+                }
+                else
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.EventAvailable"
+                                 Titulo="Todavía no hay alquileres registrados"
+                                 TextoAccion="Registrar alquiler" HrefAccion="/alquileres/registrar"
+                                 PermisoAccion="@Permisos.Alquileres.Registrar" />
+                }
+            </NoRecordsContent>
+        </MudDataGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    // Sin filtros de entrada: al abrir se ven todos los alquileres, reservados y
+    // cancelados, igual que el listado de gastos. Los filtros solo acotan lo que
+    // ya está a la vista.
+    private IReadOnlyList<EspacioFisicoDto> espacios = Array.Empty<EspacioFisicoDto>();
+    private List<AlquilerListaDto> alquileres = new();
+    private IReadOnlyList<MontoPorMonedaDto> totalesPorMoneda = Array.Empty<MontoPorMonedaDto>();
+    private int? filtroEspacioId;
+    private DateRange? rangoFechas;
+    private EstadoAlquiler? filtroEstado;
+    private bool cargando = true;
+
+    private bool HayFiltro => filtroEspacioId.HasValue || rangoFechas is not null || filtroEstado.HasValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            espacios = await EspaciosService.ObtenerEspaciosAsync(soloActivos: false);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudieron cargar los sectores.", Severity.Error);
+        }
+
+        await CargarAsync();
+    }
+
+    private async Task OnEspacioCambiadoAsync(int? valor)
+    {
+        filtroEspacioId = valor;
+        await CargarAsync();
+    }
+
+    private async Task OnRangoFechasCambiadoAsync(DateRange? valor)
+    {
+        rangoFechas = valor;
+        await CargarAsync();
+    }
+
+    private async Task OnEstadoCambiadoAsync(EstadoAlquiler? valor)
+    {
+        filtroEstado = valor;
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        cargando = true;
+
+        try
+        {
+            var resultado = await AlquileresService.ObtenerHistorialAlquileresAsync(new FiltrosHistorialAlquilerDto
+            {
+                EspacioId = filtroEspacioId,
+                FechaDesde = rangoFechas?.Start,
+                FechaHasta = rangoFechas?.End,
+                Estado = filtroEstado
+            });
+
+            alquileres = resultado.Alquileres;
+            totalesPorMoneda = resultado.TotalesPorMoneda;
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudieron consultar los alquileres. Intente de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task CancelarAsync(AlquilerListaDto alquiler)
+    {
+        var titulo = $"Cancelar alquiler del {alquiler.Fecha:dd/MM/yyyy} ({alquiler.Arrendatario})";
+        var dialog = await DialogService.ShowAsync<CancelarAlquilerDialog>(titulo);
+        var resultado = await dialog.Result;
+
+        if (resultado is null || resultado.Canceled)
+            return;
+
+        try
+        {
+            await AlquileresService.CancelarAlquilerAsync(new CancelacionAlquilerDto
+            {
+                AlquilerId = alquiler.Id,
+                MotivoCancelacion = (string?)resultado.Data
+            });
+            Snackbar.Add("Alquiler cancelado. El horario quedó libre.", Severity.Success);
+            await CargarAsync();
+        }
+        catch (ValidationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+            await CargarAsync();
+        }
+        catch (NotFoundException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo cancelar el alquiler. Intente de nuevo.", Severity.Error);
+        }
+    }
+}
