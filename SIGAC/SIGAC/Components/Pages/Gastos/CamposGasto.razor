@@ -10,74 +10,109 @@
    factura, día, monto, IVA, cheque, cuenta), para que cargar una factura sea
    leerla de izquierda a derecha. *@
 
-<MudSelect T="int" Value="Modelo.TipoGastoId" ValueChanged="OnTipoGastoCambiado" For="@(() => Modelo.TipoGastoId)"
-           Label="Tipo de gasto" Variant="Variant.Outlined"
-           ToStringFunc="@(id => Tipos.FirstOrDefault(t => t.Id == id)?.Nombre ?? string.Empty)">
-    @foreach (var tipo in Tipos)
-    {
-        <MudSelectItem T="int" Value="@tipo.Id">@tipo.Nombre@(tipo.Activo ? string.Empty : " (inactivo)")</MudSelectItem>
-    }
-</MudSelect>
+@* En grilla y no apilados: en celular cada campo ocupa una fila entera, y desde
+   sm (600 px) los campos que van juntos en el reporte quedan lado a lado. Uno por
+   fila en escritorio dejaba cajas de más de 1000 px y un formulario más alto que
+   la pantalla. Spacing reemplaza a los mt-4 de cada campo. *@
+<MudGrid Spacing="3">
+    <MudItem xs="12" sm="6">
+        <MudSelect T="int" Value="Modelo.TipoGastoId" ValueChanged="OnTipoGastoCambiado" For="@(() => Modelo.TipoGastoId)"
+                   Label="Tipo de gasto" Variant="Variant.Outlined"
+                   ToStringFunc="@(id => Tipos.FirstOrDefault(t => t.Id == id)?.Nombre ?? string.Empty)">
+            @foreach (var tipo in Tipos)
+            {
+                <MudSelectItem T="int" Value="@tipo.Id">@tipo.Nombre@(tipo.Activo ? string.Empty : " (inactivo)")</MudSelectItem>
+            }
+        </MudSelect>
+    </MudItem>
 
-@* CoerceValue="true": permite confirmar un proveedor que todavía no está en la
-   lista, que es como se da de alta uno nuevo. MinCharacters="1" y el debounce,
-   por lo mismo que en RegistrarEntradaInventario: sin texto no se despliega la
-   lista entera al recibir el foco, y no se consulta por cada tecla. *@
-<MudAutocomplete T="string" Label="Proveedor" Variant="Variant.Outlined" Class="mt-4"
-                 @bind-Value="Modelo.Proveedor" For="@(() => Modelo.Proveedor)"
-                 SearchFunc="BuscarProveedoresAsync" CoerceText="false" CoerceValue="true"
-                 MinCharacters="1" DebounceInterval="300"
-                 MaxLength="ReglasGastoOperativo.LongitudMaximaProveedor"
-                 HelperText="Escriba para buscar un proveedor ya usado, o ingrese uno nuevo." />
+    <MudItem xs="12" sm="6">
+        @* CoerceValue="true": permite confirmar un proveedor que todavía no está en la
+           lista, que es como se da de alta uno nuevo. MinCharacters="1" y el debounce,
+           por lo mismo que en RegistrarEntradaInventario: sin texto no se despliega la
+           lista entera al recibir el foco, y no se consulta por cada tecla. *@
+        <MudAutocomplete T="string" Label="Proveedor" Variant="Variant.Outlined"
+                         @bind-Value="Modelo.Proveedor" For="@(() => Modelo.Proveedor)"
+                         SearchFunc="BuscarProveedoresAsync" CoerceText="false" CoerceValue="true"
+                         MinCharacters="1" DebounceInterval="300"
+                         MaxLength="ReglasGastoOperativo.LongitudMaximaProveedor"
+                         HelperText="Escriba para buscar uno ya usado, o ingrese uno nuevo." />
+    </MudItem>
 
-<MudTextField @bind-Value="Modelo.NumeroFactura" For="@(() => Modelo.NumeroFactura)" Label="Número de factura" Variant="Variant.Outlined" Class="mt-4"
-              MaxLength="ReglasGastoOperativo.LongitudMaximaNumeroFactura" />
+    <MudItem xs="12" sm="6">
+        <MudTextField @bind-Value="Modelo.NumeroFactura" For="@(() => Modelo.NumeroFactura)" Label="Número de factura" Variant="Variant.Outlined"
+                      MaxLength="ReglasGastoOperativo.LongitudMaximaNumeroFactura" />
+    </MudItem>
 
-<MudDatePicker @bind-Date="Fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
+    <MudItem xs="12" sm="6">
+        <MudDatePicker @bind-Date="Fecha" Label="Fecha" Variant="Variant.Outlined" MaxDate="DateTime.Today" />
+    </MudItem>
 
-@* Va antes que los montos para que el símbolo de esas cajas ya esté correcto
-   cuando la persona empieza a escribir. *@
-<MudSelect T="string" @bind-Value="Modelo.Moneda" For="@(() => Modelo.Moneda)" Label="Moneda" Variant="Variant.Outlined" Class="mt-4">
-    @foreach (var moneda in TiposMoneda.Todos)
-    {
-        <MudSelectItem T="string" Value="@moneda">@moneda</MudSelectItem>
-    }
-</MudSelect>
+    @* Moneda va antes que los montos para que el símbolo de esas cajas ya esté
+       correcto cuando la persona empieza a escribir. Los tres en la misma fila
+       desde sm: son los datos de dinero de la factura. *@
+    <MudItem xs="12" sm="4">
+        <MudSelect T="string" @bind-Value="Modelo.Moneda" For="@(() => Modelo.Moneda)" Label="Moneda" Variant="Variant.Outlined">
+            @foreach (var moneda in TiposMoneda.Todos)
+            {
+                <MudSelectItem T="string" Value="@moneda">@moneda</MudSelectItem>
+            }
+        </MudSelect>
+    </MudItem>
 
-<MudNumericField T="decimal" @bind-Value="Modelo.MontoSinIva" For="@(() => Modelo.MontoSinIva)" Label="Monto sin IVA" Variant="Variant.Outlined" Class="mt-4"
-                 Min="0.01m" Format="N2" Adornment="Adornment.Start" AdornmentText="@TiposMoneda.Simbolo(Modelo.Moneda)" />
+    <MudItem xs="12" sm="4">
+        <MudNumericField T="decimal" @bind-Value="Modelo.MontoSinIva" For="@(() => Modelo.MontoSinIva)" Label="Monto sin IVA" Variant="Variant.Outlined"
+                         Min="0.01m" Format="N2" Adornment="Adornment.Start" AdornmentText="@TiposMoneda.Simbolo(Modelo.Moneda)" />
+    </MudItem>
 
-<MudNumericField T="decimal" @bind-Value="Modelo.Iva" For="@(() => Modelo.Iva)" Label="IVA" Variant="Variant.Outlined" Class="mt-4"
-                 Min="0m" Format="N2" Adornment="Adornment.Start" AdornmentText="@TiposMoneda.Simbolo(Modelo.Moneda)"
-                 HelperText="Deje 0 si la factura no trae IVA." />
+    <MudItem xs="12" sm="4">
+        <MudNumericField T="decimal" @bind-Value="Modelo.Iva" For="@(() => Modelo.Iva)" Label="IVA" Variant="Variant.Outlined"
+                         Min="0m" Format="N2" Adornment="Adornment.Start" AdornmentText="@TiposMoneda.Simbolo(Modelo.Moneda)"
+                         HelperText="Deje 0 si la factura no trae IVA." />
+    </MudItem>
 
-<MudText Typo="Typo.body2" Class="mt-2">
-    Total pagado: @TiposMoneda.Simbolo(Modelo.Moneda) @((Modelo.MontoSinIva + Modelo.Iva).ToString("N2"))
-</MudText>
+    <MudItem xs="12">
+        <MudText Typo="Typo.body2">
+            Total pagado: <b>@TiposMoneda.ConSimbolo(Modelo.Moneda, Modelo.MontoSinIva + Modelo.Iva)</b>
+        </MudText>
+    </MudItem>
 
-<MudSelect T="string" @bind-Value="Modelo.FormaPago" For="@(() => Modelo.FormaPago)" Label="Forma de pago" Variant="Variant.Outlined" Class="mt-4">
-    @foreach (var forma in FormasPago.Todos)
-    {
-        <MudSelectItem T="string" Value="@forma">@forma</MudSelectItem>
-    }
-</MudSelect>
+    <MudItem xs="12" sm="6">
+        <MudSelect T="string" @bind-Value="Modelo.FormaPago" For="@(() => Modelo.FormaPago)" Label="Forma de pago" Variant="Variant.Outlined">
+            @foreach (var forma in FormasPago.Todos)
+            {
+                <MudSelectItem T="string" Value="@forma">@forma</MudSelectItem>
+            }
+        </MudSelect>
+    </MudItem>
 
-<MudTextField @bind-Value="Modelo.NumeroCheque" Label="Número de cheque (opcional)" Variant="Variant.Outlined" Class="mt-4"
-              MaxLength="ReglasGastoOperativo.LongitudMaximaNumeroCheque" />
+    <MudItem xs="12" sm="6">
+        <MudTextField @bind-Value="Modelo.NumeroCheque" Label="Número de cheque (opcional)" Variant="Variant.Outlined"
+                      MaxLength="ReglasGastoOperativo.LongitudMaximaNumeroCheque" />
+    </MudItem>
 
-@* Precargados con los valores que traen todas las líneas del reporte; quedan
-   editables por si la contadora indica otra cuenta. *@
-<MudTextField @bind-Value="Modelo.CuentaContable" For="@(() => Modelo.CuentaContable)" Label="Cuenta contable" Variant="Variant.Outlined" Class="mt-4"
-              MaxLength="ReglasGastoOperativo.LongitudMaximaCuentaContable" />
+    @* Precargados con los valores que traen todas las líneas del reporte; quedan
+       editables por si la contadora indica otra cuenta. *@
+    <MudItem xs="12" sm="6">
+        <MudTextField @bind-Value="Modelo.CuentaContable" For="@(() => Modelo.CuentaContable)" Label="Cuenta contable" Variant="Variant.Outlined"
+                      MaxLength="ReglasGastoOperativo.LongitudMaximaCuentaContable" />
+    </MudItem>
 
-<MudTextField @bind-Value="Modelo.DescripcionCuenta" For="@(() => Modelo.DescripcionCuenta)" Label="Descripción de cuenta" Variant="Variant.Outlined" Class="mt-4"
-              MaxLength="ReglasGastoOperativo.LongitudMaximaDescripcionCuenta" />
+    <MudItem xs="12" sm="6">
+        <MudTextField @bind-Value="Modelo.DescripcionCuenta" For="@(() => Modelo.DescripcionCuenta)" Label="Descripción de cuenta" Variant="Variant.Outlined"
+                      MaxLength="ReglasGastoOperativo.LongitudMaximaDescripcionCuenta" />
+    </MudItem>
 
-<MudTextField @bind-Value="Modelo.Descripcion" For="@(() => Modelo.Descripcion)" Label="Descripción" Variant="Variant.Outlined" Class="mt-4" Lines="2"
-              MaxLength="ReglasGastoOperativo.LongitudMaximaDescripcion" />
+    <MudItem xs="12">
+        <MudTextField @bind-Value="Modelo.Descripcion" For="@(() => Modelo.Descripcion)" Label="Descripción" Variant="Variant.Outlined" Lines="2"
+                      MaxLength="ReglasGastoOperativo.LongitudMaximaDescripcion" />
+    </MudItem>
 
-<MudTextField @bind-Value="Modelo.Responsable" For="@(() => Modelo.Responsable)" Label="Responsable" Variant="Variant.Outlined" Class="mt-4"
-              MaxLength="ReglasGastoOperativo.LongitudMaximaResponsable" />
+    <MudItem xs="12" sm="6">
+        <MudTextField @bind-Value="Modelo.Responsable" For="@(() => Modelo.Responsable)" Label="Responsable" Variant="Variant.Outlined"
+                      MaxLength="ReglasGastoOperativo.LongitudMaximaResponsable" />
+    </MudItem>
+</MudGrid>
 
 @code {
     [Parameter, EditorRequired]

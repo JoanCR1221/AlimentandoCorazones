@@ -31,5 +31,11 @@ namespace SIGAC.Domain
             Euros => "€",
             _ => string.Empty
         };
+
+        // Monto listo para mostrar: "₡ 164 600,00". El espacio entre símbolo y
+        // número es no separable (U+00A0): con uno común, en una celda o un título
+        // angosto el navegador partía la línea ahí y dejaba el "₡" solo arriba.
+        public static string ConSimbolo(string? moneda, decimal monto) =>
+            $"{Simbolo(moneda)} {monto:N2}";
     }
 }
