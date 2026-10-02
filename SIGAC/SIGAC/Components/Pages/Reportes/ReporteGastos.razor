@@ -110,7 +110,7 @@
                         Exportar PDF
                     </MudButton>
                     <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.GridOn"
-                               Disabled="exportando" OnClick="ExportarExcel">
+                               Disabled="exportando" OnClick="ExportarExcelAsync">
                         Exportar Excel
                     </MudButton>
                     <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Print"
@@ -243,11 +243,32 @@
         }
     }
 
-    // Sin backend todavía (ver PBI "Exportar reportes a Excel"): mismo mensaje
-    // que AccionesReporte.razor para los demás reportes, y nada que registrar
-    // en la bitácora porque no se exportó nada de verdad.
-    private void ExportarExcel() =>
-        Snackbar.Add("La exportación a Excel todavía no está disponible.", Severity.Warning);
+    private async Task ExportarExcelAsync()
+    {
+        if (exportando)
+            return;
+
+        exportando = true;
+
+        try
+        {
+            var excel = await ExportacionService.ExportarReporteGastosExcelAsync(resultado, filtroMes, filtroAnio, filtroFormaPago);
+
+            await using var modulo = await JS.InvokeAsync<IJSObjectReference>("import", "./js/reportes.js");
+            await modulo.InvokeVoidAsync("descargarArchivo", NombreArchivo("xlsx"),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", Convert.ToBase64String(excel));
+
+            await RegistrarExportacionAsync("Excel");
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo generar el archivo del reporte. Intentá de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            exportando = false;
+        }
+    }
 
     private Task RegistrarExportacionAsync(string formato) =>
         Bitacora.RegistrarAsync(AccionesBitacora.Exportar, ModulosSistema.Reportes,

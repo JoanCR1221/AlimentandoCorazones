@@ -115,6 +115,91 @@ namespace SIGAC.Infrastructure.Reportes
             }
         }
 
+        // Mismo contenido que ConstruirReporteGastos, pero fila por fila en una
+        // hoja en vez de bandas de FastReport: acá no hace falta resolver
+        // paginación, así que alcanza con llevar un cursor de fila y escribir
+        // encabezado, grupos (con su "TOTAL . . .") y el "GRAN TOTAL . . ." uno
+        // debajo del otro.
+        public Task<byte[]> ExportarReporteGastosExcelAsync(ReporteGastosDto reporte, int mes, int anio, string formaPago)
+        {
+            try
+            {
+                using var libro = new XLWorkbook();
+                var hoja = libro.Worksheets.Add("Gastos");
+                var fila = 1;
+
+                hoja.Cell(fila, 1).Value = "ASOCIACION ALIMENTANDO CORAZONES";
+                hoja.Cell(fila, 1).Style.Font.Bold = true;
+                fila++;
+
+                hoja.Cell(fila, 1).Value = $"DETALLE DE GASTOS MES DE :     {Meses[mes - 1]}     {anio}";
+                fila++;
+
+                hoja.Cell(fila, 1).Value = $"POR TIPO DE GASTO Y DESCRIPCION CUENTA :  : GASTOS DE {formaPago.ToUpperInvariant()}";
+                fila += 2;
+
+                string[] columnas = { "NOMBRE", "FACT.", "DIA", "MONTO", "I.V.A.", "CHEQUE", "CUENTA CORRIENTE" };
+
+                foreach (var grupo in reporte.Grupos)
+                {
+                    hoja.Cell(fila, 1).Value = grupo.TipoGasto;
+                    hoja.Cell(fila, 1).Style.Font.Bold = true;
+                    fila++;
+
+                    hoja.Cell(fila, 1).Value = formaPago.ToUpperInvariant();
+                    fila++;
+
+                    hoja.Cell(fila, 1).Value = grupo.DescripcionCuenta;
+                    fila++;
+
+                    for (var columna = 0; columna < columnas.Length; columna++)
+                    {
+                        var celda = hoja.Cell(fila, columna + 1);
+                        celda.Value = columnas[columna];
+                        celda.Style.Font.Bold = true;
+                    }
+                    fila++;
+
+                    foreach (var gasto in grupo.Filas)
+                    {
+                        hoja.Cell(fila, 1).Value = gasto.Proveedor;
+                        hoja.Cell(fila, 2).Value = gasto.NumeroFactura;
+                        hoja.Cell(fila, 3).Value = gasto.Dia.ToString();
+                        hoja.Cell(fila, 4).Value = FormatearMonto(gasto.Monto);
+                        hoja.Cell(fila, 5).Value = FormatearMonto(gasto.Iva);
+                        hoja.Cell(fila, 6).Value = gasto.NumeroCheque ?? string.Empty;
+                        hoja.Cell(fila, 7).Value = gasto.CuentaContable;
+                        fila++;
+                    }
+
+                    hoja.Cell(fila, 1).Value = "TOTAL . . .";
+                    hoja.Cell(fila, 1).Style.Font.Bold = true;
+                    hoja.Cell(fila, 4).Value = FormatearMonto(grupo.SubtotalMonto);
+                    hoja.Cell(fila, 4).Style.Font.Bold = true;
+                    hoja.Cell(fila, 5).Value = FormatearMonto(grupo.SubtotalIva);
+                    hoja.Cell(fila, 5).Style.Font.Bold = true;
+                    fila += 2;
+                }
+
+                hoja.Cell(fila, 1).Value = "GRAN TOTAL . . .";
+                hoja.Cell(fila, 1).Style.Font.Bold = true;
+                hoja.Cell(fila, 4).Value = FormatearMonto(reporte.GranTotalMonto);
+                hoja.Cell(fila, 4).Style.Font.Bold = true;
+                hoja.Cell(fila, 5).Value = FormatearMonto(reporte.GranTotalIva);
+                hoja.Cell(fila, 5).Style.Font.Bold = true;
+
+                hoja.Columns().AdjustToContents();
+
+                using var salida = new MemoryStream();
+                libro.SaveAs(salida);
+                return Task.FromResult(salida.ToArray());
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al exportar el reporte de gastos a Excel.", ex);
+            }
+        }
+
         // Arma un Report en memoria: encabezado con logo y título, una fila de
         // rótulos y una DataBand con una celda por propiedad pública de T.
         private Report ConstruirReporte<T>(IEnumerable<T> datos, string titulo)

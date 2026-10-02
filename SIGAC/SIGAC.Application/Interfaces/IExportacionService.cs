@@ -21,5 +21,9 @@ namespace SIGAC.Application.Interfaces
         // documento agrupado con subtotales por grupo y un gran total, igual al
         // que ya usa la contadora, con bandas de grupo de FastReport.
         Task<byte[]> ExportarReporteGastosPDFAsync(ReporteGastosDto reporte, int mes, int anio, string formaPago);
+
+        // Mismo documento que ExportarReporteGastosPDFAsync, en Excel: tampoco
+        // encaja en ExportarExcelAsync<T> porque no es una tabla plana.
+        Task<byte[]> ExportarReporteGastosExcelAsync(ReporteGastosDto reporte, int mes, int anio, string formaPago);
     }
 }

@@ -1,6 +1,7 @@
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
+using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Infrastructure.Reportes;
 
 namespace SIGAC.Tests.Infrastructure
@@ -62,6 +63,73 @@ namespace SIGAC.Tests.Infrastructure
             using var libro = new XLWorkbook(new MemoryStream(archivo));
 
             Assert.True(libro.Worksheets.First().Name.Length <= 31);
+        }
+
+        // Dos grupos a proposito: hay que ver que cada uno cierre con su propio
+        // "TOTAL . . ." y que el "GRAN TOTAL . . ." final sume los dos, no solo
+        // el ultimo.
+        [Fact]
+        public async Task El_reporte_de_gastos_imprime_cada_grupo_con_su_total_y_el_gran_total_al_final()
+        {
+            var reporte = new ReporteGastosDto
+            {
+                Grupos = new List<GrupoReporteGastosDto>
+                {
+                    new()
+                    {
+                        TipoGasto = "Alquiler de Equipo",
+                        DescripcionCuenta = "GASTOS ADMINISTRATIVOS",
+                        Filas = new List<FilaReporteGastosDto>
+                        {
+                            new("Renta Equipos S.A.", "76216", 1, 25175.97m, 3272.88m, null, "1 CAJA Y BANCOS")
+                        },
+                        SubtotalMonto = 25175.97m,
+                        SubtotalIva = 3272.88m
+                    },
+                    new()
+                    {
+                        TipoGasto = "Servicio de Agua",
+                        DescripcionCuenta = "GASTOS ADMINISTRATIVOS",
+                        Filas = new List<FilaReporteGastosDto>
+                        {
+                            new("AyA", "4863", 2, 23798.40m, 2758.60m, "001", "1 CAJA Y BANCOS")
+                        },
+                        SubtotalMonto = 23798.40m,
+                        SubtotalIva = 2758.60m
+                    }
+                },
+                GranTotalMonto = 48974.37m,
+                GranTotalIva = 6031.48m
+            };
+
+            var archivo = await _servicio.ExportarReporteGastosExcelAsync(reporte, 9, 2026, "Contado");
+
+            using var libro = new XLWorkbook(new MemoryStream(archivo));
+            var texto = string.Join('\n', libro.Worksheets.First().CellsUsed().Select(c => c.GetString()));
+
+            Assert.Contains("DETALLE DE GASTOS MES DE :     SETIEMBRE     2026", texto);
+            Assert.Contains("GASTOS DE CONTADO", texto);
+            Assert.Contains("Alquiler de Equipo", texto);
+            Assert.Contains("Renta Equipos S.A.", texto);
+            Assert.Contains("25,175.97", texto);
+            Assert.Contains("Servicio de Agua", texto);
+            Assert.Contains("AyA", texto);
+            Assert.Contains("23,798.40", texto);
+            Assert.Contains("48,974.37", texto);
+            Assert.Contains("6,031.48", texto);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_gastos_sin_grupos_igual_imprime_el_encabezado_y_el_gran_total_en_cero()
+        {
+            var archivo = await _servicio.ExportarReporteGastosExcelAsync(new ReporteGastosDto(), 9, 2026, "Contado");
+
+            using var libro = new XLWorkbook(new MemoryStream(archivo));
+            var texto = string.Join('\n', libro.Worksheets.First().CellsUsed().Select(c => c.GetString()));
+
+            Assert.Contains("ASOCIACION ALIMENTANDO CORAZONES", texto);
+            Assert.Contains("GRAN TOTAL . . .", texto);
+            Assert.Contains("0.00", texto);
         }
 
         private sealed class EntornoFalso : IWebHostEnvironment
