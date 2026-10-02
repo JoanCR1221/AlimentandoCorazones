@@ -273,10 +273,16 @@ namespace SIGAC.Infrastructure.Reportes
                 x += anchoColumna;
             }
 
+            // CanGrow en la banda y en cada celda: un nombre que no entra en el
+            // ancho de su columna se parte en dos líneas (WordWrap, por defecto en
+            // TextObject), y sin esto la fila no crece para darle espacio, asi que
+            // la segunda línea se dibuja encima de la fila siguiente en vez de
+            // empujarla hacia abajo.
             var filas = new DataBand
             {
                 Height = Cm(AltoFila),
-                DataSource = origen
+                DataSource = origen,
+                CanGrow = true
             };
             pagina.Bands.Add(filas);
 
@@ -287,7 +293,8 @@ namespace SIGAC.Infrastructure.Reportes
                 {
                     Bounds = new RectangleF(Cm(x), Cm(0), Cm(anchoColumna), Cm(AltoFila)),
                     Text = $"[Datos.{columna.ColumnName}]",
-                    Font = new Font("Arial", 9)
+                    Font = new Font("Arial", 9),
+                    CanGrow = true
                 });
                 x += anchoColumna;
             }
@@ -433,7 +440,10 @@ namespace SIGAC.Infrastructure.Reportes
                 Font = new Font("Arial", 8)
             });
 
-            var filas = new DataBand { Height = Cm(altoFila), DataSource = origen };
+            // CanGrow por la misma razón que en ConstruirReporte<T>: un proveedor
+            // con nombre largo se envuelve a dos líneas y, sin esto, la segunda
+            // línea se superpone con la fila siguiente en vez de empujarla.
+            var filas = new DataBand { Height = Cm(altoFila), DataSource = origen, CanGrow = true };
             grupoHeader.Data = filas;
 
             x = 0f;
@@ -443,7 +453,8 @@ namespace SIGAC.Infrastructure.Reportes
                 {
                     Bounds = new RectangleF(Cm(x), Cm(0), Cm(anchos[i]), Cm(altoFila)),
                     Text = $"[Datos.{campos[i]}]",
-                    Font = new Font("Arial", 8)
+                    Font = new Font("Arial", 8),
+                    CanGrow = true
                 });
                 x += anchos[i];
             }
