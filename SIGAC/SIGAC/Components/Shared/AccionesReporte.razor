@@ -123,14 +123,6 @@
 
             await RegistrarExportacionAsync(formato);
         }
-        catch (NotImplementedException)
-        {
-            // ExportacionService.ExportarExcelAsync: pendiente de decidir la
-            // librería (FastReport Community no genera XLSX). Mensaje propio
-            // para no confundirlo con un error real de generación, y nada que
-            // registrar: no se exportó nada de verdad.
-            Snackbar.Add("La exportación a Excel todavía no está disponible.", Severity.Warning);
-        }
         catch (Exception)
         {
             Snackbar.Add("No se pudo generar el archivo del reporte. Intentá de nuevo.", Severity.Error);

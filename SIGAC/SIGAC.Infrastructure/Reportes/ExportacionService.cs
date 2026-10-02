@@ -1,6 +1,7 @@
 using System.Data;
 using System.Drawing;
 using System.Globalization;
+using ClosedXML.Excel;
 using FastReport;
 using FastReport.Export.PdfSimple;
 using FastReport.Utils;
@@ -48,16 +49,53 @@ namespace SIGAC.Infrastructure.Reportes
             }
         }
 
+        // FastReport.OpenSource (Community) no incluye exportador a XLSX (solo
+        // HTML/imagen, y PDF vía el plugin PdfSimple), así que esto va aparte con
+        // ClosedXML. Reutiliza ATabla<T> -y por lo tanto FormatearValor- para que
+        // una fecha o un monto se vean igual en el PDF y en el Excel del mismo
+        // reporte.
         public Task<byte[]> ExportarExcelAsync<T>(IEnumerable<T> datos, string titulo)
         {
-            // Pendiente a propósito: FastReport.OpenSource (Community) no incluye
-            // exportador a XLSX (solo HTML/imagen, y PDF vía el plugin PdfSimple).
-            // Generar un .xlsx real necesita otra librería (ej. ClosedXML) además
-            // de FastReport, decisión que quedó pendiente de tomar en equipo. El
-            // botón de exportar a Excel de la pantalla debe quedar deshabilitado
-            // hasta entonces.
-            throw new NotImplementedException(
-                "Exportación a Excel pendiente: FastReport Community no genera XLSX. Falta elegir la librería a usar.");
+            try
+            {
+                var tabla = ATabla(datos);
+
+                using var libro = new XLWorkbook();
+                var hoja = libro.Worksheets.Add(NombreHoja(titulo));
+
+                for (var columna = 0; columna < tabla.Columns.Count; columna++)
+                {
+                    var celda = hoja.Cell(1, columna + 1);
+                    celda.Value = tabla.Columns[columna].ColumnName;
+                    celda.Style.Font.Bold = true;
+                }
+
+                for (var fila = 0; fila < tabla.Rows.Count; fila++)
+                {
+                    for (var columna = 0; columna < tabla.Columns.Count; columna++)
+                        hoja.Cell(fila + 2, columna + 1).Value = (string)tabla.Rows[fila][columna];
+                }
+
+                hoja.Columns().AdjustToContents();
+
+                using var salida = new MemoryStream();
+                libro.SaveAs(salida);
+                return Task.FromResult(salida.ToArray());
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al exportar el reporte a Excel.", ex);
+            }
+        }
+
+        // El título del reporte ("Reporte de beneficiarios atendidos") es el
+        // nombre de hoja más natural, pero Excel limita a 31 caracteres y
+        // prohíbe : \ / ? * [ ], cosas que un título en español nunca respeta
+        // por diseño.
+        private static string NombreHoja(string titulo)
+        {
+            var sinInvalidos = string.Concat(titulo.Select(c => "\\/?*[]:".Contains(c) ? ' ' : c));
+            return sinInvalidos.Length > 31 ? sinInvalidos[..31] : sinInvalidos;
         }
 
         public Task<byte[]> ExportarReporteGastosPDFAsync(ReporteGastosDto reporte, int mes, int anio, string formaPago)
