@@ -356,6 +356,28 @@ namespace SIGAC.Infrastructure.Repositories
             return (resumen?.Activos ?? 0, resumen?.Anulados ?? 0);
         }
 
+        public async Task<IEnumerable<GastoOperativo>> ObtenerParaReporteAsync(int mes, int anio, string formaPago)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            var inicioMes = new DateTime(anio, mes, 1);
+            var inicioMesSiguiente = inicioMes.AddMonths(1);
+
+            // Solo colones: el reporte suma Monto e Iva por grupo y en el gran
+            // total, y mezclar monedas distintas en esa suma no tiene sentido
+            // (mismo criterio que el panorama gráfico). Los gastos en otra moneda
+            // quedan fuera del reporte, no del sistema.
+            return await context.GastosOperativos
+                .AsNoTracking()
+                .Include(g => g.TipoGasto)
+                .Where(g => g.Estado == EstadoGastoOperativo.Activo
+                    && g.FormaPago == formaPago
+                    && g.Moneda == TiposMoneda.Colones
+                    && g.Fecha >= inicioMes
+                    && g.Fecha < inicioMesSiguiente)
+                .ToListAsync();
+        }
+
         // Base común de las consultas de monto del panorama: solo gastos activos
         // y en colones, de la ventana de meses indicada. Solo colones porque sumar
         // monedas distintas no tiene sentido (ver ResumenGastosDto).

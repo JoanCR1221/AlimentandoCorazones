@@ -18,5 +18,10 @@ namespace SIGAC.Application.Interfaces
         // Beneficiarios, sobre una ventana fija de meses hacia atrás. Sugerido por
         // el cliente; no tiene un reporte exportable detrás todavía.
         Task<PanoramaGastosDto> ObtenerPanoramaGastosAsync();
+
+        // Reporte contable de gastos: mismo formato que usa hoy la contadora
+        // (agrupado por tipo de gasto y descripción de cuenta, con subtotales y
+        // gran total), para un mes y una forma de pago.
+        Task<ReporteGastosDto> GenerarReporteGastosAsync(FiltrosReporteGastosDto filtros);
     }
 }

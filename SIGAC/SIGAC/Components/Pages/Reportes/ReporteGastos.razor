@@ -1,0 +1,264 @@
+@page "/reportes/gastos"
+@attribute [Authorize(Policy = Permisos.Reportes.VerGastos)]
+@using SIGAC.Application.DTOs.Reportes
+@using SIGAC.Application.Interfaces
+@implements IAsyncDisposable
+@inject IReportesService ReportesService
+@inject IExportacionService ExportacionService
+@inject IBitacoraService Bitacora
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<EncabezadoPagina Titulo="Reporte de gastos operativos"
+                  Descripcion="Mismo formato que usa la contadora: gastos del mes agrupados por tipo y cuenta, con subtotales y total general." />
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        <MudGrid Spacing="2" Class="mb-2">
+            <MudItem xs="12" sm="4">
+                <MudSelect T="int" Value="filtroMes" ValueChanged="@(v => filtroMes = v)" Label="Mes" Variant="Variant.Outlined">
+                    @* @foreach y no @for: el render fragment de MudSelectItem es diferido, y
+                       un "i" de @for compartido entre iteraciones queda apuntando al
+                       último valor para cuando de verdad se evalúa (IndexOutOfRange acá). *@
+                    @foreach (var (mes, nombre) in NombresMes.Select((n, i) => (Mes: i + 1, Nombre: n)))
+                    {
+                        <MudSelectItem T="int" Value="mes">@nombre</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudNumericField T="int" @bind-Value="filtroAnio" Label="Año" Variant="Variant.Outlined"
+                                 Min="2020" Max="DateTime.Now.Year" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                @* Lista cerrada: la fuente es SIGAC.Domain.FormasPago. *@
+                <MudSelect T="string" Value="filtroFormaPago" ValueChanged="@(v => filtroFormaPago = v)" Label="Forma de pago" Variant="Variant.Outlined">
+                    @foreach (var forma in FormasPago.Todos)
+                    {
+                        <MudSelectItem T="string" Value="@forma">@forma</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Assessment"
+                   Disabled="generando" OnClick="GenerarAsync" Class="mb-4">
+            @(generando ? "Generando..." : "Generar reporte")
+        </MudButton>
+
+        @if (generando)
+        {
+            <CargandoGrilla />
+        }
+        else if (seGenero)
+        {
+            @if (resultado.Grupos.Count == 0)
+            {
+                <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                             Titulo="No hay gastos registrados con estos filtros"
+                             Descripcion="Pruebe con otro mes, año o forma de pago." />
+            }
+            else
+            {
+                @foreach (var grupo in resultado.Grupos)
+                {
+                    <MudText Typo="Typo.subtitle1" Class="mt-4"><b>@grupo.TipoGasto</b></MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-2">
+                        @filtroFormaPago.ToUpperInvariant() · @grupo.DescripcionCuenta
+                    </MudText>
+
+                    <MudSimpleTable Dense="true" Class="mb-1">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Fact.</th>
+                                <th>Día</th>
+                                <th>Monto</th>
+                                <th>I.V.A.</th>
+                                <th>Cheque</th>
+                                <th>Cuenta corriente</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var fila in grupo.Filas)
+                            {
+                                <tr>
+                                    <td>@fila.Proveedor</td>
+                                    <td>@fila.NumeroFactura</td>
+                                    <td>@fila.Dia</td>
+                                    <td>@fila.Monto.ToString("N2")</td>
+                                    <td>@fila.Iva.ToString("N2")</td>
+                                    <td>@fila.NumeroCheque</td>
+                                    <td>@fila.CuentaContable</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                    <MudText Typo="Typo.body2" Class="mb-3">
+                        <b>TOTAL: @grupo.SubtotalMonto.ToString("N2") · IVA: @grupo.SubtotalIva.ToString("N2")</b>
+                    </MudText>
+                }
+
+                <MudDivider Class="my-2" />
+                <MudText Typo="Typo.h6" Class="mb-4">
+                    <b>GRAN TOTAL: @resultado.GranTotalMonto.ToString("N2") · IVA: @resultado.GranTotalIva.ToString("N2")</b>
+                </MudText>
+
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                               Disabled="exportando" OnClick="ExportarPdfAsync">
+                        Exportar PDF
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.GridOn"
+                               Disabled="exportando" OnClick="ExportarExcel">
+                        Exportar Excel
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Print"
+                               Disabled="exportando" OnClick="ImprimirAsync" id="@idBotonImprimir">
+                        Imprimir
+                    </MudButton>
+                    @if (exportando)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Primary" />
+                    }
+                </MudStack>
+            }
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private static readonly string[] NombresMes =
+        { "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Setiembre", "Octubre", "Noviembre", "Diciembre" };
+
+    // Único en la pantalla: a diferencia de AccionesReporte, acá no hay más de
+    // una instancia por página, así que no hace falta un sufijo aleatorio.
+    private const string idBotonImprimir = "reporte-gastos-btn-imprimir";
+
+    private int filtroMes = DateTime.Now.Month;
+    private int filtroAnio = DateTime.Now.Year;
+    private string filtroFormaPago = FormasPago.Contado;
+
+    private bool generando;
+    private bool exportando;
+    private bool seGenero;
+    private bool botonImprimirEnganchado;
+    private ReporteGastosDto resultado = new();
+    private IJSObjectReference? moduloImprimir;
+
+    private int TotalFilas => resultado.Grupos.Sum(g => g.Filas.Count);
+
+    private async Task GenerarAsync()
+    {
+        generando = true;
+
+        try
+        {
+            resultado = await ReportesService.GenerarReporteGastosAsync(new FiltrosReporteGastosDto
+            {
+                Mes = filtroMes,
+                Anio = filtroAnio,
+                FormaPago = filtroFormaPago
+            });
+            seGenero = true;
+            botonImprimirEnganchado = false;
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo generar el reporte. Intentá de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            generando = false;
+        }
+    }
+
+    // El botón de imprimir recién existe en el DOM cuando seGenero pasa a true
+    // y hay al menos un grupo; no alcanza con engancharlo una sola vez en el
+    // primer render de la página, porque ahí el botón todavía no está. Se
+    // repite en cada render hasta que lo encuentra, y después no vuelve a
+    // correr (botonImprimirEnganchado), para no duplicar el listener nativo.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (botonImprimirEnganchado || !seGenero || resultado.Grupos.Count == 0)
+            return;
+
+        moduloImprimir ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/reportes.js");
+        await moduloImprimir.InvokeVoidAsync("engancharBotonImprimir", idBotonImprimir);
+        botonImprimirEnganchado = true;
+    }
+
+    private async Task<byte[]> GenerarPdfAsync() =>
+        await ExportacionService.ExportarReporteGastosPDFAsync(resultado, filtroMes, filtroAnio, filtroFormaPago);
+
+    private async Task ExportarPdfAsync()
+    {
+        if (exportando)
+            return;
+
+        exportando = true;
+
+        try
+        {
+            var pdf = await GenerarPdfAsync();
+
+            await using var modulo = await JS.InvokeAsync<IJSObjectReference>("import", "./js/reportes.js");
+            await modulo.InvokeVoidAsync("descargarArchivo", NombreArchivo("pdf"), "application/pdf", Convert.ToBase64String(pdf));
+
+            await RegistrarExportacionAsync("PDF");
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo generar el archivo del reporte. Intentá de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            exportando = false;
+        }
+    }
+
+    private async Task ImprimirAsync()
+    {
+        if (exportando)
+            return;
+
+        exportando = true;
+
+        try
+        {
+            var pdf = await GenerarPdfAsync();
+
+            await using var modulo = await JS.InvokeAsync<IJSObjectReference>("import", "./js/reportes.js");
+            await modulo.InvokeVoidAsync("imprimirPdf", Convert.ToBase64String(pdf));
+
+            await RegistrarExportacionAsync("Imprimir");
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo generar el reporte para imprimir. Intentá de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            exportando = false;
+        }
+    }
+
+    // Sin backend todavía (ver PBI "Exportar reportes a Excel"): mismo mensaje
+    // que AccionesReporte.razor para los demás reportes, y nada que registrar
+    // en la bitácora porque no se exportó nada de verdad.
+    private void ExportarExcel() =>
+        Snackbar.Add("La exportación a Excel todavía no está disponible.", Severity.Warning);
+
+    private Task RegistrarExportacionAsync(string formato) =>
+        Bitacora.RegistrarAsync(AccionesBitacora.Exportar, ModulosSistema.Reportes,
+            $"Reporte de gastos {NombresMes[filtroMes - 1]} {filtroAnio} ({filtroFormaPago}): {formato}, {TotalFilas} fila{(TotalFilas == 1 ? "" : "s")}");
+
+    private string NombreArchivo(string extension) =>
+        $"reporte_gastos_{filtroAnio}_{filtroMes:00}.{extension}";
+
+    public async ValueTask DisposeAsync()
+    {
+        if (moduloImprimir is not null)
+            await moduloImprimir.DisposeAsync();
+    }
+}

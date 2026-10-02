@@ -84,4 +84,49 @@ namespace SIGAC.Application.DTOs.Reportes
         public int Activos { get; set; }
         public int Anulados { get; set; }
     }
+
+    // Mes, año y forma de pago del reporte contable de gastos: las tres
+    // columnas que identifican "qué mes de qué libro" para la contadora
+    // ("DETALLE DE GASTOS MES DE" / "GASTOS DE <FormaPago>" en el papel).
+    // A diferencia de FiltrosReporteBeneficiariosDto, acá nada es opcional: el
+    // reporte en papel siempre es de un mes y una forma de pago a la vez.
+    public class FiltrosReporteGastosDto
+    {
+        public int Mes { get; set; }
+        public int Anio { get; set; }
+        public string FormaPago { get; set; } = string.Empty;
+    }
+
+    // Una fila del reporte: un gasto dentro de su grupo (tipo de gasto +
+    // descripción de cuenta). Monto e Iva van por separado y no sumados: el
+    // papel de la contadora los reporta así, columna por columna.
+    public sealed record FilaReporteGastosDto(
+        string Proveedor,
+        string NumeroFactura,
+        int Dia,
+        decimal Monto,
+        decimal Iva,
+        string? NumeroCheque,
+        string CuentaContable);
+
+    // Un grupo del reporte: "POR TIPO DE GASTO Y DESCRIPCION CUENTA" en el
+    // encabezado del papel es justo esto. El subtotal es la fila "TOTAL . . ."
+    // que cierra cada grupo.
+    public sealed class GrupoReporteGastosDto
+    {
+        public string TipoGasto { get; set; } = string.Empty;
+        public string DescripcionCuenta { get; set; } = string.Empty;
+        public IReadOnlyList<FilaReporteGastosDto> Filas { get; set; } = Array.Empty<FilaReporteGastosDto>();
+        public decimal SubtotalMonto { get; set; }
+        public decimal SubtotalIva { get; set; }
+    }
+
+    // El reporte completo: los grupos, en el mismo orden en que se imprimirían,
+    // y el "GRAN TOTAL . . ." final.
+    public sealed class ReporteGastosDto
+    {
+        public IReadOnlyList<GrupoReporteGastosDto> Grupos { get; set; } = Array.Empty<GrupoReporteGastosDto>();
+        public decimal GranTotalMonto { get; set; }
+        public decimal GranTotalIva { get; set; }
+    }
 }

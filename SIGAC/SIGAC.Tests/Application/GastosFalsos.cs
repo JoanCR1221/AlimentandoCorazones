@@ -148,6 +148,20 @@ namespace SIGAC.Tests.Application
             return Task.CompletedTask;
         }
 
+        public Task<IEnumerable<GastoOperativo>> ObtenerParaReporteAsync(int mes, int anio, string formaPago)
+        {
+            foreach (var g in Gastos)
+                g.TipoGasto = _tipos.Tipos.First(t => t.Id == g.TipoGastoId);
+
+            return Task.FromResult<IEnumerable<GastoOperativo>>(Gastos
+                .Where(g => g.Estado == EstadoGastoOperativo.Activo
+                    && g.FormaPago == formaPago
+                    && g.Moneda == TiposMoneda.Colones
+                    && g.Fecha.Month == mes
+                    && g.Fecha.Year == anio)
+                .ToList());
+        }
+
         // Panorama gráfico de Gastos: mismo recorte que el repositorio real
         // (activos, en colones, dentro de la ventana), pero en memoria.
         public Task<IReadOnlyList<MontoPorTipoDto>> ObtenerMontoPorTipoAsync(int mesesHaciaAtras)

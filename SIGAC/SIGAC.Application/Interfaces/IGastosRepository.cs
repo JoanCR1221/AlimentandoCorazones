@@ -35,5 +35,12 @@ namespace SIGAC.Application.Interfaces
         Task<IReadOnlyList<ConteoPorMesDto>> ObtenerCantidadPorMesAsync(int mesesHaciaAtras);
         Task<IReadOnlyList<MontoPorProveedorDto>> ObtenerTopProveedoresAsync(int mesesHaciaAtras, int maximo);
         Task<(int Activos, int Anulados)> ObtenerConteoPorEstadoAsync(int mesesHaciaAtras);
+
+        // Para el reporte contable de gastos: un mes calendario y una forma de
+        // pago, igual que el papel de la contadora. Solo activos: uno anulado no
+        // es un gasto. Con TipoGasto incluido porque el reporte agrupa por su
+        // nombre; la agrupación y los subtotales los arma ReportesService, mismo
+        // criterio que ObtenerParaReporteBeneficiariosAsync.
+        Task<IEnumerable<GastoOperativo>> ObtenerParaReporteAsync(int mes, int anio, string formaPago);
     }
 }

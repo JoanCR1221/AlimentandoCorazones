@@ -129,5 +129,50 @@ namespace SIGAC.Application.Services
                 throw new Exception("Error al generar el panorama de gastos operativos.", ex);
             }
         }
+
+        public async Task<ReporteGastosDto> GenerarReporteGastosAsync(FiltrosReporteGastosDto filtros)
+        {
+            try
+            {
+                var gastos = await _gastosRepository.ObtenerParaReporteAsync(filtros.Mes, filtros.Anio, filtros.FormaPago);
+
+                // Agrupado por tipo de gasto y descripción de cuenta, igual que el
+                // encabezado del papel ("POR TIPO DE GASTO Y DESCRIPCION CUENTA").
+                // Orden alfabético por tipo, y dentro de cada grupo por día: mismo
+                // orden en el que aparecen en el reporte de la contadora.
+                var grupos = gastos
+                    .GroupBy(g => (TipoGasto: g.TipoGasto!.Nombre, g.DescripcionCuenta))
+                    .OrderBy(g => g.Key.TipoGasto).ThenBy(g => g.Key.DescripcionCuenta)
+                    .Select(g =>
+                    {
+                        var filas = g
+                            .OrderBy(x => x.Fecha.Day)
+                            .Select(x => new FilaReporteGastosDto(
+                                x.Proveedor, x.NumeroFactura, x.Fecha.Day, x.MontoSinIva, x.Iva, x.NumeroCheque, x.CuentaContable))
+                            .ToList();
+
+                        return new GrupoReporteGastosDto
+                        {
+                            TipoGasto = g.Key.TipoGasto,
+                            DescripcionCuenta = g.Key.DescripcionCuenta,
+                            Filas = filas,
+                            SubtotalMonto = filas.Sum(f => f.Monto),
+                            SubtotalIva = filas.Sum(f => f.Iva)
+                        };
+                    })
+                    .ToList();
+
+                return new ReporteGastosDto
+                {
+                    Grupos = grupos,
+                    GranTotalMonto = grupos.Sum(g => g.SubtotalMonto),
+                    GranTotalIva = grupos.Sum(g => g.SubtotalIva)
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al generar el reporte de gastos operativos.", ex);
+            }
+        }
     }
 }
