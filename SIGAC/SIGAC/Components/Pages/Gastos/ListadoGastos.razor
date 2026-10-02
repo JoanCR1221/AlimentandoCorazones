@@ -18,25 +18,40 @@
 
 <ResumenGastos @ref="resumenGastos" />
 
-<MudCard Class="pa-4">
+@* pa-1 en celular y pa-4 desde sm: el padding de la tarjeta se suma al de
+   MudCardContent, y en 375 px los dos juntos se comían casi 100 px de ancho. *@
+<MudCard Class="pa-1 pa-sm-4">
     <MudCardContent>
-        <MudTextField T="string" Value="filtroTexto" ValueChanged="OnFiltroTextoCambiadoAsync" Immediate="true" DebounceInterval="300"
-                      Label="Buscar por proveedor o número de factura" Variant="Variant.Outlined" Class="mb-4" Clearable="true" />
+        @* En grilla, mismo criterio que HistorialEntregas: apilados en celular, en
+           una sola fila desde md. Antes eran tres filas a todo el ancho también
+           en escritorio. *@
+        <MudGrid Spacing="3" Class="mb-2">
+            <MudItem xs="12" md="5">
+                @* Rótulo corto: "Buscar por proveedor o número de factura" no
+                   entraba en el ancho de un celular y quedaba cortado. *@
+                <MudTextField T="string" Value="filtroTexto" ValueChanged="OnFiltroTextoCambiadoAsync" Immediate="true" DebounceInterval="300"
+                              Label="Buscar proveedor o factura" Variant="Variant.Outlined" Clearable="true" />
+            </MudItem>
 
-        @* Todos los tipos, también los inactivos: un tipo desactivado ya no se
-           elige al registrar, pero sus gastos viejos siguen existiendo y tienen
-           que poder filtrarse. *@
-        <MudSelect T="int?" Value="filtroTipoGastoId" ValueChanged="OnFiltroTipoCambiadoAsync"
-                   Label="Tipo de gasto" Variant="Variant.Outlined" Class="mb-4" Clearable="true"
-                   ToStringFunc="@(id => tipos.FirstOrDefault(t => t.Id == id)?.Nombre ?? string.Empty)">
-            @foreach (var tipo in tipos)
-            {
-                <MudSelectItem T="int?" Value="@tipo.Id">@tipo.Nombre@(tipo.Activo ? string.Empty : " (inactivo)")</MudSelectItem>
-            }
-        </MudSelect>
+            <MudItem xs="12" sm="6" md="4">
+                @* Todos los tipos, también los inactivos: un tipo desactivado ya no se
+                   elige al registrar, pero sus gastos viejos siguen existiendo y tienen
+                   que poder filtrarse. *@
+                <MudSelect T="int?" Value="filtroTipoGastoId" ValueChanged="OnFiltroTipoCambiadoAsync"
+                           Label="Tipo de gasto" Variant="Variant.Outlined" Clearable="true"
+                           ToStringFunc="@(id => tipos.FirstOrDefault(t => t.Id == id)?.Nombre ?? string.Empty)">
+                    @foreach (var tipo in tipos)
+                    {
+                        <MudSelectItem T="int?" Value="@tipo.Id">@tipo.Nombre@(tipo.Activo ? string.Empty : " (inactivo)")</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
 
-        <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
-                             Label="Rango de fechas" Variant="Variant.Outlined" Class="mb-4" />
+            <MudItem xs="12" sm="6" md="3">
+                <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
+                                     Label="Rango de fechas" Variant="Variant.Outlined" />
+            </MudItem>
+        </MudGrid>
 
         @* Un total por moneda y no un solo número: sumar colones con dólares en
            una sola cifra no representaría nada. Es el total pagado (monto sin
@@ -49,8 +64,7 @@
             }
             else
             {
-                @string.Join("  ·  ", totalesPorMoneda.Select(
-                    t => $"{TiposMoneda.Simbolo(t.Moneda)} {t.Total:N2}"))
+                @string.Join("  ·  ", totalesPorMoneda.Select(t => TiposMoneda.ConSimbolo(t.Moneda, t.Total)))
             }
         </MudText>
 
@@ -62,14 +76,14 @@
                 <PropertyColumn Property="x => x.TipoGasto" Title="Tipo de gasto" />
                 <PropertyColumn Property="x => x.Proveedor" Title="Proveedor" />
                 <PropertyColumn Property="x => x.NumeroFactura" Title="Factura" />
-                <TemplateColumn Title="Monto sin IVA">
-                    <CellTemplate>@TiposMoneda.Simbolo(context.Item.Moneda) @context.Item.MontoSinIva.ToString("N2")</CellTemplate>
+                <TemplateColumn Title="Monto sin IVA" CellStyle="white-space: nowrap">
+                    <CellTemplate>@TiposMoneda.ConSimbolo(context.Item.Moneda, context.Item.MontoSinIva)</CellTemplate>
                 </TemplateColumn>
-                <TemplateColumn Title="IVA">
-                    <CellTemplate>@TiposMoneda.Simbolo(context.Item.Moneda) @context.Item.Iva.ToString("N2")</CellTemplate>
+                <TemplateColumn Title="IVA" CellStyle="white-space: nowrap">
+                    <CellTemplate>@TiposMoneda.ConSimbolo(context.Item.Moneda, context.Item.Iva)</CellTemplate>
                 </TemplateColumn>
-                <TemplateColumn Title="Total">
-                    <CellTemplate>@TiposMoneda.Simbolo(context.Item.Moneda) @context.Item.Total.ToString("N2")</CellTemplate>
+                <TemplateColumn Title="Total" CellStyle="white-space: nowrap">
+                    <CellTemplate>@TiposMoneda.ConSimbolo(context.Item.Moneda, context.Item.Total)</CellTemplate>
                 </TemplateColumn>
                 <TemplateColumn Title="Estado">
                     <CellTemplate>
@@ -78,7 +92,10 @@
                                     TextoInactivo="@context.Item.Estado" />
                     </CellTemplate>
                 </TemplateColumn>
-                <TemplateColumn Title="Acciones">
+                @* nowrap en Acciones y en los montos: con nueve columnas, en escritorio la
+                   celda de Acciones quedaba en ~100 px y Editar/Anular se apilaban,
+                   duplicando la altura de cada fila. *@
+                <TemplateColumn Title="Acciones" CellStyle="white-space: nowrap">
                     <CellTemplate>
                         @* Un gasto anulado es un registro cerrado: no se edita ni se
                            vuelve a anular. El servicio rechaza las dos cosas igual
@@ -92,6 +109,12 @@
                             <AuthorizeView Policy="@Permisos.Gastos.Anular" Context="auth">
                                 <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error" Class="ac-btn-inactivar ml-1" OnClick="@(() => AnularAsync(context.Item.Id))">Anular</MudButton>
                             </AuthorizeView>
+                        }
+                        else
+                        {
+                            @* Un guion y no la celda vacía: en la vista de tarjetas
+                               (celular) quedaba el rótulo "Acciones" sin nada al lado. *@
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">—</MudText>
                         }
                     </CellTemplate>
                 </TemplateColumn>
@@ -200,7 +223,11 @@
 
     private async Task AnularAsync(int gastoId)
     {
-        var dialog = await DialogService.ShowAsync<AnularGastoDialog>("Anular gasto operativo");
+        // Ancho fijo (Small + FullWidth): sin opciones el diálogo se ajustaba al
+        // contenido y en un celular quedaba en ~250 px, con un campo de motivo
+        // demasiado chico para escribir.
+        var opciones = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<AnularGastoDialog>("Anular gasto operativo", opciones);
         var resultado = await dialog.Result;
 
         if (resultado is null || resultado.Canceled)
