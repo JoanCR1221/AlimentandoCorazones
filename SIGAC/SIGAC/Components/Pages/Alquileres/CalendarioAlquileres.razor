@@ -59,7 +59,17 @@
             }
         </MudText>
 
-        <MudDataGrid T="AlquilerListaDto" Items="@alquileres" Loading="cargando" Dense="true">
+        @* ServerData en lugar de Items: el calendario crece con cada alquiler, así que
+           la grilla pide una página por vez y el repositorio trae de la base solo
+           esos registros. SortMode.None porque el orden (por fecha y hora de inicio)
+           lo fija la consulta en SQL: dejar ordenar por columna solo reordenaría la
+           página visible, que sería engañoso. Los ingresos de arriba son del
+           conjunto filtrado completo, no de la página: vienen de un agregado en la
+           base. *@
+        <MudDataGrid T="AlquilerListaDto" @ref="grilla"
+                     ServerData="CargarPaginaAsync"
+                     RowsPerPage="FiltrosHistorialAlquilerDto.TamanoPaginaPredeterminado"
+                     SortMode="SortMode.None" Filterable="false" Dense="true">
             <Columns>
                 <TemplateColumn Title="Fecha">
                     <CellTemplate>
@@ -137,21 +147,27 @@
                                  PermisoAccion="@Permisos.Alquileres.Registrar" />
                 }
             </NoRecordsContent>
+            <PagerContent>
+                <MudDataGridPager T="AlquilerListaDto"
+                                  PageSizeOptions="@(new[] { FiltrosHistorialAlquilerDto.TamanoPaginaPredeterminado, 50, FiltrosHistorialAlquilerDto.TamanoPaginaMaximo })" />
+            </PagerContent>
         </MudDataGrid>
     </MudCardContent>
 </MudCard>
 
 @code {
-    // Sin filtros de entrada: al abrir se ven todos los alquileres, reservados y
-    // cancelados, igual que el listado de gastos. Los filtros solo acotan lo que
-    // ya está a la vista.
+    // Sin filtros de entrada: al abrir se ve la primera página de todos los
+    // alquileres, reservados y cancelados. Los filtros solo acotan lo que ya está a
+    // la vista.
     private IReadOnlyList<EspacioFisicoDto> espacios = Array.Empty<EspacioFisicoDto>();
-    private List<AlquilerListaDto> alquileres = new();
+    private MudDataGrid<AlquilerListaDto>? grilla;
+
+    // Lo último que devolvió el servicio: la grilla muestra su página y los ingresos
+    // de arriba salen del mismo resultado.
     private IReadOnlyList<MontoPorMonedaDto> totalesPorMoneda = Array.Empty<MontoPorMonedaDto>();
     private int? filtroEspacioId;
     private DateRange? rangoFechas;
     private EstadoAlquiler? filtroEstado;
-    private bool cargando = true;
 
     private bool HayFiltro => filtroEspacioId.HasValue || rangoFechas is not null || filtroEstado.HasValue;
 
@@ -165,53 +181,86 @@
         {
             Snackbar.Add("No se pudieron cargar los sectores.", Severity.Error);
         }
-
-        await CargarAsync();
     }
 
     private async Task OnEspacioCambiadoAsync(int? valor)
     {
         filtroEspacioId = valor;
-        await CargarAsync();
+        await RecargarAsync();
     }
 
     private async Task OnRangoFechasCambiadoAsync(DateRange? valor)
     {
         rangoFechas = valor;
-        await CargarAsync();
+        await RecargarAsync();
     }
 
     private async Task OnEstadoCambiadoAsync(EstadoAlquiler? valor)
     {
         filtroEstado = valor;
-        await CargarAsync();
+        await RecargarAsync();
     }
 
-    private async Task CargarAsync()
+    // La llama la grilla cada vez que cambia de página o se recarga. Devuelve solo
+    // los alquileres de esa página más el total, que es lo que necesita el paginador.
+    private async Task<GridData<AlquilerListaDto>> CargarPaginaAsync(
+        GridState<AlquilerListaDto> estado, CancellationToken cancellationToken)
     {
-        cargando = true;
-
         try
         {
-            var resultado = await AlquileresService.ObtenerHistorialAlquileresAsync(new FiltrosHistorialAlquilerDto
+            var resultado = await AlquileresService.ObtenerPaginaHistorialAlquileresAsync(new FiltrosHistorialAlquilerDto
             {
                 EspacioId = filtroEspacioId,
                 FechaDesde = rangoFechas?.Start,
                 FechaHasta = rangoFechas?.End,
-                Estado = filtroEstado
+                Estado = filtroEstado,
+                Pagina = estado.Page,
+                TamanoPagina = estado.PageSize
             });
 
-            alquileres = resultado.Alquileres;
             totalesPorMoneda = resultado.TotalesPorMoneda;
+
+            // Los ingresos de arriba están fuera de la grilla: ella se vuelve a dibujar
+            // sola al recibir la página, pero la pantalla no.
+            StateHasChanged();
+
+            return new GridData<AlquilerListaDto>
+            {
+                Items = resultado.Alquileres,
+                TotalItems = resultado.TotalRegistros
+            };
         }
         catch (Exception)
         {
+            totalesPorMoneda = Array.Empty<MontoPorMonedaDto>();
             Snackbar.Add("No se pudieron consultar los alquileres. Intente de nuevo.", Severity.Error);
+            StateHasChanged();
+            return new GridData<AlquilerListaDto> { Items = Array.Empty<AlquilerListaDto>(), TotalItems = 0 };
         }
-        finally
-        {
-            cargando = false;
-        }
+    }
+
+    // Al cambiar un filtro se vuelve a la primera página: la que se estaba viendo
+    // puede no existir con el filtro nuevo (y quedaría vacía).
+    //
+    // NavigateTo cambia CurrentPage, y el setter de CurrentPage ya dispara
+    // ServerData por dentro. Por eso solo se recarga a mano en la otra rama: así el
+    // cambio de filtro cuesta una sola consulta y no dos.
+    private async Task RecargarAsync()
+    {
+        if (grilla is null)
+            return;
+
+        if (grilla.CurrentPage != 0)
+            grilla.NavigateTo(Page.First);
+        else
+            await grilla.ReloadServerData();
+    }
+
+    // Se recarga la página actual, no la primera: el filtro no cambió.
+    private async Task RecargarPaginaActualAsync()
+    {
+        if (grilla is not null)
+            await grilla.ReloadServerData();
     }
 
     private async Task CancelarAsync(AlquilerListaDto alquiler)
@@ -231,12 +280,12 @@
                 MotivoCancelacion = (string?)resultado.Data
             });
             Snackbar.Add("Alquiler cancelado. El horario quedó libre.", Severity.Success);
-            await CargarAsync();
+            await RecargarPaginaActualAsync();
         }
         catch (ValidationException ex)
         {
             Snackbar.Add(ex.Message, Severity.Warning);
-            await CargarAsync();
+            await RecargarPaginaActualAsync();
         }
         catch (NotFoundException ex)
         {

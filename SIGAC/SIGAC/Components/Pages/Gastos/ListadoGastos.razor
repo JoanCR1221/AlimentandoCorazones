@@ -69,8 +69,18 @@
         </MudText>
 
         @* Breakpoint Sm: por debajo de 960 px cada fila se muestra como tarjeta con
-           sus etiquetas, en vez de cortar las columnas de Estado y Acciones. *@
-        <MudDataGrid T="GastoOperativoListaDto" Items="@gastos" Loading="cargando" Breakpoint="Breakpoint.Sm">
+           sus etiquetas, en vez de cortar las columnas de Estado y Acciones.
+
+           ServerData en lugar de Items: la grilla pide una página por vez y el
+           repositorio trae de la base solo esos registros. SortMode.None porque el
+           orden (más reciente primero) lo fija la consulta en SQL: dejar ordenar por
+           columna solo reordenaría la página visible, que sería engañoso. El total
+           acumulado de arriba es del conjunto filtrado completo, no de la página:
+           viene de un agregado en la base. *@
+        <MudDataGrid T="GastoOperativoListaDto" @ref="grilla"
+                     ServerData="CargarPaginaAsync"
+                     RowsPerPage="FiltrosGastoDto.TamanoPaginaPredeterminado"
+                     SortMode="SortMode.None" Filterable="false" Breakpoint="Breakpoint.Sm">
             <Columns>
                 <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
                 <PropertyColumn Property="x => x.TipoGasto" Title="Tipo de gasto" />
@@ -142,20 +152,25 @@
                                  PermisoAccion="@Permisos.Gastos.Registrar" />
                 }
             </NoRecordsContent>
+            <PagerContent>
+                <MudDataGridPager T="GastoOperativoListaDto"
+                                  PageSizeOptions="@(new[] { FiltrosGastoDto.TamanoPaginaPredeterminado, 50, FiltrosGastoDto.TamanoPaginaMaximo })" />
+            </PagerContent>
         </MudDataGrid>
     </MudCardContent>
 </MudCard>
 
 @code {
     private ResumenGastos? resumenGastos;
+    private MudDataGrid<GastoOperativoListaDto>? grilla;
 
-    private List<GastoOperativoListaDto> gastos = new();
+    // Lo último que devolvió el servicio: la grilla muestra su página y el total
+    // acumulado de arriba sale del mismo resultado.
     private IReadOnlyList<MontoPorMonedaDto> totalesPorMoneda = Array.Empty<MontoPorMonedaDto>();
     private IReadOnlyList<TipoGastoDto> tipos = Array.Empty<TipoGastoDto>();
     private string? filtroTexto;
     private int? filtroTipoGastoId;
     private DateRange? rangoFechas;
-    private bool cargando;
 
     // IsNullOrWhiteSpace, el mismo criterio con el que el repositorio decide si
     // aplica el filtro de texto: un texto con solo espacios no cuenta como búsqueda.
@@ -174,51 +189,84 @@
     private async Task OnFiltroTextoCambiadoAsync(string? valor)
     {
         filtroTexto = valor;
-        await CargarAsync();
+        await RecargarAsync();
     }
 
     private async Task OnFiltroTipoCambiadoAsync(int? valor)
     {
         filtroTipoGastoId = valor;
-        await CargarAsync();
+        await RecargarAsync();
     }
 
     private async Task OnRangoFechasCambiadoAsync(DateRange? valor)
     {
         rangoFechas = valor;
-        await CargarAsync();
+        await RecargarAsync();
     }
 
-    private async Task CargarAsync()
+    // La llama la grilla cada vez que cambia de página o se recarga. Devuelve solo
+    // los gastos de esa página más el total, que es lo que necesita el paginador.
+    private async Task<GridData<GastoOperativoListaDto>> CargarPaginaAsync(
+        GridState<GastoOperativoListaDto> estado, CancellationToken cancellationToken)
     {
         // Sin ningún criterio no se va a la base. Cubre también borrar el texto y
         // quitar los filtros: la grilla y el total se vacían en vez de traer
         // todos los gastos.
         if (!HayFiltro)
         {
-            gastos = new();
             totalesPorMoneda = Array.Empty<MontoPorMonedaDto>();
-            return;
+            StateHasChanged();
+            return new GridData<GastoOperativoListaDto> { Items = Array.Empty<GastoOperativoListaDto>(), TotalItems = 0 };
         }
-
-        cargando = true;
 
         try
         {
-            var resultado = await GastosService.ObtenerGastosAsync(new FiltrosGastoDto
+            var resultado = await GastosService.ObtenerPaginaGastosAsync(new FiltrosGastoDto
             {
                 Texto = filtroTexto,
                 TipoGastoId = filtroTipoGastoId,
                 FechaDesde = rangoFechas?.Start,
-                FechaHasta = rangoFechas?.End
+                FechaHasta = rangoFechas?.End,
+                Pagina = estado.Page,
+                TamanoPagina = estado.PageSize
             });
-            gastos = resultado.Gastos.ToList();
+
             totalesPorMoneda = resultado.TotalesPorMoneda;
+
+            // El total de arriba está fuera de la grilla: ella se vuelve a dibujar sola
+            // al recibir la página, pero la pantalla no.
+            StateHasChanged();
+
+            return new GridData<GastoOperativoListaDto>
+            {
+                Items = resultado.Gastos,
+                TotalItems = resultado.TotalRegistros
+            };
         }
-        finally
+        catch (Exception)
         {
-            cargando = false;
+            totalesPorMoneda = Array.Empty<MontoPorMonedaDto>();
+            Snackbar.Add("No se pudieron consultar los gastos. Intente de nuevo.", Severity.Error);
+            StateHasChanged();
+            return new GridData<GastoOperativoListaDto> { Items = Array.Empty<GastoOperativoListaDto>(), TotalItems = 0 };
         }
+    }
+
+    // Al cambiar un filtro se vuelve a la primera página: la que se estaba viendo
+    // puede no existir con el filtro nuevo (y quedaría vacía).
+    //
+    // NavigateTo cambia CurrentPage, y el setter de CurrentPage ya dispara
+    // ServerData por dentro. Por eso solo se recarga a mano en la otra rama: así el
+    // cambio de filtro cuesta una sola consulta y no dos.
+    private async Task RecargarAsync()
+    {
+        if (grilla is null)
+            return;
+
+        if (grilla.CurrentPage != 0)
+            grilla.NavigateTo(Page.First);
+        else
+            await grilla.ReloadServerData();
     }
 
     private async Task AnularAsync(int gastoId)
@@ -239,7 +287,10 @@
         {
             await GastosService.AnularGastoAsync(new AnulacionGastoDto { GastoId = gastoId, MotivoAnulacion = motivo });
             Snackbar.Add("Gasto operativo anulado.", Severity.Success);
-            await CargarAsync();
+
+            // Se recarga la página actual, no la primera: el filtro no cambió.
+            if (grilla is not null)
+                await grilla.ReloadServerData();
             // Anular un gasto cambia el total y el conteo de las tarjetas.
             if (resumenGastos is not null)
                 await resumenGastos.RecargarAsync();

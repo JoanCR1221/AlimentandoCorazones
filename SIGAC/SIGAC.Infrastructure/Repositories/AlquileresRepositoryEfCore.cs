@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Alquileres;
 using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Application.Exceptions;
@@ -94,12 +95,78 @@ namespace SIGAC.Infrastructure.Repositories
             // AsSplitQuery: con dos colecciones incluidas (sectores y
             // características), una sola consulta multiplicaría las filas por el
             // producto de las dos.
-            var consulta = context.AlquileresEspacio
-                .AsNoTracking()
+            return await FiltrarHistorial(context, filtros)
                 .Include(a => a.Arrendatario)
                 .Include(a => a.Espacios)
                 .Include(a => a.Caracteristicas)
                 .AsSplitQuery()
+                .OrderBy(a => a.Fecha)
+                .ThenBy(a => a.HoraInicio)
+                .ThenBy(a => a.Id)
+                .ToListAsync();
+        }
+
+        public async Task<ResultadoPaginado<AlquilerEspacio>> ObtenerPaginaHistorialAlquileresAsync(FiltrosHistorialAlquilerDto filtros)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            // Un solo IQueryable con los filtros aplicados. Todavía no se ejecutó
+            // nada contra la base: se materializa recién en el Count y en el ToList.
+            var consulta = FiltrarHistorial(context, filtros);
+
+            // Consulta 1: cuántos alquileres cumplen los filtros (para el paginador).
+            var total = await consulta.CountAsync();
+
+            if (total == 0)
+                return ResultadoPaginado<AlquilerEspacio>.Vacio;
+
+            // Consulta 2: solo la página pedida, con el mismo orden total que el
+            // historial completo (fecha, hora de inicio e Id): sin el desempate por Id
+            // dos alquileres a la misma hora podrían repetirse o saltarse entre una
+            // página y la siguiente. Se traduce a ORDER BY ... OFFSET n ROWS FETCH NEXT
+            // m ROWS ONLY. Con AsSplitQuery, los sectores y las características se
+            // piden aparte, solo para los alquileres de esa página.
+            var tamanoPagina = filtros.TamanoPaginaEfectivo;
+
+            var elementos = await consulta
+                .Include(a => a.Arrendatario)
+                .Include(a => a.Espacios)
+                .Include(a => a.Caracteristicas)
+                .AsSplitQuery()
+                .OrderBy(a => a.Fecha)
+                .ThenBy(a => a.HoraInicio)
+                .ThenBy(a => a.Id)
+                .Skip(filtros.PaginaEfectiva * tamanoPagina)
+                .Take(tamanoPagina)
+                .ToListAsync();
+
+            return new ResultadoPaginado<AlquilerEspacio>(elementos, total);
+        }
+
+        public async Task<IReadOnlyList<MontoPorMonedaDto>> ObtenerTotalesPorMonedaAsync(FiltrosHistorialAlquilerDto filtros)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            // Solo los reservados: uno cancelado no genera ingreso. Si el filtro de
+            // estado pide los cancelados, no queda nada que sumar. Tipo anónimo y no el
+            // record directo: EF Core no traduce siempre un GroupBy + Select a un
+            // constructor posicional.
+            var filas = await FiltrarHistorial(context, filtros)
+                .Where(a => a.Estado == EstadoAlquiler.Reservado)
+                .GroupBy(a => a.Moneda)
+                .Select(g => new { Moneda = g.Key, Total = g.Sum(a => a.Monto) })
+                .ToListAsync();
+
+            return filas.Select(f => new MontoPorMonedaDto(f.Moneda, f.Total)).ToList();
+        }
+
+        // Los filtros del calendario (completo y paginado) en un solo lugar, para que
+        // no puedan divergir. Todo se traduce a SQL y se aplica ANTES de paginar. Sin
+        // Include ni orden: cada llamador agrega los suyos.
+        private static IQueryable<AlquilerEspacio> FiltrarHistorial(SigacDbContext context, FiltrosHistorialAlquilerDto filtros)
+        {
+            var consulta = context.AlquileresEspacio
+                .AsNoTracking()
                 .AsQueryable();
 
             // Fecha es una columna "date" (sin hora), así que el límite superior
@@ -130,11 +197,7 @@ namespace SIGAC.Infrastructure.Repositories
                 consulta = consulta.Where(a => a.Estado == estado);
             }
 
-            return await consulta
-                .OrderBy(a => a.Fecha)
-                .ThenBy(a => a.HoraInicio)
-                .ThenBy(a => a.Id)
-                .ToListAsync();
+            return consulta;
         }
 
         public async Task<IReadOnlyList<AlquilerPanoramaDto>> ObtenerParaPanoramaAsync(int mesesHaciaAtras)

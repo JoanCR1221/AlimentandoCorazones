@@ -142,6 +142,12 @@ namespace SIGAC.Application.DTOs.Gastos
 
     public class FiltrosGastoDto
     {
+        public const int TamanoPaginaPredeterminado = 20;
+
+        // Techo duro: ningún llamador puede pedir una página tan grande que anule
+        // la paginación y traiga todos los gastos.
+        public const int TamanoPaginaMaximo = 100;
+
         // Busca en el proveedor (sin distinguir tildes) o en el número de factura:
         // son los dos datos que la persona tiene a mano con el papel delante.
         public string? Texto { get; set; }
@@ -154,16 +160,37 @@ namespace SIGAC.Application.DTOs.Gastos
 
         public DateTime? FechaDesde { get; set; }
         public DateTime? FechaHasta { get; set; }
+
+        // Solo los lee el listado paginado (ObtenerPaginaGastosAsync); la consulta
+        // completa, que usa el selector de gastos de Inventario, los ignora.
+        // Base 0, igual que el índice de página de la grilla.
+        public int Pagina { get; set; }
+        public int TamanoPagina { get; set; } = TamanoPaginaPredeterminado;
+
+        // Valores saneados: el repositorio usa estos, no los crudos, para que una
+        // página negativa o un tamaño de 0 no rompan el Skip/Take.
+        public int PaginaEfectiva => Pagina < 0 ? 0 : Pagina;
+
+        public int TamanoPaginaEfectivo => Math.Clamp(
+            TamanoPagina <= 0 ? TamanoPaginaPredeterminado : TamanoPagina,
+            1,
+            TamanoPaginaMaximo);
     }
 
     // El total es del conjunto filtrado completo, no de lo que se ve en
     // pantalla: por eso viaja junto con la lista en vez de calcularse en el
-    // frontend, que solo vería una posible futura página.
+    // frontend, que solo ve una página.
     //
     // Un total POR MONEDA y no un solo decimal: desde que el gasto declara en
     // qué moneda se pagó, sumar colones con dólares en un único número dejaría
     // de representar nada.
-    public sealed record GastosConsultaDto(IReadOnlyList<GastoOperativoListaDto> Gastos, IReadOnlyList<MontoPorMonedaDto> TotalesPorMoneda);
+    //
+    // TotalRegistros es cuántos gastos cumplen el filtro en total (no los de la
+    // página): lo necesita el paginador para saber cuántas páginas hay.
+    public sealed record GastosConsultaDto(
+        IReadOnlyList<GastoOperativoListaDto> Gastos,
+        IReadOnlyList<MontoPorMonedaDto> TotalesPorMoneda,
+        int TotalRegistros);
 
     public class AnulacionGastoDto
     {

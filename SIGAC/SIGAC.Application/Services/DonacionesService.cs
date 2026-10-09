@@ -449,7 +449,7 @@ namespace SIGAC.Application.Services
                     // no en el que devuelva la base: así la línea de totales no cambia de
                     // lugar entre una consulta y otra.
                     TotalesPorMoneda = totales
-                        .OrderBy(t => PosicionDeMoneda(t.Moneda))
+                        .OrderBy(t => TiposMoneda.Posicion(t.Moneda))
                         .ToList()
                 };
             }
@@ -457,18 +457,6 @@ namespace SIGAC.Application.Services
             {
                 throw new Exception("Error al consultar el historial de donaciones.", ex);
             }
-        }
-
-        // Una moneda que no esté en la lista (dato viejo) va al final, no se pierde.
-        private static int PosicionDeMoneda(string moneda)
-        {
-            for (var i = 0; i < TiposMoneda.Todos.Count; i++)
-            {
-                if (TiposMoneda.Todos[i] == moneda)
-                    return i;
-            }
-
-            return int.MaxValue;
         }
 
         private static HistorialDonacionDto AFilaDeHistorial(DonacionDinero d) => new()

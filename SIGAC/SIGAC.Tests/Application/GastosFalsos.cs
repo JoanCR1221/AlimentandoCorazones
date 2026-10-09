@@ -126,6 +126,60 @@ namespace SIGAC.Tests.Application
                 .ToList());
         }
 
+        // Falla simulada de la base de datos, para las consultas del listado paginado.
+        public bool Falla { get; set; }
+
+        // Imita lo que hace GastosRepositoryEfCore con los mismos filtros (texto en el
+        // proveedor o la factura, tipo, si el tipo genera inventario y el rango de
+        // fechas con el último día completo). Solo lo usan las consultas paginadas;
+        // ObtenerTodosAsync de arriba conserva su comportamiento de siempre.
+        private IEnumerable<GastoOperativo> Filtrar(FiltrosGastoDto filtros)
+        {
+            if (Falla)
+                throw new InvalidOperationException("Falla simulada de la base de datos.");
+
+            foreach (var g in Gastos)
+                g.TipoGasto = _tipos.Tipos.First(t => t.Id == g.TipoGastoId);
+
+            var texto = filtros.Texto?.Trim();
+
+            return Gastos
+                .Where(g => string.IsNullOrEmpty(texto)
+                    || g.Proveedor.Contains(texto, StringComparison.OrdinalIgnoreCase)
+                    || g.NumeroFactura.Contains(texto, StringComparison.OrdinalIgnoreCase))
+                .Where(g => !filtros.TipoGastoId.HasValue || g.TipoGastoId == filtros.TipoGastoId)
+                .Where(g => !filtros.GeneraInventario.HasValue || g.TipoGasto!.GeneraInventario == filtros.GeneraInventario)
+                .Where(g => filtros.FechaDesde is null || g.Fecha >= filtros.FechaDesde.Value.Date)
+                .Where(g => filtros.FechaHasta is null || g.Fecha < filtros.FechaHasta.Value.Date.AddDays(1));
+        }
+
+        public Task<ResultadoPaginado<GastoOperativo>> ObtenerPaginaAsync(FiltrosGastoDto filtros)
+        {
+            var filtrados = Filtrar(filtros).ToList();
+            var tamano = filtros.TamanoPaginaEfectivo;
+
+            var pagina = filtrados
+                .OrderByDescending(g => g.Fecha).ThenByDescending(g => g.Id)
+                .Skip(filtros.PaginaEfectiva * tamano)
+                .Take(tamano)
+                .ToList();
+
+            return Task.FromResult(new ResultadoPaginado<GastoOperativo>(pagina, filtrados.Count));
+        }
+
+        public Task<IReadOnlyList<MontoPorMonedaDto>> ObtenerTotalesPorMonedaAsync(FiltrosGastoDto filtros)
+        {
+            // En el orden en que aparecen, no el de las monedas del sistema, a
+            // propósito: el servicio es quien lo impone.
+            IReadOnlyList<MontoPorMonedaDto> totales = Filtrar(filtros)
+                .Where(g => g.Estado == EstadoGastoOperativo.Activo)
+                .GroupBy(g => g.Moneda)
+                .Select(g => new MontoPorMonedaDto(g.Key, g.Sum(x => x.MontoSinIva + x.Iva)))
+                .ToList();
+
+            return Task.FromResult(totales);
+        }
+
         public Task<IReadOnlyList<string>> BuscarProveedoresAsync(string texto, int maximo)
         {
             UltimaBusquedaProveedores = texto;

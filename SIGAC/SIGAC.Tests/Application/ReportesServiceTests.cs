@@ -1325,6 +1325,11 @@ namespace SIGAC.Tests.Application
                 return Task.FromResult(resultado);
             }
 
+            // El reporte exporta todo el período: usa el historial completo, nunca el
+            // paginado del calendario.
+            public Task<SIGAC.Application.DTOs.ResultadoPaginado<AlquilerEspacio>> ObtenerPaginaHistorialAlquileresAsync(FiltrosHistorialAlquilerDto filtros) => throw new NotImplementedException();
+            public Task<IReadOnlyList<SIGAC.Application.DTOs.MontoPorMonedaDto>> ObtenerTotalesPorMonedaAsync(FiltrosHistorialAlquilerDto filtros) => throw new NotImplementedException();
+
             public Task AgregarAlquilerAsync(AlquilerEspacio alquiler) => throw new NotImplementedException();
             public Task<IReadOnlyList<AlquilerEspacio>> ObtenerChoquesAsync(
                 DateTime fecha, TimeSpan horaInicio, TimeSpan horaFin, IReadOnlyCollection<int> espacioIds) => throw new NotImplementedException();

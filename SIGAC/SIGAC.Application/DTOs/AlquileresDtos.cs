@@ -194,6 +194,12 @@ namespace SIGAC.Application.DTOs.Alquileres
 
     public class FiltrosHistorialAlquilerDto
     {
+        public const int TamanoPaginaPredeterminado = 20;
+
+        // Techo duro: ningún llamador puede pedir una página tan grande que anule
+        // la paginación y traiga el calendario entero.
+        public const int TamanoPaginaMaximo = 100;
+
         public DateTime? FechaDesde { get; set; }
         public DateTime? FechaHasta { get; set; }
 
@@ -202,6 +208,21 @@ namespace SIGAC.Application.DTOs.Alquileres
 
         // Null trae reservados y cancelados.
         public EstadoAlquiler? Estado { get; set; }
+
+        // Solo los lee el calendario paginado (ObtenerPaginaHistorialAlquileresAsync);
+        // el historial completo, que usan el reporte y la ocupación del día, los
+        // ignora. Base 0, igual que el índice de página de la grilla.
+        public int Pagina { get; set; }
+        public int TamanoPagina { get; set; } = TamanoPaginaPredeterminado;
+
+        // Valores saneados: el repositorio usa estos, no los crudos, para que una
+        // página negativa o un tamaño de 0 no rompan el Skip/Take.
+        public int PaginaEfectiva => Pagina < 0 ? 0 : Pagina;
+
+        public int TamanoPaginaEfectivo => Math.Clamp(
+            TamanoPagina <= 0 ? TamanoPaginaPredeterminado : TamanoPagina,
+            1,
+            TamanoPaginaMaximo);
     }
 
     // Las filas más el ingreso del período, mismo patrón que
@@ -209,7 +230,12 @@ namespace SIGAC.Application.DTOs.Alquileres
     // el filtro y por moneda, porque sumar colones con dólares no representa nada.
     public class HistorialAlquileresResultadoDto
     {
+        // En el calendario paginado, solo los de la página pedida.
         public List<AlquilerListaDto> Alquileres { get; set; } = new();
+
+        // Cuántos alquileres cumplen el filtro en total (no los de la página): lo
+        // necesita el paginador para saber cuántas páginas hay sin traerlas.
+        public int TotalRegistros { get; set; }
 
         // Solo alquileres reservados: uno cancelado no genera ingreso.
         public List<MontoPorMonedaDto> TotalesPorMoneda { get; set; } = new();

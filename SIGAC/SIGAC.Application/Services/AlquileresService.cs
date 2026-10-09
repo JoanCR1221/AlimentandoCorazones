@@ -102,29 +102,12 @@ namespace SIGAC.Application.Services
             {
                 var alquileres = await _repository.ObtenerHistorialAlquileresAsync(filtros);
 
-                var filas = alquileres
-                    .Select(a => new AlquilerListaDto
-                    {
-                        Id = a.Id,
-                        Fecha = a.Fecha,
-                        HoraInicio = a.HoraInicio,
-                        HoraFin = a.HoraFin,
-                        Arrendatario = a.Arrendatario?.Nombre ?? $"Arrendatario #{a.ArrendatarioId}",
-                        TelefonoArrendatario = ReglasTelefono.Formatear(a.Arrendatario?.CodigoPaisTelefono, a.Arrendatario?.Telefono),
-                        Espacios = a.Espacios.Select(e => e.Nombre).OrderBy(n => n).ToList(),
-                        Caracteristicas = a.Caracteristicas.Select(c => c.Nombre).OrderBy(n => n).ToList(),
-                        CantidadPersonas = a.CantidadPersonas,
-                        Monto = a.Monto,
-                        Moneda = a.Moneda,
-                        Estado = a.Estado,
-                        MotivoCancelacion = a.MotivoCancelacion,
-                        Observaciones = a.Observaciones
-                    })
-                    .ToList();
+                var filas = alquileres.Select(AFilaDeLista).ToList();
 
                 return new HistorialAlquileresResultadoDto
                 {
                     Alquileres = filas,
+                    TotalRegistros = filas.Count,
                     TotalesPorMoneda = filas
                         .Where(f => f.Estado == EstadoAlquiler.Reservado)
                         .GroupBy(f => f.Moneda)
@@ -137,6 +120,58 @@ namespace SIGAC.Application.Services
                 throw new Exception("Error al consultar los alquileres.", ex);
             }
         }
+
+        // La misma consulta que ObtenerHistorialAlquileresAsync pero de a una página,
+        // para el calendario: el repositorio trae de la base solo esas filas (y
+        // cuántas hay en total), no todos los alquileres que cumplen el filtro. El
+        // reporte y la ocupación del día siguen con el historial completo.
+        public async Task<HistorialAlquileresResultadoDto> ObtenerPaginaHistorialAlquileresAsync(FiltrosHistorialAlquilerDto filtros)
+        {
+            try
+            {
+                var pagina = await _repository.ObtenerPaginaHistorialAlquileresAsync(filtros);
+
+                // El ingreso del período cubre todo el conjunto filtrado, no la página:
+                // sumar las filas de la página daría solo las de esa página. Solo
+                // alquileres reservados, igual que arriba.
+                var totales = await _repository.ObtenerTotalesPorMonedaAsync(filtros);
+
+                return new HistorialAlquileresResultadoDto
+                {
+                    Alquileres = pagina.Elementos.Select(AFilaDeLista).ToList(),
+                    TotalRegistros = pagina.TotalRegistros,
+
+                    // En el orden de las monedas del sistema (colones, dólares, euros) y
+                    // no en el que devuelva la base: así la línea de ingresos no cambia
+                    // de lugar entre una consulta y otra.
+                    TotalesPorMoneda = totales
+                        .OrderBy(t => TiposMoneda.Posicion(t.Moneda))
+                        .ToList()
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al consultar los alquileres.", ex);
+            }
+        }
+
+        private static AlquilerListaDto AFilaDeLista(AlquilerEspacio a) => new()
+        {
+            Id = a.Id,
+            Fecha = a.Fecha,
+            HoraInicio = a.HoraInicio,
+            HoraFin = a.HoraFin,
+            Arrendatario = a.Arrendatario?.Nombre ?? $"Arrendatario #{a.ArrendatarioId}",
+            TelefonoArrendatario = ReglasTelefono.Formatear(a.Arrendatario?.CodigoPaisTelefono, a.Arrendatario?.Telefono),
+            Espacios = a.Espacios.Select(e => e.Nombre).OrderBy(n => n).ToList(),
+            Caracteristicas = a.Caracteristicas.Select(c => c.Nombre).OrderBy(n => n).ToList(),
+            CantidadPersonas = a.CantidadPersonas,
+            Monto = a.Monto,
+            Moneda = a.Moneda,
+            Estado = a.Estado,
+            MotivoCancelacion = a.MotivoCancelacion,
+            Observaciones = a.Observaciones
+        };
 
         public async Task CancelarAlquilerAsync(CancelacionAlquilerDto dto)
         {

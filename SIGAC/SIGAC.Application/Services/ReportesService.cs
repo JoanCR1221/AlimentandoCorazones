@@ -290,7 +290,7 @@ namespace SIGAC.Application.Services
                     // reporte cambiaría de un período a otro según qué donación sea
                     // la más reciente.
                     TotalesPorMoneda = historial.TotalesPorMoneda
-                        .OrderBy(t => OrdenDeMoneda(t.Moneda))
+                        .OrderBy(t => TiposMoneda.Posicion(t.Moneda))
                         .ToList()
                 };
             }
@@ -341,7 +341,7 @@ namespace SIGAC.Application.Services
                     CantidadCancelados = historial.Alquileres.Count - reservados.Count,
                     HorasAlquiladas = HorasDe(reservados.Select(a => (a.HoraInicio, a.HoraFin))),
                     IngresosPorMoneda = historial.TotalesPorMoneda
-                        .OrderBy(t => OrdenDeMoneda(t.Moneda))
+                        .OrderBy(t => TiposMoneda.Posicion(t.Moneda))
                         .ToList()
                 };
             }
@@ -585,13 +585,5 @@ namespace SIGAC.Application.Services
         // minutos enteros y se divide al final, para no acumular error de redondeo.
         private static decimal HorasDe(IEnumerable<(TimeSpan Inicio, TimeSpan Fin)> franjas) =>
             Math.Round((decimal)franjas.Sum(f => (f.Fin - f.Inicio).TotalMinutes) / 60m, 2);
-
-        // Posición de la moneda en TiposMoneda.Todos; una que no esté en el catálogo
-        // va al final en vez de romper el reporte.
-        private static int OrdenDeMoneda(string moneda)
-        {
-            var posicion = TiposMoneda.Todos.ToList().IndexOf(moneda);
-            return posicion < 0 ? int.MaxValue : posicion;
-        }
     }
 }

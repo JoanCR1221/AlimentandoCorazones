@@ -123,27 +123,7 @@ namespace SIGAC.Application.Services
             {
                 var gastos = await _repository.ObtenerTodosAsync(filtros);
 
-                var lista = gastos
-                    .Select(g => new GastoOperativoListaDto
-                    {
-                        Id = g.Id,
-                        TipoGastoId = g.TipoGastoId,
-                        TipoGasto = g.TipoGasto?.Nombre ?? string.Empty,
-                        Proveedor = g.Proveedor,
-                        NumeroFactura = g.NumeroFactura,
-                        Fecha = g.Fecha,
-                        MontoSinIva = g.MontoSinIva,
-                        Iva = g.Iva,
-                        Moneda = g.Moneda,
-                        FormaPago = g.FormaPago,
-                        NumeroCheque = g.NumeroCheque,
-                        CuentaContable = g.CuentaContable,
-                        DescripcionCuenta = g.DescripcionCuenta,
-                        Descripcion = g.Descripcion,
-                        Responsable = g.Responsable,
-                        Estado = g.Estado.ToString()
-                    })
-                    .ToList();
+                var lista = gastos.Select(AFilaDeLista).ToList();
 
                 // Un total por cada moneda presente, no un solo decimal: sumar
                 // colones con dólares en un único número no representaría nada.
@@ -161,13 +141,63 @@ namespace SIGAC.Application.Services
                     .Select(g => new MontoPorMonedaDto(g.Key, g.Sum(x => x.Total)))
                     .ToList();
 
-                return new GastosConsultaDto(lista, totalesPorMoneda);
+                return new GastosConsultaDto(lista, totalesPorMoneda, lista.Count);
             }
             catch (Exception ex)
             {
                 throw new Exception("Error al consultar los gastos operativos.", ex);
             }
         }
+
+        // La misma consulta que ObtenerGastosAsync pero de a una página, para el
+        // listado de gastos: el repositorio trae de la base solo esas filas (y
+        // cuántas hay en total), no todos los gastos que cumplen el filtro.
+        public async Task<GastosConsultaDto> ObtenerPaginaGastosAsync(FiltrosGastoDto filtros)
+        {
+            try
+            {
+                var pagina = await _repository.ObtenerPaginaAsync(filtros);
+
+                // El total acumulado cubre todo el período filtrado, no la página:
+                // sumar las filas de la página daría solo las de esa página. Sale de
+                // un agregado en la base, con el mismo criterio que arriba (solo
+                // activos, monto sin IVA + IVA).
+                var totales = await _repository.ObtenerTotalesPorMonedaAsync(filtros);
+
+                return new GastosConsultaDto(
+                    pagina.Elementos.Select(AFilaDeLista).ToList(),
+
+                    // En el orden de las monedas del sistema (colones, dólares, euros) y
+                    // no en el que devuelva la base: así la línea de totales no cambia de
+                    // lugar entre una consulta y otra.
+                    totales.OrderBy(t => TiposMoneda.Posicion(t.Moneda)).ToList(),
+                    pagina.TotalRegistros);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al consultar los gastos operativos.", ex);
+            }
+        }
+
+        private static GastoOperativoListaDto AFilaDeLista(GastoOperativo g) => new()
+        {
+            Id = g.Id,
+            TipoGastoId = g.TipoGastoId,
+            TipoGasto = g.TipoGasto?.Nombre ?? string.Empty,
+            Proveedor = g.Proveedor,
+            NumeroFactura = g.NumeroFactura,
+            Fecha = g.Fecha,
+            MontoSinIva = g.MontoSinIva,
+            Iva = g.Iva,
+            Moneda = g.Moneda,
+            FormaPago = g.FormaPago,
+            NumeroCheque = g.NumeroCheque,
+            CuentaContable = g.CuentaContable,
+            DescripcionCuenta = g.DescripcionCuenta,
+            Descripcion = g.Descripcion,
+            Responsable = g.Responsable,
+            Estado = g.Estado.ToString()
+        };
 
         public async Task AnularGastoAsync(AnulacionGastoDto dto)
         {
