@@ -1,8 +1,15 @@
+using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Donaciones;
+using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Domain.Entities;
 
 namespace SIGAC.Application.Interfaces
 {
+    // Una fila del historial unificado: o una donación en dinero o una en especie,
+    // nunca las dos. Es lo que devuelve la consulta paginada, que mezcla las dos
+    // tablas en una sola lista ordenada.
+    public sealed record ItemHistorialDonacion(DonacionDinero? Dinero, DonacionEspecie? Especie);
+
     public interface IDonacionesRepository
     {
         // Escrituras
@@ -42,10 +49,43 @@ namespace SIGAC.Application.Interfaces
         // colección llega vacía (no hay lazy loading configurado en el proyecto).
         Task<IEnumerable<DonacionEspecie>> ObtenerDonacionesEspecieAsync(FiltrosHistorialDonacionDto filtros);
 
+        // Historial paginado: UNA página del historial unificado (dinero y especie
+        // mezcladas), de la más reciente a la más antigua, más cuántas donaciones
+        // cumplen el filtro en total.
+        //
+        // La unión en SQL es solo de las CLAVES (tipo, Id, fecha), que sí tienen la
+        // misma forma en las dos tablas: eso da el orden y el Skip/Take globales. Las
+        // filas completas, con su forma distinta, se traen aparte y solo para las
+        // donaciones de esa página, así que el motivo por el que dinero y especie se
+        // consultan por separado sigue en pie. Ignora los reportes: ellos usan las dos
+        // consultas de arriba, sin paginar.
+        Task<ResultadoPaginado<ItemHistorialDonacion>> ObtenerPaginaHistorialAsync(FiltrosHistorialDonacionDto filtros);
+
+        // Suma del dinero por moneda sobre TODAS las donaciones que cumplen el filtro
+        // (ignora la paginación). Las donaciones en especie no tienen monto: no aportan.
+        Task<IReadOnlyList<MontoPorMonedaDto>> ObtenerTotalesDineroPorMonedaAsync(FiltrosHistorialDonacionDto filtros);
+
         // Recibe los filtros ya tipados y no int?/DateTime? sueltos como
         // ObtenerEntradasAsync/ObtenerSalidasAsync de Inventario: son cinco
         // criterios y una lista de parámetros posicionales de ese largo se presta a
         // pasarlos cambiados de orden.
         Task<IEnumerable<DonacionEntregada>> ObtenerEntregasAsync(FiltrosHistorialEntregaDto filtros);
+
+        // Consultas del panorama gráfico (Reportes)
+        //
+        // Cifras agregadas en SQL, sobre una ventana de meses calendario hacia atrás
+        // que incluye el mes actual. Solo traen los meses que tienen donaciones: la
+        // pantalla alinea el resultado contra la ventana completa.
+
+        // Cantidad de donaciones por mes y clase ("Dinero" o "Especie").
+        Task<IReadOnlyList<ConteoDonacionMensualDto>> ObtenerCantidadPorMesAsync(int mesesHaciaAtras);
+
+        // Dinero recibido por mes, solo en colones: sumar monedas distintas en un
+        // mismo número no representa nada.
+        Task<IReadOnlyList<MontoPorMesDto>> ObtenerDineroEnColonesPorMesAsync(int mesesHaciaAtras);
+
+        // Los donantes con más donaciones (dinero y especie juntas), de mayor a
+        // menor; en empate, por nombre.
+        Task<IReadOnlyList<DonacionesPorDonanteDto>> ObtenerTopDonantesAsync(int mesesHaciaAtras, int maximo);
     }
 }

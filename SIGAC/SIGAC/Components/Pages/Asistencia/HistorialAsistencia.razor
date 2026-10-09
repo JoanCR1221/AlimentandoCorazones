@@ -6,6 +6,7 @@
 @using SIGAC.Domain
 @inject IAsistenciaService AsistenciaService
 @inject IBeneficiariosService BeneficiariosService
+@inject ISnackbar Snackbar
 
 <EncabezadoPagina Titulo="Historial de asistencia"
                   Descripcion="Consulte la asistencia diaria al comedor."
@@ -35,15 +36,25 @@
         <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
                              Label="Rango de fechas" Variant="Variant.Outlined" Class="mb-4" />
 
-        <MudText Typo="Typo.subtitle1" Class="mb-1">Total de asistencias del período: @resultado.Registros.Count</MudText>
+        @* Los totales son del período completo, no de la página que se ve: vienen
+           de un agregado en la base, junto con cada página. *@
+        <MudText Typo="Typo.subtitle1" Class="mb-1">Total de asistencias del período: @TextoResumen.Numero(resultado.TotalRegistros)</MudText>
         @if (resultado.TotalesPorTiempoComida.Count > 0)
         {
             <MudText Typo="Typo.body2" Class="mb-4">
-                @string.Join(" · ", resultado.TotalesPorTiempoComida.Select(kv => $"{kv.Key}: {kv.Value}"))
+                @string.Join(" · ", resultado.TotalesPorTiempoComida.Select(kv => $"{kv.Key}: {TextoResumen.Numero(kv.Value)}"))
             </MudText>
         }
 
-        <MudDataGrid T="HistorialAsistenciaDto" Items="@resultado.Registros" Loading="cargando">
+        @* ServerData en lugar de Items: el historial crece con cada día de servicio,
+           así que la grilla pide una página por vez y el repositorio trae de la base
+           solo esos registros. SortMode.None porque el orden (más reciente primero) lo
+           fija la consulta en SQL: dejar ordenar por columna solo reordenaría la
+           página visible, que sería engañoso. *@
+        <MudDataGrid T="HistorialAsistenciaDto" @ref="grilla"
+                     ServerData="CargarPaginaAsync"
+                     RowsPerPage="FiltrosAsistenciaDto.TamanoPaginaPredeterminado"
+                     SortMode="SortMode.None" Filterable="false">
             <Columns>
                 <PropertyColumn Property="x => x.NombreBeneficiario" Title="Beneficiario" />
                 <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
@@ -67,27 +78,29 @@
                                  PermisoAccion="@Permisos.Asistencia.Registrar" />
                 }
             </NoRecordsContent>
+            <PagerContent>
+                <MudDataGridPager T="HistorialAsistenciaDto"
+                                  PageSizeOptions="@(new[] { FiltrosAsistenciaDto.TamanoPaginaPredeterminado, 50, FiltrosAsistenciaDto.TamanoPaginaMaximo })" />
+            </PagerContent>
         </MudDataGrid>
     </MudCardContent>
 </MudCard>
 
 @code {
+    private MudDataGrid<HistorialAsistenciaDto>? grilla;
+
+    // Lo último que devolvió el servicio: la grilla muestra su página y los totales
+    // de arriba salen del mismo resultado.
     private HistorialAsistenciaResultadoDto resultado = new();
     private BeneficiarioListaDto? beneficiarioSeleccionado;
     private string? filtroTiempoComida;
     private DateRange? rangoFechas;
-    private bool cargando = true;
 
     private bool HayFiltro =>
         beneficiarioSeleccionado is not null || !string.IsNullOrWhiteSpace(filtroTiempoComida) || rangoFechas is not null;
 
     private static readonly string AyudaBusqueda =
         $"Escriba al menos {FiltrosBeneficiarioDto.MinimoCaracteresBusqueda} caracteres para buscar por nombre o número de identidad.";
-
-    protected override async Task OnInitializedAsync()
-    {
-        await CargarAsync();
-    }
 
     private async Task<IEnumerable<BeneficiarioListaDto>> BuscarBeneficiariosAsync(string valor, CancellationToken cancellationToken)
     {
@@ -107,25 +120,26 @@
     private async Task OnBeneficiarioCambiadoAsync(BeneficiarioListaDto? valor)
     {
         beneficiarioSeleccionado = valor;
-        await CargarAsync();
+        await RecargarAsync();
     }
 
     private async Task OnTiempoComidaCambiadoAsync(string? valor)
     {
         filtroTiempoComida = valor;
-        await CargarAsync();
+        await RecargarAsync();
     }
 
     private async Task OnRangoFechasCambiadoAsync(DateRange? valor)
     {
         rangoFechas = valor;
-        await CargarAsync();
+        await RecargarAsync();
     }
 
-    private async Task CargarAsync()
+    // La llama la grilla cada vez que cambia de página o se recarga. Devuelve solo
+    // los registros de esa página más el total, que es lo que necesita el paginador.
+    private async Task<GridData<HistorialAsistenciaDto>> CargarPaginaAsync(
+        GridState<HistorialAsistenciaDto> estado, CancellationToken cancellationToken)
     {
-        cargando = true;
-
         try
         {
             resultado = await AsistenciaService.ObtenerHistorialAsistenciaAsync(new FiltrosAsistenciaDto
@@ -133,12 +147,42 @@
                 BeneficiarioId = beneficiarioSeleccionado?.Id,
                 TiempoComida = filtroTiempoComida,
                 FechaDesde = rangoFechas?.Start,
-                FechaHasta = rangoFechas?.End
+                FechaHasta = rangoFechas?.End,
+                Pagina = estado.Page,
+                TamanoPagina = estado.PageSize
             });
         }
-        finally
+        catch (Exception)
         {
-            cargando = false;
+            resultado = new HistorialAsistenciaResultadoDto();
+            Snackbar.Add("No se pudo cargar el historial de asistencia. Intente de nuevo.", Severity.Error);
         }
+
+        // Los totales de arriba están fuera de la grilla: ella se vuelve a dibujar
+        // sola al recibir la página, pero la pantalla no.
+        StateHasChanged();
+
+        return new GridData<HistorialAsistenciaDto>
+        {
+            Items = resultado.Registros,
+            TotalItems = resultado.TotalRegistros
+        };
+    }
+
+    // Al cambiar un filtro se vuelve a la primera página: la que se estaba viendo
+    // puede no existir con el filtro nuevo (y quedaría vacía).
+    //
+    // NavigateTo cambia CurrentPage, y el setter de CurrentPage ya dispara
+    // ServerData por dentro. Por eso solo se recarga a mano en la otra rama: así el
+    // cambio de filtro cuesta una sola consulta y no dos.
+    private async Task RecargarAsync()
+    {
+        if (grilla is null)
+            return;
+
+        if (grilla.CurrentPage != 0)
+            grilla.NavigateTo(Page.First);
+        else
+            await grilla.ReloadServerData();
     }
 }

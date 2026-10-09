@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Gastos;
 using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Application.Exceptions;
@@ -98,20 +99,81 @@ namespace SIGAC.Infrastructure.Repositories
             await context.SaveChangesAsync();
         }
 
-        // Sin paginación a propósito: el listado necesita el conjunto filtrado
-        // completo para poder sumar el total acumulado (AB#2549), no solo una
-        // página. El volumen de gastos operativos de la asociación no justifica
-        // paginar como sí hace falta en Existencias de inventario.
+        // Sin paginar: lo usa el selector de gastos de Inventario, que necesita el
+        // conjunto filtrado completo. El listado de gastos pagina con
+        // ObtenerPaginaAsync y calcula su total acumulado en la base
+        // (ObtenerTotalesPorMonedaAsync).
         public async Task<IEnumerable<GastoOperativo>> ObtenerTodosAsync(FiltrosGastoDto filtros)
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
 
-            // AsNoTracking: es una consulta de solo lectura que alimenta la grilla,
-            // no se edita nada de lo que devuelve. Include del tipo: el listado
-            // muestra su nombre y no el Id.
+            // AsNoTracking (dentro de Filtrar): es una consulta de solo lectura que
+            // alimenta la grilla, no se edita nada de lo que devuelve. Include del
+            // tipo: el listado muestra su nombre y no el Id.
+            return await Filtrar(context, filtros)
+                .Include(g => g.TipoGasto)
+                .OrderByDescending(g => g.Fecha)
+                .ThenByDescending(g => g.Id)
+                .ToListAsync();
+        }
+
+        public async Task<ResultadoPaginado<GastoOperativo>> ObtenerPaginaAsync(FiltrosGastoDto filtros)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            // Un solo IQueryable con los filtros aplicados. Todavía no se ejecutó
+            // nada contra la base: se materializa recién en el Count y en el ToList.
+            var consulta = Filtrar(context, filtros);
+
+            // Consulta 1: cuántos gastos cumplen los filtros (para el paginador).
+            var total = await consulta.CountAsync();
+
+            if (total == 0)
+                return ResultadoPaginado<GastoOperativo>.Vacio;
+
+            // Consulta 2: solo la página pedida. El OrderBy es obligatorio para que
+            // Skip/Take sea determinista, y el orden es total (fecha e Id): sin el
+            // desempate dos gastos del mismo instante podrían repetirse o saltarse
+            // entre una página y la siguiente. Se traduce a ORDER BY ... OFFSET n
+            // ROWS FETCH NEXT m ROWS ONLY.
+            var tamanoPagina = filtros.TamanoPaginaEfectivo;
+
+            var elementos = await consulta
+                .Include(g => g.TipoGasto)
+                .OrderByDescending(g => g.Fecha)
+                .ThenByDescending(g => g.Id)
+                .Skip(filtros.PaginaEfectiva * tamanoPagina)
+                .Take(tamanoPagina)
+                .ToListAsync();
+
+            return new ResultadoPaginado<GastoOperativo>(elementos, total);
+        }
+
+        public async Task<IReadOnlyList<MontoPorMonedaDto>> ObtenerTotalesPorMonedaAsync(FiltrosGastoDto filtros)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            // Solo los activos: un gasto anulado ya no representa dinero
+            // efectivamente gastado, así que sumarlo distorsionaría el total del
+            // período consultado. Suma monto sin IVA + IVA (lo que salió de la cuenta).
+            // Tipo anónimo y no el record directo: EF Core no traduce siempre un
+            // GroupBy + Select a un constructor posicional.
+            var filas = await Filtrar(context, filtros)
+                .Where(g => g.Estado == EstadoGastoOperativo.Activo)
+                .GroupBy(g => g.Moneda)
+                .Select(g => new { Moneda = g.Key, Total = g.Sum(x => x.MontoSinIva + x.Iva) })
+                .ToListAsync();
+
+            return filas.Select(f => new MontoPorMonedaDto(f.Moneda, f.Total)).ToList();
+        }
+
+        // Los filtros de las consultas del listado (completa y paginada) en un solo
+        // lugar, para que no puedan divergir. Todo se traduce a SQL y se aplica ANTES
+        // de paginar. Sin Include ni orden: cada llamador agrega los suyos.
+        private static IQueryable<GastoOperativo> Filtrar(SigacDbContext context, FiltrosGastoDto filtros)
+        {
             var query = context.GastosOperativos
                 .AsNoTracking()
-                .Include(g => g.TipoGasto)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(filtros.Texto))
@@ -145,9 +207,7 @@ namespace SIGAC.Infrastructure.Repositories
                 query = query.Where(g => g.Fecha < hastaExclusivo);
             }
 
-            return await query
-                .OrderByDescending(g => g.Fecha)
-                .ToListAsync();
+            return query;
         }
 
         // Incluye proveedores de gastos anulados: el proveedor existió igual, y

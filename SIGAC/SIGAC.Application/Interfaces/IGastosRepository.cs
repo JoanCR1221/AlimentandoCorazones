@@ -1,4 +1,5 @@
-﻿using SIGAC.Application.DTOs.Gastos;
+﻿using SIGAC.Application.DTOs;
+using SIGAC.Application.DTOs.Gastos;
 using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Domain.Entities;
 
@@ -11,7 +12,19 @@ namespace SIGAC.Application.Interfaces
         Task ActualizarAsync(GastoOperativo gasto);
 
         // Trae cada gasto con su TipoGasto cargado: el listado muestra el nombre.
+        // Sin paginar: lo usa el selector de gastos de Inventario, que necesita el
+        // conjunto completo. El listado de gastos usa ObtenerPaginaAsync.
         Task<IEnumerable<GastoOperativo>> ObtenerTodosAsync(FiltrosGastoDto filtros);
+
+        // Una página del listado (filtros.Pagina / TamanoPagina), del más reciente al
+        // más antiguo, con su TipoGasto cargado, más cuántos gastos cumplen el filtro
+        // en total. Mismos filtros que ObtenerTodosAsync, resueltos en SQL.
+        Task<ResultadoPaginado<GastoOperativo>> ObtenerPaginaAsync(FiltrosGastoDto filtros);
+
+        // Total pagado (monto sin IVA + IVA) de los gastos ACTIVOS que cumplen el
+        // filtro, por moneda: un gasto anulado ya no es dinero gastado. Cubre TODO el
+        // conjunto filtrado e ignora la paginación.
+        Task<IReadOnlyList<MontoPorMonedaDto>> ObtenerTotalesPorMonedaAsync(FiltrosGastoDto filtros);
 
         // Proveedores distintos que contienen el texto, ordenados, a lo sumo maximo.
         Task<IReadOnlyList<string>> BuscarProveedoresAsync(string texto, int maximo);

@@ -11,11 +11,16 @@ namespace SIGAC.Application.Interfaces
     // Genérica y no una por tipo de reporte: arma las columnas reflexionando
     // sobre las propiedades públicas de T, así que un reporte nuevo (Donaciones,
     // Inventario) no necesita tocar este servicio.
+    //
+    // Subtitulo (período o filtros usados) y resumen (totales) son opcionales: se
+    // imprimen bajo el título y al pie del archivo. Los títulos de columna salen de
+    // [Display(Name)] en el DTO de fila, y AutoGenerateField = false oculta una
+    // propiedad (por ejemplo un Id).
     public interface IExportacionService
     {
-        Task<byte[]> ExportarPDFAsync<T>(IEnumerable<T> datos, string titulo);
+        Task<byte[]> ExportarPDFAsync<T>(IEnumerable<T> datos, string titulo, string? subtitulo = null, IReadOnlyList<LineaResumenReporte>? resumen = null);
 
-        Task<byte[]> ExportarExcelAsync<T>(IEnumerable<T> datos, string titulo);
+        Task<byte[]> ExportarExcelAsync<T>(IEnumerable<T> datos, string titulo, string? subtitulo = null, IReadOnlyList<LineaResumenReporte>? resumen = null);
 
         // Aparte y no genérico: el reporte de gastos no es una tabla plana, es un
         // documento agrupado con subtotales por grupo y un gran total, igual al

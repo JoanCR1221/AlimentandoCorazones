@@ -279,6 +279,13 @@ namespace SIGAC.Tests.Application
             public Task AprobarPrestamoConStockAsync(SolicitudPrestamo solicitud, SalidaInventario salida) => throw new NotImplementedException();
             public Task<IEnumerable<EntradaInventario>> ObtenerEntradasAsync(int? articuloId, DateTime? desde, DateTime? hasta) => throw new NotImplementedException();
             public Task<IEnumerable<SalidaInventario>> ObtenerSalidasAsync(int? articuloId, DateTime? desde, DateTime? hasta) => throw new NotImplementedException();
+            public Task<ResultadoPaginado<ItemMovimiento>> ObtenerPaginaMovimientosAsync(FiltrosMovimientoDto filtros) => throw new NotImplementedException();
+            public Task<TotalesMovimientos> ObtenerTotalesMovimientosAsync(FiltrosMovimientoDto filtros) => throw new NotImplementedException();
+
+            // Los usa el panorama de Reportes, no el servicio de inventario.
+            public Task<IReadOnlyList<SIGAC.Application.DTOs.Reportes.UnidadesPorMesYTipoDto>> ObtenerEntradasPorMesYOrigenAsync(int mesesHaciaAtras) => throw new NotImplementedException();
+            public Task<IReadOnlyList<SIGAC.Application.DTOs.Reportes.UnidadesPorMesYTipoDto>> ObtenerSalidasPorMesYTipoAsync(int mesesHaciaAtras) => throw new NotImplementedException();
+            public Task<IReadOnlyList<SIGAC.Application.DTOs.Reportes.MovimientosPorArticuloDto>> ObtenerArticulosConMasMovimientosAsync(int mesesHaciaAtras, int maximo) => throw new NotImplementedException();
             public Task AgregarSolicitudPrestamoAsync(SolicitudPrestamo solicitud) => throw new NotImplementedException();
             public Task<SolicitudPrestamo?> ObtenerSolicitudPorIdAsync(int id) => throw new NotImplementedException();
             public Task ActualizarSolicitudAsync(SolicitudPrestamo solicitud) => throw new NotImplementedException();

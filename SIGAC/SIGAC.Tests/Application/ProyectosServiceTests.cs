@@ -217,6 +217,10 @@ namespace SIGAC.Tests.Application
             public Task FinalizarAsync(int id) => throw new NotImplementedException();
             public Task AgregarParticipanteAsync(ParticipanteProyecto participante) => throw new NotImplementedException();
             public Task<bool> ExisteParticipanteAsync(int proyectoId, int beneficiarioId) => throw new NotImplementedException();
+
+            // Lo usa Reportes, no el servicio de proyectos.
+            public Task<IReadOnlyList<ProyectoComunitario>> ObtenerParaReporteAsync(SIGAC.Application.DTOs.Reportes.FiltrosReporteProyectosDto filtros) =>
+                throw new NotImplementedException();
         }
 
         // ProyectosService solo lo usa al agregar participantes, que estos tests no cubren.

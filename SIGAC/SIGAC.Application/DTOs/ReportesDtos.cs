@@ -1,15 +1,36 @@
+using System.ComponentModel.DataAnnotations;
+using SIGAC.Domain.Entities;
+
 namespace SIGAC.Application.DTOs.Reportes
 {
+    // Una línea del resumen que se imprime al pie de un reporte exportado
+    // ("Total de asistencias en el período" / "12"). El valor ya viene como
+    // texto: lo formatea la pantalla que conoce monedas y unidades, no el
+    // exportador.
+    public sealed record LineaResumenReporte(string Etiqueta, string Valor);
+
     // Una fila del reporte de beneficiarios atendidos: un beneficiario con sus
     // asistencias del período, separadas por tiempo de comida (PBI 1940).
+    //
+    // El exportador genérico convierte cada propiedad pública en una columna y
+    // lee el título de [Display(Name)]; con AutoGenerateField = false la
+    // propiedad no se exporta. La pantalla ignora estos atributos.
     public class ReporteBeneficiariosDto
     {
+        [Display(AutoGenerateField = false)]
         public int BeneficiarioId { get; set; }
+
+        [Display(Name = "Nombre")]
         public string NombreCompleto { get; set; } = string.Empty;
+
+        [Display(Name = "Categoría")]
         public string Categoria { get; set; } = string.Empty;
+
         public int Desayunos { get; set; }
         public int Almuerzos { get; set; }
         public int Meriendas { get; set; }
+
+        [Display(Name = "Total")]
         public int TotalAsistencias { get; set; }
     }
 
@@ -128,5 +149,321 @@ namespace SIGAC.Application.DTOs.Reportes
         public IReadOnlyList<GrupoReporteGastosDto> Grupos { get; set; } = Array.Empty<GrupoReporteGastosDto>();
         public decimal GranTotalMonto { get; set; }
         public decimal GranTotalIva { get; set; }
+    }
+
+    // Una fila del reporte de alquileres de espacios (PBI B). Horario y Sectores ya
+    // vienen como texto: el exportador convierte cada propiedad pública en una
+    // columna y no formatea listas ni franjas. Sin Id por lo mismo que los otros
+    // reportes. Los cancelados se listan (con su Estado) pero no suman a los
+    // ingresos ni a las horas.
+    public class ReporteAlquileresDto
+    {
+        public DateTime Fecha { get; set; }
+
+        // "8:00 a. m. – 12:00 p. m.", el mismo formato del calendario.
+        public string Horario { get; set; } = string.Empty;
+
+        public string Arrendatario { get; set; } = string.Empty;
+
+        // Los sectores del alquiler, separados por coma.
+        public string Sectores { get; set; } = string.Empty;
+
+        public int Personas { get; set; }
+
+        public decimal Monto { get; set; }
+
+        public string Moneda { get; set; } = string.Empty;
+
+        // "Reservado" o "Cancelado" (EstadoAlquiler).
+        public string Estado { get; set; } = string.Empty;
+    }
+
+    // Sin acotar es "desde siempre" / "hasta hoy", todos los sectores y ambos
+    // estados, igual que el calendario de alquileres. EspacioId trae los alquileres
+    // que usan ese sector, entre otros.
+    public class FiltrosReporteAlquileresDto
+    {
+        public DateTime? FechaDesde { get; set; }
+        public DateTime? FechaHasta { get; set; }
+        public int? EspacioId { get; set; }
+        public EstadoAlquiler? Estado { get; set; }
+    }
+
+    // Las filas y lo que piden los criterios del PBI: alquileres reservados y
+    // cancelados, las horas alquiladas y el ingreso por moneda (sin sumar monedas
+    // distintas). Ingresos y horas cuentan solo los reservados.
+    public class ReporteAlquileresResultadoDto
+    {
+        public IReadOnlyList<ReporteAlquileresDto> Filas { get; set; } = Array.Empty<ReporteAlquileresDto>();
+        public int CantidadReservados { get; set; }
+        public int CantidadCancelados { get; set; }
+
+        // Suma de la duración de cada alquiler reservado, contado una sola vez
+        // aunque use varios sectores: mide cuánto tiempo se usó el local, no
+        // sectores-hora.
+        public decimal HorasAlquiladas { get; set; }
+
+        public IReadOnlyList<MontoPorMonedaDto> IngresosPorMoneda { get; set; } = Array.Empty<MontoPorMonedaDto>();
+    }
+
+    // Una fila del reporte de proyectos comunitarios (PBI A): un proyecto con sus
+    // fechas y cuántas personas participan. Sin Id ni lista de participantes: el
+    // exportador convierte cada propiedad pública en una columna y no formatea
+    // listas. Los participantes van contados, de dos formas: el total y cuántos son
+    // beneficiarios y cuántos externos.
+    public class ReporteProyectosDto
+    {
+        public string Nombre { get; set; } = string.Empty;
+
+        // "Planificado", "En curso", "Finalizado" o "Cancelado", con el mismo
+        // texto que el listado de proyectos.
+        public string Estado { get; set; } = string.Empty;
+
+        [Display(Name = "Inicio")]
+        public DateTime FechaInicio { get; set; }
+
+        [Display(Name = "Fin estimado")]
+        public DateTime FechaEstimadaFin { get; set; }
+
+        // Vacía mientras el proyecto no se finaliza.
+        [Display(Name = "Finalización real")]
+        public DateTime? FechaFinalizacion { get; set; }
+
+        [Display(Name = "Participantes")]
+        public int TotalParticipantes { get; set; }
+
+        public int Beneficiarios { get; set; }
+
+        public int Externos { get; set; }
+    }
+
+    // Estado en null es "todos". Las fechas filtran por la fecha de INICIO del
+    // proyecto (no por los proyectos activos en el rango): sin acotar son "desde
+    // siempre" / "hasta hoy".
+    public class FiltrosReporteProyectosDto
+    {
+        public EstadoProyecto? Estado { get; set; }
+        public DateTime? FechaDesde { get; set; }
+        public DateTime? FechaHasta { get; set; }
+    }
+
+    // Las filas, el total de proyectos de cada estado y el total de participantes del
+    // período. El total de participantes suma las participaciones de cada proyecto:
+    // una misma persona en dos proyectos cuenta dos veces.
+    public class ReporteProyectosResultadoDto
+    {
+        public IReadOnlyList<ReporteProyectosDto> Filas { get; set; } = Array.Empty<ReporteProyectosDto>();
+        public int Planificados { get; set; }
+        public int EnCurso { get; set; }
+        public int Finalizados { get; set; }
+        public int Cancelados { get; set; }
+        public int TotalParticipantes { get; set; }
+        public int TotalBeneficiarios { get; set; }
+        public int TotalExternos { get; set; }
+    }
+
+    // Cuántos participantes tiene un proyecto, para el ranking del panorama.
+    public sealed record ParticipantesPorProyectoDto(string Proyecto, int Participantes);
+
+    // Cifras del panorama gráfico de Proyectos. A diferencia de los otros panoramas,
+    // los totales por estado y por tipo de participante son de TODOS los proyectos
+    // (son pocos y de larga duración: uno iniciado hace 14 meses y todavía en curso
+    // no tiene que desaparecer), y solo las dos series mensuales usan una ventana fija
+    // de meses hacia atrás: los proyectos por su fecha de inicio y los participantes
+    // por su fecha de registro (ver ReportesService.ObtenerPanoramaProyectosAsync).
+    public sealed class PanoramaProyectosDto
+    {
+        public int TotalProyectos { get; set; }
+        public int Planificados { get; set; }
+        public int EnCurso { get; set; }
+        public int Finalizados { get; set; }
+        public int Cancelados { get; set; }
+        public int ParticipantesBeneficiarios { get; set; }
+        public int ParticipantesExternos { get; set; }
+        public IReadOnlyList<ConteoPorMesDto> ProyectosIniciadosPorMes { get; set; } = Array.Empty<ConteoPorMesDto>();
+        public IReadOnlyList<ConteoPorMesDto> ParticipantesRegistradosPorMes { get; set; } = Array.Empty<ConteoPorMesDto>();
+        public IReadOnlyList<ParticipantesPorProyectoDto> ProyectosConMasParticipantes { get; set; } = Array.Empty<ParticipantesPorProyectoDto>();
+    }
+
+    // Una fila del reporte de movimientos de inventario (PBI 1941): una entrada, una
+    // donación o un préstamo de un artículo. Sin Id: el de entradas y salidas son
+    // de tablas distintas y se repetirían, y al exportador no le sirve de columna.
+    public class ReporteMovimientosDto
+    {
+        public DateTime Fecha { get; set; }
+
+        public string Articulo { get; set; } = string.Empty;
+
+        // "Entrada", "Donación" o "Préstamo", ya con tilde (el historial usa
+        // "Donacion" y "Prestamo", los valores guardados).
+        [Display(Name = "Tipo")]
+        public string TipoMovimiento { get; set; } = string.Empty;
+
+        public int Cantidad { get; set; }
+
+        // De dónde vino una entrada (Compra, Donación) o a dónde fue una salida.
+        [Display(Name = "Origen / destino")]
+        public string OrigenODestino { get; set; } = string.Empty;
+    }
+
+    // TipoMovimiento usa los valores guardados ("Entrada", "Donacion" o "Prestamo"),
+    // igual que FiltrosMovimientoDto; null es todos. Las fechas sin acotar son
+    // "desde siempre" / "hasta hoy".
+    public class FiltrosReporteMovimientosDto
+    {
+        public int? ArticuloId { get; set; }
+        public string? TipoMovimiento { get; set; }
+        public DateTime? FechaDesde { get; set; }
+        public DateTime? FechaHasta { get; set; }
+    }
+
+    // Las filas y los dos totales que pide el PBI. Son unidades (la suma de
+    // Cantidad), no la cantidad de movimientos, igual que en el historial.
+    public class ReporteMovimientosResultadoDto
+    {
+        public IReadOnlyList<ReporteMovimientosDto> Filas { get; set; } = Array.Empty<ReporteMovimientosDto>();
+        public int TotalEntradas { get; set; }
+        public int TotalSalidas { get; set; }
+    }
+
+    // Unidades movidas en un mes calendario, separadas por tipo. Tipo es el origen de
+    // una entrada ("Compra" o "Donacion") o el tipo de una salida ("Donacion" o
+    // "Prestamo"), según de qué consulta salga: de una sola consulta por lado salen
+    // el total del mes y el desglose por tipo, igual que ConteoComidaMensualDto.
+    public sealed record UnidadesPorMesYTipoDto(int Anio, int Mes, string Tipo, int Unidades);
+
+    // Cuántos movimientos (entradas y salidas juntas) tuvo un artículo. Se cuentan
+    // movimientos y no unidades porque los artículos se miden distinto (kilos,
+    // unidades) y sumar sus cantidades para ordenarlos no representa nada.
+    public sealed record MovimientosPorArticuloDto(string Articulo, int Movimientos);
+
+    // Cifras del panorama gráfico de Inventario: mismo criterio que
+    // PanoramaGastosDto, una ventana fija de meses hacia atrás que no depende de
+    // filtros de pantalla (ver ReportesService.ObtenerPanoramaInventarioAsync). Todo
+    // son unidades (la suma de Cantidad), igual que el historial de movimientos, y no
+    // cuenta las entradas anuladas.
+    public sealed class PanoramaInventarioDto
+    {
+        public int UnidadesEntradas { get; set; }
+        public int UnidadesSalidas { get; set; }
+        public IReadOnlyList<ConteoPorMesDto> EntradasPorMes { get; set; } = Array.Empty<ConteoPorMesDto>();
+        public IReadOnlyList<ConteoPorMesDto> SalidasPorMes { get; set; } = Array.Empty<ConteoPorMesDto>();
+        public int EntradasPorCompra { get; set; }
+        public int EntradasPorDonacion { get; set; }
+        public int SalidasPorDonacion { get; set; }
+        public int SalidasPorPrestamo { get; set; }
+        public IReadOnlyList<MovimientosPorArticuloDto> ArticulosConMasMovimientos { get; set; } = Array.Empty<MovimientosPorArticuloDto>();
+    }
+
+    // Un alquiler reducido a lo que necesita el panorama de alquileres: cuándo fue,
+    // cuánto duró, cuánto costó y qué sectores usó. Lo trae el repositorio ya
+    // acotado a la ventana de meses y el servicio lo agrupa.
+    public sealed record AlquilerPanoramaDto(
+        DateTime Fecha,
+        TimeSpan HoraInicio,
+        TimeSpan HoraFin,
+        decimal Monto,
+        string Moneda,
+        EstadoAlquiler Estado,
+        IReadOnlyList<string> Sectores);
+
+    // Horas alquiladas en un mes calendario.
+    public sealed record HorasPorMesDto(int Anio, int Mes, decimal Horas);
+
+    // Cuántos alquileres reservados usaron un sector. Un alquiler de dos sectores
+    // cuenta en los dos.
+    public sealed record AlquileresPorSectorDto(string Sector, int Cantidad);
+
+    // Cifras del panorama gráfico de Alquileres: mismo criterio que
+    // PanoramaGastosDto, una ventana fija de meses hacia atrás que no depende de
+    // filtros de pantalla (ver ReportesService.ObtenerPanoramaAlquileresAsync). Todo
+    // lo que mide uso o ingreso cuenta solo los alquileres reservados: uno cancelado
+    // no ocupa el local ni genera ingreso. El ingreso va solo en colones, porque no
+    // se pueden sumar monedas distintas.
+    public sealed class PanoramaAlquileresDto
+    {
+        public int CantidadReservados { get; set; }
+        public int CantidadCancelados { get; set; }
+        public decimal HorasAlquiladas { get; set; }
+        public decimal IngresosEnColones { get; set; }
+        public IReadOnlyList<ConteoPorMesDto> ReservadosPorMes { get; set; } = Array.Empty<ConteoPorMesDto>();
+        public IReadOnlyList<ConteoPorMesDto> CanceladosPorMes { get; set; } = Array.Empty<ConteoPorMesDto>();
+        public IReadOnlyList<MontoPorMesDto> IngresosEnColonesPorMes { get; set; } = Array.Empty<MontoPorMesDto>();
+        public IReadOnlyList<HorasPorMesDto> HorasPorMes { get; set; } = Array.Empty<HorasPorMesDto>();
+        public IReadOnlyList<AlquileresPorSectorDto> AlquileresPorSector { get; set; } = Array.Empty<AlquileresPorSectorDto>();
+        public int ReservadosEntreSemana { get; set; }
+        public int ReservadosFinDeSemana { get; set; }
+    }
+
+    // Cantidad de donaciones recibidas en un mes, separada por clase ("Dinero" o
+    // "Especie", los valores de DonacionesService.TipoDonacionDinero/Especie): de
+    // una sola consulta salen el total por clase y la tendencia mensual del
+    // panorama, igual que ConteoComidaMensualDto con los tiempos de comida.
+    public sealed record ConteoDonacionMensualDto(int Anio, int Mes, string TipoDonacion, int Cantidad);
+
+    // Cuántas donaciones (de dinero y de especie juntas) hizo un donante. Se cuenta
+    // y no se suma dinero porque hay donantes que solo donan en especie o en otra
+    // moneda, y un ranking por monto los dejaría fuera.
+    public sealed record DonacionesPorDonanteDto(string Donante, int Cantidad);
+
+    // Cifras del panorama gráfico de Donaciones: mismo criterio que
+    // PanoramaGastosDto, una ventana fija de meses hacia atrás que no depende de
+    // filtros de pantalla (ver ReportesService.ObtenerPanoramaDonacionesAsync).
+    // El dinero va solo en colones, como en gastos: sumar monedas distintas no
+    // representa nada. Los donantes activos e inactivos son el total actual, no el
+    // de la ventana.
+    public sealed class PanoramaDonacionesDto
+    {
+        public int CantidadDinero { get; set; }
+        public int CantidadEspecie { get; set; }
+        public IReadOnlyList<ConteoDonacionMensualDto> DonacionesPorMes { get; set; } = Array.Empty<ConteoDonacionMensualDto>();
+        public IReadOnlyList<MontoPorMesDto> DineroEnColonesPorMes { get; set; } = Array.Empty<MontoPorMesDto>();
+        public IReadOnlyList<DonacionesPorDonanteDto> TopDonantes { get; set; } = Array.Empty<DonacionesPorDonanteDto>();
+        public int DonantesActivos { get; set; }
+        public int DonantesInactivos { get; set; }
+    }
+
+    // Una fila del reporte de donaciones recibidas: dinero y especie en la misma
+    // tabla, igual que el historial de donaciones (PBI 1939). Sin Id: el del
+    // historial es el de su tabla y se repetiría entre dinero y especie, y al
+    // exportador no le sirve de columna.
+    public class ReporteDonacionesDto
+    {
+        public DateTime Fecha { get; set; }
+
+        [Display(Name = "Tipo")]
+        public string TipoDonacion { get; set; } = string.Empty;
+
+        public string Donante { get; set; } = string.Empty;
+
+        // Nullable y sin valor en las donaciones en especie, que no se valorizan:
+        // la celda queda vacía en vez de mostrar un 0 que se leería como "donó cero".
+        public decimal? Monto { get; set; }
+
+        public string? Moneda { get; set; }
+
+        [Display(Name = "Descripción")]
+        public string Descripcion { get; set; } = string.Empty;
+    }
+
+    // TipoDonacion en null significa "ambas" (Dinero y Especie); las fechas sin
+    // acotar son "desde siempre" / "hasta hoy", igual que en los otros reportes.
+    public class FiltrosReporteDonacionesDto
+    {
+        public string? TipoDonacion { get; set; }
+        public DateTime? FechaDesde { get; set; }
+        public DateTime? FechaHasta { get; set; }
+    }
+
+    // Las filas y lo que piden los criterios del PBI: la cantidad de donaciones
+    // de cada clase y el total de dinero. El total va POR MONEDA y nunca como un
+    // solo número, porque colones, dólares y euros no se suman entre sí; las
+    // donaciones en especie no aportan monto.
+    public class ReporteDonacionesResultadoDto
+    {
+        public IReadOnlyList<ReporteDonacionesDto> Filas { get; set; } = Array.Empty<ReporteDonacionesDto>();
+        public int CantidadDinero { get; set; }
+        public int CantidadEspecie { get; set; }
+        public IReadOnlyList<MontoPorMonedaDto> TotalesPorMoneda { get; set; } = Array.Empty<MontoPorMonedaDto>();
     }
 }

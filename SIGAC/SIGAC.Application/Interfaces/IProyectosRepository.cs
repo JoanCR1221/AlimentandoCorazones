@@ -1,4 +1,5 @@
 using SIGAC.Application.DTOs.Proyectos;
+using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Domain.Entities;
 
 namespace SIGAC.Application.Interfaces
@@ -21,5 +22,12 @@ namespace SIGAC.Application.Interfaces
         // Quita un participante del proyecto. Devuelve false si no existe o si
         // pertenece a otro proyecto (el id solo no alcanza: se exigen los dos).
         Task<bool> QuitarParticipanteAsync(int proyectoId, int participanteId);
+
+        // Para Reportes: los proyectos con sus participantes (sin el beneficiario
+        // completo, solo los campos del propio participante), filtrados por estado y
+        // por el rango de su fecha de INICIO. Sin paginación, mismo criterio que
+        // ObtenerTodosAsync. Orden: fecha de inicio, de la más reciente a la más
+        // antigua, igual que el listado.
+        Task<IReadOnlyList<ProyectoComunitario>> ObtenerParaReporteAsync(FiltrosReporteProyectosDto filtros);
     }
 }

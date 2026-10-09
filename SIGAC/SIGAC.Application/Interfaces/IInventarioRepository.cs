@@ -1,9 +1,18 @@
 ﻿using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Inventario;
+using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Domain.Entities;
 
 namespace SIGAC.Application.Interfaces
 {
+    // Una fila del historial de movimientos: o una entrada o una salida, nunca las
+    // dos. Es lo que devuelve la consulta paginada, que mezcla las dos tablas en una
+    // sola lista ordenada.
+    public sealed record ItemMovimiento(EntradaInventario? Entrada, SalidaInventario? Salida);
+
+    // Unidades (la suma de Cantidad, no cuántos movimientos) que entraron y salieron.
+    public sealed record TotalesMovimientos(int Entradas, int Salidas);
+
     public interface IInventarioRepository
     {
         // Artículos
@@ -76,9 +85,43 @@ namespace SIGAC.Application.Interfaces
         Task AprobarPrestamoConStockAsync(SolicitudPrestamo solicitud, SalidaInventario salida);
 
         // Consultas de movimientos
+        //
+        // No devuelve las entradas anuladas (EntradaInventario.Anulada): ya se
+        // revirtieron del stock, así que no ingresaron nada.
         Task<IEnumerable<EntradaInventario>> ObtenerEntradasAsync(int? articuloId, DateTime? desde, DateTime? hasta);
 
         Task<IEnumerable<SalidaInventario>> ObtenerSalidasAsync(int? articuloId, DateTime? desde, DateTime? hasta);
+
+        // Historial paginado: UNA página de los movimientos (entradas y salidas
+        // mezcladas), del más reciente al más antiguo, más cuántos movimientos cumplen
+        // el filtro en total. Con las mismas reglas que las dos consultas de arriba
+        // (sin entradas anuladas) y con el tipo de movimiento resuelto en SQL.
+        //
+        // La unión en SQL es solo de las CLAVES (tipo, Id, fecha); las filas completas,
+        // con el artículo, se traen aparte y solo para esa página. Los reportes no
+        // usan esta: siguen con las dos consultas de arriba, sin paginar.
+        Task<ResultadoPaginado<ItemMovimiento>> ObtenerPaginaMovimientosAsync(FiltrosMovimientoDto filtros);
+
+        // Unidades que entraron y salieron entre TODOS los movimientos que cumplen el
+        // filtro (ignora la paginación).
+        Task<TotalesMovimientos> ObtenerTotalesMovimientosAsync(FiltrosMovimientoDto filtros);
+
+        // Consultas del panorama gráfico (Reportes)
+        //
+        // Cifras agregadas en SQL, sobre una ventana de meses calendario hacia atrás
+        // que incluye el mes actual. Solo traen los meses que tienen movimientos: la
+        // pantalla alinea el resultado contra la ventana completa. Ninguna cuenta las
+        // entradas anuladas.
+
+        // Unidades que entraron por mes y origen ("Compra" o "Donacion").
+        Task<IReadOnlyList<UnidadesPorMesYTipoDto>> ObtenerEntradasPorMesYOrigenAsync(int mesesHaciaAtras);
+
+        // Unidades que salieron por mes y tipo ("Donacion" o "Prestamo").
+        Task<IReadOnlyList<UnidadesPorMesYTipoDto>> ObtenerSalidasPorMesYTipoAsync(int mesesHaciaAtras);
+
+        // Los artículos con más movimientos (entradas y salidas juntas), de mayor a
+        // menor; en empate, por nombre.
+        Task<IReadOnlyList<MovimientosPorArticuloDto>> ObtenerArticulosConMasMovimientosAsync(int mesesHaciaAtras, int maximo);
 
         // Préstamos
         Task AgregarSolicitudPrestamoAsync(SolicitudPrestamo solicitud);

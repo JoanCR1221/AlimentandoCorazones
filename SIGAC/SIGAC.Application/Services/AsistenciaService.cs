@@ -106,13 +106,23 @@ namespace SIGAC.Application.Services
         {
             try
             {
-                var asistencias = await _asistenciaRepository.ObtenerHistorialAsync(filtros);
+                // Los totales cubren todo el período filtrado (un GROUP BY en la
+                // base), no solo la página: contar las filas de la página daría
+                // como máximo el tamaño de página. El total de registros es la suma
+                // de esos totales, así no hace falta un COUNT aparte.
+                var totales = await _asistenciaRepository.ObtenerTotalesPorTiempoComidaAsync(filtros);
+                var totalRegistros = totales.Values.Sum();
+
+                // Sin registros no hay página que pedir: se ahorra la segunda consulta.
+                var asistencias = totalRegistros == 0
+                    ? Array.Empty<AsistenciaComedor>()
+                    : await _asistenciaRepository.ObtenerPaginaHistorialAsync(filtros);
 
                 // El nombre sale de la navegación que el repositorio ya trajo con
                 // Include, en el mismo viaje a la base: antes era una consulta extra
-                // por cada beneficiario distinto del período.
+                // por cada beneficiario distinto del período. El orden ya viene de
+                // SQL (el que fija el Skip/Take); reordenar acá lo desharía.
                 var registros = asistencias
-                    .OrderByDescending(a => a.Fecha)
                     .Select(a => new HistorialAsistenciaDto
                     {
                         Id = a.Id,
@@ -122,25 +132,38 @@ namespace SIGAC.Application.Services
                     })
                     .ToList();
 
-                var totalesPorBeneficiario = registros
-                    .GroupBy(r => r.NombreBeneficiario)
-                    .ToDictionary(g => g.Key, g => g.Count());
-
-                var totalesPorTiempoComida = registros
-                    .GroupBy(r => r.TiempoComida)
-                    .ToDictionary(g => g.Key, g => g.Count());
-
                 return new HistorialAsistenciaResultadoDto
                 {
                     Registros = registros,
-                    TotalesPorBeneficiario = totalesPorBeneficiario,
-                    TotalesPorTiempoComida = totalesPorTiempoComida
+                    TotalRegistros = totalRegistros,
+                    TotalesPorTiempoComida = OrdenarPorTiempoComida(totales)
                 };
             }
             catch (Exception ex)
             {
                 throw new Exception("Error al consultar el historial de asistencia.", ex);
             }
+        }
+
+        // En el orden del día (desayuno, almuerzo, merienda) y no en el que devuelva la
+        // base: antes el orden dependía de cuál comida aparecía primero en el período.
+        private static Dictionary<string, int> OrdenarPorTiempoComida(IReadOnlyDictionary<string, int> totales)
+        {
+            // Un valor que no esté en la lista (dato viejo) va al final, no se pierde.
+            int Posicion(string tiempoComida)
+            {
+                for (var i = 0; i < TiemposComida.Todos.Count; i++)
+                {
+                    if (TiemposComida.Todos[i] == tiempoComida)
+                        return i;
+                }
+
+                return int.MaxValue;
+            }
+
+            return totales
+                .OrderBy(kv => Posicion(kv.Key))
+                .ToDictionary(kv => kv.Key, kv => kv.Value);
         }
     }
 }

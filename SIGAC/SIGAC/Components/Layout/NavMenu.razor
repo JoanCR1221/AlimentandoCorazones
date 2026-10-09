@@ -22,11 +22,26 @@
                      Icon="@grupo.Icono"
                      Expanded="grupo.Expandido"
                      ExpandedChanged="@(expandido => OnExpandedChanged(grupo, expandido))">
-            @foreach (var enlace in grupo.EnlacesVisibles)
+            @foreach (var enlace in grupo.EnlacesVisibles.Where(e => e.Seccion is null))
             {
                 <MudNavLink Href="@enlace.Href" Match="@enlace.Match" Icon="@enlace.Icono">
                     @enlace.Titulo
                 </MudNavLink>
+            }
+
+            @foreach (var seccion in grupo.Secciones)
+            {
+                <MudNavGroup Title="@seccion.Titulo"
+                             Icon="@seccion.Icono"
+                             Expanded="seccionesExpandidas.Contains(seccion)"
+                             ExpandedChanged="@(expandida => OnSeccionExpandedChanged(seccion, expandida))">
+                    @foreach (var enlace in grupo.EnlacesVisibles.Where(e => e.Seccion == seccion))
+                    {
+                        <MudNavLink Href="@enlace.Href" Match="@enlace.Match" Icon="@enlace.Icono">
+                            @enlace.Titulo
+                        </MudNavLink>
+                    }
+                </MudNavGroup>
             }
         </MudNavGroup>
     }
@@ -43,7 +58,17 @@
     [CascadingParameter]
     private Task<AuthenticationState>? EstadoAutenticacion { get; set; }
 
-    private sealed record Enlace(string Titulo, string Href, string Icono, string Permiso, NavLinkMatch Match = NavLinkMatch.Prefix);
+    // Subgrupo plegable dentro de un grupo, para cuando este junta tantos enlaces
+    // que la lista se vuelve larga (Reportes: 6 listados y 6 panoramas). Un enlace
+    // sin Seccion se muestra directo bajo el grupo, como siempre.
+    private sealed record Seccion(string Titulo, string Icono);
+
+    private sealed record Enlace(string Titulo, string Href, string Icono, string Permiso, NavLinkMatch Match = NavLinkMatch.Prefix, Seccion? Seccion = null);
+
+    // Títulos cortos a propósito: el segundo nivel del menú deja unos 15
+    // caracteres de ancho útil y lo más largo se parte en dos líneas.
+    private static readonly Seccion SeccionReportes = new("Para exportar", Icons.Material.Filled.Assessment);
+    private static readonly Seccion SeccionPanoramas = new("Panoramas", Icons.Material.Filled.Insights);
 
     private sealed class Grupo
     {
@@ -59,9 +84,15 @@
         public required IReadOnlyList<Enlace> Enlaces { get; init; }
         public IReadOnlyList<Enlace> EnlacesVisibles { get; set; } = Array.Empty<Enlace>();
         public bool Expandido { get; set; }
+
+        // Solo las secciones con al menos un enlace visible, en el orden en que
+        // aparecen en Enlaces.
+        public IReadOnlyList<Seccion> Secciones =>
+            EnlacesVisibles.Where(e => e.Seccion is not null).Select(e => e.Seccion!).Distinct().ToList();
     }
 
     private List<Grupo> gruposVisibles = new();
+    private readonly HashSet<Seccion> seccionesExpandidas = new();
 
     // Instancias nuevas por componente: Expandido y EnlacesVisibles son estado
     // propio de cada circuito y no pueden compartirse en un static.
@@ -169,12 +200,23 @@
             Prefijos = new[] { "reportes" },
             Enlaces = new[]
             {
-                // Donaciones e Inventario se agregan acá mismo cuando les toque,
-                // sin tocar el resto del grupo.
-                new Enlace("Beneficiarios atendidos", "/reportes/beneficiarios", Icons.Material.Filled.Assessment, Permisos.Reportes.VerBeneficiarios, NavLinkMatch.All),
-                new Enlace("Panorama de beneficiarios", "/reportes/beneficiarios/panorama", Icons.Material.Filled.Insights, Permisos.Reportes.VerBeneficiarios, NavLinkMatch.All),
-                new Enlace("Gastos operativos", "/reportes/gastos", Icons.Material.Filled.Assessment, Permisos.Reportes.VerGastos, NavLinkMatch.All),
-                new Enlace("Panorama de gastos", "/reportes/gastos/panorama", Icons.Material.Filled.Insights, Permisos.Reportes.VerGastos, NavLinkMatch.All)
+                // Un enlace por módulo en cada sección, con su ícono para distinguirlos
+                // a simple vista; la sección ya dice si es el listado o el panorama, así
+                // que el título es solo el módulo. El permiso es el mismo para el
+                // listado y para el panorama de cada módulo.
+                new Enlace("Beneficiarios", "/reportes/beneficiarios", Icons.Material.Filled.People, Permisos.Reportes.VerBeneficiarios, NavLinkMatch.All, SeccionReportes),
+                new Enlace("Gastos", "/reportes/gastos", Icons.Material.Filled.Receipt, Permisos.Reportes.VerGastos, NavLinkMatch.All, SeccionReportes),
+                new Enlace("Donaciones", "/reportes/donaciones", Icons.Material.Filled.VolunteerActivism, Permisos.Reportes.VerDonaciones, NavLinkMatch.All, SeccionReportes),
+                new Enlace("Alquileres", "/reportes/alquileres", Icons.Material.Filled.MeetingRoom, Permisos.Reportes.VerAlquileres, NavLinkMatch.All, SeccionReportes),
+                new Enlace("Inventario", "/reportes/inventario", Icons.Material.Filled.Inventory, Permisos.Reportes.VerInventario, NavLinkMatch.All, SeccionReportes),
+                new Enlace("Proyectos", "/reportes/proyectos", Icons.Material.Filled.Groups, Permisos.Reportes.VerProyectos, NavLinkMatch.All, SeccionReportes),
+
+                new Enlace("Beneficiarios", "/reportes/beneficiarios/panorama", Icons.Material.Filled.People, Permisos.Reportes.VerBeneficiarios, NavLinkMatch.All, SeccionPanoramas),
+                new Enlace("Gastos", "/reportes/gastos/panorama", Icons.Material.Filled.Receipt, Permisos.Reportes.VerGastos, NavLinkMatch.All, SeccionPanoramas),
+                new Enlace("Donaciones", "/reportes/donaciones/panorama", Icons.Material.Filled.VolunteerActivism, Permisos.Reportes.VerDonaciones, NavLinkMatch.All, SeccionPanoramas),
+                new Enlace("Alquileres", "/reportes/alquileres/panorama", Icons.Material.Filled.MeetingRoom, Permisos.Reportes.VerAlquileres, NavLinkMatch.All, SeccionPanoramas),
+                new Enlace("Inventario", "/reportes/inventario/panorama", Icons.Material.Filled.Inventory, Permisos.Reportes.VerInventario, NavLinkMatch.All, SeccionPanoramas),
+                new Enlace("Proyectos", "/reportes/proyectos/panorama", Icons.Material.Filled.Groups, Permisos.Reportes.VerProyectos, NavLinkMatch.All, SeccionPanoramas)
             }
         },
         new Grupo
@@ -234,9 +276,37 @@
                 grupo.Expandido = expandir;
                 cambio = true;
             }
+
+            // Igual para las secciones: queda abierta la que contiene la pantalla
+            // actual y se pliegan las demás.
+            foreach (var seccion in grupo.Secciones)
+            {
+                var abrir = grupo.EnlacesVisibles.Any(e => e.Seccion == seccion && EsLaRuta(e, ruta));
+
+                if (abrir ? seccionesExpandidas.Add(seccion) : seccionesExpandidas.Remove(seccion))
+                    cambio = true;
+            }
         }
 
         return cambio;
+    }
+
+    // Coincidencia exacta con el enlace, sin la cadena de consulta ni el ancla:
+    // las secciones agrupan pantallas hermanas y no tienen una ruta propia.
+    private static bool EsLaRuta(Enlace enlace, string ruta)
+    {
+        var camino = ruta.Split('?', '#')[0].TrimEnd('/');
+        return string.Equals(camino, enlace.Href.TrimStart('/'), StringComparison.OrdinalIgnoreCase);
+    }
+
+    // Abrir o cerrar una sección solo la despliega: a diferencia del grupo, no
+    // navega a su primera pantalla.
+    private void OnSeccionExpandedChanged(Seccion seccion, bool expandida)
+    {
+        if (expandida)
+            seccionesExpandidas.Add(seccion);
+        else
+            seccionesExpandidas.Remove(seccion);
     }
 
     private static bool EstaEn(Grupo grupo, string ruta)

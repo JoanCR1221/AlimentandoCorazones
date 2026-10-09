@@ -371,54 +371,31 @@ namespace SIGAC.Application.Services
             {
                 // TipoDonacion no es una columna: decide CUÁLES de las dos consultas
                 // se hacen. Con un tipo puntual se ahorra el viaje de la otra tabla.
-                var incluyeDinero = filtros.TipoDonacion is null or TipoDonacionDinero;
-                var incluyeEspecie = filtros.TipoDonacion is null or TipoDonacionEspecie;
-
-                var enDinero = incluyeDinero
+                var enDinero = filtros.IncluyeDinero
                     ? await _repository.ObtenerDonacionesDineroAsync(filtros)
                     : Enumerable.Empty<DonacionDinero>();
 
-                var enEspecie = incluyeEspecie
+                var enEspecie = filtros.IncluyeEspecie
                     ? await _repository.ObtenerDonacionesEspecieAsync(filtros)
                     : Enumerable.Empty<DonacionEspecie>();
 
                 var donaciones = new List<HistorialDonacionDto>();
 
-                donaciones.AddRange(enDinero.Select(d => new HistorialDonacionDto
-                {
-                    Id = d.Id,
-                    TipoDonacion = TipoDonacionDinero,
-                    NombreDonante = d.Donante?.Nombre ?? string.Empty,
-                    Monto = d.Monto,
-                    Moneda = d.Moneda,
-                    // En dinero no hay artículos que describir: lo único que aporta
-                    // contexto son las observaciones.
-                    Descripcion = d.Observaciones ?? string.Empty,
-                    Fecha = d.Fecha
-                }));
+                donaciones.AddRange(enDinero.Select(AFilaDeHistorial));
+                donaciones.AddRange(enEspecie.Select(AFilaDeHistorial));
 
-                donaciones.AddRange(enEspecie.Select(d => new HistorialDonacionDto
-                {
-                    Id = d.Id,
-                    TipoDonacion = TipoDonacionEspecie,
-                    NombreDonante = d.Donante?.Nombre ?? string.Empty,
-                    // Monto y Moneda quedan en null: las donaciones en especie no se
-                    // valorizan. Un 0 se leería como "donó cero colones", que es otra cosa.
-                    Monto = null,
-                    Moneda = null,
-                    Descripcion = DescribirDetalles(d),
-                    Fecha = d.Fecha
-                }));
+                // Desempate por Id además de la fecha: las dos listas vienen
+                // ordenadas por separado y sin el desempate dos donaciones del
+                // mismo instante podrían intercambiarse entre consultas.
+                var ordenadas = donaciones
+                    .OrderByDescending(d => d.Fecha)
+                    .ThenByDescending(d => d.Id)
+                    .ToList();
 
                 return new HistorialDonacionesResultadoDto
                 {
-                    // Desempate por Id además de la fecha: las dos listas vienen
-                    // ordenadas por separado y sin el desempate dos donaciones del
-                    // mismo instante podrían intercambiarse entre consultas.
-                    Donaciones = donaciones
-                        .OrderByDescending(d => d.Fecha)
-                        .ThenByDescending(d => d.Id)
-                        .ToList(),
+                    Donaciones = ordenadas,
+                    TotalRegistros = ordenadas.Count,
 
                     // Un total por cada moneda presente, no un solo decimal: sumar
                     // colones con dólares en un único número no representaría nada.
@@ -437,6 +414,76 @@ namespace SIGAC.Application.Services
                 throw new Exception("Error al consultar el historial de donaciones.", ex);
             }
         }
+
+        // La misma lista que ObtenerHistorialDonacionesAsync pero de a una página, para
+        // la pantalla del historial: el repositorio trae de la base solo esas filas (y
+        // cuántas hay en total), no las dos tablas completas. Los reportes siguen con el
+        // historial completo porque exportan todo el período.
+        public async Task<HistorialDonacionesResultadoDto> ObtenerPaginaHistorialDonacionesAsync(
+            FiltrosHistorialDonacionDto filtros)
+        {
+            try
+            {
+                var pagina = await _repository.ObtenerPaginaHistorialAsync(filtros);
+
+                // Los totales cubren todo el período filtrado, no la página: contar las
+                // filas de la página daría como máximo el tamaño de página.
+                var totales = await _repository.ObtenerTotalesDineroPorMonedaAsync(filtros);
+
+                var filas = new List<HistorialDonacionDto>(pagina.Elementos.Count);
+
+                foreach (var item in pagina.Elementos)
+                {
+                    if (item.Dinero is not null)
+                        filas.Add(AFilaDeHistorial(item.Dinero));
+                    else if (item.Especie is not null)
+                        filas.Add(AFilaDeHistorial(item.Especie));
+                }
+
+                return new HistorialDonacionesResultadoDto
+                {
+                    Donaciones = filas,
+                    TotalRegistros = pagina.TotalRegistros,
+
+                    // En el orden de las monedas del sistema (colones, dólares, euros) y
+                    // no en el que devuelva la base: así la línea de totales no cambia de
+                    // lugar entre una consulta y otra.
+                    TotalesPorMoneda = totales
+                        .OrderBy(t => TiposMoneda.Posicion(t.Moneda))
+                        .ToList()
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al consultar el historial de donaciones.", ex);
+            }
+        }
+
+        private static HistorialDonacionDto AFilaDeHistorial(DonacionDinero d) => new()
+        {
+            Id = d.Id,
+            TipoDonacion = TipoDonacionDinero,
+            NombreDonante = d.Donante?.Nombre ?? string.Empty,
+            Monto = d.Monto,
+            Moneda = d.Moneda,
+            // En dinero no hay artículos que describir: lo único que aporta
+            // contexto son las observaciones.
+            Descripcion = d.Observaciones ?? string.Empty,
+            Fecha = d.Fecha
+        };
+
+        private static HistorialDonacionDto AFilaDeHistorial(DonacionEspecie d) => new()
+        {
+            Id = d.Id,
+            TipoDonacion = TipoDonacionEspecie,
+            NombreDonante = d.Donante?.Nombre ?? string.Empty,
+            // Monto y Moneda quedan en null: las donaciones en especie no se
+            // valorizan. Un 0 se leería como "donó cero colones", que es otra cosa.
+            Monto = null,
+            Moneda = null,
+            Descripcion = DescribirDetalles(d),
+            Fecha = d.Fecha
+        };
 
         public async Task<HistorialEntregasResultadoDto> ObtenerHistorialEntregasAsync(
             FiltrosHistorialEntregaDto filtros)
@@ -656,7 +703,12 @@ namespace SIGAC.Application.Services
                 return donacion.Observaciones ?? string.Empty;
             }
 
+            // Por Id (el orden en que se registraron las líneas): ninguna consulta
+            // ordena los Detalles, así que sin esto SQL los devuelve en el orden que
+            // le dé su plan, y la misma donación se leería distinto según cómo se
+            // consulte (completa, paginada o con un filtro).
             return string.Join(", ", donacion.Detalles
+                .OrderBy(d => d.Id)
                 .Select(d => $"{d.Cantidad} {d.UnidadMedida} de {Articulo.EtiquetaDe(d.NombreArticulo, d.Estado)}"));
         }
 

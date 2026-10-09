@@ -20,6 +20,20 @@ namespace SIGAC.Domain
         public static bool EsValido(string? moneda) =>
             moneda is not null && Todos.Contains(moneda);
 
+        // Posición de la moneda en Todos (colones, dólares, euros), para listar los
+        // totales por moneda siempre en el mismo orden y no en el que devuelva la base.
+        // Una que no esté en la lista (dato viejo) va al final, no se pierde.
+        public static int Posicion(string? moneda)
+        {
+            for (var i = 0; i < Todos.Count; i++)
+            {
+                if (Todos[i] == moneda)
+                    return i;
+            }
+
+            return int.MaxValue;
+        }
+
         // Símbolo para mostrar junto al monto en formularios e historiales. No es
         // una columna de ninguna tabla: se deriva de Moneda cada vez que hace
         // falta mostrarlo, para que agregar una moneda no obligue a guardar

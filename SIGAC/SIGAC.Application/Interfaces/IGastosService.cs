@@ -11,6 +11,13 @@ namespace SIGAC.Application.Interfaces
         Task<GastoOperativoEditarDto?> ObtenerParaEditarAsync(int id);
         Task EditarGastoAsync(int id, GastoOperativoEditarDto dto);
         Task<GastosConsultaDto> ObtenerGastosAsync(FiltrosGastoDto filtros);
+
+        // Lo mismo, pero de a una página (filtros.Pagina / TamanoPagina): para el
+        // listado de gastos. Trae de la base solo los gastos de esa página, no todos
+        // los que cumplen el filtro; TotalRegistros y TotalesPorMoneda siguen
+        // cubriendo TODO el conjunto filtrado. El selector de gastos de Inventario
+        // usa el de arriba, que ignora la paginación.
+        Task<GastosConsultaDto> ObtenerPaginaGastosAsync(FiltrosGastoDto filtros);
         Task AnularGastoAsync(AnulacionGastoDto dto);
 
         // Tipos para el desplegable del formulario, ordenados por nombre. Solo los

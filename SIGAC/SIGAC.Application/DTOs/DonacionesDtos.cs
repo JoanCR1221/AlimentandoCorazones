@@ -329,6 +329,12 @@ namespace SIGAC.Application.DTOs.Donaciones
 
     public class FiltrosHistorialDonacionDto
     {
+        public const int TamanoPaginaPredeterminado = 20;
+
+        // Techo duro: ningún llamador puede pedir una página tan grande que anule
+        // la paginación y traiga el historial entero.
+        public const int TamanoPaginaMaximo = 100;
+
         public int? DonanteId { get; set; }
 
         // "Dinero", "Especie" o null (ambas). Cuando trae un valor, el servicio se
@@ -340,6 +346,27 @@ namespace SIGAC.Application.DTOs.Donaciones
         // el nombre lo diga, sobre todo al lado de DonanteId.
         public DateTime? FechaDesde { get; set; }
         public DateTime? FechaHasta { get; set; }
+
+        // Solo los lee el historial paginado (ObtenerPaginaHistorialDonacionesAsync);
+        // el completo, que usan los reportes para exportar, los ignora.
+        // Base 0, igual que el índice de página de la grilla.
+        public int Pagina { get; set; }
+        public int TamanoPagina { get; set; } = TamanoPaginaPredeterminado;
+
+        // Valores saneados: el repositorio usa estos, no los crudos, para que una
+        // página negativa o un tamaño de 0 no rompan el Skip/Take.
+        public int PaginaEfectiva => Pagina < 0 ? 0 : Pagina;
+
+        public int TamanoPaginaEfectivo => Math.Clamp(
+            TamanoPagina <= 0 ? TamanoPaginaPredeterminado : TamanoPagina,
+            1,
+            TamanoPaginaMaximo);
+
+        // TipoDonacion no es una columna: decide CUÁLES de las dos tablas se
+        // consultan. Una sola fuente de esa regla para el servicio y el repositorio.
+        // Un valor desconocido no incluye ninguna: no devuelve nada, en vez de fallar.
+        public bool IncluyeDinero => TipoDonacion is null or Services.DonacionesService.TipoDonacionDinero;
+        public bool IncluyeEspecie => TipoDonacion is null or Services.DonacionesService.TipoDonacionEspecie;
     }
 
     // Las filas más el total, en vez de solo la lista: el total de dinero se calcula
@@ -348,7 +375,12 @@ namespace SIGAC.Application.DTOs.Donaciones
     // HistorialMovimientosResultadoDto.
     public class HistorialDonacionesResultadoDto
     {
+        // En el historial paginado, solo las de la página pedida.
         public List<HistorialDonacionDto> Donaciones { get; set; } = new();
+
+        // Cuántas donaciones cumplen el filtro en total (no las de la página): lo
+        // necesita el paginador para saber cuántas páginas hay sin traerlas.
+        public int TotalRegistros { get; set; }
 
         // Un total POR MONEDA y no un solo decimal: desde que el monto declara en
         // qué moneda vino, sumar colones con dólares en un único número dejaría de

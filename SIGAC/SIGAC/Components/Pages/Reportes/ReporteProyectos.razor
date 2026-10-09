@@ -1,0 +1,159 @@
+@page "/reportes/proyectos"
+@attribute [Authorize(Policy = Permisos.Reportes.VerProyectos)]
+@using SIGAC.Application.DTOs.Reportes
+@using SIGAC.Application.Interfaces
+@using SIGAC.Domain.Entities
+@inject IReportesService ReportesService
+@inject ISnackbar Snackbar
+
+<EncabezadoPagina Titulo="Reporte de proyectos comunitarios"
+                   Descripcion="Proyectos de la asociación con sus fechas y las personas que participan, para mostrar ante donantes y autoridades qué se hace y a cuántos llega." />
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        <MudGrid Spacing="2" Class="mb-2">
+            <MudItem xs="12" sm="4">
+                @* Lista cerrada: la fuente es el enum SIGAC.Domain.Entities.EstadoProyecto,
+                   igual que el listado de proyectos. *@
+                <MudSelect T="EstadoProyecto?" Value="filtroEstado" ValueChanged="@(v => filtroEstado = v)"
+                           Label="Estado" Variant="Variant.Outlined" Clearable="true" Placeholder="Todos"
+                           ToStringFunc="@(e => TextoEstadoFiltro(e))">
+                    @foreach (var estado in Enum.GetValues<EstadoProyecto>())
+                    {
+                        <MudSelectItem T="EstadoProyecto?" Value="@((EstadoProyecto?)estado)">@TextoEstado(estado)</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="8">
+                @* Filtra por la fecha de INICIO del proyecto. Sin fecha máxima: un
+                   proyecto se planifica con anticipación y el reporte tiene que poder
+                   incluirlos. *@
+                <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="@(v => rangoFechas = v)"
+                                    Label="Inicio del proyecto entre" Variant="Variant.Outlined"
+                                    DateFormat="dd/MM/yyyy" Clearable="true" />
+            </MudItem>
+        </MudGrid>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Assessment"
+                   Disabled="generando" OnClick="GenerarAsync" Class="mb-4">
+            @(generando ? "Generando..." : "Generar reporte")
+        </MudButton>
+
+        @if (generando)
+        {
+            <CargandoGrilla />
+        }
+        else if (seGenero)
+        {
+            @* Los participantes se suman por proyecto: una misma persona en dos
+               proyectos cuenta dos veces. *@
+            <section class="ac-kpis" aria-label="Resumen del reporte">
+                <TarjetaResumen Titulo="Proyectos en el período"
+                                Valor="@TextoResumen.Numero(resultado.Filas.Count)"
+                                Detalle="@DesgloseEstados"
+                                Icono="@Icons.Material.Filled.Groups" />
+                <TarjetaResumen Titulo="Participantes"
+                                Valor="@TextoResumen.Numero(resultado.TotalParticipantes)"
+                                Detalle="@($"{TextoResumen.Cantidad(resultado.TotalBeneficiarios, "beneficiario", "beneficiarios")} · {TextoResumen.Cantidad(resultado.TotalExternos, "externo", "externos")}")"
+                                Icono="@Icons.Material.Filled.People" />
+            </section>
+
+            <MudDataGrid T="ReporteProyectosDto" Items="@resultado.Filas" Class="mb-4"
+                         SortMode="SortMode.None" Filterable="false" Dense="true">
+                <Columns>
+                    <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
+                    @* Texto y no EstadoChip: igual que el listado de proyectos, que tiene
+                       cuatro estados y el chip solo distingue activo de inactivo. *@
+                    <PropertyColumn Property="x => x.Estado" Title="Estado" />
+                    <PropertyColumn Property="x => x.FechaInicio" Title="Inicio" Format="dd/MM/yyyy" />
+                    <PropertyColumn Property="x => x.FechaEstimadaFin" Title="Fin estimado" Format="dd/MM/yyyy" />
+                    <TemplateColumn Title="Finalización real">
+                        <CellTemplate>@(context.Item.FechaFinalizacion is { } fecha ? fecha.ToString("dd/MM/yyyy") : "—")</CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="x => x.TotalParticipantes" Title="Participantes" />
+                    <PropertyColumn Property="x => x.Beneficiarios" Title="Beneficiarios" />
+                    <PropertyColumn Property="x => x.Externos" Title="Externos" />
+                </Columns>
+                <NoRecordsContent>
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="No hay proyectos con estos filtros"
+                                 Descripcion="Pruebe con otro estado o con un rango de fechas distinto." />
+                </NoRecordsContent>
+            </MudDataGrid>
+
+            <AccionesReporte TFila="ReporteProyectosDto" Titulo="Reporte de proyectos comunitarios" Datos="resultado.Filas"
+                             Subtitulo="@subtituloGenerado" Resumen="resumenGenerado" />
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private EstadoProyecto? filtroEstado;
+    private DateRange? rangoFechas;
+    private bool generando;
+    private bool seGenero;
+    private ReporteProyectosResultadoDto resultado = new();
+
+    // Lo que se imprime en el PDF y el Excel: se arma al generar, con los filtros de
+    // ese momento (ver ReporteBeneficiarios.razor), no al exportar.
+    private string? subtituloGenerado;
+    private IReadOnlyList<LineaResumenReporte> resumenGenerado = Array.Empty<LineaResumenReporte>();
+
+    private static string TextoEstado(EstadoProyecto estado) => estado switch
+    {
+        EstadoProyecto.EnCurso => "En curso",
+        _ => estado.ToString()
+    };
+
+    private static string TextoEstadoFiltro(EstadoProyecto? estado) => estado is { } e ? TextoEstado(e) : "Todos";
+
+    private string DesgloseEstados => string.Join(" · ",
+        TextoResumen.Cantidad(resultado.Planificados, "planificado", "planificados"),
+        TextoResumen.Cantidad(resultado.EnCurso, "en curso", "en curso"),
+        TextoResumen.Cantidad(resultado.Finalizados, "finalizado", "finalizados"),
+        TextoResumen.Cantidad(resultado.Cancelados, "cancelado", "cancelados"));
+
+    private string ConstruirSubtitulo() =>
+        $"Estado: {TextoEstadoFiltro(filtroEstado)}  ·  " +
+        $"Inicio del proyecto: {TextoResumen.Periodo(rangoFechas?.Start, rangoFechas?.End)}";
+
+    private IReadOnlyList<LineaResumenReporte> ConstruirResumen() => new[]
+    {
+        new LineaResumenReporte("Proyectos en el período", TextoResumen.Numero(resultado.Filas.Count)),
+        new LineaResumenReporte("Planificados", TextoResumen.Numero(resultado.Planificados)),
+        new LineaResumenReporte("En curso", TextoResumen.Numero(resultado.EnCurso)),
+        new LineaResumenReporte("Finalizados", TextoResumen.Numero(resultado.Finalizados)),
+        new LineaResumenReporte("Cancelados", TextoResumen.Numero(resultado.Cancelados)),
+        new LineaResumenReporte("Total de participantes", TextoResumen.Numero(resultado.TotalParticipantes)),
+        new LineaResumenReporte("Beneficiarios", TextoResumen.Numero(resultado.TotalBeneficiarios)),
+        new LineaResumenReporte("Externos", TextoResumen.Numero(resultado.TotalExternos))
+    };
+
+    private async Task GenerarAsync()
+    {
+        generando = true;
+
+        try
+        {
+            var subtitulo = ConstruirSubtitulo();
+
+            resultado = await ReportesService.GenerarReporteProyectosAsync(new FiltrosReporteProyectosDto
+            {
+                Estado = filtroEstado,
+                FechaDesde = rangoFechas?.Start,
+                FechaHasta = rangoFechas?.End
+            });
+            subtituloGenerado = subtitulo;
+            resumenGenerado = ConstruirResumen();
+            seGenero = true;
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo generar el reporte. Intentá de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            generando = false;
+        }
+    }
+}

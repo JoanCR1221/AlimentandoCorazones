@@ -392,6 +392,10 @@ namespace SIGAC.Tests.Application
             public Task<IReadOnlyList<AlquilerEspacio>> ObtenerHistorialAlquileresAsync(FiltrosHistorialAlquilerDto filtros) =>
                 Task.FromResult<IReadOnlyList<AlquilerEspacio>>(Datos.ToList());
 
+            // El calendario paginado se prueba en AlquileresHistorialPaginadoTests.
+            public Task<SIGAC.Application.DTOs.ResultadoPaginado<AlquilerEspacio>> ObtenerPaginaHistorialAlquileresAsync(FiltrosHistorialAlquilerDto filtros) => throw new NotImplementedException();
+            public Task<IReadOnlyList<SIGAC.Application.DTOs.MontoPorMonedaDto>> ObtenerTotalesPorMonedaAsync(FiltrosHistorialAlquilerDto filtros) => throw new NotImplementedException();
+
             public Task<bool> CancelarAsync(int id, string motivoCancelacion)
             {
                 var alquiler = Datos.FirstOrDefault(a => a.Id == id && a.Estado == EstadoAlquiler.Reservado);
@@ -402,6 +406,10 @@ namespace SIGAC.Tests.Application
                 alquiler.MotivoCancelacion = motivoCancelacion;
                 return Task.FromResult(true);
             }
+
+            // Lo usa el panorama de Reportes, no el servicio de alquileres.
+            public Task<IReadOnlyList<SIGAC.Application.DTOs.Reportes.AlquilerPanoramaDto>> ObtenerParaPanoramaAsync(int mesesHaciaAtras) =>
+                throw new NotImplementedException();
         }
     }
 }

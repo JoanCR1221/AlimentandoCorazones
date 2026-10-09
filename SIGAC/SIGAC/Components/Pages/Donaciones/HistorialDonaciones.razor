@@ -6,6 +6,7 @@
 @using SIGAC.Domain
 @inject IDonantesService DonantesService
 @inject IDonacionesService DonacionesService
+@inject ISnackbar Snackbar
 
 <EncabezadoPagina Titulo="Historial de donaciones"
                   Descripcion="Consulte las donaciones recibidas en dinero y en especie." />
@@ -46,7 +47,16 @@
             }
         </MudText>
 
-        <MudDataGrid T="HistorialDonacionDto" Items="@resultado.Donaciones" Loading="cargando">
+        @* ServerData en lugar de Items: el historial crece con cada donación, así que
+           la grilla pide una página por vez y el repositorio trae de la base solo
+           esos registros. SortMode.None porque el orden (más reciente primero) lo
+           fija la consulta en SQL: dejar ordenar por columna solo reordenaría la
+           página visible, que sería engañoso. El total de arriba es del período
+           completo, no de la página: viene de un agregado en la base. *@
+        <MudDataGrid T="HistorialDonacionDto" @ref="grilla"
+                     ServerData="CargarPaginaAsync"
+                     RowsPerPage="FiltrosHistorialDonacionDto.TamanoPaginaPredeterminado"
+                     SortMode="SortMode.None" Filterable="false">
             <Columns>
                 <PropertyColumn Property="x => x.TipoDonacion" Title="Tipo" />
                 <PropertyColumn Property="x => x.NombreDonante" Title="Donante" />
@@ -76,24 +86,26 @@
                                  Titulo="Todavía no hay donaciones registradas" />
                 }
             </NoRecordsContent>
+            <PagerContent>
+                <MudDataGridPager T="HistorialDonacionDto"
+                                  PageSizeOptions="@(new[] { FiltrosHistorialDonacionDto.TamanoPaginaPredeterminado, 50, FiltrosHistorialDonacionDto.TamanoPaginaMaximo })" />
+            </PagerContent>
         </MudDataGrid>
     </MudCardContent>
 </MudCard>
 
 @code {
+    private MudDataGrid<HistorialDonacionDto>? grilla;
+
+    // Lo último que devolvió el servicio: la grilla muestra su página y el total de
+    // arriba sale del mismo resultado.
     private HistorialDonacionesResultadoDto resultado = new();
     private DonanteListaDto? donanteSeleccionado;
     private string? filtroTipoDonacion;
     private DateRange? rangoFechas;
-    private bool cargando = true;
 
     private bool HayFiltro =>
         donanteSeleccionado is not null || !string.IsNullOrWhiteSpace(filtroTipoDonacion) || rangoFechas is not null;
-
-    protected override async Task OnInitializedAsync()
-    {
-        await CargarAsync();
-    }
 
     private async Task<IEnumerable<DonanteListaDto>> BuscarDonantesAsync(string valor, CancellationToken cancellationToken)
     {
@@ -104,38 +116,69 @@
     private async Task OnDonanteCambiadoAsync(DonanteListaDto? valor)
     {
         donanteSeleccionado = valor;
-        await CargarAsync();
+        await RecargarAsync();
     }
 
     private async Task OnTipoDonacionCambiadoAsync(string? valor)
     {
         filtroTipoDonacion = valor;
-        await CargarAsync();
+        await RecargarAsync();
     }
 
     private async Task OnRangoFechasCambiadoAsync(DateRange? valor)
     {
         rangoFechas = valor;
-        await CargarAsync();
+        await RecargarAsync();
     }
 
-    private async Task CargarAsync()
+    // La llama la grilla cada vez que cambia de página o se recarga. Devuelve solo
+    // las donaciones de esa página más el total, que es lo que necesita el paginador.
+    private async Task<GridData<HistorialDonacionDto>> CargarPaginaAsync(
+        GridState<HistorialDonacionDto> estado, CancellationToken cancellationToken)
     {
-        cargando = true;
-
         try
         {
-            resultado = await DonacionesService.ObtenerHistorialDonacionesAsync(new FiltrosHistorialDonacionDto
+            resultado = await DonacionesService.ObtenerPaginaHistorialDonacionesAsync(new FiltrosHistorialDonacionDto
             {
                 DonanteId = donanteSeleccionado?.Id,
                 TipoDonacion = filtroTipoDonacion,
                 FechaDesde = rangoFechas?.Start,
-                FechaHasta = rangoFechas?.End
+                FechaHasta = rangoFechas?.End,
+                Pagina = estado.Page,
+                TamanoPagina = estado.PageSize
             });
         }
-        finally
+        catch (Exception)
         {
-            cargando = false;
+            resultado = new HistorialDonacionesResultadoDto();
+            Snackbar.Add("No se pudo cargar el historial de donaciones. Intente de nuevo.", Severity.Error);
         }
+
+        // El total de arriba está fuera de la grilla: ella se vuelve a dibujar sola al
+        // recibir la página, pero la pantalla no.
+        StateHasChanged();
+
+        return new GridData<HistorialDonacionDto>
+        {
+            Items = resultado.Donaciones,
+            TotalItems = resultado.TotalRegistros
+        };
+    }
+
+    // Al cambiar un filtro se vuelve a la primera página: la que se estaba viendo
+    // puede no existir con el filtro nuevo (y quedaría vacía).
+    //
+    // NavigateTo cambia CurrentPage, y el setter de CurrentPage ya dispara
+    // ServerData por dentro. Por eso solo se recarga a mano en la otra rama: así el
+    // cambio de filtro cuesta una sola consulta y no dos.
+    private async Task RecargarAsync()
+    {
+        if (grilla is null)
+            return;
+
+        if (grilla.CurrentPage != 0)
+            grilla.NavigateTo(Page.First);
+        else
+            await grilla.ReloadServerData();
     }
 }

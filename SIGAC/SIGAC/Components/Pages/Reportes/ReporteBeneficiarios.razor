@@ -69,7 +69,8 @@
                 </NoRecordsContent>
             </MudDataGrid>
 
-            <AccionesReporte TFila="ReporteBeneficiariosDto" Titulo="Reporte de beneficiarios atendidos" Datos="resultado.Filas" />
+            <AccionesReporte TFila="ReporteBeneficiariosDto" Titulo="Reporte de beneficiarios atendidos" Datos="resultado.Filas"
+                             Subtitulo="@subtituloGenerado" Resumen="resumenGenerado" />
         }
     </MudCardContent>
 </MudCard>
@@ -81,10 +82,33 @@
     private bool seGenero;
     private ReporteBeneficiariosResultadoDto resultado = new();
 
+    // Lo que se imprime en el PDF y el Excel: se arma al generar, con los filtros de
+    // ese momento, y no al exportar, porque los campos de arriba se pueden cambiar
+    // después de generar sin volver a consultar y el archivo diría un período que
+    // no es el de las filas.
+    private string? subtituloGenerado;
+    private IReadOnlyList<LineaResumenReporte> resumenGenerado = Array.Empty<LineaResumenReporte>();
+
     private string DesgloseTiemposComida => string.Join(" · ",
         TextoResumen.Cantidad(resultado.Filas.Sum(f => f.Desayunos), "desayuno", "desayunos"),
         TextoResumen.Cantidad(resultado.Filas.Sum(f => f.Almuerzos), "almuerzo", "almuerzos"),
         TextoResumen.Cantidad(resultado.Filas.Sum(f => f.Meriendas), "merienda", "meriendas"));
+
+    private string ConstruirSubtitulo()
+    {
+        var categoria = string.IsNullOrWhiteSpace(filtroCategoria) ? "Todas" : filtroCategoria;
+
+        return $"Categoría: {categoria}  ·  Período: {TextoResumen.Periodo(rangoFechas?.Start, rangoFechas?.End)}";
+    }
+
+    private IReadOnlyList<LineaResumenReporte> ConstruirResumen() => new[]
+    {
+        new LineaResumenReporte("Total de asistencias en el período", TextoResumen.Numero(resultado.TotalGeneral)),
+        new LineaResumenReporte("Beneficiarios atendidos", TextoResumen.Numero(resultado.Filas.Count)),
+        new LineaResumenReporte("Desayunos", TextoResumen.Numero(resultado.Filas.Sum(f => f.Desayunos))),
+        new LineaResumenReporte("Almuerzos", TextoResumen.Numero(resultado.Filas.Sum(f => f.Almuerzos))),
+        new LineaResumenReporte("Meriendas", TextoResumen.Numero(resultado.Filas.Sum(f => f.Meriendas)))
+    };
 
     private async Task GenerarAsync()
     {
@@ -92,12 +116,16 @@
 
         try
         {
+            var subtitulo = ConstruirSubtitulo();
+
             resultado = await ReportesService.GenerarReporteBeneficiariosAsync(new FiltrosReporteBeneficiariosDto
             {
                 Categoria = filtroCategoria,
                 FechaDesde = rangoFechas?.Start,
                 FechaHasta = rangoFechas?.End
             });
+            subtituloGenerado = subtitulo;
+            resumenGenerado = ConstruirResumen();
             seGenero = true;
         }
         catch (Exception)
