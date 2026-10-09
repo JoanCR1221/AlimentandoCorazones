@@ -247,6 +247,35 @@ namespace SIGAC.Application.DTOs.Reportes
         public int TotalSalidas { get; set; }
     }
 
+    // Unidades movidas en un mes calendario, separadas por tipo. Tipo es el origen de
+    // una entrada ("Compra" o "Donacion") o el tipo de una salida ("Donacion" o
+    // "Prestamo"), según de qué consulta salga: de una sola consulta por lado salen
+    // el total del mes y el desglose por tipo, igual que ConteoComidaMensualDto.
+    public sealed record UnidadesPorMesYTipoDto(int Anio, int Mes, string Tipo, int Unidades);
+
+    // Cuántos movimientos (entradas y salidas juntas) tuvo un artículo. Se cuentan
+    // movimientos y no unidades porque los artículos se miden distinto (kilos,
+    // unidades) y sumar sus cantidades para ordenarlos no representa nada.
+    public sealed record MovimientosPorArticuloDto(string Articulo, int Movimientos);
+
+    // Cifras del panorama gráfico de Inventario: mismo criterio que
+    // PanoramaGastosDto, una ventana fija de meses hacia atrás que no depende de
+    // filtros de pantalla (ver ReportesService.ObtenerPanoramaInventarioAsync). Todo
+    // son unidades (la suma de Cantidad), igual que el historial de movimientos, y no
+    // cuenta las entradas anuladas.
+    public sealed class PanoramaInventarioDto
+    {
+        public int UnidadesEntradas { get; set; }
+        public int UnidadesSalidas { get; set; }
+        public IReadOnlyList<ConteoPorMesDto> EntradasPorMes { get; set; } = Array.Empty<ConteoPorMesDto>();
+        public IReadOnlyList<ConteoPorMesDto> SalidasPorMes { get; set; } = Array.Empty<ConteoPorMesDto>();
+        public int EntradasPorCompra { get; set; }
+        public int EntradasPorDonacion { get; set; }
+        public int SalidasPorDonacion { get; set; }
+        public int SalidasPorPrestamo { get; set; }
+        public IReadOnlyList<MovimientosPorArticuloDto> ArticulosConMasMovimientos { get; set; } = Array.Empty<MovimientosPorArticuloDto>();
+    }
+
     // Un alquiler reducido a lo que necesita el panorama de alquileres: cuándo fue,
     // cuánto duró, cuánto costó y qué sectores usó. Lo trae el repositorio ya
     // acotado a la ventana de meses y el servicio lo agrupa.

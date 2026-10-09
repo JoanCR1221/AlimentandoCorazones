@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Inventario;
+using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
 using SIGAC.Domain.Entities;
@@ -632,6 +633,98 @@ namespace SIGAC.Infrastructure.Repositories
                 .OrderByDescending(s => s.Fecha)
                 .ThenByDescending(s => s.Id)
                 .ToListAsync();
+        }
+
+        // ------------------------------------------------------------------
+        // Panorama gráfico (Reportes)
+        // ------------------------------------------------------------------
+
+        public async Task<IReadOnlyList<UnidadesPorMesYTipoDto>> ObtenerEntradasPorMesYOrigenAsync(int mesesHaciaAtras)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            var inicioVentana = InicioVentana(mesesHaciaAtras);
+
+            // Tipo anónimo y no el record directo: EF Core no traduce un GroupBy +
+            // Select a un constructor posicional seguido de OrderBy (ver
+            // BeneficiariosRepositoryEfCore.ObtenerAltasPorMesAsync).
+            var filas = await context.EntradasInventario
+                .AsNoTracking()
+                .Where(e => !e.Anulada && e.Fecha >= inicioVentana)
+                .GroupBy(e => new { e.Fecha.Year, e.Fecha.Month, e.Origen })
+                .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Origen, Unidades = g.Sum(e => e.Cantidad) })
+                .OrderBy(f => f.Year).ThenBy(f => f.Month).ThenBy(f => f.Origen)
+                .ToListAsync();
+
+            return filas.Select(f => new UnidadesPorMesYTipoDto(f.Year, f.Month, f.Origen, f.Unidades)).ToList();
+        }
+
+        public async Task<IReadOnlyList<UnidadesPorMesYTipoDto>> ObtenerSalidasPorMesYTipoAsync(int mesesHaciaAtras)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            var inicioVentana = InicioVentana(mesesHaciaAtras);
+
+            var filas = await context.SalidasInventario
+                .AsNoTracking()
+                .Where(s => s.Fecha >= inicioVentana)
+                .GroupBy(s => new { s.Fecha.Year, s.Fecha.Month, s.TipoSalida })
+                .Select(g => new { g.Key.Year, g.Key.Month, g.Key.TipoSalida, Unidades = g.Sum(s => s.Cantidad) })
+                .OrderBy(f => f.Year).ThenBy(f => f.Month).ThenBy(f => f.TipoSalida)
+                .ToListAsync();
+
+            return filas.Select(f => new UnidadesPorMesYTipoDto(f.Year, f.Month, f.TipoSalida, f.Unidades)).ToList();
+        }
+
+        public async Task<IReadOnlyList<MovimientosPorArticuloDto>> ObtenerArticulosConMasMovimientosAsync(int mesesHaciaAtras, int maximo)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            var inicioVentana = InicioVentana(mesesHaciaAtras);
+
+            // Dos tablas, así que se cuenta por artículo en cada una y se suman acá
+            // (un UNION en SQL no vale la pena: sale una fila por artículo que se movió
+            // en la ventana).
+            var enEntradas = await context.EntradasInventario
+                .AsNoTracking()
+                .Where(e => !e.Anulada && e.Fecha >= inicioVentana)
+                .GroupBy(e => e.ArticuloId)
+                .Select(g => new { ArticuloId = g.Key, Movimientos = g.Count() })
+                .ToListAsync();
+
+            var enSalidas = await context.SalidasInventario
+                .AsNoTracking()
+                .Where(s => s.Fecha >= inicioVentana)
+                .GroupBy(s => s.ArticuloId)
+                .Select(g => new { ArticuloId = g.Key, Movimientos = g.Count() })
+                .ToListAsync();
+
+            var porArticulo = enEntradas.Concat(enSalidas)
+                .GroupBy(f => f.ArticuloId)
+                .Select(g => new { ArticuloId = g.Key, Movimientos = g.Sum(f => f.Movimientos) })
+                .ToList();
+
+            var ids = porArticulo.Select(f => f.ArticuloId).ToList();
+
+            // Nombre y Estado y no la entidad: la etiqueta ("Carpa (En buen estado)")
+            // se arma con Articulo.EtiquetaDe, igual que el historial.
+            var etiquetas = await context.Articulos
+                .AsNoTracking()
+                .Where(a => ids.Contains(a.Id))
+                .Select(a => new { a.Id, a.Nombre, a.Estado })
+                .ToDictionaryAsync(a => a.Id, a => Articulo.EtiquetaDe(a.Nombre, a.Estado));
+
+            return porArticulo
+                .Select(f => new MovimientosPorArticuloDto(etiquetas.GetValueOrDefault(f.ArticuloId, string.Empty), f.Movimientos))
+                .OrderByDescending(f => f.Movimientos).ThenBy(f => f.Articulo, StringComparer.CurrentCultureIgnoreCase)
+                .Take(maximo)
+                .ToList();
+        }
+
+        // Primer día del mes que queda mesesHaciaAtras meses atrás, contando el mes
+        // actual como el primero. Mismo criterio que GastosRepositoryEfCore y
+        // DonacionesRepositoryEfCore.
+        private static DateTime InicioVentana(int mesesHaciaAtras)
+        {
+            var inicioMesActual = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            return inicioMesActual.AddMonths(-(mesesHaciaAtras - 1));
         }
     }
 }

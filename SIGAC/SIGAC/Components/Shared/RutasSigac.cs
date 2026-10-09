@@ -100,6 +100,7 @@ namespace SIGAC.Components.Shared
                 ("/reportes/alquileres", new[] { reportes, new Miga("Alquileres", null) }),
                 ("/reportes/alquileres/panorama", new[] { reportes, new Miga("Panorama de alquileres", null) }),
                 ("/reportes/inventario", new[] { reportes, new Miga("Movimientos de inventario", null) }),
+                ("/reportes/inventario/panorama", new[] { reportes, new Miga("Panorama de inventario", null) }),
 
                 ("/usuarios", new[] { new Miga("Seguridad", null) }),
                 ("/usuarios/registrar", new[] { seguridad, new Miga("Registrar usuario", null) }),

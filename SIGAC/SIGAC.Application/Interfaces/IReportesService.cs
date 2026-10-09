@@ -40,6 +40,11 @@ namespace SIGAC.Application.Interfaces
         // período, con las unidades que entraron y las que salieron.
         Task<ReporteMovimientosResultadoDto> GenerarReporteMovimientosAsync(FiltrosReporteMovimientosDto filtros);
 
+        // Panorama gráfico de Inventario: mismo criterio que los otros, sobre una
+        // ventana fija de meses hacia atrás. Todo en unidades, sin las entradas
+        // anuladas.
+        Task<PanoramaInventarioDto> ObtenerPanoramaInventarioAsync();
+
         // Panorama gráfico de Alquileres: mismo criterio que los otros, sobre una
         // ventana fija de meses hacia atrás (el mes actual completo incluido).
         Task<PanoramaAlquileresDto> ObtenerPanoramaAlquileresAsync();

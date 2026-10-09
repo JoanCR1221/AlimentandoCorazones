@@ -46,7 +46,7 @@ namespace SIGAC.Tests.Application
             var inventario = new InventarioService(_inventario, null!);
 
             _servicio = new ReportesService(_asistencias, new RepositorioBeneficiariosFalso(), _gastos, donaciones, _donaciones, _donantes,
-                alquileres, _alquileres, inventario);
+                alquileres, _alquileres, inventario, _inventario);
 
             _alquiler = _tipos.Agregar("Alquiler de Equipo");
             _combustible = _tipos.Agregar("Combustible");
@@ -150,6 +150,75 @@ namespace SIGAC.Tests.Application
         }
 
         private static FiltrosReporteMovimientosDto TodosLosMovimientos() => new();
+
+        [Fact]
+        public async Task El_panorama_de_inventario_suma_las_unidades_de_cada_lado_y_cada_tipo()
+        {
+            _inventario.EntradasPorMesYOrigen.Add(new UnidadesPorMesYTipoDto(2026, 8, "Compra", 50));
+            _inventario.EntradasPorMesYOrigen.Add(new UnidadesPorMesYTipoDto(2026, 8, "Donacion", 30));
+            _inventario.EntradasPorMesYOrigen.Add(new UnidadesPorMesYTipoDto(2026, 9, "Compra", 20));
+            _inventario.SalidasPorMesYTipo.Add(new UnidadesPorMesYTipoDto(2026, 8, "Donacion", 15));
+            _inventario.SalidasPorMesYTipo.Add(new UnidadesPorMesYTipoDto(2026, 9, "Donacion", 5));
+            _inventario.SalidasPorMesYTipo.Add(new UnidadesPorMesYTipoDto(2026, 9, "Prestamo", 2));
+
+            var panorama = await _servicio.ObtenerPanoramaInventarioAsync();
+
+            Assert.Equal(100, panorama.UnidadesEntradas);
+            Assert.Equal(22, panorama.UnidadesSalidas);
+            Assert.Equal(70, panorama.EntradasPorCompra);
+            Assert.Equal(30, panorama.EntradasPorDonacion);
+            Assert.Equal(20, panorama.SalidasPorDonacion);
+            Assert.Equal(2, panorama.SalidasPorPrestamo);
+        }
+
+        [Fact]
+        public async Task El_panorama_de_inventario_colapsa_el_tipo_en_el_total_de_cada_mes()
+        {
+            _inventario.EntradasPorMesYOrigen.Add(new UnidadesPorMesYTipoDto(2026, 8, "Compra", 50));
+            _inventario.EntradasPorMesYOrigen.Add(new UnidadesPorMesYTipoDto(2026, 8, "Donacion", 30));
+            _inventario.EntradasPorMesYOrigen.Add(new UnidadesPorMesYTipoDto(2026, 9, "Compra", 20));
+            _inventario.SalidasPorMesYTipo.Add(new UnidadesPorMesYTipoDto(2026, 9, "Donacion", 5));
+            _inventario.SalidasPorMesYTipo.Add(new UnidadesPorMesYTipoDto(2026, 9, "Prestamo", 2));
+
+            var panorama = await _servicio.ObtenerPanoramaInventarioAsync();
+
+            Assert.Equal(new[] { (2026, 8, 80), (2026, 9, 20) }, panorama.EntradasPorMes.Select(m => (m.Anio, m.Mes, m.Cantidad)));
+            Assert.Equal((2026, 9, 7), (panorama.SalidasPorMes.Single().Anio, panorama.SalidasPorMes.Single().Mes, panorama.SalidasPorMes.Single().Cantidad));
+        }
+
+        [Fact]
+        public async Task El_panorama_de_inventario_reparte_los_articulos_y_pide_doce_meses_y_cinco_articulos()
+        {
+            _inventario.ArticulosConMasMovimientos.Add(new MovimientosPorArticuloDto("Arroz", 9));
+            _inventario.ArticulosConMasMovimientos.Add(new MovimientosPorArticuloDto("Azucar", 4));
+
+            var panorama = await _servicio.ObtenerPanoramaInventarioAsync();
+
+            Assert.Equal(new[] { "Arroz", "Azucar" }, panorama.ArticulosConMasMovimientos.Select(a => a.Articulo));
+            Assert.Equal(2, _inventario.Peticiones.Count(p => p == (12, null)));
+            Assert.Contains((12, (int?)5), _inventario.Peticiones);
+        }
+
+        [Fact]
+        public async Task El_panorama_de_inventario_sin_datos_viene_en_cero()
+        {
+            var panorama = await _servicio.ObtenerPanoramaInventarioAsync();
+
+            Assert.Equal(0, panorama.UnidadesEntradas);
+            Assert.Equal(0, panorama.UnidadesSalidas);
+            Assert.Empty(panorama.EntradasPorMes);
+            Assert.Empty(panorama.ArticulosConMasMovimientos);
+        }
+
+        [Fact]
+        public async Task El_panorama_de_inventario_envuelve_los_errores_de_la_consulta()
+        {
+            _inventario.Falla = true;
+
+            var error = await Assert.ThrowsAsync<Exception>(() => _servicio.ObtenerPanoramaInventarioAsync());
+
+            Assert.Equal("Error al generar el panorama de inventario.", error.Message);
+        }
 
         [Fact]
         public async Task El_reporte_de_movimientos_une_entradas_y_salidas_con_los_tipos_bien_escritos()
@@ -948,6 +1017,32 @@ namespace SIGAC.Tests.Application
                     .Where(s => desde is null || s.Fecha >= desde.Value.Date)
                     .Where(s => hasta is null || s.Fecha < hasta.Value.Date.AddDays(1))
                     .ToList());
+            }
+
+            // Lo que devuelven las consultas del panorama y con qué parámetros se
+            // pidieron: el servicio solo las reparte y suma, así que la prueba controla
+            // la entrada.
+            public List<UnidadesPorMesYTipoDto> EntradasPorMesYOrigen { get; } = new();
+            public List<UnidadesPorMesYTipoDto> SalidasPorMesYTipo { get; } = new();
+            public List<MovimientosPorArticuloDto> ArticulosConMasMovimientos { get; } = new();
+            public List<(int Meses, int? Maximo)> Peticiones { get; } = new();
+
+            public Task<IReadOnlyList<UnidadesPorMesYTipoDto>> ObtenerEntradasPorMesYOrigenAsync(int mesesHaciaAtras) =>
+                Panorama(mesesHaciaAtras, null, EntradasPorMesYOrigen);
+
+            public Task<IReadOnlyList<UnidadesPorMesYTipoDto>> ObtenerSalidasPorMesYTipoAsync(int mesesHaciaAtras) =>
+                Panorama(mesesHaciaAtras, null, SalidasPorMesYTipo);
+
+            public Task<IReadOnlyList<MovimientosPorArticuloDto>> ObtenerArticulosConMasMovimientosAsync(int mesesHaciaAtras, int maximo) =>
+                Panorama(mesesHaciaAtras, maximo, ArticulosConMasMovimientos);
+
+            private Task<IReadOnlyList<T>> Panorama<T>(int meses, int? maximo, List<T> datos)
+            {
+                if (Falla)
+                    throw new InvalidOperationException("Falla simulada de la base de datos.");
+
+                Peticiones.Add((meses, maximo));
+                return Task.FromResult<IReadOnlyList<T>>(datos.ToList());
             }
 
             public Task<IReadOnlyList<Articulo>> ObtenerArticulosPorNombreAsync(string nombre) => throw new NotImplementedException();

@@ -23,8 +23,10 @@ namespace SIGAC.Application.Services
         // no cabe en una gráfica de barras legible.
         private const int TopProveedoresPorDefecto = 5;
 
-        // Lo mismo para los donantes del panorama de donaciones.
+        // Lo mismo para los donantes del panorama de donaciones y los artículos del de
+        // inventario.
         private const int TopDonantesPorDefecto = 5;
+        private const int TopArticulosPorDefecto = 5;
 
         private readonly IAsistenciaRepository _asistenciaRepository;
         private readonly IBeneficiariosRepository _beneficiariosRepository;
@@ -35,8 +37,9 @@ namespace SIGAC.Application.Services
         private readonly IAlquileresService _alquileresService;
         private readonly IAlquileresRepository _alquileresRepository;
         private readonly IInventarioService _inventarioService;
+        private readonly IInventarioRepository _inventarioRepository;
 
-        // Donaciones y Alquileres entran cada uno por dos lados: el reporte
+        // Donaciones, Alquileres e Inventario entran cada uno por dos lados: el reporte
         // exportable reutiliza el historial del servicio (que ya une, filtra y
         // calcula los totales por moneda), y el panorama necesita agregados por mes
         // que ese historial no da, así que consulta el repositorio.
@@ -49,7 +52,8 @@ namespace SIGAC.Application.Services
             IDonantesRepository donantesRepository,
             IAlquileresService alquileresService,
             IAlquileresRepository alquileresRepository,
-            IInventarioService inventarioService)
+            IInventarioService inventarioService,
+            IInventarioRepository inventarioRepository)
         {
             _asistenciaRepository = asistenciaRepository;
             _beneficiariosRepository = beneficiariosRepository;
@@ -60,6 +64,7 @@ namespace SIGAC.Application.Services
             _alquileresService = alquileresService;
             _alquileresRepository = alquileresRepository;
             _inventarioService = inventarioService;
+            _inventarioRepository = inventarioRepository;
         }
 
         public async Task<ReporteBeneficiariosResultadoDto> GenerarReporteBeneficiariosAsync(FiltrosReporteBeneficiariosDto filtros)
@@ -382,6 +387,43 @@ namespace SIGAC.Application.Services
                 throw new Exception("Error al generar el reporte de movimientos de inventario.", ex);
             }
         }
+
+        public async Task<PanoramaInventarioDto> ObtenerPanoramaInventarioAsync()
+        {
+            try
+            {
+                var entradas = await _inventarioRepository.ObtenerEntradasPorMesYOrigenAsync(MesesPanoramaPorDefecto);
+                var salidas = await _inventarioRepository.ObtenerSalidasPorMesYTipoAsync(MesesPanoramaPorDefecto);
+                var articulos = await _inventarioRepository.ObtenerArticulosConMasMovimientosAsync(MesesPanoramaPorDefecto, TopArticulosPorDefecto);
+
+                return new PanoramaInventarioDto
+                {
+                    // Los totales y el desglose salen de las mismas consultas
+                    // mensuales, sin repetirlas (igual que los tiempos de comida del
+                    // panorama de beneficiarios).
+                    UnidadesEntradas = entradas.Sum(e => e.Unidades),
+                    UnidadesSalidas = salidas.Sum(s => s.Unidades),
+                    EntradasPorMes = SumarPorMes(entradas),
+                    SalidasPorMes = SumarPorMes(salidas),
+                    EntradasPorCompra = entradas.Where(e => e.Tipo == OrigenesEntradaInventario.Compra).Sum(e => e.Unidades),
+                    EntradasPorDonacion = entradas.Where(e => e.Tipo == OrigenesEntradaInventario.Donacion).Sum(e => e.Unidades),
+                    SalidasPorDonacion = salidas.Where(s => s.Tipo == TiposSalidaInventario.Donacion).Sum(s => s.Unidades),
+                    SalidasPorPrestamo = salidas.Where(s => s.Tipo == TiposSalidaInventario.Prestamo).Sum(s => s.Unidades),
+                    ArticulosConMasMovimientos = articulos
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al generar el panorama de inventario.", ex);
+            }
+        }
+
+        // Colapsa el desglose por tipo en el total del mes.
+        private static List<ConteoPorMesDto> SumarPorMes(IEnumerable<UnidadesPorMesYTipoDto> filas) => filas
+            .GroupBy(f => (f.Anio, f.Mes))
+            .OrderBy(g => g.Key.Anio).ThenBy(g => g.Key.Mes)
+            .Select(g => new ConteoPorMesDto(g.Key.Anio, g.Key.Mes, g.Sum(f => f.Unidades)))
+            .ToList();
 
         // Los valores guardados no llevan tilde ("Donacion", "Prestamo"); el reporte
         // los muestra bien escritos, igual que la pantalla del historial.

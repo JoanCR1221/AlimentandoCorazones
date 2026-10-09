@@ -1,5 +1,6 @@
 ﻿using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Inventario;
+using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Domain.Entities;
 
 namespace SIGAC.Application.Interfaces
@@ -82,6 +83,23 @@ namespace SIGAC.Application.Interfaces
         Task<IEnumerable<EntradaInventario>> ObtenerEntradasAsync(int? articuloId, DateTime? desde, DateTime? hasta);
 
         Task<IEnumerable<SalidaInventario>> ObtenerSalidasAsync(int? articuloId, DateTime? desde, DateTime? hasta);
+
+        // Consultas del panorama gráfico (Reportes)
+        //
+        // Cifras agregadas en SQL, sobre una ventana de meses calendario hacia atrás
+        // que incluye el mes actual. Solo traen los meses que tienen movimientos: la
+        // pantalla alinea el resultado contra la ventana completa. Ninguna cuenta las
+        // entradas anuladas.
+
+        // Unidades que entraron por mes y origen ("Compra" o "Donacion").
+        Task<IReadOnlyList<UnidadesPorMesYTipoDto>> ObtenerEntradasPorMesYOrigenAsync(int mesesHaciaAtras);
+
+        // Unidades que salieron por mes y tipo ("Donacion" o "Prestamo").
+        Task<IReadOnlyList<UnidadesPorMesYTipoDto>> ObtenerSalidasPorMesYTipoAsync(int mesesHaciaAtras);
+
+        // Los artículos con más movimientos (entradas y salidas juntas), de mayor a
+        // menor; en empate, por nombre.
+        Task<IReadOnlyList<MovimientosPorArticuloDto>> ObtenerArticulosConMasMovimientosAsync(int mesesHaciaAtras, int maximo);
 
         // Préstamos
         Task AgregarSolicitudPrestamoAsync(SolicitudPrestamo solicitud);
