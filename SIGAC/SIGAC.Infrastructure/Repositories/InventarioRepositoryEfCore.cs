@@ -479,9 +479,16 @@ namespace SIGAC.Infrastructure.Repositories
 
             // Include trae el artículo en el mismo viaje: sin él la navegación llega
             // en null y el historial mostraría el nombre del artículo vacío.
+            //
+            // Sin las entradas anuladas: una compra cuyo gasto se anuló ya se revirtió
+            // del stock (AnularConEntradasVinculadasAsync), así que esa entrada no
+            // ingresó nada y contarla inflaba el total de entradas del historial y de
+            // los reportes. Siguen en la tabla como respaldo contable. Mismo criterio
+            // que ResumenRepositoryEfCore.
             IQueryable<EntradaInventario> consulta = context.EntradasInventario
                 .AsNoTracking()
-                .Include(e => e.Articulo);
+                .Include(e => e.Articulo)
+                .Where(e => !e.Anulada);
 
             if (articuloId.HasValue)
             {

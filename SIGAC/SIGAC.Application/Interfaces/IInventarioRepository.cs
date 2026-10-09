@@ -76,6 +76,9 @@ namespace SIGAC.Application.Interfaces
         Task AprobarPrestamoConStockAsync(SolicitudPrestamo solicitud, SalidaInventario salida);
 
         // Consultas de movimientos
+        //
+        // No devuelve las entradas anuladas (EntradaInventario.Anulada): ya se
+        // revirtieron del stock, así que no ingresaron nada.
         Task<IEnumerable<EntradaInventario>> ObtenerEntradasAsync(int? articuloId, DateTime? desde, DateTime? hasta);
 
         Task<IEnumerable<SalidaInventario>> ObtenerSalidasAsync(int? articuloId, DateTime? desde, DateTime? hasta);
