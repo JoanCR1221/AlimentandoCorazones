@@ -75,8 +75,20 @@
 
     public async ValueTask DisposeAsync()
     {
-        if (moduloParaEngancharImprimir is not null)
+        if (moduloParaEngancharImprimir is null)
+            return;
+
+        try
+        {
             await moduloParaEngancharImprimir.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // La pestaña se cerró o se perdió la conexión: el circuito ya no tiene
+            // navegador al que pedirle que libere el módulo, y sin esto el servidor
+            // registraba un error no controlado cada vez que alguien cerraba la página
+            // con un reporte generado.
+        }
     }
 
     private Task ExportarPdfAsync() => EjecutarAsync(

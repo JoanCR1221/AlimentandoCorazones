@@ -279,7 +279,16 @@
 
     public async ValueTask DisposeAsync()
     {
-        if (moduloImprimir is not null)
+        if (moduloImprimir is null)
+            return;
+
+        try
+        {
             await moduloImprimir.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // Pestaña cerrada o conexión perdida: ver AccionesReporte.DisposeAsync.
+        }
     }
 }

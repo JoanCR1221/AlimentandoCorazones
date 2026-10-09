@@ -22,7 +22,8 @@ namespace SIGAC.Components.Shared
                 : string.Join(" · ", montos.Select(m => $"{TiposMoneda.Simbolo(m.Moneda)} {m.Total:N2}"));
 
         // Horas con minutos: 12,5 → "12 h 30 min", 3 → "3 h", 0,25 → "15 min". Sin
-        // decimales porque "12,5 horas" se lee peor que "12 h 30 min".
+        // decimales porque "12,5 horas" se lee peor que "12 h 30 min"; las horas con
+        // separador de miles ("9 673 h") como el resto de las cifras.
         public static string Horas(decimal horas)
         {
             var minutos = (int)Math.Round(horas * 60m);
@@ -31,9 +32,9 @@ namespace SIGAC.Components.Shared
 
             return (h, m) switch
             {
-                (_, 0) => $"{h} h",
+                (_, 0) => $"{Numero(h)} h",
                 (0, _) => $"{m} min",
-                _ => $"{h} h {m:00} min"
+                _ => $"{Numero(h)} h {m:00} min"
             };
         }
 
