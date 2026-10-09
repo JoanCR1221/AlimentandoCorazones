@@ -39,18 +39,28 @@ namespace SIGAC.Application.Services
             {
                 var asistencias = await _asistenciaRepository.ObtenerParaReporteBeneficiariosAsync(filtros);
 
+                // Se agrupa por BeneficiarioId y no por el objeto Beneficiario: el
+                // repositorio consulta con AsNoTracking, y ahí EF crea una instancia
+                // distinta del beneficiario por cada asistencia, así que agrupar por
+                // el objeto daba una fila por asistencia (y "Beneficiarios atendidos"
+                // inflado) apenas alguien asistía más de una vez.
                 var filas = asistencias
                     .Where(a => a.Beneficiario is not null)
-                    .GroupBy(a => a.Beneficiario!)
-                    .Select(g => new ReporteBeneficiariosDto
+                    .GroupBy(a => a.BeneficiarioId)
+                    .Select(g =>
                     {
-                        BeneficiarioId = g.Key.Id,
-                        NombreCompleto = g.Key.NombreCompleto,
-                        Categoria = CategoriasBeneficiario.DerivarDesdeFechaNacimiento(g.Key.FechaNacimiento),
-                        Desayunos = g.Count(a => a.TiempoComida == TiemposComida.Desayuno),
-                        Almuerzos = g.Count(a => a.TiempoComida == TiemposComida.Almuerzo),
-                        Meriendas = g.Count(a => a.TiempoComida == TiemposComida.Merienda),
-                        TotalAsistencias = g.Count()
+                        var beneficiario = g.First().Beneficiario!;
+
+                        return new ReporteBeneficiariosDto
+                        {
+                            BeneficiarioId = g.Key,
+                            NombreCompleto = beneficiario.NombreCompleto,
+                            Categoria = CategoriasBeneficiario.DerivarDesdeFechaNacimiento(beneficiario.FechaNacimiento),
+                            Desayunos = g.Count(a => a.TiempoComida == TiemposComida.Desayuno),
+                            Almuerzos = g.Count(a => a.TiempoComida == TiemposComida.Almuerzo),
+                            Meriendas = g.Count(a => a.TiempoComida == TiemposComida.Merienda),
+                            TotalAsistencias = g.Count()
+                        };
                     })
                     .OrderBy(f => f.NombreCompleto)
                     .ToList();

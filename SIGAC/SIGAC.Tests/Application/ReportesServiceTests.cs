@@ -6,13 +6,14 @@ using SIGAC.Domain.Entities;
 
 namespace SIGAC.Tests.Application
 {
-    // Solo el reporte de gastos: el de beneficiarios y los dos paneles
-    // gráficos ya están cubiertos por verificación manual en el navegador
-    // (ver las notas de los commits que los agregaron).
+    // El reporte de gastos y la agrupación del de beneficiarios: los dos paneles
+    // gráficos y el resto del de beneficiarios están cubiertos por verificación
+    // manual en el navegador (ver las notas de los commits que los agregaron).
     public class ReportesServiceTests
     {
         private readonly RepositorioTiposGastoFalso _tipos = new();
         private readonly RepositorioGastosFalso _gastos;
+        private readonly RepositorioAsistenciaFalso _asistencias = new();
         private readonly ReportesService _servicio;
 
         private readonly TipoGasto _alquiler;
@@ -21,7 +22,7 @@ namespace SIGAC.Tests.Application
         public ReportesServiceTests()
         {
             _gastos = new RepositorioGastosFalso(_tipos);
-            _servicio = new ReportesService(new RepositorioAsistenciaFalso(), new RepositorioBeneficiariosFalso(), _gastos);
+            _servicio = new ReportesService(_asistencias, new RepositorioBeneficiariosFalso(), _gastos);
 
             _alquiler = _tipos.Agregar("Alquiler de Equipo");
             _combustible = _tipos.Agregar("Combustible");
@@ -37,6 +38,61 @@ namespace SIGAC.Tests.Application
             gasto.FormaPago = formaPago;
             _gastos.Gastos.Add(gasto);
             return gasto;
+        }
+
+        // Una instancia nueva de Beneficiario por asistencia, igual que hace EF con
+        // AsNoTracking: dos asistencias de la misma persona traen dos objetos
+        // distintos con el mismo Id. Con una sola asistencia por persona (los datos
+        // de las primeras pruebas) el error de agrupar por objeto no se notaba.
+        private void AgregarAsistencia(int beneficiarioId, string primerNombre, string tiempoComida, int dia)
+        {
+            _asistencias.Asistencias.Add(new AsistenciaComedor
+            {
+                Id = _asistencias.Asistencias.Count + 1,
+                BeneficiarioId = beneficiarioId,
+                Beneficiario = new Beneficiario
+                {
+                    Id = beneficiarioId,
+                    PrimerNombre = primerNombre,
+                    PrimerApellido = "Prueba",
+                    FechaNacimiento = new DateTime(1990, 1, 1)
+                },
+                Fecha = new DateTime(2026, 9, dia),
+                TiempoComida = tiempoComida
+            });
+        }
+
+        [Fact]
+        public async Task El_reporte_de_beneficiarios_da_una_fila_por_persona_aunque_asista_varias_veces()
+        {
+            AgregarAsistencia(1, "Ana", TiemposComida.Desayuno, 1);
+            AgregarAsistencia(1, "Ana", TiemposComida.Almuerzo, 1);
+            AgregarAsistencia(1, "Ana", TiemposComida.Merienda, 2);
+            AgregarAsistencia(2, "Beto", TiemposComida.Desayuno, 1);
+
+            var resultado = await _servicio.GenerarReporteBeneficiariosAsync(new FiltrosReporteBeneficiariosDto());
+
+            Assert.Equal(2, resultado.Filas.Count);
+
+            var ana = Assert.Single(resultado.Filas, f => f.BeneficiarioId == 1);
+            Assert.Equal(1, ana.Desayunos);
+            Assert.Equal(1, ana.Almuerzos);
+            Assert.Equal(1, ana.Meriendas);
+            Assert.Equal(3, ana.TotalAsistencias);
+
+            Assert.Equal(1, Assert.Single(resultado.Filas, f => f.BeneficiarioId == 2).TotalAsistencias);
+            Assert.Equal(4, resultado.TotalGeneral);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_beneficiarios_ordena_las_filas_por_nombre()
+        {
+            AgregarAsistencia(2, "Beto", TiemposComida.Desayuno, 1);
+            AgregarAsistencia(1, "Ana", TiemposComida.Desayuno, 1);
+
+            var resultado = await _servicio.GenerarReporteBeneficiariosAsync(new FiltrosReporteBeneficiariosDto());
+
+            Assert.Equal(new[] { 1, 2 }, resultado.Filas.Select(f => f.BeneficiarioId));
         }
 
         [Fact]
@@ -126,7 +182,10 @@ namespace SIGAC.Tests.Application
             public Task<bool> ExisteAsistenciaAsync(int beneficiarioId, DateTime fecha, string tiempoComida) => throw new NotImplementedException();
             public Task<IEnumerable<AsistenciaComedor>> ObtenerAsistenciasDiariasAsync(DateTime fecha) => throw new NotImplementedException();
             public Task<IEnumerable<AsistenciaComedor>> ObtenerHistorialAsync(SIGAC.Application.DTOs.Asistencia.FiltrosAsistenciaDto filtros) => throw new NotImplementedException();
-            public Task<IEnumerable<AsistenciaComedor>> ObtenerParaReporteBeneficiariosAsync(FiltrosReporteBeneficiariosDto filtros) => throw new NotImplementedException();
+            public List<AsistenciaComedor> Asistencias { get; } = new();
+
+            public Task<IEnumerable<AsistenciaComedor>> ObtenerParaReporteBeneficiariosAsync(FiltrosReporteBeneficiariosDto filtros) =>
+                Task.FromResult<IEnumerable<AsistenciaComedor>>(Asistencias);
             public Task<IReadOnlyList<ConteoComidaMensualDto>> ObtenerComidasPorTiempoYMesAsync(int mesesHaciaAtras) => throw new NotImplementedException();
             public Task<IReadOnlyList<ConteoPorMesDto>> ObtenerPersonasAtendidasPorMesAsync(int mesesHaciaAtras) => throw new NotImplementedException();
         }
