@@ -29,6 +29,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Para probar el reparto de anchos de columna del exportador
+         (ExportacionService.AnchosDeColumnas), una función pura que no vale la pena
+         volver pública. -->
+    <InternalsVisibleTo Include="SIGAC.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SIGAC.Application\SIGAC.Application.csproj" />
     <ProjectReference Include="..\SIGAC.Domain\SIGAC.Domain.csproj" />
   </ItemGroup>

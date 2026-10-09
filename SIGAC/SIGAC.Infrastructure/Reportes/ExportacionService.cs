@@ -402,15 +402,32 @@ namespace SIGAC.Infrastructure.Reportes
             return report;
         }
 
+        // Lo que ocupa un carácter de Arial 9 pt, con margen (un dígito mide 0,176 cm
+        // y las mayúsculas más), y el relleno interno de una celda. De ahí sale el
+        // ancho que necesita una columna para que su contenido más largo no se parta.
+        private const float CmPorCaracter = 0.18f;
+        private const float RellenoCelda = 0.3f;
+
+        // Una columna con más caracteres que esto es de texto (nombres, sectores,
+        // descripciones) y puede partirse en dos líneas sin que se vea mal; una más
+        // corta (fecha, cantidad, monto, estado) no: partida se lee mal.
+        private const int CaracteresDeTextoLargo = 20;
+
         // Reparte AnchoPagina entre las columnas según lo largo de su contenido (el
         // título o el valor más largo), no en partes iguales: un nombre necesita
-        // varias veces el ancho de un contador, y con partes iguales el nombre se
-        // partía en dos líneas mientras los números sobraban espacio. El mínimo y el
-        // máximo evitan que una columna de una letra desaparezca o que una de
+        // varias veces el ancho de un contador. El mínimo y el máximo de caracteres
+        // evitan que una columna de una letra desaparezca o que una de
         // observaciones se coma la hoja.
-        private static float[] AnchosDeColumnas(DataTable tabla)
+        //
+        // Cada columna recibe primero lo que necesita. Si sobra hoja, el sobrante se
+        // reparte en proporción. Si falta (reportes de muchas columnas), ceden solo
+        // las de texto largo, hasta un piso, y las cortas conservan su ancho: antes
+        // el reparto era proporcional al largo para todas, y con ocho columnas la
+        // fecha, el monto y el estado quedaban más angostos que su contenido y se
+        // partían en dos líneas ("09/08/202" y "5").
+        internal static float[] AnchosDeColumnas(DataTable tabla)
         {
-            var pesos = tabla.Columns.Cast<DataColumn>()
+            var necesarios = tabla.Columns.Cast<DataColumn>()
                 .Select(c =>
                 {
                     var mayor = tabla.Rows.Cast<DataRow>()
@@ -418,12 +435,30 @@ namespace SIGAC.Infrastructure.Reportes
                         .DefaultIfEmpty(0)
                         .Max();
 
-                    return (float)Math.Clamp(Math.Max(mayor, TituloDe(c).Length), 8, 40);
+                    var caracteres = Math.Clamp(Math.Max(mayor, TituloDe(c).Length), 8, 40);
+                    return caracteres * CmPorCaracter + RellenoCelda;
                 })
                 .ToArray();
 
-            var total = Math.Max(pesos.Sum(), 1f);
-            return pesos.Select(p => AnchoPagina * p / total).ToArray();
+            var suma = necesarios.Sum();
+
+            if (suma <= AnchoPagina)
+            {
+                var sobrante = AnchoPagina - suma;
+                return necesarios.Select(n => n + sobrante * n / suma).ToArray();
+            }
+
+            var piso = CaracteresDeTextoLargo * CmPorCaracter + RellenoCelda;
+            var capacidad = necesarios.Select(n => Math.Max(n - piso, 0f)).ToArray();
+            var capacidadTotal = capacidad.Sum();
+            var deficit = suma - AnchoPagina;
+
+            if (capacidadTotal >= deficit)
+                return necesarios.Select((n, i) => n - deficit * capacidad[i] / capacidadTotal).ToArray();
+
+            // Ni cediendo todo lo que pueden las columnas de texto alcanza: se
+            // escala todo en proporción, como último recurso.
+            return necesarios.Select(n => AnchoPagina * n / suma).ToArray();
         }
 
         // "Página 1 de 3" arriba a la derecha de cada hoja. El ancho cabe en una

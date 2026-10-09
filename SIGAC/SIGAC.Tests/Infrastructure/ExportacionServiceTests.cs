@@ -253,6 +253,87 @@ namespace SIGAC.Tests.Infrastructure
             Assert.Contains("0.00", texto);
         }
 
+        // Ancho útil de la hoja carta apaisada con márgenes (ExportacionService.AnchoPagina).
+        private const float AnchoHoja = 25.9f;
+
+        private static System.Data.DataTable TablaDeTextos(params (string Titulo, string Valor)[] columnas)
+        {
+            var tabla = new System.Data.DataTable();
+
+            foreach (var (titulo, _) in columnas)
+                tabla.Columns.Add(titulo, typeof(string));
+
+            tabla.Rows.Add(columnas.Select(c => (object)c.Valor).ToArray());
+            return tabla;
+        }
+
+        [Fact]
+        public void El_reparto_de_anchos_llena_exactamente_la_hoja_con_pocas_o_muchas_columnas()
+        {
+            var pocas = TablaDeTextos(("Nombre", "Ana Mora"), ("Total", "3"));
+            var muchas = TablaDeTextos(Enumerable.Range(1, 12).Select(i => ($"Col{i}", new string('x', 40))).ToArray());
+
+            Assert.Equal(AnchoHoja, ExportacionService.AnchosDeColumnas(pocas).Sum(), 3);
+            Assert.Equal(AnchoHoja, ExportacionService.AnchosDeColumnas(muchas).Sum(), 3);
+        }
+
+        [Fact]
+        public void Con_ocho_columnas_las_cortas_conservan_su_ancho_y_ceden_las_de_texto_largo()
+        {
+            // El reporte de alquileres: fecha, horario, arrendatario, sectores,
+            // personas, monto, moneda y estado. Con un reparto proporcional al largo
+            // la fecha, el monto y el estado quedaban más angostos que su contenido
+            // y se partían en dos líneas.
+            var tabla = TablaDeTextos(
+                ("Fecha", "09/08/2025"),
+                ("Horario", "10:00 a. m. – 12:00 p. m."),
+                ("Arrendatario", "Prueba Reporte Asociación Vecinal"),
+                ("Sectores", "Área de juego, Cocina (solo para servir)"),
+                ("Personas", "40"),
+                ("Monto", "999 999,00"),
+                ("Moneda", "Colones"),
+                ("Estado", "Reservado"));
+
+            var anchos = ExportacionService.AnchosDeColumnas(tabla);
+
+            // Un dígito de Arial 9 pt mide 0,176 cm: diez caracteres y el relleno de
+            // la celda necesitan más de 1,9 cm.
+            Assert.True(anchos[0] >= 1.9f, $"Fecha: {anchos[0]} cm");
+            Assert.True(anchos[5] >= 1.9f, $"Monto: {anchos[5]} cm");
+            Assert.True(anchos[7] >= 1.7f, $"Estado: {anchos[7]} cm");
+            Assert.Equal(AnchoHoja, anchos.Sum(), 3);
+
+            // Las de texto largo se reparten lo que queda, y siguen siendo las más anchas.
+            Assert.True(anchos[3] > anchos[2] && anchos[2] > anchos[0]);
+        }
+
+        [Fact]
+        public void Si_sobra_hoja_cada_columna_recibe_al_menos_lo_que_necesita_y_las_largas_mas()
+        {
+            var tabla = TablaDeTextos(
+                ("Nombre", "Prueba Reporte Asociación Vecinal"),
+                ("Categoría", "Adulto"),
+                ("Total", "12"));
+
+            var anchos = ExportacionService.AnchosDeColumnas(tabla);
+
+            Assert.Equal(AnchoHoja, anchos.Sum(), 3);
+            Assert.True(anchos[0] > anchos[1] && anchos[1] >= anchos[2]);
+        }
+
+        [Fact]
+        public void El_reparto_de_anchos_funciona_sin_filas()
+        {
+            var tabla = new System.Data.DataTable();
+            tabla.Columns.Add("Nombre", typeof(string));
+            tabla.Columns.Add("Total", typeof(string));
+
+            var anchos = ExportacionService.AnchosDeColumnas(tabla);
+
+            Assert.Equal(2, anchos.Length);
+            Assert.Equal(AnchoHoja, anchos.Sum(), 3);
+        }
+
         private sealed class EntornoFalso : IWebHostEnvironment
         {
             public string WebRootPath { get; set; } = AppContext.BaseDirectory;
