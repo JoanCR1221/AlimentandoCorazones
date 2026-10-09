@@ -1178,6 +1178,11 @@ namespace SIGAC.Tests.Application
             public Task AgregarDonacionEspecieAsync(DonacionEspecie donacion) => throw new NotImplementedException();
             public Task AgregarDonacionEntregadaAsync(DonacionEntregada donacion) => throw new NotImplementedException();
             public Task<IEnumerable<DonacionEntregada>> ObtenerEntregasAsync(FiltrosHistorialEntregaDto filtros) => throw new NotImplementedException();
+
+            // El reporte exporta todo el período: usa el historial completo, nunca el
+            // paginado de la pantalla.
+            public Task<SIGAC.Application.DTOs.ResultadoPaginado<ItemHistorialDonacion>> ObtenerPaginaHistorialAsync(FiltrosHistorialDonacionDto filtros) => throw new NotImplementedException();
+            public Task<IReadOnlyList<SIGAC.Application.DTOs.MontoPorMonedaDto>> ObtenerTotalesDineroPorMonedaAsync(FiltrosHistorialDonacionDto filtros) => throw new NotImplementedException();
         }
 
         // Solo la consulta del reporte, con los mismos criterios que
@@ -1247,6 +1252,11 @@ namespace SIGAC.Tests.Application
                     .Where(s => hasta is null || s.Fecha < hasta.Value.Date.AddDays(1))
                     .ToList());
             }
+
+            // El reporte exporta todo el período: usa el historial completo, nunca el
+            // paginado de la pantalla.
+            public Task<SIGAC.Application.DTOs.ResultadoPaginado<ItemMovimiento>> ObtenerPaginaMovimientosAsync(FiltrosMovimientoDto filtros) => throw new NotImplementedException();
+            public Task<TotalesMovimientos> ObtenerTotalesMovimientosAsync(FiltrosMovimientoDto filtros) => throw new NotImplementedException();
 
             // Lo que devuelven las consultas del panorama y con qué parámetros se
             // pidieron: el servicio solo las reparte y suma, así que la prueba controla

@@ -3,6 +3,7 @@
 @using SIGAC.Application.DTOs.Inventario
 @using SIGAC.Application.Interfaces
 @inject IInventarioService InventarioService
+@inject ISnackbar Snackbar
 
 <EncabezadoPagina Titulo="Historial de movimientos de inventario"
                   Descripcion="Consulte las entradas, donaciones y préstamos de artículos." />
@@ -23,11 +24,21 @@
         <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
                              Label="Rango de fechas" Variant="Variant.Outlined" Class="mb-4" />
 
+        @* Unidades de TODO el período filtrado, no de la página que se ve: vienen de
+           un agregado en la base, junto con cada página. *@
         <MudText Typo="Typo.subtitle1" Class="mb-4">
-            Total de entradas: @resultado.TotalEntradas · Total de salidas: @resultado.TotalSalidas
+            Total de entradas: @TextoResumen.Numero(resultado.TotalEntradas) · Total de salidas: @TextoResumen.Numero(resultado.TotalSalidas)
         </MudText>
 
-        <MudDataGrid T="MovimientoInventarioDto" Items="@resultado.Movimientos" Loading="cargando">
+        @* ServerData en lugar de Items: el historial crece con cada movimiento, así
+           que la grilla pide una página por vez y el repositorio trae de la base solo
+           esos registros. SortMode.None porque el orden (más reciente primero) lo
+           fija la consulta en SQL: dejar ordenar por columna solo reordenaría la
+           página visible, que sería engañoso. *@
+        <MudDataGrid T="MovimientoInventarioDto" @ref="grilla"
+                     ServerData="CargarPaginaAsync"
+                     RowsPerPage="FiltrosMovimientoDto.TamanoPaginaPredeterminado"
+                     SortMode="SortMode.None" Filterable="false">
             <Columns>
                 <PropertyColumn Property="x => x.Articulo" Title="Artículo" />
                 <TemplateColumn Title="Tipo de movimiento">
@@ -55,24 +66,26 @@
                                  Titulo="Todavía no hay movimientos registrados" />
                 }
             </NoRecordsContent>
+            <PagerContent>
+                <MudDataGridPager T="MovimientoInventarioDto"
+                                  PageSizeOptions="@(new[] { FiltrosMovimientoDto.TamanoPaginaPredeterminado, 50, FiltrosMovimientoDto.TamanoPaginaMaximo })" />
+            </PagerContent>
         </MudDataGrid>
     </MudCardContent>
 </MudCard>
 
 @code {
+    private MudDataGrid<MovimientoInventarioDto>? grilla;
+
+    // Lo último que devolvió el servicio: la grilla muestra su página y los totales
+    // de arriba salen del mismo resultado.
     private HistorialMovimientosResultadoDto resultado = new();
     private ArticuloExistenciaDto? articuloSeleccionado;
     private string? filtroTipoMovimiento;
     private DateRange? rangoFechas;
-    private bool cargando = true;
 
     private bool HayFiltro =>
         articuloSeleccionado is not null || !string.IsNullOrWhiteSpace(filtroTipoMovimiento) || rangoFechas is not null;
-
-    protected override async Task OnInitializedAsync()
-    {
-        await CargarAsync();
-    }
 
     private async Task<IEnumerable<ArticuloExistenciaDto>> BuscarArticulosAsync(string valor, CancellationToken cancellationToken)
     {
@@ -83,19 +96,19 @@
     private async Task OnArticuloCambiadoAsync(ArticuloExistenciaDto? valor)
     {
         articuloSeleccionado = valor;
-        await CargarAsync();
+        await RecargarAsync();
     }
 
     private async Task OnTipoMovimientoCambiadoAsync(string? valor)
     {
         filtroTipoMovimiento = valor;
-        await CargarAsync();
+        await RecargarAsync();
     }
 
     private async Task OnRangoFechasCambiadoAsync(DateRange? valor)
     {
         rangoFechas = valor;
-        await CargarAsync();
+        await RecargarAsync();
     }
 
     private static string EtiquetaTipoMovimiento(string tipoMovimiento) => tipoMovimiento switch
@@ -105,23 +118,54 @@
         _ => tipoMovimiento
     };
 
-    private async Task CargarAsync()
+    // La llama la grilla cada vez que cambia de página o se recarga. Devuelve solo
+    // los movimientos de esa página más el total, que es lo que necesita el paginador.
+    private async Task<GridData<MovimientoInventarioDto>> CargarPaginaAsync(
+        GridState<MovimientoInventarioDto> estado, CancellationToken cancellationToken)
     {
-        cargando = true;
-
         try
         {
-            resultado = await InventarioService.ObtenerHistorialMovimientosAsync(new FiltrosMovimientoDto
+            resultado = await InventarioService.ObtenerPaginaHistorialMovimientosAsync(new FiltrosMovimientoDto
             {
                 ArticuloId = articuloSeleccionado?.Id,
                 TipoMovimiento = filtroTipoMovimiento,
                 Desde = rangoFechas?.Start,
-                Hasta = rangoFechas?.End
+                Hasta = rangoFechas?.End,
+                Pagina = estado.Page,
+                TamanoPagina = estado.PageSize
             });
         }
-        finally
+        catch (Exception)
         {
-            cargando = false;
+            resultado = new HistorialMovimientosResultadoDto();
+            Snackbar.Add("No se pudo cargar el historial de movimientos. Intente de nuevo.", Severity.Error);
         }
+
+        // Los totales de arriba están fuera de la grilla: ella se vuelve a dibujar sola
+        // al recibir la página, pero la pantalla no.
+        StateHasChanged();
+
+        return new GridData<MovimientoInventarioDto>
+        {
+            Items = resultado.Movimientos,
+            TotalItems = resultado.TotalRegistros
+        };
+    }
+
+    // Al cambiar un filtro se vuelve a la primera página: la que se estaba viendo
+    // puede no existir con el filtro nuevo (y quedaría vacía).
+    //
+    // NavigateTo cambia CurrentPage, y el setter de CurrentPage ya dispara
+    // ServerData por dentro. Por eso solo se recarga a mano en la otra rama: así el
+    // cambio de filtro cuesta una sola consulta y no dos.
+    private async Task RecargarAsync()
+    {
+        if (grilla is null)
+            return;
+
+        if (grilla.CurrentPage != 0)
+            grilla.NavigateTo(Page.First);
+        else
+            await grilla.ReloadServerData();
     }
 }

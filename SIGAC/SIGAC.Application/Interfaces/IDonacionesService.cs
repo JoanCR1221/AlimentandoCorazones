@@ -35,6 +35,13 @@ namespace SIGAC.Application.Interfaces
         // de IDonacionesRepository sobre por qué la unión se hace acá y no en SQL.
         Task<HistorialDonacionesResultadoDto> ObtenerHistorialDonacionesAsync(FiltrosHistorialDonacionDto filtros);
 
+        // Lo mismo, pero de a una página (filtros.Pagina / TamanoPagina): para la
+        // pantalla del historial. Trae de la base solo las donaciones de esa página,
+        // no el historial entero; TotalRegistros y TotalesPorMoneda siguen cubriendo
+        // TODO el período filtrado. Los reportes usan el completo de arriba, que
+        // ignora la paginación.
+        Task<HistorialDonacionesResultadoDto> ObtenerPaginaHistorialDonacionesAsync(FiltrosHistorialDonacionDto filtros);
+
         // Resuelve el nombre del destinatario para cada fila: el del beneficiario o
         // el de la comunidad, según TipoDestinatario. La grilla recibe una sola
         // columna de texto y no tiene que saber de cuál de los dos campos salió.

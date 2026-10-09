@@ -161,15 +161,60 @@ namespace SIGAC.Application.DTOs.Inventario
 
     public class FiltrosMovimientoDto
     {
+        public const string TipoEntrada = "Entrada";
+
+        public const int TamanoPaginaPredeterminado = 20;
+
+        // Techo duro: ningún llamador puede pedir una página tan grande que anule
+        // la paginación y traiga el historial entero.
+        public const int TamanoPaginaMaximo = 100;
+
         public int? ArticuloId { get; set; }
         public string? TipoMovimiento { get; set; } // "Entrada", "Donacion", "Prestamo" o null (todos)
         public DateTime? Desde { get; set; }
         public DateTime? Hasta { get; set; }
+
+        // Solo los lee el historial paginado (ObtenerPaginaHistorialMovimientosAsync);
+        // el completo, que usan los reportes para exportar, los ignora.
+        // Base 0, igual que el índice de página de la grilla.
+        public int Pagina { get; set; }
+        public int TamanoPagina { get; set; } = TamanoPaginaPredeterminado;
+
+        // Valores saneados: el repositorio usa estos, no los crudos, para que una
+        // página negativa o un tamaño de 0 no rompan el Skip/Take.
+        public int PaginaEfectiva => Pagina < 0 ? 0 : Pagina;
+
+        public int TamanoPaginaEfectivo => Math.Clamp(
+            TamanoPagina <= 0 ? TamanoPaginaPredeterminado : TamanoPagina,
+            1,
+            TamanoPaginaMaximo);
+
+        // TipoMovimiento no es una columna: decide CUÁLES de las dos tablas se
+        // consultan y, con "Donacion" o "Prestamo", qué salidas. Una sola fuente de
+        // esa regla para el servicio y el repositorio. Un valor desconocido no
+        // incluye ninguna: no devuelve nada, en vez de fallar.
+        public bool IncluyeEntradas => TipoMovimiento is null or TipoEntrada;
+
+        public bool IncluyeSalidas => TipoMovimiento is null
+            or Domain.TiposSalidaInventario.Donacion
+            or Domain.TiposSalidaInventario.Prestamo;
+
+        // Null cuando el filtro no acota el tipo de salida (todas las salidas).
+        public string? TipoSalida => TipoMovimiento is Domain.TiposSalidaInventario.Donacion or Domain.TiposSalidaInventario.Prestamo
+            ? TipoMovimiento
+            : null;
     }
 
     public class HistorialMovimientosResultadoDto
     {
+        // En el historial paginado, solo los de la página pedida.
         public List<MovimientoInventarioDto> Movimientos { get; set; } = new();
+
+        // Cuántos movimientos cumplen el filtro en total (no los de la página): lo
+        // necesita el paginador para saber cuántas páginas hay sin traerlas.
+        public int TotalRegistros { get; set; }
+
+        // Unidades (no cantidad de movimientos) de TODO el período filtrado.
         public int TotalEntradas { get; set; }
         public int TotalSalidas { get; set; }
     }

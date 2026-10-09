@@ -372,50 +372,31 @@ namespace SIGAC.Application.Services
         {
             try
             {
-                var incluyeEntradas = filtros.TipoMovimiento is null or "Entrada";
-                var incluyeSalidas = filtros.TipoMovimiento is null
-                    or TiposSalidaInventario.Donacion
-                    or TiposSalidaInventario.Prestamo;
-
-                var entradas = incluyeEntradas
+                var entradas = filtros.IncluyeEntradas
                     ? await _repository.ObtenerEntradasAsync(filtros.ArticuloId, filtros.Desde, filtros.Hasta)
                     : Enumerable.Empty<EntradaInventario>();
 
-                var salidas = incluyeSalidas
+                var salidas = filtros.IncluyeSalidas
                     ? await _repository.ObtenerSalidasAsync(filtros.ArticuloId, filtros.Desde, filtros.Hasta)
                     : Enumerable.Empty<SalidaInventario>();
 
                 // ObtenerSalidasAsync no filtra por TipoSalida (solo por artículo y
                 // fecha), así que un sub-tipo puntual (Donacion o Prestamo) se recorta
                 // acá antes de mapear.
-                if (filtros.TipoMovimiento is TiposSalidaInventario.Donacion or TiposSalidaInventario.Prestamo)
-                    salidas = salidas.Where(s => s.TipoSalida == filtros.TipoMovimiento);
+                if (filtros.TipoSalida is not null)
+                    salidas = salidas.Where(s => s.TipoSalida == filtros.TipoSalida);
 
                 var movimientos = new List<MovimientoInventarioDto>();
 
-                movimientos.AddRange(entradas.Select(e => new MovimientoInventarioDto
-                {
-                    Id = e.Id,
-                    Articulo = e.Articulo?.Etiqueta ?? string.Empty,
-                    TipoMovimiento = "Entrada",
-                    Cantidad = e.Cantidad,
-                    Fecha = e.Fecha,
-                    OrigenODestino = e.Origen
-                }));
+                movimientos.AddRange(entradas.Select(AFilaDeMovimiento));
+                movimientos.AddRange(salidas.Select(AFilaDeMovimiento));
 
-                movimientos.AddRange(salidas.Select(s => new MovimientoInventarioDto
-                {
-                    Id = s.Id,
-                    Articulo = s.Articulo?.Etiqueta ?? string.Empty,
-                    TipoMovimiento = s.TipoSalida,
-                    Cantidad = s.Cantidad,
-                    Fecha = s.Fecha,
-                    OrigenODestino = s.ComunidadDestinataria ?? s.TipoSalida
-                }));
+                var ordenados = movimientos.OrderByDescending(m => m.Fecha).ToList();
 
                 return new HistorialMovimientosResultadoDto
                 {
-                    Movimientos = movimientos.OrderByDescending(m => m.Fecha).ToList(),
+                    Movimientos = ordenados,
+                    TotalRegistros = ordenados.Count,
                     TotalEntradas = entradas.Sum(e => e.Cantidad),
                     TotalSalidas = salidas.Sum(s => s.Cantidad)
                 };
@@ -425,6 +406,64 @@ namespace SIGAC.Application.Services
                 throw new Exception("Error al consultar el historial de movimientos.", ex);
             }
         }
+
+        // La misma lista que ObtenerHistorialMovimientosAsync pero de a una página, para
+        // la pantalla del historial: el repositorio trae de la base solo esas filas (y
+        // cuántas hay en total), no las dos tablas completas. Los reportes siguen con el
+        // historial completo porque exportan todo el período.
+        public async Task<HistorialMovimientosResultadoDto> ObtenerPaginaHistorialMovimientosAsync(FiltrosMovimientoDto filtros)
+        {
+            try
+            {
+                var pagina = await _repository.ObtenerPaginaMovimientosAsync(filtros);
+
+                // Los totales (en unidades) cubren todo el período filtrado, no la
+                // página: sumar las filas de la página daría solo las de esa página.
+                var totales = await _repository.ObtenerTotalesMovimientosAsync(filtros);
+
+                var filas = new List<MovimientoInventarioDto>(pagina.Elementos.Count);
+
+                foreach (var item in pagina.Elementos)
+                {
+                    if (item.Entrada is not null)
+                        filas.Add(AFilaDeMovimiento(item.Entrada));
+                    else if (item.Salida is not null)
+                        filas.Add(AFilaDeMovimiento(item.Salida));
+                }
+
+                return new HistorialMovimientosResultadoDto
+                {
+                    Movimientos = filas,
+                    TotalRegistros = pagina.TotalRegistros,
+                    TotalEntradas = totales.Entradas,
+                    TotalSalidas = totales.Salidas
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al consultar el historial de movimientos.", ex);
+            }
+        }
+
+        private static MovimientoInventarioDto AFilaDeMovimiento(EntradaInventario e) => new()
+        {
+            Id = e.Id,
+            Articulo = e.Articulo?.Etiqueta ?? string.Empty,
+            TipoMovimiento = FiltrosMovimientoDto.TipoEntrada,
+            Cantidad = e.Cantidad,
+            Fecha = e.Fecha,
+            OrigenODestino = e.Origen
+        };
+
+        private static MovimientoInventarioDto AFilaDeMovimiento(SalidaInventario s) => new()
+        {
+            Id = s.Id,
+            Articulo = s.Articulo?.Etiqueta ?? string.Empty,
+            TipoMovimiento = s.TipoSalida,
+            Cantidad = s.Cantidad,
+            Fecha = s.Fecha,
+            OrigenODestino = s.ComunidadDestinataria ?? s.TipoSalida
+        };
 
         public async Task RegistrarSolicitudPrestamoAsync(SolicitudPrestamoCrearDto dto)
         {

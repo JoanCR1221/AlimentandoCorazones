@@ -17,6 +17,13 @@ namespace SIGAC.Application.Interfaces
         Task EliminarArticuloAsync(int id);
         Task<HistorialMovimientosResultadoDto> ObtenerHistorialMovimientosAsync(FiltrosMovimientoDto filtros);
 
+        // Lo mismo, pero de a una página (filtros.Pagina / TamanoPagina): para la
+        // pantalla del historial. Trae de la base solo los movimientos de esa página,
+        // no el historial entero; TotalRegistros, TotalEntradas y TotalSalidas siguen
+        // cubriendo TODO el período filtrado. Los reportes usan el completo de arriba,
+        // que ignora la paginación.
+        Task<HistorialMovimientosResultadoDto> ObtenerPaginaHistorialMovimientosAsync(FiltrosMovimientoDto filtros);
+
         Task RegistrarSolicitudPrestamoAsync(SolicitudPrestamoCrearDto dto);
         Task AprobarPrestamoAsync(ResolucionPrestamoDto dto);
         Task RechazarPrestamoAsync(ResolucionPrestamoDto dto);
