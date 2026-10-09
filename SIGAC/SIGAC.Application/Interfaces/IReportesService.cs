@@ -40,6 +40,14 @@ namespace SIGAC.Application.Interfaces
         // período, con las unidades que entraron y las que salieron.
         Task<ReporteMovimientosResultadoDto> GenerarReporteMovimientosAsync(FiltrosReporteMovimientosDto filtros);
 
+        // Reporte de proyectos comunitarios de un período (por fecha de inicio), con el
+        // total de proyectos por estado y de participantes.
+        Task<ReporteProyectosResultadoDto> GenerarReporteProyectosAsync(FiltrosReporteProyectosDto filtros);
+
+        // Panorama gráfico de Proyectos: totales por estado y por tipo de participante
+        // de todos los proyectos, y dos series mensuales sobre una ventana fija.
+        Task<PanoramaProyectosDto> ObtenerPanoramaProyectosAsync();
+
         // Panorama gráfico de Inventario: mismo criterio que los otros, sobre una
         // ventana fija de meses hacia atrás. Todo en unidades, sin las entradas
         // anuladas.

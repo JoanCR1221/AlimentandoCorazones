@@ -27,6 +27,7 @@ namespace SIGAC.Application.Services
         // inventario.
         private const int TopDonantesPorDefecto = 5;
         private const int TopArticulosPorDefecto = 5;
+        private const int TopProyectosPorDefecto = 5;
 
         private readonly IAsistenciaRepository _asistenciaRepository;
         private readonly IBeneficiariosRepository _beneficiariosRepository;
@@ -38,6 +39,7 @@ namespace SIGAC.Application.Services
         private readonly IAlquileresRepository _alquileresRepository;
         private readonly IInventarioService _inventarioService;
         private readonly IInventarioRepository _inventarioRepository;
+        private readonly IProyectosRepository _proyectosRepository;
 
         // Donaciones, Alquileres e Inventario entran cada uno por dos lados: el reporte
         // exportable reutiliza el historial del servicio (que ya une, filtra y
@@ -53,7 +55,8 @@ namespace SIGAC.Application.Services
             IAlquileresService alquileresService,
             IAlquileresRepository alquileresRepository,
             IInventarioService inventarioService,
-            IInventarioRepository inventarioRepository)
+            IInventarioRepository inventarioRepository,
+            IProyectosRepository proyectosRepository)
         {
             _asistenciaRepository = asistenciaRepository;
             _beneficiariosRepository = beneficiariosRepository;
@@ -65,6 +68,7 @@ namespace SIGAC.Application.Services
             _alquileresRepository = alquileresRepository;
             _inventarioService = inventarioService;
             _inventarioRepository = inventarioRepository;
+            _proyectosRepository = proyectosRepository;
         }
 
         public async Task<ReporteBeneficiariosResultadoDto> GenerarReporteBeneficiariosAsync(FiltrosReporteBeneficiariosDto filtros)
@@ -387,6 +391,95 @@ namespace SIGAC.Application.Services
                 throw new Exception("Error al generar el reporte de movimientos de inventario.", ex);
             }
         }
+
+        public async Task<ReporteProyectosResultadoDto> GenerarReporteProyectosAsync(FiltrosReporteProyectosDto filtros)
+        {
+            try
+            {
+                var proyectos = await _proyectosRepository.ObtenerParaReporteAsync(filtros);
+
+                var filas = proyectos
+                    .Select(p => new ReporteProyectosDto
+                    {
+                        Nombre = p.Nombre,
+                        Estado = EtiquetaDeEstado(p.Estado),
+                        FechaInicio = p.FechaInicio,
+                        FechaEstimadaFin = p.FechaEstimadaFin,
+                        FechaFinalizacion = p.FechaFinalizacionReal,
+                        TotalParticipantes = p.Participantes.Count,
+                        Beneficiarios = p.Participantes.Count(x => x.EsBeneficiario),
+                        Externos = p.Participantes.Count(x => !x.EsBeneficiario)
+                    })
+                    .ToList();
+
+                return new ReporteProyectosResultadoDto
+                {
+                    Filas = filas,
+                    Planificados = proyectos.Count(p => p.Estado == EstadoProyecto.Planificado),
+                    EnCurso = proyectos.Count(p => p.Estado == EstadoProyecto.EnCurso),
+                    Finalizados = proyectos.Count(p => p.Estado == EstadoProyecto.Finalizado),
+                    Cancelados = proyectos.Count(p => p.Estado == EstadoProyecto.Cancelado),
+                    TotalParticipantes = filas.Sum(f => f.TotalParticipantes),
+                    TotalBeneficiarios = filas.Sum(f => f.Beneficiarios),
+                    TotalExternos = filas.Sum(f => f.Externos)
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al generar el reporte de proyectos comunitarios.", ex);
+            }
+        }
+
+        public async Task<PanoramaProyectosDto> ObtenerPanoramaProyectosAsync()
+        {
+            try
+            {
+                // Todos los proyectos: son pocos y de larga duración (ver
+                // PanoramaProyectosDto). Solo las dos series mensuales se acotan a la
+                // ventana, y se hace acá y no en SQL para reutilizar la misma consulta
+                // del reporte.
+                var proyectos = await _proyectosRepository.ObtenerParaReporteAsync(new FiltrosReporteProyectosDto());
+                var participantes = proyectos.SelectMany(p => p.Participantes).ToList();
+
+                var inicioVentana = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).AddMonths(-(MesesPanoramaPorDefecto - 1));
+
+                return new PanoramaProyectosDto
+                {
+                    TotalProyectos = proyectos.Count,
+                    Planificados = proyectos.Count(p => p.Estado == EstadoProyecto.Planificado),
+                    EnCurso = proyectos.Count(p => p.Estado == EstadoProyecto.EnCurso),
+                    Finalizados = proyectos.Count(p => p.Estado == EstadoProyecto.Finalizado),
+                    Cancelados = proyectos.Count(p => p.Estado == EstadoProyecto.Cancelado),
+                    ParticipantesBeneficiarios = participantes.Count(p => p.EsBeneficiario),
+                    ParticipantesExternos = participantes.Count(p => !p.EsBeneficiario),
+                    ProyectosIniciadosPorMes = ContarPorMes(proyectos.Where(p => p.FechaInicio >= inicioVentana).Select(p => p.FechaInicio)),
+                    ParticipantesRegistradosPorMes = ContarPorMes(participantes.Where(p => p.FechaRegistro >= inicioVentana).Select(p => p.FechaRegistro)),
+                    ProyectosConMasParticipantes = proyectos
+                        .Select(p => new ParticipantesPorProyectoDto(p.Nombre, p.Participantes.Count))
+                        .Where(p => p.Participantes > 0)
+                        .OrderByDescending(p => p.Participantes).ThenBy(p => p.Proyecto, StringComparer.CurrentCultureIgnoreCase)
+                        .Take(TopProyectosPorDefecto)
+                        .ToList()
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al generar el panorama de proyectos comunitarios.", ex);
+            }
+        }
+
+        private static List<ConteoPorMesDto> ContarPorMes(IEnumerable<DateTime> fechas) => fechas
+            .GroupBy(f => (f.Year, f.Month))
+            .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
+            .Select(g => new ConteoPorMesDto(g.Key.Year, g.Key.Month, g.Count()))
+            .ToList();
+
+        // Mismo texto que el listado de proyectos: "En curso" con espacio.
+        private static string EtiquetaDeEstado(EstadoProyecto estado) => estado switch
+        {
+            EstadoProyecto.EnCurso => "En curso",
+            _ => estado.ToString()
+        };
 
         public async Task<PanoramaInventarioDto> ObtenerPanoramaInventarioAsync()
         {

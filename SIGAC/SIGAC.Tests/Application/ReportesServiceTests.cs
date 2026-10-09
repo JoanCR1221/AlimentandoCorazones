@@ -9,10 +9,10 @@ using SIGAC.Domain.Entities;
 
 namespace SIGAC.Tests.Application
 {
-    // El reporte de gastos, los de donaciones y alquileres, los panoramas de esos
-    // dos (lo que hace el servicio con lo que le devuelve el repositorio) y la
-    // agrupación del de beneficiarios. Las consultas del panorama de donaciones y
-    // de alquileres, los otros dos paneles gráficos y el resto del de beneficiarios
+    // El reporte de gastos, los de donaciones, alquileres, inventario y proyectos,
+    // los panoramas de esos cuatro (lo que hace el servicio con lo que le devuelve
+    // el repositorio) y la agrupación del de beneficiarios. Las consultas SQL de los
+    // panoramas, los otros dos paneles gráficos y el resto del de beneficiarios
     // están cubiertos por verificación manual en el navegador (ver las notas de los
     // commits que los agregaron).
     public class ReportesServiceTests
@@ -24,6 +24,7 @@ namespace SIGAC.Tests.Application
         private readonly RepositorioDonantesFalso _donantes = new();
         private readonly RepositorioAlquileresFalso _alquileres = new();
         private readonly RepositorioInventarioFalso _inventario = new();
+        private readonly RepositorioProyectosFalso _proyectos = new();
         private readonly ReportesService _servicio;
 
         private readonly TipoGasto _alquiler;
@@ -46,7 +47,7 @@ namespace SIGAC.Tests.Application
             var inventario = new InventarioService(_inventario, null!);
 
             _servicio = new ReportesService(_asistencias, new RepositorioBeneficiariosFalso(), _gastos, donaciones, _donaciones, _donantes,
-                alquileres, _alquileres, inventario, _inventario);
+                alquileres, _alquileres, inventario, _inventario, _proyectos);
 
             _alquiler = _tipos.Agregar("Alquiler de Equipo");
             _combustible = _tipos.Agregar("Combustible");
@@ -150,6 +151,199 @@ namespace SIGAC.Tests.Application
         }
 
         private static FiltrosReporteMovimientosDto TodosLosMovimientos() => new();
+
+        private ProyectoComunitario AgregarProyecto(string nombre, DateTime inicio, EstadoProyecto estado = EstadoProyecto.EnCurso,
+            int beneficiarios = 0, int externos = 0, DateTime? fechaFinalizacion = null, DateTime? registroParticipantes = null)
+        {
+            var proyecto = new ProyectoComunitario
+            {
+                Id = _proyectos.Proyectos.Count + 1,
+                Nombre = nombre,
+                FechaInicio = inicio,
+                FechaEstimadaFin = inicio.AddMonths(3),
+                FechaFinalizacionReal = fechaFinalizacion,
+                Estado = estado
+            };
+
+            var registro = registroParticipantes ?? inicio;
+
+            for (var i = 0; i < beneficiarios; i++)
+                proyecto.Participantes.Add(new ParticipanteProyecto { EsBeneficiario = true, BeneficiarioId = i + 1, FechaRegistro = registro });
+
+            for (var i = 0; i < externos; i++)
+                proyecto.Participantes.Add(new ParticipanteProyecto { EsBeneficiario = false, NombreExterno = $"Externo {i + 1}", FechaRegistro = registro });
+
+            _proyectos.Proyectos.Add(proyecto);
+            return proyecto;
+        }
+
+        private static FiltrosReporteProyectosDto TodosLosProyectos() => new();
+
+        [Fact]
+        public async Task El_reporte_de_proyectos_arma_cada_fila_con_sus_fechas_y_participantes()
+        {
+            AgregarProyecto("Huerta comunitaria", new DateTime(2026, 3, 1), EstadoProyecto.Finalizado,
+                beneficiarios: 5, externos: 2, fechaFinalizacion: new DateTime(2026, 6, 15));
+
+            var resultado = await _servicio.GenerarReporteProyectosAsync(TodosLosProyectos());
+
+            var fila = Assert.Single(resultado.Filas);
+            Assert.Equal("Huerta comunitaria", fila.Nombre);
+            Assert.Equal("Finalizado", fila.Estado);
+            Assert.Equal(new DateTime(2026, 3, 1), fila.FechaInicio);
+            Assert.Equal(new DateTime(2026, 6, 1), fila.FechaEstimadaFin);
+            Assert.Equal(new DateTime(2026, 6, 15), fila.FechaFinalizacion);
+            Assert.Equal(7, fila.TotalParticipantes);
+            Assert.Equal(5, fila.Beneficiarios);
+            Assert.Equal(2, fila.Externos);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_proyectos_escribe_En_curso_con_espacio_y_deja_vacia_la_finalizacion_sin_finalizar()
+        {
+            AgregarProyecto("Taller de costura", new DateTime(2026, 8, 1), EstadoProyecto.EnCurso);
+
+            var resultado = await _servicio.GenerarReporteProyectosAsync(TodosLosProyectos());
+
+            var fila = Assert.Single(resultado.Filas);
+            Assert.Equal("En curso", fila.Estado);
+            Assert.Null(fila.FechaFinalizacion);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_proyectos_cuenta_los_proyectos_de_cada_estado_y_suma_participantes()
+        {
+            AgregarProyecto("A", new DateTime(2026, 1, 1), EstadoProyecto.Planificado, beneficiarios: 1);
+            AgregarProyecto("B", new DateTime(2026, 2, 1), EstadoProyecto.EnCurso, beneficiarios: 3, externos: 1);
+            AgregarProyecto("C", new DateTime(2026, 3, 1), EstadoProyecto.EnCurso, externos: 2);
+            AgregarProyecto("D", new DateTime(2026, 4, 1), EstadoProyecto.Finalizado, beneficiarios: 4);
+            AgregarProyecto("E", new DateTime(2026, 5, 1), EstadoProyecto.Cancelado);
+
+            var resultado = await _servicio.GenerarReporteProyectosAsync(TodosLosProyectos());
+
+            Assert.Equal(5, resultado.Filas.Count);
+            Assert.Equal(1, resultado.Planificados);
+            Assert.Equal(2, resultado.EnCurso);
+            Assert.Equal(1, resultado.Finalizados);
+            Assert.Equal(1, resultado.Cancelados);
+            Assert.Equal(11, resultado.TotalParticipantes);
+            Assert.Equal(8, resultado.TotalBeneficiarios);
+            Assert.Equal(3, resultado.TotalExternos);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_proyectos_filtra_por_estado()
+        {
+            AgregarProyecto("En curso", new DateTime(2026, 1, 1), EstadoProyecto.EnCurso);
+            AgregarProyecto("Finalizado", new DateTime(2026, 2, 1), EstadoProyecto.Finalizado);
+
+            var resultado = await _servicio.GenerarReporteProyectosAsync(new FiltrosReporteProyectosDto { Estado = EstadoProyecto.Finalizado });
+
+            Assert.Equal("Finalizado", Assert.Single(resultado.Filas).Nombre);
+            Assert.Equal(1, resultado.Finalizados);
+            Assert.Equal(0, resultado.EnCurso);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_proyectos_filtra_por_la_fecha_de_inicio_incluyendo_el_ultimo_dia()
+        {
+            AgregarProyecto("Antes", new DateTime(2026, 8, 31, 23, 0, 0));
+            AgregarProyecto("Primer día", new DateTime(2026, 9, 1, 8, 0, 0));
+            AgregarProyecto("Último día", new DateTime(2026, 9, 30, 14, 30, 0));
+            AgregarProyecto("Después", new DateTime(2026, 10, 1));
+
+            var resultado = await _servicio.GenerarReporteProyectosAsync(new FiltrosReporteProyectosDto
+            {
+                FechaDesde = new DateTime(2026, 9, 1),
+                FechaHasta = new DateTime(2026, 9, 30)
+            });
+
+            // Del más reciente al más antiguo, como el listado de proyectos.
+            Assert.Equal(new[] { "Último día", "Primer día" }, resultado.Filas.Select(f => f.Nombre));
+        }
+
+        [Fact]
+        public async Task El_reporte_de_proyectos_sin_resultados_viene_vacio_y_envuelve_los_errores()
+        {
+            var vacio = await _servicio.GenerarReporteProyectosAsync(TodosLosProyectos());
+
+            Assert.Empty(vacio.Filas);
+            Assert.Equal(0, vacio.TotalParticipantes);
+
+            _proyectos.Falla = true;
+
+            var error = await Assert.ThrowsAsync<Exception>(() => _servicio.GenerarReporteProyectosAsync(TodosLosProyectos()));
+            Assert.Equal("Error al generar el reporte de proyectos comunitarios.", error.Message);
+        }
+
+        [Fact]
+        public async Task El_panorama_de_proyectos_cuenta_estados_y_tipos_de_participante_de_todos_los_proyectos()
+        {
+            // Uno iniciado hace más de 12 meses y todavía en curso: cuenta igual.
+            AgregarProyecto("Antiguo", DateTime.Today.AddMonths(-20), EstadoProyecto.EnCurso, beneficiarios: 2, externos: 1);
+            AgregarProyecto("Reciente", DateTime.Today, EstadoProyecto.Planificado, beneficiarios: 1);
+            AgregarProyecto("Cerrado", DateTime.Today.AddMonths(-3), EstadoProyecto.Finalizado, externos: 2);
+
+            var panorama = await _servicio.ObtenerPanoramaProyectosAsync();
+
+            Assert.Equal(3, panorama.TotalProyectos);
+            Assert.Equal(1, panorama.Planificados);
+            Assert.Equal(1, panorama.EnCurso);
+            Assert.Equal(1, panorama.Finalizados);
+            Assert.Equal(0, panorama.Cancelados);
+            Assert.Equal(3, panorama.ParticipantesBeneficiarios);
+            Assert.Equal(3, panorama.ParticipantesExternos);
+        }
+
+        [Fact]
+        public async Task El_panorama_de_proyectos_acota_las_series_mensuales_a_la_ventana_de_12_meses()
+        {
+            var hace3Meses = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 5).AddMonths(-3);
+
+            AgregarProyecto("Antiguo", DateTime.Today.AddMonths(-20), beneficiarios: 4);
+            AgregarProyecto("Dentro", hace3Meses, beneficiarios: 2, externos: 1);
+            AgregarProyecto("Otro dentro", hace3Meses.AddDays(2), beneficiarios: 1);
+
+            var panorama = await _servicio.ObtenerPanoramaProyectosAsync();
+
+            // Los iniciados por mes dejan fuera al antiguo.
+            var iniciados = Assert.Single(panorama.ProyectosIniciadosPorMes);
+            Assert.Equal((hace3Meses.Year, hace3Meses.Month, 2), (iniciados.Anio, iniciados.Mes, iniciados.Cantidad));
+
+            // Los participantes por mes, también: solo los registrados en la ventana (4 + 0 quedan fuera).
+            var registrados = Assert.Single(panorama.ParticipantesRegistradosPorMes);
+            Assert.Equal(4, registrados.Cantidad);
+        }
+
+        [Fact]
+        public async Task El_panorama_de_proyectos_ordena_los_que_tienen_mas_participantes_y_omite_los_vacios()
+        {
+            AgregarProyecto("Pocos", new DateTime(2026, 1, 1), beneficiarios: 1);
+            AgregarProyecto("Muchos", new DateTime(2026, 2, 1), beneficiarios: 5, externos: 3);
+            AgregarProyecto("Sin nadie", new DateTime(2026, 3, 1));
+            AgregarProyecto("Medios", new DateTime(2026, 4, 1), beneficiarios: 4);
+            AgregarProyecto("Empate A", new DateTime(2026, 5, 1), beneficiarios: 4);
+
+            var panorama = await _servicio.ObtenerPanoramaProyectosAsync();
+
+            // De mayor a menor y, en empate, por nombre; "Sin nadie" no aparece.
+            Assert.Equal(new[] { ("Muchos", 8), ("Empate A", 4), ("Medios", 4), ("Pocos", 1) },
+                panorama.ProyectosConMasParticipantes.Select(p => (p.Proyecto, p.Participantes)));
+        }
+
+        [Fact]
+        public async Task El_panorama_de_proyectos_sin_datos_viene_en_cero_y_envuelve_los_errores()
+        {
+            var vacio = await _servicio.ObtenerPanoramaProyectosAsync();
+
+            Assert.Equal(0, vacio.TotalProyectos);
+            Assert.Empty(vacio.ProyectosConMasParticipantes);
+
+            _proyectos.Falla = true;
+
+            var error = await Assert.ThrowsAsync<Exception>(() => _servicio.ObtenerPanoramaProyectosAsync());
+            Assert.Equal("Error al generar el panorama de proyectos comunitarios.", error.Message);
+        }
 
         [Fact]
         public async Task El_panorama_de_inventario_suma_las_unidades_de_cada_lado_y_cada_tipo()
@@ -983,6 +1177,40 @@ namespace SIGAC.Tests.Application
             public Task AgregarDonacionEspecieAsync(DonacionEspecie donacion) => throw new NotImplementedException();
             public Task AgregarDonacionEntregadaAsync(DonacionEntregada donacion) => throw new NotImplementedException();
             public Task<IEnumerable<DonacionEntregada>> ObtenerEntregasAsync(FiltrosHistorialEntregaDto filtros) => throw new NotImplementedException();
+        }
+
+        // Solo la consulta del reporte, con los mismos criterios que
+        // ProyectosRepositoryEfCore (estado, fecha de inicio con el último día completo
+        // y orden de la más reciente a la más antigua).
+        private sealed class RepositorioProyectosFalso : IProyectosRepository
+        {
+            public List<ProyectoComunitario> Proyectos { get; } = new();
+            public bool Falla { get; set; }
+
+            public Task<IReadOnlyList<ProyectoComunitario>> ObtenerParaReporteAsync(FiltrosReporteProyectosDto filtros)
+            {
+                if (Falla)
+                    throw new InvalidOperationException("Falla simulada de la base de datos.");
+
+                IReadOnlyList<ProyectoComunitario> resultado = Proyectos
+                    .Where(p => filtros.Estado is null || p.Estado == filtros.Estado)
+                    .Where(p => filtros.FechaDesde is null || p.FechaInicio >= filtros.FechaDesde.Value.Date)
+                    .Where(p => filtros.FechaHasta is null || p.FechaInicio < filtros.FechaHasta.Value.Date.AddDays(1))
+                    .OrderByDescending(p => p.FechaInicio).ThenByDescending(p => p.Id)
+                    .ToList();
+
+                return Task.FromResult(resultado);
+            }
+
+            public Task AgregarAsync(ProyectoComunitario proyecto) => throw new NotImplementedException();
+            public Task<ProyectoComunitario?> ObtenerPorIdAsync(int id) => throw new NotImplementedException();
+            public Task<ProyectoComunitario?> ObtenerConParticipantesAsync(int id) => throw new NotImplementedException();
+            public Task ActualizarAsync(ProyectoComunitario proyecto) => throw new NotImplementedException();
+            public Task<IEnumerable<ProyectoComunitario>> ObtenerTodosAsync(SIGAC.Application.DTOs.Proyectos.FiltrosProyectoDto filtros) => throw new NotImplementedException();
+            public Task FinalizarAsync(int id) => throw new NotImplementedException();
+            public Task AgregarParticipanteAsync(ParticipanteProyecto participante) => throw new NotImplementedException();
+            public Task<bool> ExisteParticipanteAsync(int proyectoId, int beneficiarioId) => throw new NotImplementedException();
+            public Task<bool> QuitarParticipanteAsync(int proyectoId, int participanteId) => throw new NotImplementedException();
         }
 
         // Solo las dos consultas del historial de movimientos, con el mismo criterio

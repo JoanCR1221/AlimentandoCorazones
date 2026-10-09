@@ -232,7 +232,7 @@
     }
 
     @if (Tiene(Permisos.Reportes.VerBeneficiarios) || Tiene(Permisos.Reportes.VerGastos) || Tiene(Permisos.Reportes.VerDonaciones)
-        || Tiene(Permisos.Reportes.VerAlquileres) || Tiene(Permisos.Reportes.VerInventario))
+        || Tiene(Permisos.Reportes.VerAlquileres) || Tiene(Permisos.Reportes.VerInventario) || Tiene(Permisos.Reportes.VerProyectos))
     {
         <MudItem xs="12" sm="6" md="4">
             <MudCard Class="pa-4 ac-card-modulo">
@@ -285,6 +285,15 @@
                         </MudButton>
                         <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/reportes/inventario/panorama">
                             Panorama de inventario
+                        </MudButton>
+                    }
+                    @if (Tiene(Permisos.Reportes.VerProyectos))
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/reportes/proyectos">
+                            Proyectos
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/reportes/proyectos/panorama">
+                            Panorama de proyectos
                         </MudButton>
                     }
                 </MudStack>

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SIGAC.Application.DTOs.Proyectos;
+using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
 using SIGAC.Domain.Entities;
@@ -106,6 +107,46 @@ namespace SIGAC.Infrastructure.Repositories
 
             return await query
                 .OrderByDescending(p => p.FechaInicio)
+                .ToListAsync();
+        }
+
+        public async Task<IReadOnlyList<ProyectoComunitario>> ObtenerParaReporteAsync(FiltrosReporteProyectosDto filtros)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            // Participantes y nada más: el reporte solo cuenta cuántos son y cuántos
+            // son beneficiarios (EsBeneficiario), no necesita la ficha del beneficiario.
+            var query = context.ProyectosComunitarios
+                .Include(p => p.Participantes)
+                .AsNoTracking()
+                .AsQueryable();
+
+            // Se apoya en IX_ProyectosComunitarios_Estado.
+            if (filtros.Estado.HasValue)
+            {
+                var estado = filtros.Estado.Value;
+                query = query.Where(p => p.Estado == estado);
+            }
+
+            // Se apoya en IX_ProyectosComunitarios_FechaInicio. La columna es datetime2
+            // y guarda la hora, así que el límite superior es "menor que el día
+            // siguiente" y no "menor o igual": un proyecto que empieza a las 14:30 del
+            // último día quedaría fuera si se comparara contra su medianoche.
+            if (filtros.FechaDesde.HasValue)
+            {
+                var inicio = filtros.FechaDesde.Value.Date;
+                query = query.Where(p => p.FechaInicio >= inicio);
+            }
+
+            if (filtros.FechaHasta.HasValue)
+            {
+                var finExclusivo = filtros.FechaHasta.Value.Date.AddDays(1);
+                query = query.Where(p => p.FechaInicio < finExclusivo);
+            }
+
+            return await query
+                .OrderByDescending(p => p.FechaInicio)
+                .ThenByDescending(p => p.Id)
                 .ToListAsync();
         }
 

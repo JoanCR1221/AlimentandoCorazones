@@ -90,6 +90,7 @@ namespace SIGAC.Domain
             public const string VerDonaciones = "Reportes.VerDonaciones";
             public const string VerAlquileres = "Reportes.VerAlquileres";
             public const string VerInventario = "Reportes.VerInventario";
+            public const string VerProyectos = "Reportes.VerProyectos";
         }
 
         public static class Alquileres
@@ -149,6 +150,7 @@ namespace SIGAC.Domain
             new Permiso(Reportes.VerDonaciones, ModulosSistema.Reportes, "Generar el reporte y ver el panorama de donaciones"),
             new Permiso(Reportes.VerAlquileres, ModulosSistema.Reportes, "Generar el reporte y ver el panorama de alquileres de espacios"),
             new Permiso(Reportes.VerInventario, ModulosSistema.Reportes, "Generar el reporte de movimientos y ver el panorama de inventario"),
+            new Permiso(Reportes.VerProyectos, ModulosSistema.Reportes, "Generar el reporte y ver el panorama de proyectos comunitarios"),
 
             new Permiso(Alquileres.Ver, ModulosSistema.Alquileres, "Consultar el calendario de alquileres"),
             new Permiso(Alquileres.Registrar, ModulosSistema.Alquileres, "Registrar alquileres de espacios"),

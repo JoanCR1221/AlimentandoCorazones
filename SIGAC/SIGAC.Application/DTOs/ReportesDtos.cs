@@ -206,6 +206,85 @@ namespace SIGAC.Application.DTOs.Reportes
         public IReadOnlyList<MontoPorMonedaDto> IngresosPorMoneda { get; set; } = Array.Empty<MontoPorMonedaDto>();
     }
 
+    // Una fila del reporte de proyectos comunitarios (PBI A): un proyecto con sus
+    // fechas y cuántas personas participan. Sin Id ni lista de participantes: el
+    // exportador convierte cada propiedad pública en una columna y no formatea
+    // listas. Los participantes van contados, de dos formas: el total y cuántos son
+    // beneficiarios y cuántos externos.
+    public class ReporteProyectosDto
+    {
+        public string Nombre { get; set; } = string.Empty;
+
+        // "Planificado", "En curso", "Finalizado" o "Cancelado", con el mismo
+        // texto que el listado de proyectos.
+        public string Estado { get; set; } = string.Empty;
+
+        [Display(Name = "Inicio")]
+        public DateTime FechaInicio { get; set; }
+
+        [Display(Name = "Fin estimado")]
+        public DateTime FechaEstimadaFin { get; set; }
+
+        // Vacía mientras el proyecto no se finaliza.
+        [Display(Name = "Finalización real")]
+        public DateTime? FechaFinalizacion { get; set; }
+
+        [Display(Name = "Participantes")]
+        public int TotalParticipantes { get; set; }
+
+        public int Beneficiarios { get; set; }
+
+        public int Externos { get; set; }
+    }
+
+    // Estado en null es "todos". Las fechas filtran por la fecha de INICIO del
+    // proyecto (no por los proyectos activos en el rango): sin acotar son "desde
+    // siempre" / "hasta hoy".
+    public class FiltrosReporteProyectosDto
+    {
+        public EstadoProyecto? Estado { get; set; }
+        public DateTime? FechaDesde { get; set; }
+        public DateTime? FechaHasta { get; set; }
+    }
+
+    // Las filas, el total de proyectos de cada estado y el total de participantes del
+    // período. El total de participantes suma las participaciones de cada proyecto:
+    // una misma persona en dos proyectos cuenta dos veces.
+    public class ReporteProyectosResultadoDto
+    {
+        public IReadOnlyList<ReporteProyectosDto> Filas { get; set; } = Array.Empty<ReporteProyectosDto>();
+        public int Planificados { get; set; }
+        public int EnCurso { get; set; }
+        public int Finalizados { get; set; }
+        public int Cancelados { get; set; }
+        public int TotalParticipantes { get; set; }
+        public int TotalBeneficiarios { get; set; }
+        public int TotalExternos { get; set; }
+    }
+
+    // Cuántos participantes tiene un proyecto, para el ranking del panorama.
+    public sealed record ParticipantesPorProyectoDto(string Proyecto, int Participantes);
+
+    // Cifras del panorama gráfico de Proyectos. A diferencia de los otros panoramas,
+    // los totales por estado y por tipo de participante son de TODOS los proyectos
+    // (son pocos y de larga duración: uno iniciado hace 14 meses y todavía en curso
+    // no tiene que desaparecer), y solo las dos series mensuales usan una ventana fija
+    // de meses hacia atrás: los proyectos por su fecha de inicio y los participantes
+    // por su fecha de registro (ver ReportesService.ObtenerPanoramaProyectosAsync).
+    public sealed class PanoramaProyectosDto
+    {
+        public int TotalProyectos { get; set; }
+        public int Planificados { get; set; }
+        public int EnCurso { get; set; }
+        public int Finalizados { get; set; }
+        public int Cancelados { get; set; }
+        public int ParticipantesBeneficiarios { get; set; }
+        public int ParticipantesExternos { get; set; }
+        public IReadOnlyList<ConteoPorMesDto> ProyectosIniciadosPorMes { get; set; } = Array.Empty<ConteoPorMesDto>();
+        public IReadOnlyList<ConteoPorMesDto> ParticipantesRegistradosPorMes { get; set; } = Array.Empty<ConteoPorMesDto>();
+        public IReadOnlyList<ParticipantesPorProyectoDto> ProyectosConMasParticipantes { get; set; } = Array.Empty<ParticipantesPorProyectoDto>();
+    }
+
     // Una fila del reporte de movimientos de inventario (PBI 1941): una entrada, una
     // donación o un préstamo de un artículo. Sin Id: el de entradas y salidas son
     // de tablas distintas y se repetirían, y al exportador no le sirve de columna.
