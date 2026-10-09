@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using SIGAC.Domain.Entities;
 
 namespace SIGAC.Application.DTOs.Reportes
 {
@@ -148,6 +149,61 @@ namespace SIGAC.Application.DTOs.Reportes
         public IReadOnlyList<GrupoReporteGastosDto> Grupos { get; set; } = Array.Empty<GrupoReporteGastosDto>();
         public decimal GranTotalMonto { get; set; }
         public decimal GranTotalIva { get; set; }
+    }
+
+    // Una fila del reporte de alquileres de espacios (PBI B). Horario y Sectores ya
+    // vienen como texto: el exportador convierte cada propiedad pública en una
+    // columna y no formatea listas ni franjas. Sin Id por lo mismo que los otros
+    // reportes. Los cancelados se listan (con su Estado) pero no suman a los
+    // ingresos ni a las horas.
+    public class ReporteAlquileresDto
+    {
+        public DateTime Fecha { get; set; }
+
+        // "8:00 a. m. – 12:00 p. m.", el mismo formato del calendario.
+        public string Horario { get; set; } = string.Empty;
+
+        public string Arrendatario { get; set; } = string.Empty;
+
+        // Los sectores del alquiler, separados por coma.
+        public string Sectores { get; set; } = string.Empty;
+
+        public int Personas { get; set; }
+
+        public decimal Monto { get; set; }
+
+        public string Moneda { get; set; } = string.Empty;
+
+        // "Reservado" o "Cancelado" (EstadoAlquiler).
+        public string Estado { get; set; } = string.Empty;
+    }
+
+    // Sin acotar es "desde siempre" / "hasta hoy", todos los sectores y ambos
+    // estados, igual que el calendario de alquileres. EspacioId trae los alquileres
+    // que usan ese sector, entre otros.
+    public class FiltrosReporteAlquileresDto
+    {
+        public DateTime? FechaDesde { get; set; }
+        public DateTime? FechaHasta { get; set; }
+        public int? EspacioId { get; set; }
+        public EstadoAlquiler? Estado { get; set; }
+    }
+
+    // Las filas y lo que piden los criterios del PBI: alquileres reservados y
+    // cancelados, las horas alquiladas y el ingreso por moneda (sin sumar monedas
+    // distintas). Ingresos y horas cuentan solo los reservados.
+    public class ReporteAlquileresResultadoDto
+    {
+        public IReadOnlyList<ReporteAlquileresDto> Filas { get; set; } = Array.Empty<ReporteAlquileresDto>();
+        public int CantidadReservados { get; set; }
+        public int CantidadCancelados { get; set; }
+
+        // Suma de la duración de cada alquiler reservado, contado una sola vez
+        // aunque use varios sectores: mide cuánto tiempo se usó el local, no
+        // sectores-hora.
+        public decimal HorasAlquiladas { get; set; }
+
+        public IReadOnlyList<MontoPorMonedaDto> IngresosPorMoneda { get; set; } = Array.Empty<MontoPorMonedaDto>();
     }
 
     // Cantidad de donaciones recibidas en un mes, separada por clase ("Dinero" o

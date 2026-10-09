@@ -1,3 +1,4 @@
+using SIGAC.Application.DTOs.Alquileres;
 using SIGAC.Application.DTOs.Donaciones;
 using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Application.Interfaces;
@@ -20,6 +21,7 @@ namespace SIGAC.Tests.Application
         private readonly RepositorioAsistenciaFalso _asistencias = new();
         private readonly RepositorioDonacionesFalso _donaciones = new();
         private readonly RepositorioDonantesFalso _donantes = new();
+        private readonly RepositorioAlquileresFalso _alquileres = new();
         private readonly ReportesService _servicio;
 
         private readonly TipoGasto _alquiler;
@@ -34,7 +36,11 @@ namespace SIGAC.Tests.Application
             // de verdad), y ese método solo lee el repositorio: lo demás no se toca.
             var donaciones = new DonacionesService(_donaciones, null!, null!, null!, null!);
 
-            _servicio = new ReportesService(_asistencias, new RepositorioBeneficiariosFalso(), _gastos, donaciones, _donaciones, _donantes);
+            // Igual con alquileres: el reporte solo usa el historial del servicio
+            // real, que solo lee el repositorio.
+            var alquileres = new AlquileresService(_alquileres, null!, null!, null!);
+
+            _servicio = new ReportesService(_asistencias, new RepositorioBeneficiariosFalso(), _gastos, donaciones, _donaciones, _donantes, alquileres);
 
             _alquiler = _tipos.Agregar("Alquiler de Equipo");
             _combustible = _tipos.Agregar("Combustible");
@@ -102,6 +108,165 @@ namespace SIGAC.Tests.Application
         }
 
         private static FiltrosReporteDonacionesDto TodasLasDonaciones() => new();
+
+        private void AgregarAlquiler(string arrendatario, DateTime fecha, TimeSpan inicio, TimeSpan fin, decimal monto,
+            string moneda = TiposMoneda.Colones, EstadoAlquiler estado = EstadoAlquiler.Reservado, int personas = 20,
+            params string[] sectores)
+        {
+            _alquileres.Alquileres.Add(new AlquilerEspacio
+            {
+                Id = _alquileres.Alquileres.Count + 1,
+                Arrendatario = new Arrendatario { Nombre = arrendatario },
+                Fecha = fecha,
+                HoraInicio = inicio,
+                HoraFin = fin,
+                CantidadPersonas = personas,
+                Monto = monto,
+                Moneda = moneda,
+                Estado = estado,
+                // El Id del sector sale de su nombre, igual en todos los alquileres.
+                Espacios = sectores.Select(s => new EspacioFisico { Id = IdDeSector(s), Nombre = s }).ToList()
+            });
+        }
+
+        private static int IdDeSector(string nombre) => nombre switch
+        {
+            "Salón principal" => 1,
+            "Cocina" => 2,
+            _ => 3
+        };
+
+        private static TimeSpan Hora(int horas, int minutos = 0) => new(horas, minutos, 0);
+
+        private static FiltrosReporteAlquileresDto TodosLosAlquileres() => new();
+
+        [Fact]
+        public async Task El_reporte_de_alquileres_arma_horario_sectores_y_estado_como_texto()
+        {
+            AgregarAlquiler("Asociación Vecinal", new DateTime(2026, 9, 12), Hora(8), Hora(12), 50000m,
+                sectores: new[] { "Salón principal", "Cocina" });
+
+            var resultado = await _servicio.GenerarReporteAlquileresAsync(TodosLosAlquileres());
+
+            var fila = Assert.Single(resultado.Filas);
+            Assert.Equal(new DateTime(2026, 9, 12), fila.Fecha);
+            Assert.Equal("8:00 a. m. – 12:00 p. m.", fila.Horario);
+            Assert.Equal("Asociación Vecinal", fila.Arrendatario);
+            // Los sectores salen ordenados por nombre, como en el calendario.
+            Assert.Equal("Cocina, Salón principal", fila.Sectores);
+            Assert.Equal(20, fila.Personas);
+            Assert.Equal(50000m, fila.Monto);
+            Assert.Equal(TiposMoneda.Colones, fila.Moneda);
+            Assert.Equal("Reservado", fila.Estado);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_alquileres_cuenta_reservados_y_cancelados()
+        {
+            AgregarAlquiler("Ana", new DateTime(2026, 9, 1), Hora(8), Hora(10), 1000m, sectores: new[] { "Cocina" });
+            AgregarAlquiler("Beto", new DateTime(2026, 9, 2), Hora(8), Hora(10), 1000m, sectores: new[] { "Cocina" });
+            AgregarAlquiler("Carla", new DateTime(2026, 9, 3), Hora(8), Hora(10), 1000m,
+                estado: EstadoAlquiler.Cancelado, sectores: new[] { "Cocina" });
+
+            var resultado = await _servicio.GenerarReporteAlquileresAsync(TodosLosAlquileres());
+
+            Assert.Equal(2, resultado.CantidadReservados);
+            Assert.Equal(1, resultado.CantidadCancelados);
+            Assert.Equal("Cancelado", resultado.Filas.Single(f => f.Arrendatario == "Carla").Estado);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_alquileres_suma_ingresos_por_moneda_sin_contar_cancelados()
+        {
+            AgregarAlquiler("Ana", new DateTime(2026, 9, 1), Hora(8), Hora(10), 40000m, sectores: new[] { "Cocina" });
+            AgregarAlquiler("Beto", new DateTime(2026, 9, 2), Hora(8), Hora(10), 10000m, sectores: new[] { "Cocina" });
+            AgregarAlquiler("Carla", new DateTime(2026, 9, 3), Hora(8), Hora(10), 100m, TiposMoneda.Dolares, sectores: new[] { "Cocina" });
+            AgregarAlquiler("Dora", new DateTime(2026, 9, 4), Hora(8), Hora(10), 99999m,
+                estado: EstadoAlquiler.Cancelado, sectores: new[] { "Cocina" });
+
+            var resultado = await _servicio.GenerarReporteAlquileresAsync(TodosLosAlquileres());
+
+            Assert.Equal(2, resultado.IngresosPorMoneda.Count);
+            // En el orden del catálogo de monedas: colones antes que dólares.
+            Assert.Equal(new[] { TiposMoneda.Colones, TiposMoneda.Dolares }, resultado.IngresosPorMoneda.Select(t => t.Moneda));
+            Assert.Equal(50000m, resultado.IngresosPorMoneda[0].Total);
+            Assert.Equal(100m, resultado.IngresosPorMoneda[1].Total);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_alquileres_calcula_las_horas_de_los_reservados_una_vez_por_alquiler()
+        {
+            // 4 h en dos sectores (cuenta 4, no 8) + 2 h 30 min en uno.
+            AgregarAlquiler("Ana", new DateTime(2026, 9, 1), Hora(8), Hora(12), 1000m,
+                sectores: new[] { "Salón principal", "Cocina" });
+            AgregarAlquiler("Beto", new DateTime(2026, 9, 2), Hora(14), Hora(16, 30), 1000m, sectores: new[] { "Cocina" });
+            // Cancelado: no ocupa el local, no suma horas.
+            AgregarAlquiler("Carla", new DateTime(2026, 9, 3), Hora(8), Hora(18), 1000m,
+                estado: EstadoAlquiler.Cancelado, sectores: new[] { "Cocina" });
+
+            var resultado = await _servicio.GenerarReporteAlquileresAsync(TodosLosAlquileres());
+
+            Assert.Equal(6.5m, resultado.HorasAlquiladas);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_alquileres_filtra_por_fechas_incluyendo_el_ultimo_dia()
+        {
+            AgregarAlquiler("Antes", new DateTime(2026, 8, 31), Hora(8), Hora(10), 1m, sectores: new[] { "Cocina" });
+            AgregarAlquiler("Primer día", new DateTime(2026, 9, 1), Hora(8), Hora(10), 2m, sectores: new[] { "Cocina" });
+            AgregarAlquiler("Último día", new DateTime(2026, 9, 30), Hora(8), Hora(10), 4m, sectores: new[] { "Cocina" });
+            AgregarAlquiler("Después", new DateTime(2026, 10, 1), Hora(8), Hora(10), 8m, sectores: new[] { "Cocina" });
+
+            var resultado = await _servicio.GenerarReporteAlquileresAsync(new FiltrosReporteAlquileresDto
+            {
+                FechaDesde = new DateTime(2026, 9, 1),
+                FechaHasta = new DateTime(2026, 9, 30)
+            });
+
+            Assert.Equal(new[] { "Primer día", "Último día" }, resultado.Filas.Select(f => f.Arrendatario));
+            Assert.Equal(6m, Assert.Single(resultado.IngresosPorMoneda).Total);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_alquileres_filtra_por_sector_y_por_estado()
+        {
+            AgregarAlquiler("Solo cocina", new DateTime(2026, 9, 1), Hora(8), Hora(10), 1m, sectores: new[] { "Cocina" });
+            AgregarAlquiler("Ambos", new DateTime(2026, 9, 2), Hora(8), Hora(10), 1m, sectores: new[] { "Salón principal", "Cocina" });
+            AgregarAlquiler("Solo salón", new DateTime(2026, 9, 3), Hora(8), Hora(10), 1m, sectores: new[] { "Salón principal" });
+            AgregarAlquiler("Cocina cancelada", new DateTime(2026, 9, 4), Hora(8), Hora(10), 1m,
+                estado: EstadoAlquiler.Cancelado, sectores: new[] { "Cocina" });
+
+            var porSector = await _servicio.GenerarReporteAlquileresAsync(new FiltrosReporteAlquileresDto { EspacioId = IdDeSector("Cocina") });
+            var porEstado = await _servicio.GenerarReporteAlquileresAsync(new FiltrosReporteAlquileresDto { Estado = EstadoAlquiler.Cancelado });
+
+            // Los que usan la cocina, entre otros sectores.
+            Assert.Equal(new[] { "Solo cocina", "Ambos", "Cocina cancelada" }, porSector.Filas.Select(f => f.Arrendatario));
+            Assert.Equal("Cocina cancelada", Assert.Single(porEstado.Filas).Arrendatario);
+            Assert.Equal(1, porEstado.CantidadCancelados);
+            Assert.Equal(0, porEstado.CantidadReservados);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_alquileres_sin_resultados_viene_vacio()
+        {
+            var resultado = await _servicio.GenerarReporteAlquileresAsync(TodosLosAlquileres());
+
+            Assert.Empty(resultado.Filas);
+            Assert.Empty(resultado.IngresosPorMoneda);
+            Assert.Equal(0, resultado.CantidadReservados);
+            Assert.Equal(0, resultado.CantidadCancelados);
+            Assert.Equal(0m, resultado.HorasAlquiladas);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_alquileres_envuelve_los_errores_del_historial()
+        {
+            _alquileres.Falla = true;
+
+            var error = await Assert.ThrowsAsync<Exception>(() => _servicio.GenerarReporteAlquileresAsync(TodosLosAlquileres()));
+
+            Assert.Equal("Error al generar el reporte de alquileres.", error.Message);
+        }
 
         [Fact]
         public async Task El_reporte_de_donaciones_une_dinero_y_especie_de_la_mas_reciente_a_la_mas_antigua()
@@ -486,6 +651,37 @@ namespace SIGAC.Tests.Application
             public Task AgregarDonacionEspecieAsync(DonacionEspecie donacion) => throw new NotImplementedException();
             public Task AgregarDonacionEntregadaAsync(DonacionEntregada donacion) => throw new NotImplementedException();
             public Task<IEnumerable<DonacionEntregada>> ObtenerEntregasAsync(FiltrosHistorialEntregaDto filtros) => throw new NotImplementedException();
+        }
+
+        // Solo el historial, con los mismos criterios que AlquileresRepositoryEfCore
+        // (fechas inclusivas porque Fecha es una columna date, sector entre otros y
+        // estado) y su orden por fecha y hora de inicio.
+        private sealed class RepositorioAlquileresFalso : IAlquileresRepository
+        {
+            public List<AlquilerEspacio> Alquileres { get; } = new();
+            public bool Falla { get; set; }
+
+            public Task<IReadOnlyList<AlquilerEspacio>> ObtenerHistorialAlquileresAsync(FiltrosHistorialAlquilerDto filtros)
+            {
+                if (Falla)
+                    throw new InvalidOperationException("Falla simulada de la base de datos.");
+
+                IReadOnlyList<AlquilerEspacio> resultado = Alquileres
+                    .Where(a => filtros.FechaDesde is null || a.Fecha >= filtros.FechaDesde.Value.Date)
+                    .Where(a => filtros.FechaHasta is null || a.Fecha <= filtros.FechaHasta.Value.Date)
+                    .Where(a => filtros.EspacioId is null || a.Espacios.Any(e => e.Id == filtros.EspacioId))
+                    .Where(a => filtros.Estado is null || a.Estado == filtros.Estado)
+                    .OrderBy(a => a.Fecha).ThenBy(a => a.HoraInicio)
+                    .ToList();
+
+                return Task.FromResult(resultado);
+            }
+
+            public Task AgregarAlquilerAsync(AlquilerEspacio alquiler) => throw new NotImplementedException();
+            public Task<IReadOnlyList<AlquilerEspacio>> ObtenerChoquesAsync(
+                DateTime fecha, TimeSpan horaInicio, TimeSpan horaFin, IReadOnlyCollection<int> espacioIds) => throw new NotImplementedException();
+            public Task<AlquilerEspacio?> ObtenerPorIdAsync(int id) => throw new NotImplementedException();
+            public Task<bool> CancelarAsync(int id, string motivoCancelacion) => throw new NotImplementedException();
         }
 
         // Solo el resumen de activos e inactivos, que es lo que lee el panorama de

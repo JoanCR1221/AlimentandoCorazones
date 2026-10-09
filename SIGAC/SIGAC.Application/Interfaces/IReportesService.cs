@@ -31,5 +31,9 @@ namespace SIGAC.Application.Interfaces
         // Panorama gráfico de Donaciones: mismo criterio que los de Beneficiarios y
         // Gastos, sobre una ventana fija de meses hacia atrás.
         Task<PanoramaDonacionesDto> ObtenerPanoramaDonacionesAsync();
+
+        // Reporte de alquileres de espacios de un período: reservados y cancelados,
+        // horas alquiladas e ingreso por moneda (los cancelados no suman).
+        Task<ReporteAlquileresResultadoDto> GenerarReporteAlquileresAsync(FiltrosReporteAlquileresDto filtros);
     }
 }

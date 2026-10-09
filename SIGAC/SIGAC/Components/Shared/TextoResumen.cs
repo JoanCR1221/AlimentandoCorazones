@@ -21,6 +21,22 @@ namespace SIGAC.Components.Shared
                 ? "—"
                 : string.Join(" · ", montos.Select(m => $"{TiposMoneda.Simbolo(m.Moneda)} {m.Total:N2}"));
 
+        // Horas con minutos: 12,5 → "12 h 30 min", 3 → "3 h", 0,25 → "15 min". Sin
+        // decimales porque "12,5 horas" se lee peor que "12 h 30 min".
+        public static string Horas(decimal horas)
+        {
+            var minutos = (int)Math.Round(horas * 60m);
+            var h = minutos / 60;
+            var m = minutos % 60;
+
+            return (h, m) switch
+            {
+                (_, 0) => $"{h} h",
+                (0, _) => $"{m} min",
+                _ => $"{h} h {m:00} min"
+            };
+        }
+
         // Período de un reporte en palabras, para el subtítulo del PDF y el Excel:
         // "01/09/2026 al 30/09/2026", "desde el ...", "hasta el ..." o, sin acotar,
         // "todo el historial".

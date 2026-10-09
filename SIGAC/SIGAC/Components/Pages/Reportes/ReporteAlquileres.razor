@@ -1,0 +1,202 @@
+@page "/reportes/alquileres"
+@attribute [Authorize(Policy = Permisos.Reportes.VerAlquileres)]
+@using SIGAC.Application.DTOs.Alquileres
+@using SIGAC.Application.DTOs.Reportes
+@using SIGAC.Application.Interfaces
+@using SIGAC.Domain.Entities
+@inject IReportesService ReportesService
+@inject IEspaciosService EspaciosService
+@inject ISnackbar Snackbar
+
+<EncabezadoPagina Titulo="Reporte de alquileres de espacios"
+                   Descripcion="Alquileres del local en el período, con las horas alquiladas y el ingreso por moneda, para presentar ante la administración y los entes fiscalizadores." />
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        <MudGrid Spacing="2" Class="mb-2">
+            <MudItem xs="12" md="4">
+                @* Todos los sectores, también los desactivados: es historial y un
+                   sector en reparación sigue teniendo alquileres viejos (mismo
+                   criterio que el calendario de alquileres). *@
+                <MudSelect T="int?" Value="filtroEspacioId" ValueChanged="@(v => filtroEspacioId = v)"
+                           Label="Sector" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var espacio in espacios)
+                    {
+                        <MudSelectItem T="int?" Value="@espacio.Id">@espacio.Nombre</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                @* Sin fecha máxima, a diferencia de los otros reportes: un alquiler se
+                   reserva con anticipación y el reporte tiene que poder incluirlos. *@
+                <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="@(v => rangoFechas = v)"
+                                    Label="Rango de fechas" Variant="Variant.Outlined"
+                                    DateFormat="dd/MM/yyyy" Clearable="true" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudSelect T="EstadoAlquiler?" Value="filtroEstado" ValueChanged="@(v => filtroEstado = v)"
+                           Label="Estado" Variant="Variant.Outlined" Clearable="true" Placeholder="Todos"
+                           ToStringFunc="@(e => TextoEstadoFiltro(e))">
+                    <MudSelectItem T="EstadoAlquiler?" Value="@EstadoAlquiler.Reservado">Reservados</MudSelectItem>
+                    <MudSelectItem T="EstadoAlquiler?" Value="@EstadoAlquiler.Cancelado">Cancelados</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Assessment"
+                   Disabled="generando" OnClick="GenerarAsync" Class="mb-4">
+            @(generando ? "Generando..." : "Generar reporte")
+        </MudButton>
+
+        @if (generando)
+        {
+            <CargandoGrilla />
+        }
+        else if (seGenero)
+        {
+            @* Los cancelados se listan, pero no suman a los ingresos ni a las horas:
+               mismo criterio que el calendario. El ingreso va por moneda y nunca en
+               un solo número. *@
+            <section class="ac-kpis" aria-label="Resumen del reporte">
+                <TarjetaResumen Titulo="Alquileres reservados"
+                                Valor="@TextoResumen.Numero(resultado.CantidadReservados)"
+                                Detalle="@TextoResumen.Cantidad(resultado.CantidadCancelados, "cancelado", "cancelados")"
+                                Icono="@Icons.Material.Filled.EventAvailable" />
+                <TarjetaResumen Titulo="Ingresos del período"
+                                Valor="@TextoResumen.Montos(resultado.IngresosPorMoneda)"
+                                Detalle="Sin contar los alquileres cancelados"
+                                Icono="@Icons.Material.Filled.Payments" />
+                <TarjetaResumen Titulo="Horas alquiladas"
+                                Valor="@TextoResumen.Horas(resultado.HorasAlquiladas)"
+                                Icono="@Icons.Material.Filled.Schedule" />
+            </section>
+
+            <MudDataGrid T="ReporteAlquileresDto" Items="@resultado.Filas" Class="mb-4"
+                         SortMode="SortMode.None" Filterable="false" Dense="true">
+                <Columns>
+                    <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
+                    <TemplateColumn Title="Horario">
+                        <CellTemplate>
+                            <span style="white-space: nowrap;">@context.Item.Horario</span>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="x => x.Arrendatario" Title="Arrendatario" />
+                    <PropertyColumn Property="x => x.Sectores" Title="Sectores" />
+                    <PropertyColumn Property="x => x.Personas" Title="Personas" />
+                    <TemplateColumn Title="Monto">
+                        <CellTemplate>@TiposMoneda.ConSimbolo(context.Item.Moneda, context.Item.Monto)</CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Estado">
+                        <CellTemplate>
+                            <EstadoChip Activo="@(context.Item.Estado == nameof(EstadoAlquiler.Reservado))"
+                                        TextoActivo="Reservado" TextoInactivo="Cancelado" />
+                        </CellTemplate>
+                    </TemplateColumn>
+                </Columns>
+                <NoRecordsContent>
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="No hay alquileres registrados con estos filtros"
+                                 Descripcion="Pruebe con otro sector, rango de fechas o estado." />
+                </NoRecordsContent>
+            </MudDataGrid>
+
+            <AccionesReporte TFila="ReporteAlquileresDto" Titulo="Reporte de alquileres de espacios" Datos="resultado.Filas"
+                             Subtitulo="@subtituloGenerado" Resumen="resumenGenerado" />
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private IReadOnlyList<EspacioFisicoDto> espacios = Array.Empty<EspacioFisicoDto>();
+    private int? filtroEspacioId;
+    private DateRange? rangoFechas;
+    private EstadoAlquiler? filtroEstado;
+    private bool generando;
+    private bool seGenero;
+    private ReporteAlquileresResultadoDto resultado = new();
+
+    // Lo que se imprime en el PDF y el Excel: se arma al generar, con los filtros de
+    // ese momento (ver ReporteBeneficiarios.razor), no al exportar.
+    private string? subtituloGenerado;
+    private IReadOnlyList<LineaResumenReporte> resumenGenerado = Array.Empty<LineaResumenReporte>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            espacios = await EspaciosService.ObtenerEspaciosAsync(soloActivos: false);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudieron cargar los sectores.", Severity.Error);
+        }
+    }
+
+    private static string TextoEstadoFiltro(EstadoAlquiler? estado) => estado switch
+    {
+        EstadoAlquiler.Reservado => "Reservados",
+        EstadoAlquiler.Cancelado => "Cancelados",
+        _ => "Todos"
+    };
+
+    private string ConstruirSubtitulo()
+    {
+        var sector = espacios.FirstOrDefault(e => e.Id == filtroEspacioId)?.Nombre ?? "Todos";
+
+        return $"Sector: {sector}  ·  Estado: {TextoEstadoFiltro(filtroEstado)}  ·  " +
+               $"Período: {TextoResumen.Periodo(rangoFechas?.Start, rangoFechas?.End)}";
+    }
+
+    private IReadOnlyList<LineaResumenReporte> ConstruirResumen()
+    {
+        var lineas = new List<LineaResumenReporte>
+        {
+            new("Alquileres reservados", TextoResumen.Numero(resultado.CantidadReservados)),
+            new("Alquileres cancelados", TextoResumen.Numero(resultado.CantidadCancelados)),
+            new("Horas alquiladas", TextoResumen.Horas(resultado.HorasAlquiladas))
+        };
+
+        // Un ingreso por moneda, cada uno en su línea. Sin alquileres reservados
+        // queda una sola línea con un guion, para que el resumen no omita el dato.
+        if (resultado.IngresosPorMoneda.Count == 0)
+        {
+            lineas.Add(new("Ingresos del período", "—"));
+        }
+        else
+        {
+            lineas.AddRange(resultado.IngresosPorMoneda.Select(t =>
+                new LineaResumenReporte($"Ingresos del período ({t.Moneda})", TiposMoneda.ConSimbolo(t.Moneda, t.Total))));
+        }
+
+        return lineas;
+    }
+
+    private async Task GenerarAsync()
+    {
+        generando = true;
+
+        try
+        {
+            var subtitulo = ConstruirSubtitulo();
+
+            resultado = await ReportesService.GenerarReporteAlquileresAsync(new FiltrosReporteAlquileresDto
+            {
+                EspacioId = filtroEspacioId,
+                FechaDesde = rangoFechas?.Start,
+                FechaHasta = rangoFechas?.End,
+                Estado = filtroEstado
+            });
+            subtituloGenerado = subtitulo;
+            resumenGenerado = ConstruirResumen();
+            seGenero = true;
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo generar el reporte. Intentá de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            generando = false;
+        }
+    }
+}

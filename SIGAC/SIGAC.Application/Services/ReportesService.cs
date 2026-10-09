@@ -1,7 +1,9 @@
+using SIGAC.Application.DTOs.Alquileres;
 using SIGAC.Application.DTOs.Donaciones;
 using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Application.Interfaces;
 using SIGAC.Domain;
+using SIGAC.Domain.Entities;
 
 namespace SIGAC.Application.Services
 {
@@ -29,6 +31,7 @@ namespace SIGAC.Application.Services
         private readonly IDonacionesService _donacionesService;
         private readonly IDonacionesRepository _donacionesRepository;
         private readonly IDonantesRepository _donantesRepository;
+        private readonly IAlquileresService _alquileresService;
 
         // Donaciones entra por dos lados: el reporte exportable reutiliza el historial
         // del servicio (que ya une dinero y especie), y el panorama necesita
@@ -39,7 +42,8 @@ namespace SIGAC.Application.Services
             IGastosRepository gastosRepository,
             IDonacionesService donacionesService,
             IDonacionesRepository donacionesRepository,
-            IDonantesRepository donantesRepository)
+            IDonantesRepository donantesRepository,
+            IAlquileresService alquileresService)
         {
             _asistenciaRepository = asistenciaRepository;
             _beneficiariosRepository = beneficiariosRepository;
@@ -47,6 +51,7 @@ namespace SIGAC.Application.Services
             _donacionesService = donacionesService;
             _donacionesRepository = donacionesRepository;
             _donantesRepository = donantesRepository;
+            _alquileresService = alquileresService;
         }
 
         public async Task<ReporteBeneficiariosResultadoDto> GenerarReporteBeneficiariosAsync(FiltrosReporteBeneficiariosDto filtros)
@@ -275,6 +280,60 @@ namespace SIGAC.Application.Services
             catch (Exception ex)
             {
                 throw new Exception("Error al generar el reporte de donaciones.", ex);
+            }
+        }
+
+        public async Task<ReporteAlquileresResultadoDto> GenerarReporteAlquileresAsync(FiltrosReporteAlquileresDto filtros)
+        {
+            try
+            {
+                // El historial de alquileres es el mismo que alimenta el calendario:
+                // ya filtra por fechas, sector y estado, trae los sectores resueltos
+                // a texto y calcula el ingreso por moneda dejando fuera a los
+                // cancelados. El reporte lo reutiliza en vez de repetir la consulta.
+                var historial = await _alquileresService.ObtenerHistorialAlquileresAsync(new FiltrosHistorialAlquilerDto
+                {
+                    FechaDesde = filtros.FechaDesde,
+                    FechaHasta = filtros.FechaHasta,
+                    EspacioId = filtros.EspacioId,
+                    Estado = filtros.Estado
+                });
+
+                var filas = historial.Alquileres
+                    .Select(a => new ReporteAlquileresDto
+                    {
+                        Fecha = a.Fecha,
+                        Horario = ReglasAlquiler.FormatearFranja(a.HoraInicio, a.HoraFin),
+                        Arrendatario = a.Arrendatario,
+                        Sectores = string.Join(", ", a.Espacios),
+                        Personas = a.CantidadPersonas,
+                        Monto = a.Monto,
+                        Moneda = a.Moneda,
+                        Estado = a.Estado.ToString()
+                    })
+                    .ToList();
+
+                var reservados = historial.Alquileres.Where(a => a.Estado == EstadoAlquiler.Reservado).ToList();
+
+                // Los cancelados no ocupan el local: no suman horas, igual que no
+                // suman ingresos. En minutos enteros y no en horas con decimales,
+                // para no acumular error de redondeo.
+                var minutosAlquilados = reservados.Sum(a => (a.HoraFin - a.HoraInicio).TotalMinutes);
+
+                return new ReporteAlquileresResultadoDto
+                {
+                    Filas = filas,
+                    CantidadReservados = reservados.Count,
+                    CantidadCancelados = historial.Alquileres.Count - reservados.Count,
+                    HorasAlquiladas = Math.Round((decimal)minutosAlquilados / 60m, 2),
+                    IngresosPorMoneda = historial.TotalesPorMoneda
+                        .OrderBy(t => OrdenDeMoneda(t.Moneda))
+                        .ToList()
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al generar el reporte de alquileres.", ex);
             }
         }
 
