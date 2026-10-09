@@ -8,12 +8,12 @@ using SIGAC.Domain.Entities;
 
 namespace SIGAC.Tests.Application
 {
-    // El reporte de gastos, el de donaciones y su panorama (lo que hace el
-    // servicio con lo que le devuelve el repositorio) y la agrupación del de
-    // beneficiarios. Las consultas agregadas del panorama de donaciones, los otros
-    // dos paneles gráficos y el resto del de beneficiarios están cubiertos por
-    // verificación manual en el navegador (ver las notas de los commits que los
-    // agregaron).
+    // El reporte de gastos, los de donaciones y alquileres, los panoramas de esos
+    // dos (lo que hace el servicio con lo que le devuelve el repositorio) y la
+    // agrupación del de beneficiarios. Las consultas del panorama de donaciones y
+    // de alquileres, los otros dos paneles gráficos y el resto del de beneficiarios
+    // están cubiertos por verificación manual en el navegador (ver las notas de los
+    // commits que los agregaron).
     public class ReportesServiceTests
     {
         private readonly RepositorioTiposGastoFalso _tipos = new();
@@ -40,7 +40,8 @@ namespace SIGAC.Tests.Application
             // real, que solo lee el repositorio.
             var alquileres = new AlquileresService(_alquileres, null!, null!, null!);
 
-            _servicio = new ReportesService(_asistencias, new RepositorioBeneficiariosFalso(), _gastos, donaciones, _donaciones, _donantes, alquileres);
+            _servicio = new ReportesService(_asistencias, new RepositorioBeneficiariosFalso(), _gastos, donaciones, _donaciones, _donantes,
+                alquileres, _alquileres);
 
             _alquiler = _tipos.Agregar("Alquiler de Equipo");
             _combustible = _tipos.Agregar("Combustible");
@@ -256,6 +257,113 @@ namespace SIGAC.Tests.Application
             Assert.Equal(0, resultado.CantidadReservados);
             Assert.Equal(0, resultado.CantidadCancelados);
             Assert.Equal(0m, resultado.HorasAlquiladas);
+        }
+
+        private void AgregarAlquilerPanorama(DateTime fecha, TimeSpan inicio, TimeSpan fin, decimal monto,
+            string moneda = TiposMoneda.Colones, EstadoAlquiler estado = EstadoAlquiler.Reservado, params string[] sectores)
+        {
+            _alquileres.Panorama.Add(new AlquilerPanoramaDto(fecha, inicio, fin, monto, moneda, estado, sectores));
+        }
+
+        [Fact]
+        public async Task El_panorama_de_alquileres_cuenta_reservados_y_cancelados_por_mes()
+        {
+            AgregarAlquilerPanorama(new DateTime(2026, 8, 3), Hora(8), Hora(10), 1m, sectores: new[] { "Cocina" });
+            AgregarAlquilerPanorama(new DateTime(2026, 9, 7), Hora(8), Hora(10), 1m, sectores: new[] { "Cocina" });
+            AgregarAlquilerPanorama(new DateTime(2026, 9, 8), Hora(8), Hora(10), 1m, sectores: new[] { "Cocina" });
+            AgregarAlquilerPanorama(new DateTime(2026, 9, 9), Hora(8), Hora(10), 1m, estado: EstadoAlquiler.Cancelado, sectores: new[] { "Cocina" });
+
+            var panorama = await _servicio.ObtenerPanoramaAlquileresAsync();
+
+            Assert.Equal(3, panorama.CantidadReservados);
+            Assert.Equal(1, panorama.CantidadCancelados);
+            Assert.Equal(new[] { (2026, 8, 1), (2026, 9, 2) }, panorama.ReservadosPorMes.Select(c => (c.Anio, c.Mes, c.Cantidad)));
+            Assert.Equal((2026, 9, 1), (panorama.CanceladosPorMes[0].Anio, panorama.CanceladosPorMes[0].Mes, panorama.CanceladosPorMes[0].Cantidad));
+        }
+
+        [Fact]
+        public async Task El_panorama_de_alquileres_suma_ingresos_solo_en_colones_y_sin_cancelados()
+        {
+            AgregarAlquilerPanorama(new DateTime(2026, 8, 3), Hora(8), Hora(10), 30000m, sectores: new[] { "Cocina" });
+            AgregarAlquilerPanorama(new DateTime(2026, 9, 7), Hora(8), Hora(10), 20000m, sectores: new[] { "Cocina" });
+            AgregarAlquilerPanorama(new DateTime(2026, 9, 8), Hora(8), Hora(10), 15000m, sectores: new[] { "Cocina" });
+            AgregarAlquilerPanorama(new DateTime(2026, 9, 9), Hora(8), Hora(10), 999m, TiposMoneda.Dolares, sectores: new[] { "Cocina" });
+            AgregarAlquilerPanorama(new DateTime(2026, 9, 10), Hora(8), Hora(10), 88888m, estado: EstadoAlquiler.Cancelado, sectores: new[] { "Cocina" });
+
+            var panorama = await _servicio.ObtenerPanoramaAlquileresAsync();
+
+            Assert.Equal(65000m, panorama.IngresosEnColones);
+            Assert.Equal(new[] { (2026, 8, 30000m), (2026, 9, 35000m) },
+                panorama.IngresosEnColonesPorMes.Select(m => (m.Anio, m.Mes, m.Monto)));
+        }
+
+        [Fact]
+        public async Task El_panorama_de_alquileres_calcula_las_horas_de_los_reservados_por_mes()
+        {
+            AgregarAlquilerPanorama(new DateTime(2026, 8, 3), Hora(8), Hora(12), 1m, sectores: new[] { "Cocina" });
+            AgregarAlquilerPanorama(new DateTime(2026, 9, 7), Hora(14), Hora(16, 30), 1m, sectores: new[] { "Cocina" });
+            AgregarAlquilerPanorama(new DateTime(2026, 9, 8), Hora(9), Hora(10), 1m, sectores: new[] { "Cocina" });
+            // Cancelado: no ocupa el local.
+            AgregarAlquilerPanorama(new DateTime(2026, 9, 9), Hora(8), Hora(18), 1m, estado: EstadoAlquiler.Cancelado, sectores: new[] { "Cocina" });
+
+            var panorama = await _servicio.ObtenerPanoramaAlquileresAsync();
+
+            Assert.Equal(7.5m, panorama.HorasAlquiladas);
+            Assert.Equal(new[] { (2026, 8, 4m), (2026, 9, 3.5m) }, panorama.HorasPorMes.Select(h => (h.Anio, h.Mes, h.Horas)));
+        }
+
+        [Fact]
+        public async Task El_panorama_de_alquileres_cuenta_un_alquiler_de_dos_sectores_en_cada_uno()
+        {
+            AgregarAlquilerPanorama(new DateTime(2026, 9, 1), Hora(8), Hora(10), 1m, sectores: new[] { "Salón principal", "Cocina" });
+            AgregarAlquilerPanorama(new DateTime(2026, 9, 2), Hora(8), Hora(10), 1m, sectores: new[] { "Cocina" });
+            AgregarAlquilerPanorama(new DateTime(2026, 9, 3), Hora(8), Hora(10), 1m, sectores: new[] { "Baños" });
+            // Cancelado: no cuenta para ningún sector.
+            AgregarAlquilerPanorama(new DateTime(2026, 9, 4), Hora(8), Hora(10), 1m, estado: EstadoAlquiler.Cancelado, sectores: new[] { "Baños" });
+
+            var panorama = await _servicio.ObtenerPanoramaAlquileresAsync();
+
+            // De mayor a menor y, en empate, por nombre.
+            Assert.Equal(new[] { ("Cocina", 2), ("Baños", 1), ("Salón principal", 1) },
+                panorama.AlquileresPorSector.Select(s => (s.Sector, s.Cantidad)));
+        }
+
+        [Fact]
+        public async Task El_panorama_de_alquileres_separa_entre_semana_y_fin_de_semana()
+        {
+            // 2026-09-12 es sábado, 13 domingo y 14 lunes.
+            AgregarAlquilerPanorama(new DateTime(2026, 9, 12), Hora(8), Hora(10), 1m, sectores: new[] { "Cocina" });
+            AgregarAlquilerPanorama(new DateTime(2026, 9, 13), Hora(8), Hora(10), 1m, sectores: new[] { "Cocina" });
+            AgregarAlquilerPanorama(new DateTime(2026, 9, 14), Hora(8), Hora(10), 1m, sectores: new[] { "Cocina" });
+            AgregarAlquilerPanorama(new DateTime(2026, 9, 19), Hora(8), Hora(10), 1m, estado: EstadoAlquiler.Cancelado, sectores: new[] { "Cocina" });
+
+            var panorama = await _servicio.ObtenerPanoramaAlquileresAsync();
+
+            Assert.Equal(2, panorama.ReservadosFinDeSemana);
+            Assert.Equal(1, panorama.ReservadosEntreSemana);
+        }
+
+        [Fact]
+        public async Task El_panorama_de_alquileres_pide_doce_meses_y_sin_datos_viene_en_cero()
+        {
+            var panorama = await _servicio.ObtenerPanoramaAlquileresAsync();
+
+            Assert.Equal(new[] { 12 }, _alquileres.MesesPedidos);
+            Assert.Equal(0, panorama.CantidadReservados);
+            Assert.Equal(0, panorama.CantidadCancelados);
+            Assert.Equal(0m, panorama.HorasAlquiladas);
+            Assert.Empty(panorama.AlquileresPorSector);
+            Assert.Empty(panorama.ReservadosPorMes);
+        }
+
+        [Fact]
+        public async Task El_panorama_de_alquileres_envuelve_los_errores_de_la_consulta()
+        {
+            _alquileres.Falla = true;
+
+            var error = await Assert.ThrowsAsync<Exception>(() => _servicio.ObtenerPanoramaAlquileresAsync());
+
+            Assert.Equal("Error al generar el panorama de alquileres.", error.Message);
         }
 
         [Fact]
@@ -682,6 +790,20 @@ namespace SIGAC.Tests.Application
                 DateTime fecha, TimeSpan horaInicio, TimeSpan horaFin, IReadOnlyCollection<int> espacioIds) => throw new NotImplementedException();
             public Task<AlquilerEspacio?> ObtenerPorIdAsync(int id) => throw new NotImplementedException();
             public Task<bool> CancelarAsync(int id, string motivoCancelacion) => throw new NotImplementedException();
+
+            // Lo que devuelve la consulta del panorama y con cuántos meses se pidió: el
+            // servicio solo la agrupa, así que la prueba controla la entrada.
+            public List<AlquilerPanoramaDto> Panorama { get; } = new();
+            public List<int> MesesPedidos { get; } = new();
+
+            public Task<IReadOnlyList<AlquilerPanoramaDto>> ObtenerParaPanoramaAsync(int mesesHaciaAtras)
+            {
+                if (Falla)
+                    throw new InvalidOperationException("Falla simulada de la base de datos.");
+
+                MesesPedidos.Add(mesesHaciaAtras);
+                return Task.FromResult<IReadOnlyList<AlquilerPanoramaDto>>(Panorama.ToList());
+            }
         }
 
         // Solo el resumen de activos e inactivos, que es lo que lee el panorama de

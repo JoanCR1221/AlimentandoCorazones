@@ -1,4 +1,5 @@
 using SIGAC.Application.DTOs.Alquileres;
+using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Domain.Entities;
 
 namespace SIGAC.Application.Interfaces
@@ -29,5 +30,12 @@ namespace SIGAC.Application.Interfaces
         // Pasa a Cancelado solo si sigue Reservado. Devuelve false si no existe o si
         // ya estaba cancelado (otro usuario se adelantó).
         Task<bool> CancelarAsync(int id, string motivoCancelacion);
+
+        // Para el panorama gráfico (Reportes): los alquileres, reservados y
+        // cancelados, de los últimos mesesHaciaAtras meses calendario contando el mes
+        // actual como el primero y hasta el final de ese mes. Solo las columnas que
+        // el panorama agrupa y los nombres de los sectores, sin arrendatario ni
+        // características. Sin orden garantizado.
+        Task<IReadOnlyList<AlquilerPanoramaDto>> ObtenerParaPanoramaAsync(int mesesHaciaAtras);
     }
 }

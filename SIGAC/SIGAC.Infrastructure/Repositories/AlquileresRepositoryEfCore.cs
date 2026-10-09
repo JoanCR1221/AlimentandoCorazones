@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SIGAC.Application.DTOs.Alquileres;
+using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
 using SIGAC.Domain.Entities;
@@ -134,6 +135,39 @@ namespace SIGAC.Infrastructure.Repositories
                 .ThenBy(a => a.HoraInicio)
                 .ThenBy(a => a.Id)
                 .ToListAsync();
+        }
+
+        public async Task<IReadOnlyList<AlquilerPanoramaDto>> ObtenerParaPanoramaAsync(int mesesHaciaAtras)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            // Primer día del mes que queda mesesHaciaAtras meses atrás, contando el mes
+            // actual como el primero (mismo criterio que GastosRepositoryEfCore), y el
+            // primer día del mes siguiente al actual como tope: un alquiler de un mes
+            // futuro todavía no es parte de lo que "ha evolucionado".
+            var inicioVentana = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).AddMonths(-(mesesHaciaAtras - 1));
+            var finVentana = inicioVentana.AddMonths(mesesHaciaAtras);
+
+            // Tipo anónimo y no el record directo: EF Core no traduce una colección
+            // anidada dentro de un constructor posicional.
+            var filas = await context.AlquileresEspacio
+                .AsNoTracking()
+                .Where(a => a.Fecha >= inicioVentana && a.Fecha < finVentana)
+                .Select(a => new
+                {
+                    a.Fecha,
+                    a.HoraInicio,
+                    a.HoraFin,
+                    a.Monto,
+                    a.Moneda,
+                    a.Estado,
+                    Sectores = a.Espacios.Select(e => e.Nombre).ToList()
+                })
+                .ToListAsync();
+
+            return filas
+                .Select(f => new AlquilerPanoramaDto(f.Fecha, f.HoraInicio, f.HoraFin, f.Monto, f.Moneda, f.Estado, f.Sectores))
+                .ToList();
         }
 
         public async Task<bool> CancelarAsync(int id, string motivoCancelacion)

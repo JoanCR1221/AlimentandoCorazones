@@ -35,5 +35,9 @@ namespace SIGAC.Application.Interfaces
         // Reporte de alquileres de espacios de un período: reservados y cancelados,
         // horas alquiladas e ingreso por moneda (los cancelados no suman).
         Task<ReporteAlquileresResultadoDto> GenerarReporteAlquileresAsync(FiltrosReporteAlquileresDto filtros);
+
+        // Panorama gráfico de Alquileres: mismo criterio que los otros, sobre una
+        // ventana fija de meses hacia atrás (el mes actual completo incluido).
+        Task<PanoramaAlquileresDto> ObtenerPanoramaAlquileresAsync();
     }
 }

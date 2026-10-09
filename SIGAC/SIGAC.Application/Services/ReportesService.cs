@@ -32,10 +32,12 @@ namespace SIGAC.Application.Services
         private readonly IDonacionesRepository _donacionesRepository;
         private readonly IDonantesRepository _donantesRepository;
         private readonly IAlquileresService _alquileresService;
+        private readonly IAlquileresRepository _alquileresRepository;
 
-        // Donaciones entra por dos lados: el reporte exportable reutiliza el historial
-        // del servicio (que ya une dinero y especie), y el panorama necesita
-        // agregados por mes que el historial no da, así que consulta el repositorio.
+        // Donaciones y Alquileres entran cada uno por dos lados: el reporte
+        // exportable reutiliza el historial del servicio (que ya une, filtra y
+        // calcula los totales por moneda), y el panorama necesita agregados por mes
+        // que ese historial no da, así que consulta el repositorio.
         public ReportesService(
             IAsistenciaRepository asistenciaRepository,
             IBeneficiariosRepository beneficiariosRepository,
@@ -43,7 +45,8 @@ namespace SIGAC.Application.Services
             IDonacionesService donacionesService,
             IDonacionesRepository donacionesRepository,
             IDonantesRepository donantesRepository,
-            IAlquileresService alquileresService)
+            IAlquileresService alquileresService,
+            IAlquileresRepository alquileresRepository)
         {
             _asistenciaRepository = asistenciaRepository;
             _beneficiariosRepository = beneficiariosRepository;
@@ -52,6 +55,7 @@ namespace SIGAC.Application.Services
             _donacionesRepository = donacionesRepository;
             _donantesRepository = donantesRepository;
             _alquileresService = alquileresService;
+            _alquileresRepository = alquileresRepository;
         }
 
         public async Task<ReporteBeneficiariosResultadoDto> GenerarReporteBeneficiariosAsync(FiltrosReporteBeneficiariosDto filtros)
@@ -316,16 +320,13 @@ namespace SIGAC.Application.Services
                 var reservados = historial.Alquileres.Where(a => a.Estado == EstadoAlquiler.Reservado).ToList();
 
                 // Los cancelados no ocupan el local: no suman horas, igual que no
-                // suman ingresos. En minutos enteros y no en horas con decimales,
-                // para no acumular error de redondeo.
-                var minutosAlquilados = reservados.Sum(a => (a.HoraFin - a.HoraInicio).TotalMinutes);
-
+                // suman ingresos.
                 return new ReporteAlquileresResultadoDto
                 {
                     Filas = filas,
                     CantidadReservados = reservados.Count,
                     CantidadCancelados = historial.Alquileres.Count - reservados.Count,
-                    HorasAlquiladas = Math.Round((decimal)minutosAlquilados / 60m, 2),
+                    HorasAlquiladas = HorasDe(reservados.Select(a => (a.HoraInicio, a.HoraFin))),
                     IngresosPorMoneda = historial.TotalesPorMoneda
                         .OrderBy(t => OrdenDeMoneda(t.Moneda))
                         .ToList()
@@ -336,6 +337,65 @@ namespace SIGAC.Application.Services
                 throw new Exception("Error al generar el reporte de alquileres.", ex);
             }
         }
+
+        public async Task<PanoramaAlquileresDto> ObtenerPanoramaAlquileresAsync()
+        {
+            try
+            {
+                var alquileres = await _alquileresRepository.ObtenerParaPanoramaAsync(MesesPanoramaPorDefecto);
+
+                // Un cancelado no ocupa el local ni genera ingreso: solo cuenta en la
+                // comparación de reservados contra cancelados y en su tendencia.
+                var reservados = alquileres.Where(a => a.Estado == EstadoAlquiler.Reservado).ToList();
+                var cancelados = alquileres.Where(a => a.Estado == EstadoAlquiler.Cancelado).ToList();
+                var enColones = reservados.Where(a => a.Moneda == TiposMoneda.Colones).ToList();
+
+                return new PanoramaAlquileresDto
+                {
+                    CantidadReservados = reservados.Count,
+                    CantidadCancelados = cancelados.Count,
+                    HorasAlquiladas = HorasDe(reservados.Select(a => (a.HoraInicio, a.HoraFin))),
+                    IngresosEnColones = enColones.Sum(a => a.Monto),
+                    ReservadosPorMes = ContarPorMes(reservados),
+                    CanceladosPorMes = ContarPorMes(cancelados),
+                    IngresosEnColonesPorMes = enColones
+                        .GroupBy(a => (a.Fecha.Year, a.Fecha.Month))
+                        .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
+                        .Select(g => new MontoPorMesDto(g.Key.Year, g.Key.Month, g.Sum(a => a.Monto)))
+                        .ToList(),
+                    HorasPorMes = reservados
+                        .GroupBy(a => (a.Fecha.Year, a.Fecha.Month))
+                        .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
+                        .Select(g => new HorasPorMesDto(g.Key.Year, g.Key.Month, HorasDe(g.Select(a => (a.HoraInicio, a.HoraFin)))))
+                        .ToList(),
+                    // Un alquiler de dos sectores cuenta en cada uno: es cuánto se usa
+                    // cada sector, no cuántos alquileres hubo.
+                    AlquileresPorSector = reservados
+                        .SelectMany(a => a.Sectores)
+                        .GroupBy(sector => sector)
+                        .Select(g => new AlquileresPorSectorDto(g.Key, g.Count()))
+                        .OrderByDescending(s => s.Cantidad).ThenBy(s => s.Sector, StringComparer.CurrentCultureIgnoreCase)
+                        .ToList(),
+                    ReservadosEntreSemana = reservados.Count(a => !ReglasAlquiler.EsFinDeSemana(a.Fecha)),
+                    ReservadosFinDeSemana = reservados.Count(a => ReglasAlquiler.EsFinDeSemana(a.Fecha))
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al generar el panorama de alquileres.", ex);
+            }
+        }
+
+        private static List<ConteoPorMesDto> ContarPorMes(IEnumerable<AlquilerPanoramaDto> alquileres) => alquileres
+            .GroupBy(a => (a.Fecha.Year, a.Fecha.Month))
+            .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
+            .Select(g => new ConteoPorMesDto(g.Key.Year, g.Key.Month, g.Count()))
+            .ToList();
+
+        // Suma de la duración de cada franja, en horas con dos decimales. Se suman
+        // minutos enteros y se divide al final, para no acumular error de redondeo.
+        private static decimal HorasDe(IEnumerable<(TimeSpan Inicio, TimeSpan Fin)> franjas) =>
+            Math.Round((decimal)franjas.Sum(f => (f.Fin - f.Inicio).TotalMinutes) / 60m, 2);
 
         // Posición de la moneda en TiposMoneda.Todos; una que no esté en el catálogo
         // va al final en vez de romper el reporte.

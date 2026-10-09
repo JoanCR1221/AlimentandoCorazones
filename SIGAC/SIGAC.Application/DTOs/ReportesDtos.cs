@@ -206,6 +206,46 @@ namespace SIGAC.Application.DTOs.Reportes
         public IReadOnlyList<MontoPorMonedaDto> IngresosPorMoneda { get; set; } = Array.Empty<MontoPorMonedaDto>();
     }
 
+    // Un alquiler reducido a lo que necesita el panorama de alquileres: cuándo fue,
+    // cuánto duró, cuánto costó y qué sectores usó. Lo trae el repositorio ya
+    // acotado a la ventana de meses y el servicio lo agrupa.
+    public sealed record AlquilerPanoramaDto(
+        DateTime Fecha,
+        TimeSpan HoraInicio,
+        TimeSpan HoraFin,
+        decimal Monto,
+        string Moneda,
+        EstadoAlquiler Estado,
+        IReadOnlyList<string> Sectores);
+
+    // Horas alquiladas en un mes calendario.
+    public sealed record HorasPorMesDto(int Anio, int Mes, decimal Horas);
+
+    // Cuántos alquileres reservados usaron un sector. Un alquiler de dos sectores
+    // cuenta en los dos.
+    public sealed record AlquileresPorSectorDto(string Sector, int Cantidad);
+
+    // Cifras del panorama gráfico de Alquileres: mismo criterio que
+    // PanoramaGastosDto, una ventana fija de meses hacia atrás que no depende de
+    // filtros de pantalla (ver ReportesService.ObtenerPanoramaAlquileresAsync). Todo
+    // lo que mide uso o ingreso cuenta solo los alquileres reservados: uno cancelado
+    // no ocupa el local ni genera ingreso. El ingreso va solo en colones, porque no
+    // se pueden sumar monedas distintas.
+    public sealed class PanoramaAlquileresDto
+    {
+        public int CantidadReservados { get; set; }
+        public int CantidadCancelados { get; set; }
+        public decimal HorasAlquiladas { get; set; }
+        public decimal IngresosEnColones { get; set; }
+        public IReadOnlyList<ConteoPorMesDto> ReservadosPorMes { get; set; } = Array.Empty<ConteoPorMesDto>();
+        public IReadOnlyList<ConteoPorMesDto> CanceladosPorMes { get; set; } = Array.Empty<ConteoPorMesDto>();
+        public IReadOnlyList<MontoPorMesDto> IngresosEnColonesPorMes { get; set; } = Array.Empty<MontoPorMesDto>();
+        public IReadOnlyList<HorasPorMesDto> HorasPorMes { get; set; } = Array.Empty<HorasPorMesDto>();
+        public IReadOnlyList<AlquileresPorSectorDto> AlquileresPorSector { get; set; } = Array.Empty<AlquileresPorSectorDto>();
+        public int ReservadosEntreSemana { get; set; }
+        public int ReservadosFinDeSemana { get; set; }
+    }
+
     // Cantidad de donaciones recibidas en un mes, separada por clase ("Dinero" o
     // "Especie", los valores de DonacionesService.TipoDonacionDinero/Especie): de
     // una sola consulta salen el total por clase y la tendencia mensual del

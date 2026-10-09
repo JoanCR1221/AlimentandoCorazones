@@ -402,6 +402,10 @@ namespace SIGAC.Tests.Application
                 alquiler.MotivoCancelacion = motivoCancelacion;
                 return Task.FromResult(true);
             }
+
+            // Lo usa el panorama de Reportes, no el servicio de alquileres.
+            public Task<IReadOnlyList<SIGAC.Application.DTOs.Reportes.AlquilerPanoramaDto>> ObtenerParaPanoramaAsync(int mesesHaciaAtras) =>
+                throw new NotImplementedException();
         }
     }
 }

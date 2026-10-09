@@ -166,7 +166,7 @@
                 },
                 etiquetasMeses,
                 SoloColones: false,
-                Opciones: new BarChartOptions { YAxisTicks = PasoDeConteo(dineroPorMes.Concat(especiePorMes).Max()) }),
+                Opciones: new BarChartOptions { YAxisTicks = OpcionesGrafica.PasoDeConteo(dineroPorMes.Concat(especiePorMes).Max()) }),
 
             [Estadistica.TopDonantes] = new(
                 "Donantes con más donaciones",
@@ -181,7 +181,7 @@
                 {
                     XAxisLabelRotation = 45,
                     MaxNumYAxisTicks = 6,
-                    YAxisTicks = PasoDeConteo(datos.TopDonantes.Select(d => (double)d.Cantidad).DefaultIfEmpty(0).Max())
+                    YAxisTicks = OpcionesGrafica.PasoDeConteo(datos.TopDonantes.Select(d => (double)d.Cantidad).DefaultIfEmpty(0).Max())
                 }),
 
             [Estadistica.DonantesActivos] = new(
@@ -192,19 +192,6 @@
                 SoloColones: false)
         };
     }
-
-    // MudChart arma el eje Y en pasos de YAxisTicks, 20 por defecto (pensado para
-    // montos): con conteos de uno o dos dígitos el eje iba de 0 a 20 y las barras
-    // quedaban aplastadas abajo. Se elige un paso chico según el valor máximo,
-    // para que el eje tenga unas siete marcas como mucho.
-    private static int PasoDeConteo(double maximo) => maximo switch
-    {
-        <= 6 => 1,
-        <= 12 => 2,
-        <= 30 => 5,
-        <= 60 => 10,
-        _ => 20
-    };
 
     // Los MesesPanorama meses calendario hasta el actual, contándolo como el
     // primero. Mismo criterio que los otros panoramas y ReportesService.
