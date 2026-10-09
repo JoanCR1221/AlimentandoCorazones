@@ -27,5 +27,9 @@ namespace SIGAC.Application.Interfaces
         // Reporte de donaciones recibidas (dinero y especie) de un período, con el
         // total de dinero por moneda.
         Task<ReporteDonacionesResultadoDto> GenerarReporteDonacionesAsync(FiltrosReporteDonacionesDto filtros);
+
+        // Panorama gráfico de Donaciones: mismo criterio que los de Beneficiarios y
+        // Gastos, sobre una ventana fija de meses hacia atrás.
+        Task<PanoramaDonacionesDto> ObtenerPanoramaDonacionesAsync();
     }
 }

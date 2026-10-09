@@ -150,6 +150,34 @@ namespace SIGAC.Application.DTOs.Reportes
         public decimal GranTotalIva { get; set; }
     }
 
+    // Cantidad de donaciones recibidas en un mes, separada por clase ("Dinero" o
+    // "Especie", los valores de DonacionesService.TipoDonacionDinero/Especie): de
+    // una sola consulta salen el total por clase y la tendencia mensual del
+    // panorama, igual que ConteoComidaMensualDto con los tiempos de comida.
+    public sealed record ConteoDonacionMensualDto(int Anio, int Mes, string TipoDonacion, int Cantidad);
+
+    // Cuántas donaciones (de dinero y de especie juntas) hizo un donante. Se cuenta
+    // y no se suma dinero porque hay donantes que solo donan en especie o en otra
+    // moneda, y un ranking por monto los dejaría fuera.
+    public sealed record DonacionesPorDonanteDto(string Donante, int Cantidad);
+
+    // Cifras del panorama gráfico de Donaciones: mismo criterio que
+    // PanoramaGastosDto, una ventana fija de meses hacia atrás que no depende de
+    // filtros de pantalla (ver ReportesService.ObtenerPanoramaDonacionesAsync).
+    // El dinero va solo en colones, como en gastos: sumar monedas distintas no
+    // representa nada. Los donantes activos e inactivos son el total actual, no el
+    // de la ventana.
+    public sealed class PanoramaDonacionesDto
+    {
+        public int CantidadDinero { get; set; }
+        public int CantidadEspecie { get; set; }
+        public IReadOnlyList<ConteoDonacionMensualDto> DonacionesPorMes { get; set; } = Array.Empty<ConteoDonacionMensualDto>();
+        public IReadOnlyList<MontoPorMesDto> DineroEnColonesPorMes { get; set; } = Array.Empty<MontoPorMesDto>();
+        public IReadOnlyList<DonacionesPorDonanteDto> TopDonantes { get; set; } = Array.Empty<DonacionesPorDonanteDto>();
+        public int DonantesActivos { get; set; }
+        public int DonantesInactivos { get; set; }
+    }
+
     // Una fila del reporte de donaciones recibidas: dinero y especie en la misma
     // tabla, igual que el historial de donaciones (PBI 1939). Sin Id: el del
     // historial es el de su tabla y se repetiría entre dinero y especie, y al

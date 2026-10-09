@@ -7,8 +7,10 @@ using SIGAC.Domain.Entities;
 
 namespace SIGAC.Tests.Application
 {
-    // El reporte de gastos, el de donaciones y la agrupación del de beneficiarios:
-    // los dos paneles gráficos y el resto del de beneficiarios están cubiertos por
+    // El reporte de gastos, el de donaciones y su panorama (lo que hace el
+    // servicio con lo que le devuelve el repositorio) y la agrupación del de
+    // beneficiarios. Las consultas agregadas del panorama de donaciones, los otros
+    // dos paneles gráficos y el resto del de beneficiarios están cubiertos por
     // verificación manual en el navegador (ver las notas de los commits que los
     // agregaron).
     public class ReportesServiceTests
@@ -17,6 +19,7 @@ namespace SIGAC.Tests.Application
         private readonly RepositorioGastosFalso _gastos;
         private readonly RepositorioAsistenciaFalso _asistencias = new();
         private readonly RepositorioDonacionesFalso _donaciones = new();
+        private readonly RepositorioDonantesFalso _donantes = new();
         private readonly ReportesService _servicio;
 
         private readonly TipoGasto _alquiler;
@@ -31,7 +34,7 @@ namespace SIGAC.Tests.Application
             // de verdad), y ese método solo lee el repositorio: lo demás no se toca.
             var donaciones = new DonacionesService(_donaciones, null!, null!, null!, null!);
 
-            _servicio = new ReportesService(_asistencias, new RepositorioBeneficiariosFalso(), _gastos, donaciones);
+            _servicio = new ReportesService(_asistencias, new RepositorioBeneficiariosFalso(), _gastos, donaciones, _donaciones, _donantes);
 
             _alquiler = _tipos.Agregar("Alquiler de Equipo");
             _combustible = _tipos.Agregar("Combustible");
@@ -239,6 +242,67 @@ namespace SIGAC.Tests.Application
         }
 
         [Fact]
+        public async Task El_panorama_de_donaciones_suma_las_cantidades_de_cada_clase()
+        {
+            _donaciones.CantidadPorMes.Add(new ConteoDonacionMensualDto(2026, 8, "Dinero", 3));
+            _donaciones.CantidadPorMes.Add(new ConteoDonacionMensualDto(2026, 8, "Especie", 1));
+            _donaciones.CantidadPorMes.Add(new ConteoDonacionMensualDto(2026, 9, "Dinero", 4));
+            _donaciones.CantidadPorMes.Add(new ConteoDonacionMensualDto(2026, 9, "Especie", 2));
+
+            var panorama = await _servicio.ObtenerPanoramaDonacionesAsync();
+
+            Assert.Equal(7, panorama.CantidadDinero);
+            Assert.Equal(3, panorama.CantidadEspecie);
+            Assert.Equal(4, panorama.DonacionesPorMes.Count);
+        }
+
+        [Fact]
+        public async Task El_panorama_de_donaciones_reparte_el_dinero_los_donantes_y_su_estado()
+        {
+            _donaciones.DineroEnColonesPorMes.Add(new MontoPorMesDto(2026, 9, 175000.50m));
+            _donaciones.TopDonantes.Add(new DonacionesPorDonanteDto("Ana Mora", 5));
+            _donaciones.TopDonantes.Add(new DonacionesPorDonanteDto("Beto Solís", 2));
+            _donantes.Resumen = new SIGAC.Application.DTOs.ResumenRegistrosDto(Activos: 8, Inactivos: 3, NuevosEsteMes: 0, NuevosMesAnterior: 0);
+
+            var panorama = await _servicio.ObtenerPanoramaDonacionesAsync();
+
+            Assert.Equal(175000.50m, Assert.Single(panorama.DineroEnColonesPorMes).Monto);
+            Assert.Equal(new[] { "Ana Mora", "Beto Solís" }, panorama.TopDonantes.Select(d => d.Donante));
+            Assert.Equal(8, panorama.DonantesActivos);
+            Assert.Equal(3, panorama.DonantesInactivos);
+        }
+
+        [Fact]
+        public async Task El_panorama_de_donaciones_pide_doce_meses_y_los_cinco_donantes_principales()
+        {
+            await _servicio.ObtenerPanoramaDonacionesAsync();
+
+            Assert.Contains((12, (int?)null), _donaciones.Peticiones);
+            Assert.Contains((12, (int?)5), _donaciones.Peticiones);
+        }
+
+        [Fact]
+        public async Task El_panorama_de_donaciones_sin_datos_viene_en_cero()
+        {
+            var panorama = await _servicio.ObtenerPanoramaDonacionesAsync();
+
+            Assert.Equal(0, panorama.CantidadDinero);
+            Assert.Equal(0, panorama.CantidadEspecie);
+            Assert.Empty(panorama.DonacionesPorMes);
+            Assert.Empty(panorama.TopDonantes);
+        }
+
+        [Fact]
+        public async Task El_panorama_de_donaciones_envuelve_los_errores_de_la_consulta()
+        {
+            _donaciones.Falla = true;
+
+            var error = await Assert.ThrowsAsync<Exception>(() => _servicio.ObtenerPanoramaDonacionesAsync());
+
+            Assert.Equal("Error al generar el panorama de donaciones.", error.Message);
+        }
+
+        [Fact]
         public async Task El_reporte_de_beneficiarios_da_una_fila_por_persona_aunque_asista_varias_veces()
         {
             AgregarAsistencia(1, "Ana", TiemposComida.Desayuno, 1);
@@ -392,10 +456,52 @@ namespace SIGAC.Tests.Application
                     .ToList();
             }
 
+            // Lo que devuelven las consultas del panorama y con qué parámetros se
+            // pidieron: el servicio solo las reparte, así que la prueba controla la
+            // entrada.
+            public List<ConteoDonacionMensualDto> CantidadPorMes { get; } = new();
+            public List<MontoPorMesDto> DineroEnColonesPorMes { get; } = new();
+            public List<DonacionesPorDonanteDto> TopDonantes { get; } = new();
+            public List<(int Meses, int? Maximo)> Peticiones { get; } = new();
+
+            public Task<IReadOnlyList<ConteoDonacionMensualDto>> ObtenerCantidadPorMesAsync(int mesesHaciaAtras) =>
+                Panorama<ConteoDonacionMensualDto>(mesesHaciaAtras, null, CantidadPorMes);
+
+            public Task<IReadOnlyList<MontoPorMesDto>> ObtenerDineroEnColonesPorMesAsync(int mesesHaciaAtras) =>
+                Panorama<MontoPorMesDto>(mesesHaciaAtras, null, DineroEnColonesPorMes);
+
+            public Task<IReadOnlyList<DonacionesPorDonanteDto>> ObtenerTopDonantesAsync(int mesesHaciaAtras, int maximo) =>
+                Panorama<DonacionesPorDonanteDto>(mesesHaciaAtras, maximo, TopDonantes);
+
+            private Task<IReadOnlyList<T>> Panorama<T>(int meses, int? maximo, List<T> datos)
+            {
+                if (Falla)
+                    throw new InvalidOperationException("Falla simulada de la base de datos.");
+
+                Peticiones.Add((meses, maximo));
+                return Task.FromResult<IReadOnlyList<T>>(datos.ToList());
+            }
+
             public Task AgregarDonacionDineroAsync(DonacionDinero donacion) => throw new NotImplementedException();
             public Task AgregarDonacionEspecieAsync(DonacionEspecie donacion) => throw new NotImplementedException();
             public Task AgregarDonacionEntregadaAsync(DonacionEntregada donacion) => throw new NotImplementedException();
             public Task<IEnumerable<DonacionEntregada>> ObtenerEntregasAsync(FiltrosHistorialEntregaDto filtros) => throw new NotImplementedException();
+        }
+
+        // Solo el resumen de activos e inactivos, que es lo que lee el panorama de
+        // donaciones.
+        private sealed class RepositorioDonantesFalso : IDonantesRepository
+        {
+            public SIGAC.Application.DTOs.ResumenRegistrosDto Resumen { get; set; } = SIGAC.Application.DTOs.ResumenRegistrosDto.Vacio;
+
+            public Task<SIGAC.Application.DTOs.ResumenRegistrosDto> ObtenerResumenAsync() => Task.FromResult(Resumen);
+
+            public Task AgregarAsync(Donante donante) => throw new NotImplementedException();
+            public Task<Donante?> ObtenerPorIdAsync(int id) => throw new NotImplementedException();
+            public Task ActualizarAsync(Donante donante) => throw new NotImplementedException();
+            public Task<SIGAC.Application.DTOs.ResultadoPaginado<Donante>> ObtenerTodosAsync(FiltrosDonanteDto filtros) => throw new NotImplementedException();
+            public Task<bool> ExisteNombreAsync(string nombre, int? idExcluir = null) => throw new NotImplementedException();
+            public Task CambiarEstadoAsync(int id, bool estado) => throw new NotImplementedException();
         }
 
         private sealed class RepositorioBeneficiariosFalso : SIGAC.Application.Interfaces.IBeneficiariosRepository

@@ -1,6 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using SIGAC.Application.DTOs.Donaciones;
+using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Application.Interfaces;
+using SIGAC.Application.Services;
+using SIGAC.Domain;
 using SIGAC.Domain.Entities;
 using SIGAC.Infrastructure.Data;
 
@@ -225,6 +228,105 @@ namespace SIGAC.Infrastructure.Repositories
                 .OrderByDescending(d => d.Fecha)
                 .ThenByDescending(d => d.Id)
                 .ToListAsync();
+        }
+
+        // ------------------------------------------------------------------
+        // Panorama gráfico (Reportes)
+        // ------------------------------------------------------------------
+
+        public async Task<IReadOnlyList<ConteoDonacionMensualDto>> ObtenerCantidadPorMesAsync(int mesesHaciaAtras)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            var inicioVentana = InicioVentana(mesesHaciaAtras);
+
+            // Tipo anónimo y no el record directo: EF Core no traduce un GroupBy +
+            // Select a un constructor posicional seguido de OrderBy (ver
+            // BeneficiariosRepositoryEfCore.ObtenerAltasPorMesAsync).
+            var dinero = await context.DonacionesDinero
+                .AsNoTracking()
+                .Where(d => d.Fecha >= inicioVentana)
+                .GroupBy(d => new { d.Fecha.Year, d.Fecha.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Cantidad = g.Count() })
+                .ToListAsync();
+
+            var especie = await context.DonacionesEspecie
+                .AsNoTracking()
+                .Where(d => d.Fecha >= inicioVentana)
+                .GroupBy(d => new { d.Fecha.Year, d.Fecha.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Cantidad = g.Count() })
+                .ToListAsync();
+
+            return dinero
+                .Select(f => new ConteoDonacionMensualDto(f.Year, f.Month, DonacionesService.TipoDonacionDinero, f.Cantidad))
+                .Concat(especie.Select(f => new ConteoDonacionMensualDto(f.Year, f.Month, DonacionesService.TipoDonacionEspecie, f.Cantidad)))
+                .OrderBy(f => f.Anio).ThenBy(f => f.Mes).ThenBy(f => f.TipoDonacion)
+                .ToList();
+        }
+
+        public async Task<IReadOnlyList<MontoPorMesDto>> ObtenerDineroEnColonesPorMesAsync(int mesesHaciaAtras)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            var inicioVentana = InicioVentana(mesesHaciaAtras);
+
+            var filas = await context.DonacionesDinero
+                .AsNoTracking()
+                .Where(d => d.Moneda == TiposMoneda.Colones && d.Fecha >= inicioVentana)
+                .GroupBy(d => new { d.Fecha.Year, d.Fecha.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Monto = g.Sum(x => x.Monto) })
+                .OrderBy(f => f.Year).ThenBy(f => f.Month)
+                .ToListAsync();
+
+            return filas.Select(f => new MontoPorMesDto(f.Year, f.Month, f.Monto)).ToList();
+        }
+
+        public async Task<IReadOnlyList<DonacionesPorDonanteDto>> ObtenerTopDonantesAsync(int mesesHaciaAtras, int maximo)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+            var inicioVentana = InicioVentana(mesesHaciaAtras);
+
+            // Dos tablas, así que se cuenta por donante en cada una y se suman acá
+            // (un UNION en SQL no vale la pena: salen pocas filas, una por donante
+            // que donó en la ventana).
+            var enDinero = await context.DonacionesDinero
+                .AsNoTracking()
+                .Where(d => d.Fecha >= inicioVentana)
+                .GroupBy(d => d.DonanteId)
+                .Select(g => new { DonanteId = g.Key, Cantidad = g.Count() })
+                .ToListAsync();
+
+            var enEspecie = await context.DonacionesEspecie
+                .AsNoTracking()
+                .Where(d => d.Fecha >= inicioVentana)
+                .GroupBy(d => d.DonanteId)
+                .Select(g => new { DonanteId = g.Key, Cantidad = g.Count() })
+                .ToListAsync();
+
+            var porDonante = enDinero.Concat(enEspecie)
+                .GroupBy(f => f.DonanteId)
+                .Select(g => new { DonanteId = g.Key, Cantidad = g.Sum(f => f.Cantidad) })
+                .ToList();
+
+            var ids = porDonante.Select(f => f.DonanteId).ToList();
+
+            var nombres = await context.Donantes
+                .AsNoTracking()
+                .Where(d => ids.Contains(d.Id))
+                .ToDictionaryAsync(d => d.Id, d => d.Nombre);
+
+            return porDonante
+                .Select(f => new DonacionesPorDonanteDto(nombres.GetValueOrDefault(f.DonanteId, string.Empty), f.Cantidad))
+                .OrderByDescending(f => f.Cantidad).ThenBy(f => f.Donante, StringComparer.CurrentCultureIgnoreCase)
+                .Take(maximo)
+                .ToList();
+        }
+
+        // Primer día del mes que queda mesesHaciaAtras meses atrás, contando el mes
+        // actual como el primero. Mismo criterio que GastosRepositoryEfCore y
+        // BeneficiariosRepositoryEfCore.
+        private static DateTime InicioVentana(int mesesHaciaAtras)
+        {
+            var inicioMesActual = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            return inicioMesActual.AddMonths(-(mesesHaciaAtras - 1));
         }
     }
 }

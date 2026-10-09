@@ -20,21 +20,33 @@ namespace SIGAC.Application.Services
         // no cabe en una gráfica de barras legible.
         private const int TopProveedoresPorDefecto = 5;
 
+        // Lo mismo para los donantes del panorama de donaciones.
+        private const int TopDonantesPorDefecto = 5;
+
         private readonly IAsistenciaRepository _asistenciaRepository;
         private readonly IBeneficiariosRepository _beneficiariosRepository;
         private readonly IGastosRepository _gastosRepository;
         private readonly IDonacionesService _donacionesService;
+        private readonly IDonacionesRepository _donacionesRepository;
+        private readonly IDonantesRepository _donantesRepository;
 
+        // Donaciones entra por dos lados: el reporte exportable reutiliza el historial
+        // del servicio (que ya une dinero y especie), y el panorama necesita
+        // agregados por mes que el historial no da, así que consulta el repositorio.
         public ReportesService(
             IAsistenciaRepository asistenciaRepository,
             IBeneficiariosRepository beneficiariosRepository,
             IGastosRepository gastosRepository,
-            IDonacionesService donacionesService)
+            IDonacionesService donacionesService,
+            IDonacionesRepository donacionesRepository,
+            IDonantesRepository donantesRepository)
         {
             _asistenciaRepository = asistenciaRepository;
             _beneficiariosRepository = beneficiariosRepository;
             _gastosRepository = gastosRepository;
             _donacionesService = donacionesService;
+            _donacionesRepository = donacionesRepository;
+            _donantesRepository = donantesRepository;
         }
 
         public async Task<ReporteBeneficiariosResultadoDto> GenerarReporteBeneficiariosAsync(FiltrosReporteBeneficiariosDto filtros)
@@ -141,6 +153,35 @@ namespace SIGAC.Application.Services
             catch (Exception ex)
             {
                 throw new Exception("Error al generar el panorama de gastos operativos.", ex);
+            }
+        }
+
+        public async Task<PanoramaDonacionesDto> ObtenerPanoramaDonacionesAsync()
+        {
+            try
+            {
+                var porMes = await _donacionesRepository.ObtenerCantidadPorMesAsync(MesesPanoramaPorDefecto);
+                var dineroPorMes = await _donacionesRepository.ObtenerDineroEnColonesPorMesAsync(MesesPanoramaPorDefecto);
+                var topDonantes = await _donacionesRepository.ObtenerTopDonantesAsync(MesesPanoramaPorDefecto, TopDonantesPorDefecto);
+                var donantes = await _donantesRepository.ObtenerResumenAsync();
+
+                return new PanoramaDonacionesDto
+                {
+                    // Los totales por clase salen de la misma consulta mensual, sin
+                    // repetirla (igual que los tiempos de comida del panorama de
+                    // beneficiarios).
+                    CantidadDinero = porMes.Where(c => c.TipoDonacion == DonacionesService.TipoDonacionDinero).Sum(c => c.Cantidad),
+                    CantidadEspecie = porMes.Where(c => c.TipoDonacion == DonacionesService.TipoDonacionEspecie).Sum(c => c.Cantidad),
+                    DonacionesPorMes = porMes,
+                    DineroEnColonesPorMes = dineroPorMes,
+                    TopDonantes = topDonantes,
+                    DonantesActivos = donantes.Activos,
+                    DonantesInactivos = donantes.Inactivos
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al generar el panorama de donaciones.", ex);
             }
         }
 

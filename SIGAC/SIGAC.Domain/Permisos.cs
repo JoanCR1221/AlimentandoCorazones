@@ -144,7 +144,7 @@ namespace SIGAC.Domain
 
             new Permiso(Reportes.VerBeneficiarios, ModulosSistema.Reportes, "Generar el reporte de beneficiarios atendidos"),
             new Permiso(Reportes.VerGastos, ModulosSistema.Reportes, "Ver el panorama de gastos operativos"),
-            new Permiso(Reportes.VerDonaciones, ModulosSistema.Reportes, "Generar el reporte de donaciones"),
+            new Permiso(Reportes.VerDonaciones, ModulosSistema.Reportes, "Generar el reporte y ver el panorama de donaciones"),
 
             new Permiso(Alquileres.Ver, ModulosSistema.Alquileres, "Consultar el calendario de alquileres"),
             new Permiso(Alquileres.Registrar, ModulosSistema.Alquileres, "Registrar alquileres de espacios"),

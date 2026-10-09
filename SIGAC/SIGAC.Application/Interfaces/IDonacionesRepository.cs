@@ -1,4 +1,5 @@
 using SIGAC.Application.DTOs.Donaciones;
+using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Domain.Entities;
 
 namespace SIGAC.Application.Interfaces
@@ -47,5 +48,22 @@ namespace SIGAC.Application.Interfaces
         // criterios y una lista de parámetros posicionales de ese largo se presta a
         // pasarlos cambiados de orden.
         Task<IEnumerable<DonacionEntregada>> ObtenerEntregasAsync(FiltrosHistorialEntregaDto filtros);
+
+        // Consultas del panorama gráfico (Reportes)
+        //
+        // Cifras agregadas en SQL, sobre una ventana de meses calendario hacia atrás
+        // que incluye el mes actual. Solo traen los meses que tienen donaciones: la
+        // pantalla alinea el resultado contra la ventana completa.
+
+        // Cantidad de donaciones por mes y clase ("Dinero" o "Especie").
+        Task<IReadOnlyList<ConteoDonacionMensualDto>> ObtenerCantidadPorMesAsync(int mesesHaciaAtras);
+
+        // Dinero recibido por mes, solo en colones: sumar monedas distintas en un
+        // mismo número no representa nada.
+        Task<IReadOnlyList<MontoPorMesDto>> ObtenerDineroEnColonesPorMesAsync(int mesesHaciaAtras);
+
+        // Los donantes con más donaciones (dinero y especie juntas), de mayor a
+        // menor; en empate, por nombre.
+        Task<IReadOnlyList<DonacionesPorDonanteDto>> ObtenerTopDonantesAsync(int mesesHaciaAtras, int maximo);
     }
 }
