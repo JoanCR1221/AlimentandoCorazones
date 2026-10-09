@@ -126,7 +126,7 @@
                            realidad dos formularios distintos (dinero y especie), y un
                            solo botón no puede llevar a los dos. Ver el historial de
                            este archivo para el porqué del Style del activador. *@
-                        <MudMenu Style="width:100%;">
+                        <MudMenu Style="width:100%;" RelativeWidth="DropdownWidth.Adaptive">
                             <ActivatorContent Context="menu">
                                 <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true"
                                            OnClick="@(e => menu.ToggleAsync(e))">
@@ -231,8 +231,7 @@
         </MudItem>
     }
 
-    @if (Tiene(Permisos.Reportes.VerBeneficiarios) || Tiene(Permisos.Reportes.VerGastos) || Tiene(Permisos.Reportes.VerDonaciones)
-        || Tiene(Permisos.Reportes.VerAlquileres) || Tiene(Permisos.Reportes.VerInventario) || Tiene(Permisos.Reportes.VerProyectos))
+    @if (reportesVisibles.Count > 0)
     {
         <MudItem xs="12" sm="6" md="4">
             <MudCard Class="pa-4 ac-card-modulo">
@@ -242,60 +241,42 @@
                     <MudText Typo="Typo.body2" Class="mud-text-secondary">
                         Genere reportes institucionales para mostrar ante donantes y autoridades.
                     </MudText>
-                    @if (Tiene(Permisos.Reportes.VerBeneficiarios))
-                    {
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/reportes/beneficiarios" Class="mt-2">
-                            Beneficiarios atendidos
-                        </MudButton>
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/reportes/beneficiarios/panorama">
-                            Panorama de beneficiarios
-                        </MudButton>
-                    }
-                    @if (Tiene(Permisos.Reportes.VerGastos))
-                    {
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/reportes/gastos">
-                            Gastos operativos
-                        </MudButton>
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/reportes/gastos/panorama">
-                            Panorama de gastos
-                        </MudButton>
-                    }
-                    @if (Tiene(Permisos.Reportes.VerDonaciones))
-                    {
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/reportes/donaciones">
-                            Donaciones
-                        </MudButton>
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/reportes/donaciones/panorama">
-                            Panorama de donaciones
-                        </MudButton>
-                    }
-                    @if (Tiene(Permisos.Reportes.VerAlquileres))
-                    {
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/reportes/alquileres">
-                            Alquileres
-                        </MudButton>
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/reportes/alquileres/panorama">
-                            Panorama de alquileres
-                        </MudButton>
-                    }
-                    @if (Tiene(Permisos.Reportes.VerInventario))
-                    {
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/reportes/inventario">
-                            Movimientos de inventario
-                        </MudButton>
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/reportes/inventario/panorama">
-                            Panorama de inventario
-                        </MudButton>
-                    }
-                    @if (Tiene(Permisos.Reportes.VerProyectos))
-                    {
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/reportes/proyectos">
-                            Proyectos
-                        </MudButton>
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/reportes/proyectos/panorama">
-                            Panorama de proyectos
-                        </MudButton>
-                    }
+
+                    @* Dos menús y no doce botones: son seis reportes con dos
+                       pantallas cada uno (el listado exportable y el panorama
+                       gráfico). Mismo Style del activador que el menú de
+                       Donaciones. *@
+                    <MudMenu Style="width:100%;" RelativeWidth="DropdownWidth.Adaptive" Class="mt-2">
+                        <ActivatorContent Context="menu">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                                       EndIcon="@Icons.Material.Filled.ArrowDropDown"
+                                       OnClick="@(e => menu.ToggleAsync(e))">
+                                Generar reporte
+                            </MudButton>
+                        </ActivatorContent>
+                        <ChildContent>
+                            @foreach (var reporte in reportesVisibles)
+                            {
+                                <MudMenuItem Href="@reporte.Href" Icon="@reporte.Icono">@reporte.Titulo</MudMenuItem>
+                            }
+                        </ChildContent>
+                    </MudMenu>
+
+                    <MudMenu Style="width:100%;" RelativeWidth="DropdownWidth.Adaptive">
+                        <ActivatorContent Context="menu">
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true"
+                                       EndIcon="@Icons.Material.Filled.ArrowDropDown"
+                                       OnClick="@(e => menu.ToggleAsync(e))">
+                                Ver panorama
+                            </MudButton>
+                        </ActivatorContent>
+                        <ChildContent>
+                            @foreach (var reporte in reportesVisibles)
+                            {
+                                <MudMenuItem Href="@(reporte.Href + "/panorama")" Icon="@reporte.Icono">@reporte.Titulo</MudMenuItem>
+                            }
+                        </ChildContent>
+                    </MudMenu>
                 </MudStack>
             </MudCard>
         </MudItem>
@@ -340,10 +321,30 @@
 
     private bool Tiene(string permiso) => usuario.HasClaim(ClaimsSigac.Permiso, permiso);
 
+    // Cada módulo tiene el reporte en Href y su panorama en Href + "/panorama",
+    // los dos bajo el mismo permiso.
+    // Títulos cortos a propósito: el panel del menú mide como mínimo lo que el botón
+    // y crece si el texto no cabe, y en pantallas angostas se saldría de la tarjeta.
+    private sealed record AccesoReporte(string Titulo, string Href, string Icono, string Permiso);
+
+    private static readonly AccesoReporte[] AccesosReportes =
+    {
+        new("Beneficiarios", "/reportes/beneficiarios", Icons.Material.Filled.People, Permisos.Reportes.VerBeneficiarios),
+        new("Gastos", "/reportes/gastos", Icons.Material.Filled.Receipt, Permisos.Reportes.VerGastos),
+        new("Donaciones", "/reportes/donaciones", Icons.Material.Filled.VolunteerActivism, Permisos.Reportes.VerDonaciones),
+        new("Alquileres", "/reportes/alquileres", Icons.Material.Filled.MeetingRoom, Permisos.Reportes.VerAlquileres),
+        new("Inventario", "/reportes/inventario", Icons.Material.Filled.Inventory, Permisos.Reportes.VerInventario),
+        new("Proyectos", "/reportes/proyectos", Icons.Material.Filled.Groups, Permisos.Reportes.VerProyectos)
+    };
+
+    private IReadOnlyList<AccesoReporte> reportesVisibles = Array.Empty<AccesoReporte>();
+
     protected override async Task OnInitializedAsync()
     {
         if (EstadoAutenticacion is not null)
             usuario = (await EstadoAutenticacion).User;
+
+        reportesVisibles = AccesosReportes.Where(a => Tiene(a.Permiso)).ToList();
 
         // El aviso de stock bajo lleva a Existencias: solo tiene sentido para
         // quien puede verlas.
