@@ -1,4 +1,5 @@
 @typeparam TFila
+@using SIGAC.Application.DTOs.Reportes
 @using SIGAC.Application.Interfaces
 @implements IAsyncDisposable
 @inject IExportacionService ExportacionService
@@ -40,6 +41,17 @@
     [Parameter, EditorRequired]
     public IReadOnlyList<TFila> Datos { get; set; } = Array.Empty<TFila>();
 
+    // Período o filtros con los que se generó el reporte, para imprimirlos bajo el
+    // título. Tienen que ser los de la generación y no los que muestre la pantalla
+    // ahora: se pueden cambiar después de generar sin volver a consultar.
+    [Parameter]
+    public string? Subtitulo { get; set; }
+
+    // Totales que la pantalla muestra en sus tarjetas, para que el archivo los
+    // traiga al pie.
+    [Parameter]
+    public IReadOnlyList<LineaResumenReporte>? Resumen { get; set; }
+
     // Único por instancia: la pantalla podría tener más de un reporte, y un id
     // duplicado en el HTML rompería getElementById en la otra.
     private readonly string idBotonImprimir = $"acciones-reporte-imprimir-{Guid.NewGuid():N}";
@@ -68,13 +80,13 @@
     }
 
     private Task ExportarPdfAsync() => EjecutarAsync(
-        () => ExportacionService.ExportarPDFAsync(Datos, Titulo),
+        () => ExportacionService.ExportarPDFAsync(Datos, Titulo, Subtitulo, Resumen),
         NombreArchivo("pdf"),
         "application/pdf",
         "PDF");
 
     private Task ExportarExcelAsync() => EjecutarAsync(
-        () => ExportacionService.ExportarExcelAsync(Datos, Titulo),
+        () => ExportacionService.ExportarExcelAsync(Datos, Titulo, Subtitulo, Resumen),
         NombreArchivo("xlsx"),
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "Excel");
@@ -88,7 +100,7 @@
 
         try
         {
-            var pdf = await ExportacionService.ExportarPDFAsync(Datos, Titulo);
+            var pdf = await ExportacionService.ExportarPDFAsync(Datos, Titulo, Subtitulo, Resumen);
 
             await using var modulo = await JS.InvokeAsync<IJSObjectReference>("import", "./js/reportes.js");
             await modulo.InvokeVoidAsync("imprimirPdf", Convert.ToBase64String(pdf));

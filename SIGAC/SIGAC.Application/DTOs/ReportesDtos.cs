@@ -1,15 +1,35 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace SIGAC.Application.DTOs.Reportes
 {
+    // Una línea del resumen que se imprime al pie de un reporte exportado
+    // ("Total de asistencias en el período" / "12"). El valor ya viene como
+    // texto: lo formatea la pantalla que conoce monedas y unidades, no el
+    // exportador.
+    public sealed record LineaResumenReporte(string Etiqueta, string Valor);
+
     // Una fila del reporte de beneficiarios atendidos: un beneficiario con sus
     // asistencias del período, separadas por tiempo de comida (PBI 1940).
+    //
+    // El exportador genérico convierte cada propiedad pública en una columna y
+    // lee el título de [Display(Name)]; con AutoGenerateField = false la
+    // propiedad no se exporta. La pantalla ignora estos atributos.
     public class ReporteBeneficiariosDto
     {
+        [Display(AutoGenerateField = false)]
         public int BeneficiarioId { get; set; }
+
+        [Display(Name = "Nombre")]
         public string NombreCompleto { get; set; } = string.Empty;
+
+        [Display(Name = "Categoría")]
         public string Categoria { get; set; } = string.Empty;
+
         public int Desayunos { get; set; }
         public int Almuerzos { get; set; }
         public int Meriendas { get; set; }
+
+        [Display(Name = "Total")]
         public int TotalAsistencias { get; set; }
     }
 

@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
@@ -15,6 +16,26 @@ namespace SIGAC.Tests.Infrastructure
 
         private readonly ExportacionService _servicio = new(new EntornoFalso());
 
+        // Fila con todo lo que el exportador trata aparte: título legible, columna
+        // oculta, hora, sí/no y un monto. Clase y no record: [Display] va sobre la
+        // propiedad, y en un record posicional habría que escribir [property: ...].
+        private sealed class FilaConAtributos
+        {
+            [Display(AutoGenerateField = false)]
+            public int Id { get; set; }
+
+            [Display(Name = "Nombre completo")]
+            public string NombreCompleto { get; set; } = string.Empty;
+
+            public TimeSpan Inicio { get; set; }
+            public bool Activo { get; set; }
+            public decimal Monto { get; set; }
+        }
+
+        // El encabezado de la tabla queda siempre en la fila 4: 1 título, 2 período y
+        // fecha de generación, 3 en blanco. Los datos arrancan en la 5.
+        private const int FilaEncabezado = 4;
+
         [Fact]
         public async Task Genera_el_encabezado_y_las_filas_con_el_mismo_formato_que_FormatearValor()
         {
@@ -29,17 +50,17 @@ namespace SIGAC.Tests.Infrastructure
             using var libro = new XLWorkbook(new MemoryStream(archivo));
             var hoja = libro.Worksheets.First();
 
-            Assert.Equal("Nombre", hoja.Cell(1, 1).GetString());
-            Assert.Equal("Fecha", hoja.Cell(1, 2).GetString());
-            Assert.Equal("Monto", hoja.Cell(1, 3).GetString());
+            Assert.Equal("Nombre", hoja.Cell(FilaEncabezado, 1).GetString());
+            Assert.Equal("Fecha", hoja.Cell(FilaEncabezado, 2).GetString());
+            Assert.Equal("Monto", hoja.Cell(FilaEncabezado, 3).GetString());
 
-            Assert.Equal("Juan Perez", hoja.Cell(2, 1).GetString());
-            Assert.Equal(datos[0].Fecha.ToString("dd/MM/yyyy"), hoja.Cell(2, 2).GetString());
-            Assert.Equal(datos[0].Monto.ToString("N2"), hoja.Cell(2, 3).GetString());
+            Assert.Equal("Juan Perez", hoja.Cell(FilaEncabezado + 1, 1).GetString());
+            Assert.Equal(datos[0].Fecha.ToString("dd/MM/yyyy"), hoja.Cell(FilaEncabezado + 1, 2).GetString());
+            Assert.Equal(datos[0].Monto.ToString("N2"), hoja.Cell(FilaEncabezado + 1, 3).GetString());
 
-            Assert.Equal("Maria Lopez", hoja.Cell(3, 1).GetString());
-            Assert.Equal(datos[1].Fecha.ToString("dd/MM/yyyy"), hoja.Cell(3, 2).GetString());
-            Assert.Equal(datos[1].Monto.ToString("N2"), hoja.Cell(3, 3).GetString());
+            Assert.Equal("Maria Lopez", hoja.Cell(FilaEncabezado + 2, 1).GetString());
+            Assert.Equal(datos[1].Fecha.ToString("dd/MM/yyyy"), hoja.Cell(FilaEncabezado + 2, 2).GetString());
+            Assert.Equal(datos[1].Monto.ToString("N2"), hoja.Cell(FilaEncabezado + 2, 3).GetString());
         }
 
         [Fact]
@@ -50,8 +71,108 @@ namespace SIGAC.Tests.Infrastructure
             using var libro = new XLWorkbook(new MemoryStream(archivo));
             var hoja = libro.Worksheets.First();
 
-            Assert.Equal("Nombre", hoja.Cell(1, 1).GetString());
-            Assert.True(hoja.Cell(2, 1).IsEmpty());
+            Assert.Equal("Nombre", hoja.Cell(FilaEncabezado, 1).GetString());
+            Assert.True(hoja.Cell(FilaEncabezado + 1, 1).IsEmpty());
+        }
+
+        [Fact]
+        public async Task Las_columnas_usan_el_titulo_de_Display_y_omiten_las_marcadas_como_ocultas()
+        {
+            var archivo = await _servicio.ExportarExcelAsync(
+                new[] { new FilaConAtributos { Id = 7, NombreCompleto = "Ana", Inicio = new TimeSpan(14, 0, 0), Activo = true, Monto = 10m } },
+                "Reporte con atributos");
+
+            using var libro = new XLWorkbook(new MemoryStream(archivo));
+            var hoja = libro.Worksheets.First();
+
+            Assert.Equal("Nombre completo", hoja.Cell(FilaEncabezado, 1).GetString());
+            Assert.Equal("Inicio", hoja.Cell(FilaEncabezado, 2).GetString());
+            Assert.Equal("Activo", hoja.Cell(FilaEncabezado, 3).GetString());
+            Assert.Equal("Monto", hoja.Cell(FilaEncabezado, 4).GetString());
+            Assert.True(hoja.Cell(FilaEncabezado, 5).IsEmpty());
+
+            // El Id no se exporta: ni como encabezado ni como valor de la fila.
+            Assert.DoesNotContain("Id", hoja.Row(FilaEncabezado).CellsUsed().Select(c => c.GetString()));
+            Assert.Equal("Ana", hoja.Cell(FilaEncabezado + 1, 1).GetString());
+            Assert.DoesNotContain("7", hoja.Row(FilaEncabezado + 1).CellsUsed().Select(c => c.GetString()));
+        }
+
+        [Fact]
+        public async Task Las_horas_salen_como_hora_y_minutos_y_los_booleanos_como_Si_o_No()
+        {
+            var archivo = await _servicio.ExportarExcelAsync(
+                new[] { new FilaConAtributos { NombreCompleto = "Ana", Inicio = new TimeSpan(14, 30, 0), Activo = false } },
+                "Reporte con horas");
+
+            using var libro = new XLWorkbook(new MemoryStream(archivo));
+            var hoja = libro.Worksheets.First();
+
+            Assert.Equal("14:30", hoja.Cell(FilaEncabezado + 1, 2).GetString());
+            Assert.Equal("No", hoja.Cell(FilaEncabezado + 1, 3).GetString());
+        }
+
+        [Fact]
+        public async Task El_subtitulo_sale_bajo_el_titulo_junto_a_la_fecha_de_generacion()
+        {
+            var archivo = await _servicio.ExportarExcelAsync(
+                Array.Empty<FilaDePrueba>(), "Reporte de prueba", "Categoría: Todas  ·  Período: todo el historial");
+
+            using var libro = new XLWorkbook(new MemoryStream(archivo));
+            var hoja = libro.Worksheets.First();
+
+            Assert.Equal("Reporte de prueba", hoja.Cell(1, 1).GetString());
+            Assert.StartsWith("Categoría: Todas  ·  Período: todo el historial", hoja.Cell(2, 1).GetString());
+            Assert.Contains("Generado el", hoja.Cell(2, 1).GetString());
+        }
+
+        [Fact]
+        public async Task Sin_subtitulo_la_segunda_fila_trae_solo_la_fecha_de_generacion()
+        {
+            var archivo = await _servicio.ExportarExcelAsync(Array.Empty<FilaDePrueba>(), "Reporte de prueba");
+
+            using var libro = new XLWorkbook(new MemoryStream(archivo));
+
+            Assert.StartsWith("Generado el", libro.Worksheets.First().Cell(2, 1).GetString());
+        }
+
+        [Fact]
+        public async Task El_resumen_se_imprime_bajo_la_tabla_con_una_fila_en_blanco_de_separacion()
+        {
+            var datos = new[] { new FilaDePrueba("Juan Perez", new DateTime(2026, 3, 15), 100m) };
+            var resumen = new[]
+            {
+                new LineaResumenReporte("Total de asistencias", "12"),
+                new LineaResumenReporte("Beneficiarios atendidos", "3")
+            };
+
+            var archivo = await _servicio.ExportarExcelAsync(datos, "Reporte de prueba", null, resumen);
+
+            using var libro = new XLWorkbook(new MemoryStream(archivo));
+            var hoja = libro.Worksheets.First();
+
+            // Encabezado en la 4, una fila de datos en la 5, en blanco la 6 y el
+            // resumen desde la 7.
+            Assert.True(hoja.Cell(FilaEncabezado + 2, 1).IsEmpty());
+            Assert.Equal("Total de asistencias", hoja.Cell(FilaEncabezado + 3, 1).GetString());
+            Assert.Equal("12", hoja.Cell(FilaEncabezado + 3, 2).GetString());
+            Assert.Equal("Beneficiarios atendidos", hoja.Cell(FilaEncabezado + 4, 1).GetString());
+            Assert.Equal("3", hoja.Cell(FilaEncabezado + 4, 2).GetString());
+        }
+
+        [Fact]
+        public async Task El_pdf_se_genera_con_subtitulo_resumen_y_columnas_con_atributos()
+        {
+            var resumen = new[] { new LineaResumenReporte("Total", "12") };
+
+            var pdf = await _servicio.ExportarPDFAsync(
+                new[] { new FilaConAtributos { Id = 1, NombreCompleto = "Ana", Inicio = new TimeSpan(9, 0, 0), Activo = true, Monto = 5m } },
+                "Reporte de prueba", "Período: todo el historial", resumen);
+
+            // %PDF es la firma de todo archivo PDF: basta para saber que FastReport
+            // aceptó los títulos con espacios y el resumen sin romper el enlace de
+            // las celdas ([Datos.NombreCompleto] sigue siendo el nombre de la propiedad).
+            Assert.True(pdf.Length > 1000);
+            Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(pdf, 0, 4));
         }
 
         [Fact]
