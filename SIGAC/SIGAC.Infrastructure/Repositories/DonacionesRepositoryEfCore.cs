@@ -286,35 +286,26 @@ namespace SIGAC.Infrastructure.Repositories
 
             // Dos tablas, así que se cuenta por donante en cada una y se suman acá
             // (un UNION en SQL no vale la pena: salen pocas filas, una por donante
-            // que donó en la ventana).
+            // que donó en la ventana). El nombre viaja en la propia agrupación: antes
+            // se buscaba aparte con un IN (id1, id2, ...) con un parámetro por donante,
+            // y SQL Server rechaza una consulta de más de 2 100 parámetros.
             var enDinero = await context.DonacionesDinero
                 .AsNoTracking()
                 .Where(d => d.Fecha >= inicioVentana)
-                .GroupBy(d => d.DonanteId)
-                .Select(g => new { DonanteId = g.Key, Cantidad = g.Count() })
+                .GroupBy(d => new { d.DonanteId, d.Donante!.Nombre })
+                .Select(g => new { g.Key.DonanteId, g.Key.Nombre, Cantidad = g.Count() })
                 .ToListAsync();
 
             var enEspecie = await context.DonacionesEspecie
                 .AsNoTracking()
                 .Where(d => d.Fecha >= inicioVentana)
-                .GroupBy(d => d.DonanteId)
-                .Select(g => new { DonanteId = g.Key, Cantidad = g.Count() })
+                .GroupBy(d => new { d.DonanteId, d.Donante!.Nombre })
+                .Select(g => new { g.Key.DonanteId, g.Key.Nombre, Cantidad = g.Count() })
                 .ToListAsync();
 
-            var porDonante = enDinero.Concat(enEspecie)
-                .GroupBy(f => f.DonanteId)
-                .Select(g => new { DonanteId = g.Key, Cantidad = g.Sum(f => f.Cantidad) })
-                .ToList();
-
-            var ids = porDonante.Select(f => f.DonanteId).ToList();
-
-            var nombres = await context.Donantes
-                .AsNoTracking()
-                .Where(d => ids.Contains(d.Id))
-                .ToDictionaryAsync(d => d.Id, d => d.Nombre);
-
-            return porDonante
-                .Select(f => new DonacionesPorDonanteDto(nombres.GetValueOrDefault(f.DonanteId, string.Empty), f.Cantidad))
+            return enDinero.Concat(enEspecie)
+                .GroupBy(f => (f.DonanteId, f.Nombre))
+                .Select(g => new DonacionesPorDonanteDto(g.Key.Nombre, g.Sum(f => f.Cantidad)))
                 .OrderByDescending(f => f.Cantidad).ThenBy(f => f.Donante, StringComparer.CurrentCultureIgnoreCase)
                 .Take(maximo)
                 .ToList();

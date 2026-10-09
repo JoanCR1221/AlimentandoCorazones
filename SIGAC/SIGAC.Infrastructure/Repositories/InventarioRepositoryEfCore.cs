@@ -681,38 +681,28 @@ namespace SIGAC.Infrastructure.Repositories
 
             // Dos tablas, así que se cuenta por artículo en cada una y se suman acá
             // (un UNION en SQL no vale la pena: sale una fila por artículo que se movió
-            // en la ventana).
+            // en la ventana). Nombre y Estado viajan en la propia agrupación (la
+            // etiqueta, "Carpa (En buen estado)", se arma con Articulo.EtiquetaDe, igual
+            // que el historial): antes se buscaban aparte con un IN (id1, id2, ...) con
+            // un parámetro por artículo, y SQL Server rechaza una consulta de más de
+            // 2 100 parámetros.
             var enEntradas = await context.EntradasInventario
                 .AsNoTracking()
                 .Where(e => !e.Anulada && e.Fecha >= inicioVentana)
-                .GroupBy(e => e.ArticuloId)
-                .Select(g => new { ArticuloId = g.Key, Movimientos = g.Count() })
+                .GroupBy(e => new { e.ArticuloId, e.Articulo!.Nombre, e.Articulo.Estado })
+                .Select(g => new { g.Key.ArticuloId, g.Key.Nombre, g.Key.Estado, Movimientos = g.Count() })
                 .ToListAsync();
 
             var enSalidas = await context.SalidasInventario
                 .AsNoTracking()
                 .Where(s => s.Fecha >= inicioVentana)
-                .GroupBy(s => s.ArticuloId)
-                .Select(g => new { ArticuloId = g.Key, Movimientos = g.Count() })
+                .GroupBy(s => new { s.ArticuloId, s.Articulo!.Nombre, s.Articulo.Estado })
+                .Select(g => new { g.Key.ArticuloId, g.Key.Nombre, g.Key.Estado, Movimientos = g.Count() })
                 .ToListAsync();
 
-            var porArticulo = enEntradas.Concat(enSalidas)
-                .GroupBy(f => f.ArticuloId)
-                .Select(g => new { ArticuloId = g.Key, Movimientos = g.Sum(f => f.Movimientos) })
-                .ToList();
-
-            var ids = porArticulo.Select(f => f.ArticuloId).ToList();
-
-            // Nombre y Estado y no la entidad: la etiqueta ("Carpa (En buen estado)")
-            // se arma con Articulo.EtiquetaDe, igual que el historial.
-            var etiquetas = await context.Articulos
-                .AsNoTracking()
-                .Where(a => ids.Contains(a.Id))
-                .Select(a => new { a.Id, a.Nombre, a.Estado })
-                .ToDictionaryAsync(a => a.Id, a => Articulo.EtiquetaDe(a.Nombre, a.Estado));
-
-            return porArticulo
-                .Select(f => new MovimientosPorArticuloDto(etiquetas.GetValueOrDefault(f.ArticuloId, string.Empty), f.Movimientos))
+            return enEntradas.Concat(enSalidas)
+                .GroupBy(f => (f.ArticuloId, f.Nombre, f.Estado))
+                .Select(g => new MovimientosPorArticuloDto(Articulo.EtiquetaDe(g.Key.Nombre, g.Key.Estado), g.Sum(f => f.Movimientos)))
                 .OrderByDescending(f => f.Movimientos).ThenBy(f => f.Articulo, StringComparer.CurrentCultureIgnoreCase)
                 .Take(maximo)
                 .ToList();
