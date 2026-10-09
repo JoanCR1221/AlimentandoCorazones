@@ -206,6 +206,47 @@ namespace SIGAC.Application.DTOs.Reportes
         public IReadOnlyList<MontoPorMonedaDto> IngresosPorMoneda { get; set; } = Array.Empty<MontoPorMonedaDto>();
     }
 
+    // Una fila del reporte de movimientos de inventario (PBI 1941): una entrada, una
+    // donación o un préstamo de un artículo. Sin Id: el de entradas y salidas son
+    // de tablas distintas y se repetirían, y al exportador no le sirve de columna.
+    public class ReporteMovimientosDto
+    {
+        public DateTime Fecha { get; set; }
+
+        public string Articulo { get; set; } = string.Empty;
+
+        // "Entrada", "Donación" o "Préstamo", ya con tilde (el historial usa
+        // "Donacion" y "Prestamo", los valores guardados).
+        [Display(Name = "Tipo")]
+        public string TipoMovimiento { get; set; } = string.Empty;
+
+        public int Cantidad { get; set; }
+
+        // De dónde vino una entrada (Compra, Donación) o a dónde fue una salida.
+        [Display(Name = "Origen / destino")]
+        public string OrigenODestino { get; set; } = string.Empty;
+    }
+
+    // TipoMovimiento usa los valores guardados ("Entrada", "Donacion" o "Prestamo"),
+    // igual que FiltrosMovimientoDto; null es todos. Las fechas sin acotar son
+    // "desde siempre" / "hasta hoy".
+    public class FiltrosReporteMovimientosDto
+    {
+        public int? ArticuloId { get; set; }
+        public string? TipoMovimiento { get; set; }
+        public DateTime? FechaDesde { get; set; }
+        public DateTime? FechaHasta { get; set; }
+    }
+
+    // Las filas y los dos totales que pide el PBI. Son unidades (la suma de
+    // Cantidad), no la cantidad de movimientos, igual que en el historial.
+    public class ReporteMovimientosResultadoDto
+    {
+        public IReadOnlyList<ReporteMovimientosDto> Filas { get; set; } = Array.Empty<ReporteMovimientosDto>();
+        public int TotalEntradas { get; set; }
+        public int TotalSalidas { get; set; }
+    }
+
     // Un alquiler reducido a lo que necesita el panorama de alquileres: cuándo fue,
     // cuánto duró, cuánto costó y qué sectores usó. Lo trae el repositorio ya
     // acotado a la ventana de meses y el servicio lo agrupa.

@@ -1,5 +1,6 @@
 using SIGAC.Application.DTOs.Alquileres;
 using SIGAC.Application.DTOs.Donaciones;
+using SIGAC.Application.DTOs.Inventario;
 using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Application.Interfaces;
 using SIGAC.Application.Services;
@@ -22,6 +23,7 @@ namespace SIGAC.Tests.Application
         private readonly RepositorioDonacionesFalso _donaciones = new();
         private readonly RepositorioDonantesFalso _donantes = new();
         private readonly RepositorioAlquileresFalso _alquileres = new();
+        private readonly RepositorioInventarioFalso _inventario = new();
         private readonly ReportesService _servicio;
 
         private readonly TipoGasto _alquiler;
@@ -40,8 +42,11 @@ namespace SIGAC.Tests.Application
             // real, que solo lee el repositorio.
             var alquileres = new AlquileresService(_alquileres, null!, null!, null!);
 
+            // Y con inventario: el historial de movimientos solo lee el repositorio.
+            var inventario = new InventarioService(_inventario, null!);
+
             _servicio = new ReportesService(_asistencias, new RepositorioBeneficiariosFalso(), _gastos, donaciones, _donaciones, _donantes,
-                alquileres, _alquileres);
+                alquileres, _alquileres, inventario);
 
             _alquiler = _tipos.Agregar("Alquiler de Equipo");
             _combustible = _tipos.Agregar("Combustible");
@@ -109,6 +114,156 @@ namespace SIGAC.Tests.Application
         }
 
         private static FiltrosReporteDonacionesDto TodasLasDonaciones() => new();
+
+        private static int IdDeArticulo(string nombre) => nombre switch
+        {
+            "Arroz" => 1,
+            "Frijoles" => 2,
+            _ => 3
+        };
+
+        private void AgregarEntrada(string articulo, int cantidad, DateTime fecha, string origen = "Compra")
+        {
+            _inventario.Entradas.Add(new EntradaInventario
+            {
+                Id = _inventario.Entradas.Count + 1,
+                ArticuloId = IdDeArticulo(articulo),
+                Articulo = new Articulo { Id = IdDeArticulo(articulo), Nombre = articulo },
+                Cantidad = cantidad,
+                Fecha = fecha,
+                Origen = origen
+            });
+        }
+
+        private void AgregarSalida(string articulo, int cantidad, DateTime fecha, string tipo, string? destino = null)
+        {
+            _inventario.Salidas.Add(new SalidaInventario
+            {
+                Id = _inventario.Salidas.Count + 1,
+                ArticuloId = IdDeArticulo(articulo),
+                Articulo = new Articulo { Id = IdDeArticulo(articulo), Nombre = articulo },
+                Cantidad = cantidad,
+                Fecha = fecha,
+                TipoSalida = tipo,
+                ComunidadDestinataria = destino
+            });
+        }
+
+        private static FiltrosReporteMovimientosDto TodosLosMovimientos() => new();
+
+        [Fact]
+        public async Task El_reporte_de_movimientos_une_entradas_y_salidas_con_los_tipos_bien_escritos()
+        {
+            AgregarEntrada("Arroz", 50, new DateTime(2026, 9, 1), "Compra");
+            AgregarEntrada("Frijoles", 20, new DateTime(2026, 9, 3), "Donacion");
+            AgregarSalida("Arroz", 10, new DateTime(2026, 9, 5), TiposSalidaInventario.Donacion, "Comunidad El Roble");
+            AgregarSalida("Frijoles", 2, new DateTime(2026, 9, 7), TiposSalidaInventario.Prestamo);
+
+            var resultado = await _servicio.GenerarReporteMovimientosAsync(TodosLosMovimientos());
+
+            // De la más reciente a la más antigua.
+            Assert.Equal(new[] { "Préstamo", "Donación", "Entrada", "Entrada" }, resultado.Filas.Select(f => f.TipoMovimiento));
+
+            var prestamo = resultado.Filas[0];
+            Assert.Equal(new DateTime(2026, 9, 7), prestamo.Fecha);
+            Assert.Equal("Frijoles", prestamo.Articulo);
+            Assert.Equal(2, prestamo.Cantidad);
+            // Sin destinatario, el destino es el tipo de salida, bien escrito.
+            Assert.Equal("Préstamo", prestamo.OrigenODestino);
+
+            Assert.Equal("Comunidad El Roble", resultado.Filas[1].OrigenODestino);
+            Assert.Equal("Donación", resultado.Filas[2].OrigenODestino);
+            Assert.Equal("Compra", resultado.Filas[3].OrigenODestino);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_movimientos_suma_unidades_y_no_cantidad_de_movimientos()
+        {
+            AgregarEntrada("Arroz", 50, new DateTime(2026, 9, 1));
+            AgregarEntrada("Arroz", 30, new DateTime(2026, 9, 2));
+            AgregarSalida("Arroz", 15, new DateTime(2026, 9, 5), TiposSalidaInventario.Donacion, "Comunidad El Roble");
+            AgregarSalida("Frijoles", 5, new DateTime(2026, 9, 6), TiposSalidaInventario.Prestamo);
+
+            var resultado = await _servicio.GenerarReporteMovimientosAsync(TodosLosMovimientos());
+
+            Assert.Equal(4, resultado.Filas.Count);
+            Assert.Equal(80, resultado.TotalEntradas);
+            Assert.Equal(20, resultado.TotalSalidas);
+        }
+
+        [Theory]
+        [InlineData("Entrada", 2, 0)]
+        [InlineData("Donacion", 0, 1)]
+        [InlineData("Prestamo", 0, 1)]
+        [InlineData(null, 2, 2)]
+        [InlineData("", 2, 2)]
+        public async Task El_reporte_de_movimientos_filtra_por_tipo(string? tipo, int entradasEsperadas, int salidasEsperadas)
+        {
+            AgregarEntrada("Arroz", 50, new DateTime(2026, 9, 1));
+            AgregarEntrada("Frijoles", 20, new DateTime(2026, 9, 2), "Donacion");
+            AgregarSalida("Arroz", 10, new DateTime(2026, 9, 5), TiposSalidaInventario.Donacion, "Comunidad El Roble");
+            AgregarSalida("Frijoles", 2, new DateTime(2026, 9, 7), TiposSalidaInventario.Prestamo);
+
+            var resultado = await _servicio.GenerarReporteMovimientosAsync(new FiltrosReporteMovimientosDto { TipoMovimiento = tipo });
+
+            Assert.Equal(entradasEsperadas, resultado.Filas.Count(f => f.TipoMovimiento == "Entrada"));
+            Assert.Equal(salidasEsperadas, resultado.Filas.Count(f => f.TipoMovimiento != "Entrada"));
+        }
+
+        [Fact]
+        public async Task El_reporte_de_movimientos_filtra_por_articulo()
+        {
+            AgregarEntrada("Arroz", 50, new DateTime(2026, 9, 1));
+            AgregarEntrada("Frijoles", 20, new DateTime(2026, 9, 2));
+            AgregarSalida("Frijoles", 2, new DateTime(2026, 9, 7), TiposSalidaInventario.Prestamo);
+
+            var resultado = await _servicio.GenerarReporteMovimientosAsync(
+                new FiltrosReporteMovimientosDto { ArticuloId = IdDeArticulo("Frijoles") });
+
+            Assert.All(resultado.Filas, f => Assert.Equal("Frijoles", f.Articulo));
+            Assert.Equal(2, resultado.Filas.Count);
+            Assert.Equal(20, resultado.TotalEntradas);
+            Assert.Equal(2, resultado.TotalSalidas);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_movimientos_filtra_por_fechas_incluyendo_el_ultimo_dia()
+        {
+            AgregarEntrada("Arroz", 1, new DateTime(2026, 8, 31, 23, 0, 0));
+            AgregarEntrada("Arroz", 2, new DateTime(2026, 9, 1, 8, 0, 0));
+            AgregarEntrada("Arroz", 4, new DateTime(2026, 9, 30, 14, 30, 0));
+            AgregarSalida("Arroz", 8, new DateTime(2026, 10, 1), TiposSalidaInventario.Donacion);
+
+            var resultado = await _servicio.GenerarReporteMovimientosAsync(new FiltrosReporteMovimientosDto
+            {
+                FechaDesde = new DateTime(2026, 9, 1),
+                FechaHasta = new DateTime(2026, 9, 30)
+            });
+
+            Assert.Equal(new[] { 4, 2 }, resultado.Filas.Select(f => f.Cantidad));
+            Assert.Equal(6, resultado.TotalEntradas);
+            Assert.Equal(0, resultado.TotalSalidas);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_movimientos_sin_resultados_viene_vacio()
+        {
+            var resultado = await _servicio.GenerarReporteMovimientosAsync(TodosLosMovimientos());
+
+            Assert.Empty(resultado.Filas);
+            Assert.Equal(0, resultado.TotalEntradas);
+            Assert.Equal(0, resultado.TotalSalidas);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_movimientos_envuelve_los_errores_del_historial()
+        {
+            _inventario.Falla = true;
+
+            var error = await Assert.ThrowsAsync<Exception>(() => _servicio.GenerarReporteMovimientosAsync(TodosLosMovimientos()));
+
+            Assert.Equal("Error al generar el reporte de movimientos de inventario.", error.Message);
+        }
 
         private void AgregarAlquiler(string arrendatario, DateTime fecha, TimeSpan inicio, TimeSpan fin, decimal monto,
             string moneda = TiposMoneda.Colones, EstadoAlquiler estado = EstadoAlquiler.Reservado, int personas = 20,
@@ -759,6 +914,57 @@ namespace SIGAC.Tests.Application
             public Task AgregarDonacionEspecieAsync(DonacionEspecie donacion) => throw new NotImplementedException();
             public Task AgregarDonacionEntregadaAsync(DonacionEntregada donacion) => throw new NotImplementedException();
             public Task<IEnumerable<DonacionEntregada>> ObtenerEntregasAsync(FiltrosHistorialEntregaDto filtros) => throw new NotImplementedException();
+        }
+
+        // Solo las dos consultas del historial de movimientos, con el mismo criterio
+        // de fechas que InventarioRepositoryEfCore (el último día entra completo). La
+        // exclusión de las entradas anuladas vive en la consulta SQL del repositorio
+        // real y no se reproduce acá: se verificó en el navegador.
+        private sealed class RepositorioInventarioFalso : IInventarioRepository
+        {
+            public List<EntradaInventario> Entradas { get; } = new();
+            public List<SalidaInventario> Salidas { get; } = new();
+            public bool Falla { get; set; }
+
+            public Task<IEnumerable<EntradaInventario>> ObtenerEntradasAsync(int? articuloId, DateTime? desde, DateTime? hasta)
+            {
+                if (Falla)
+                    throw new InvalidOperationException("Falla simulada de la base de datos.");
+
+                return Task.FromResult<IEnumerable<EntradaInventario>>(Entradas
+                    .Where(e => articuloId is null || e.ArticuloId == articuloId)
+                    .Where(e => desde is null || e.Fecha >= desde.Value.Date)
+                    .Where(e => hasta is null || e.Fecha < hasta.Value.Date.AddDays(1))
+                    .ToList());
+            }
+
+            public Task<IEnumerable<SalidaInventario>> ObtenerSalidasAsync(int? articuloId, DateTime? desde, DateTime? hasta)
+            {
+                if (Falla)
+                    throw new InvalidOperationException("Falla simulada de la base de datos.");
+
+                return Task.FromResult<IEnumerable<SalidaInventario>>(Salidas
+                    .Where(s => articuloId is null || s.ArticuloId == articuloId)
+                    .Where(s => desde is null || s.Fecha >= desde.Value.Date)
+                    .Where(s => hasta is null || s.Fecha < hasta.Value.Date.AddDays(1))
+                    .ToList());
+            }
+
+            public Task<IReadOnlyList<Articulo>> ObtenerArticulosPorNombreAsync(string nombre) => throw new NotImplementedException();
+            public Task<Articulo?> ObtenerArticuloPorIdAsync(int id) => throw new NotImplementedException();
+            public Task ActualizarArticuloAsync(Articulo articulo) => throw new NotImplementedException();
+            public Task<SIGAC.Application.DTOs.ResultadoPaginado<Articulo>> ObtenerExistenciasAsync(FiltrosExistenciaDto filtros) => throw new NotImplementedException();
+            public Task<bool> ExisteCodigoAsync(string? codigo, int? idExcluir = null) => throw new NotImplementedException();
+            public Task<int> ContarStockBajoAsync() => throw new NotImplementedException();
+            public Task<bool> TieneMovimientosAsync(int articuloId) => throw new NotImplementedException();
+            public Task EliminarArticuloAsync(int articuloId) => throw new NotImplementedException();
+            public Task RegistrarEntradaConStockAsync(EntradaInventario entrada, Articulo? articuloNuevo) => throw new NotImplementedException();
+            public Task RegistrarSalidaConStockAsync(SalidaInventario salida) => throw new NotImplementedException();
+            public Task AprobarPrestamoConStockAsync(SolicitudPrestamo solicitud, SalidaInventario salida) => throw new NotImplementedException();
+            public Task AgregarSolicitudPrestamoAsync(SolicitudPrestamo solicitud) => throw new NotImplementedException();
+            public Task<SolicitudPrestamo?> ObtenerSolicitudPorIdAsync(int id) => throw new NotImplementedException();
+            public Task ActualizarSolicitudAsync(SolicitudPrestamo solicitud) => throw new NotImplementedException();
+            public Task<IEnumerable<SolicitudPrestamo>> ObtenerSolicitudesAsync(EstadoSolicitudPrestamo? estado = null) => throw new NotImplementedException();
         }
 
         // Solo el historial, con los mismos criterios que AlquileresRepositoryEfCore

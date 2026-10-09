@@ -1,5 +1,6 @@
 using SIGAC.Application.DTOs.Alquileres;
 using SIGAC.Application.DTOs.Donaciones;
+using SIGAC.Application.DTOs.Inventario;
 using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Application.Interfaces;
 using SIGAC.Domain;
@@ -33,6 +34,7 @@ namespace SIGAC.Application.Services
         private readonly IDonantesRepository _donantesRepository;
         private readonly IAlquileresService _alquileresService;
         private readonly IAlquileresRepository _alquileresRepository;
+        private readonly IInventarioService _inventarioService;
 
         // Donaciones y Alquileres entran cada uno por dos lados: el reporte
         // exportable reutiliza el historial del servicio (que ya une, filtra y
@@ -46,7 +48,8 @@ namespace SIGAC.Application.Services
             IDonacionesRepository donacionesRepository,
             IDonantesRepository donantesRepository,
             IAlquileresService alquileresService,
-            IAlquileresRepository alquileresRepository)
+            IAlquileresRepository alquileresRepository,
+            IInventarioService inventarioService)
         {
             _asistenciaRepository = asistenciaRepository;
             _beneficiariosRepository = beneficiariosRepository;
@@ -56,6 +59,7 @@ namespace SIGAC.Application.Services
             _donantesRepository = donantesRepository;
             _alquileresService = alquileresService;
             _alquileresRepository = alquileresRepository;
+            _inventarioService = inventarioService;
         }
 
         public async Task<ReporteBeneficiariosResultadoDto> GenerarReporteBeneficiariosAsync(FiltrosReporteBeneficiariosDto filtros)
@@ -337,6 +341,56 @@ namespace SIGAC.Application.Services
                 throw new Exception("Error al generar el reporte de alquileres.", ex);
             }
         }
+
+        public async Task<ReporteMovimientosResultadoDto> GenerarReporteMovimientosAsync(FiltrosReporteMovimientosDto filtros)
+        {
+            try
+            {
+                // El historial de movimientos ya une entradas y salidas, filtra por
+                // artículo, tipo y fechas, y suma las unidades de cada lado: el
+                // reporte es esa misma consulta con las columnas que se exportan.
+                var historial = await _inventarioService.ObtenerHistorialMovimientosAsync(new FiltrosMovimientoDto
+                {
+                    ArticuloId = filtros.ArticuloId,
+                    // Vacío también es "todos": el historial solo entiende null, y con
+                    // una cadena vacía no incluiría ni entradas ni salidas.
+                    TipoMovimiento = string.IsNullOrWhiteSpace(filtros.TipoMovimiento) ? null : filtros.TipoMovimiento,
+                    Desde = filtros.FechaDesde,
+                    Hasta = filtros.FechaHasta
+                });
+
+                var filas = historial.Movimientos
+                    .Select(m => new ReporteMovimientosDto
+                    {
+                        Fecha = m.Fecha,
+                        Articulo = m.Articulo,
+                        TipoMovimiento = EtiquetaDeMovimiento(m.TipoMovimiento),
+                        Cantidad = m.Cantidad,
+                        OrigenODestino = EtiquetaDeMovimiento(m.OrigenODestino ?? string.Empty)
+                    })
+                    .ToList();
+
+                return new ReporteMovimientosResultadoDto
+                {
+                    Filas = filas,
+                    TotalEntradas = historial.TotalEntradas,
+                    TotalSalidas = historial.TotalSalidas
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al generar el reporte de movimientos de inventario.", ex);
+            }
+        }
+
+        // Los valores guardados no llevan tilde ("Donacion", "Prestamo"); el reporte
+        // los muestra bien escritos, igual que la pantalla del historial.
+        private static string EtiquetaDeMovimiento(string valor) => valor switch
+        {
+            TiposSalidaInventario.Donacion => "Donación",
+            TiposSalidaInventario.Prestamo => "Préstamo",
+            _ => valor
+        };
 
         public async Task<PanoramaAlquileresDto> ObtenerPanoramaAlquileresAsync()
         {

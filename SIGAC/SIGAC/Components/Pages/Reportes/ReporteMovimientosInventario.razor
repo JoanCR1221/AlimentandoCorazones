@@ -1,0 +1,167 @@
+@page "/reportes/inventario"
+@attribute [Authorize(Policy = Permisos.Reportes.VerInventario)]
+@using SIGAC.Application.DTOs.Inventario
+@using SIGAC.Application.DTOs.Reportes
+@using SIGAC.Application.Interfaces
+@inject IReportesService ReportesService
+@inject IInventarioService InventarioService
+@inject ISnackbar Snackbar
+
+<EncabezadoPagina Titulo="Reporte de movimientos de inventario"
+                   Descripcion="Entradas, donaciones y préstamos de artículos en el período, con las unidades que entraron y las que salieron." />
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        <MudGrid Spacing="2" Class="mb-2">
+            <MudItem xs="12" md="4">
+                <MudAutocomplete T="ArticuloExistenciaDto" Label="Artículo" Variant="Variant.Outlined"
+                                 Value="articuloSeleccionado" ValueChanged="@(v => articuloSeleccionado = v)"
+                                 SearchFunc="BuscarArticulosAsync" ToStringFunc="@(a => a?.Etiqueta)" Clearable="true" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                @* Sin selección son todos. Los valores son los guardados, los mismos del
+                   historial de movimientos. *@
+                <MudSelect T="string" Value="filtroTipo" ValueChanged="@(v => filtroTipo = v)"
+                           Label="Tipo de movimiento" Variant="Variant.Outlined" Clearable="true">
+                    <MudSelectItem T="string" Value="@("Entrada")">Entrada</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Donacion")">Donación</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Prestamo")">Préstamo</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="@(v => rangoFechas = v)"
+                                    Label="Rango de fechas" Variant="Variant.Outlined"
+                                    DateFormat="dd/MM/yyyy" Clearable="true" MaxDate="DateTime.Today" />
+            </MudItem>
+        </MudGrid>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Assessment"
+                   Disabled="generando" OnClick="GenerarAsync" Class="mb-4">
+            @(generando ? "Generando..." : "Generar reporte")
+        </MudButton>
+
+        @if (generando)
+        {
+            <CargandoGrilla />
+        }
+        else if (seGenero)
+        {
+            @* Unidades y no movimientos: es la suma de las cantidades, igual que el
+               total del historial. *@
+            <section class="ac-kpis" aria-label="Resumen del reporte">
+                <TarjetaResumen Titulo="Movimientos en el período"
+                                Valor="@TextoResumen.Numero(resultado.Filas.Count)"
+                                Detalle="@DesgloseMovimientos"
+                                Icono="@Icons.Material.Filled.SwapHoriz" />
+                <TarjetaResumen Titulo="Unidades que entraron"
+                                Valor="@TextoResumen.Numero(resultado.TotalEntradas)"
+                                Icono="@Icons.Material.Filled.Input" />
+                <TarjetaResumen Titulo="Unidades que salieron"
+                                Valor="@TextoResumen.Numero(resultado.TotalSalidas)"
+                                Detalle="Donaciones y préstamos"
+                                Icono="@Icons.Material.Filled.Output" />
+            </section>
+
+            <MudDataGrid T="ReporteMovimientosDto" Items="@resultado.Filas" Class="mb-4"
+                         SortMode="SortMode.None" Filterable="false" Dense="true">
+                <Columns>
+                    <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
+                    <PropertyColumn Property="x => x.Articulo" Title="Artículo" />
+                    <PropertyColumn Property="x => x.TipoMovimiento" Title="Tipo" />
+                    <PropertyColumn Property="x => x.Cantidad" Title="Cantidad" />
+                    <PropertyColumn Property="x => x.OrigenODestino" Title="Origen / destino" />
+                </Columns>
+                <NoRecordsContent>
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="No hay movimientos registrados con estos filtros"
+                                 Descripcion="Pruebe con otro artículo, tipo de movimiento o rango de fechas." />
+                </NoRecordsContent>
+            </MudDataGrid>
+
+            <AccionesReporte TFila="ReporteMovimientosDto" Titulo="Reporte de movimientos de inventario" Datos="resultado.Filas"
+                             Subtitulo="@subtituloGenerado" Resumen="resumenGenerado" />
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private ArticuloExistenciaDto? articuloSeleccionado;
+    private string? filtroTipo;
+    private DateRange? rangoFechas;
+    private bool generando;
+    private bool seGenero;
+    private ReporteMovimientosResultadoDto resultado = new();
+
+    // Lo que se imprime en el PDF y el Excel: se arma al generar, con los filtros de
+    // ese momento (ver ReporteBeneficiarios.razor), no al exportar.
+    private string? subtituloGenerado;
+    private IReadOnlyList<LineaResumenReporte> resumenGenerado = Array.Empty<LineaResumenReporte>();
+
+    // "5 entradas · 3 salidas": cuántos movimientos de cada lado, que no es lo mismo
+    // que las unidades de las tarjetas de al lado.
+    private string DesgloseMovimientos
+    {
+        get
+        {
+            var entradas = resultado.Filas.Count(f => f.TipoMovimiento == "Entrada");
+
+            return string.Join(" · ",
+                TextoResumen.Cantidad(entradas, "entrada", "entradas"),
+                TextoResumen.Cantidad(resultado.Filas.Count - entradas, "salida", "salidas"));
+        }
+    }
+
+    private async Task<IEnumerable<ArticuloExistenciaDto>> BuscarArticulosAsync(string valor, CancellationToken cancellationToken)
+    {
+        var existencias = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto { Nombre = valor });
+        return existencias.Elementos;
+    }
+
+    private static string TextoTipo(string? tipo) => tipo switch
+    {
+        "Entrada" => "Entrada",
+        "Donacion" => "Donación",
+        "Prestamo" => "Préstamo",
+        _ => "Todos"
+    };
+
+    private string ConstruirSubtitulo() =>
+        $"Artículo: {articuloSeleccionado?.Etiqueta ?? "Todos"}  ·  Tipo: {TextoTipo(filtroTipo)}  ·  " +
+        $"Período: {TextoResumen.Periodo(rangoFechas?.Start, rangoFechas?.End)}";
+
+    private IReadOnlyList<LineaResumenReporte> ConstruirResumen() => new[]
+    {
+        new LineaResumenReporte("Movimientos en el período", TextoResumen.Numero(resultado.Filas.Count)),
+        new LineaResumenReporte("Unidades que entraron", TextoResumen.Numero(resultado.TotalEntradas)),
+        new LineaResumenReporte("Unidades que salieron", TextoResumen.Numero(resultado.TotalSalidas))
+    };
+
+    private async Task GenerarAsync()
+    {
+        generando = true;
+
+        try
+        {
+            var subtitulo = ConstruirSubtitulo();
+
+            resultado = await ReportesService.GenerarReporteMovimientosAsync(new FiltrosReporteMovimientosDto
+            {
+                ArticuloId = articuloSeleccionado?.Id,
+                TipoMovimiento = filtroTipo,
+                FechaDesde = rangoFechas?.Start,
+                FechaHasta = rangoFechas?.End
+            });
+            subtituloGenerado = subtitulo;
+            resumenGenerado = ConstruirResumen();
+            seGenero = true;
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo generar el reporte. Intentá de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            generando = false;
+        }
+    }
+}
