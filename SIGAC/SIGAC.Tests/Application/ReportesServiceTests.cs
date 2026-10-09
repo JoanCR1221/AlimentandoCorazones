@@ -1,3 +1,4 @@
+using SIGAC.Application.DTOs.Donaciones;
 using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Application.Interfaces;
 using SIGAC.Application.Services;
@@ -6,14 +7,16 @@ using SIGAC.Domain.Entities;
 
 namespace SIGAC.Tests.Application
 {
-    // El reporte de gastos y la agrupación del de beneficiarios: los dos paneles
-    // gráficos y el resto del de beneficiarios están cubiertos por verificación
-    // manual en el navegador (ver las notas de los commits que los agregaron).
+    // El reporte de gastos, el de donaciones y la agrupación del de beneficiarios:
+    // los dos paneles gráficos y el resto del de beneficiarios están cubiertos por
+    // verificación manual en el navegador (ver las notas de los commits que los
+    // agregaron).
     public class ReportesServiceTests
     {
         private readonly RepositorioTiposGastoFalso _tipos = new();
         private readonly RepositorioGastosFalso _gastos;
         private readonly RepositorioAsistenciaFalso _asistencias = new();
+        private readonly RepositorioDonacionesFalso _donaciones = new();
         private readonly ReportesService _servicio;
 
         private readonly TipoGasto _alquiler;
@@ -22,7 +25,13 @@ namespace SIGAC.Tests.Application
         public ReportesServiceTests()
         {
             _gastos = new RepositorioGastosFalso(_tipos);
-            _servicio = new ReportesService(_asistencias, new RepositorioBeneficiariosFalso(), _gastos);
+
+            // El reporte de donaciones solo usa el historial del DonacionesService
+            // real (así las pruebas cubren el filtro por tipo y el total por moneda
+            // de verdad), y ese método solo lee el repositorio: lo demás no se toca.
+            var donaciones = new DonacionesService(_donaciones, null!, null!, null!, null!);
+
+            _servicio = new ReportesService(_asistencias, new RepositorioBeneficiariosFalso(), _gastos, donaciones);
 
             _alquiler = _tipos.Agregar("Alquiler de Equipo");
             _combustible = _tipos.Agregar("Combustible");
@@ -60,6 +69,173 @@ namespace SIGAC.Tests.Application
                 Fecha = new DateTime(2026, 9, dia),
                 TiempoComida = tiempoComida
             });
+        }
+
+        private void AgregarDonacionDinero(string donante, decimal monto, string moneda, DateTime fecha, string? observaciones = null)
+        {
+            _donaciones.Dinero.Add(new DonacionDinero
+            {
+                Id = _donaciones.Dinero.Count + 1,
+                Donante = new Donante { Nombre = donante },
+                Monto = monto,
+                Moneda = moneda,
+                Fecha = fecha,
+                Observaciones = observaciones
+            });
+        }
+
+        private void AgregarDonacionEspecie(string donante, DateTime fecha, string articulo, int cantidad)
+        {
+            _donaciones.Especie.Add(new DonacionEspecie
+            {
+                Id = _donaciones.Especie.Count + 1,
+                Donante = new Donante { Nombre = donante },
+                Fecha = fecha,
+                Detalles =
+                {
+                    new DetalleDonacionEspecie { NombreArticulo = articulo, Cantidad = cantidad, UnidadMedida = "kg" }
+                }
+            });
+        }
+
+        private static FiltrosReporteDonacionesDto TodasLasDonaciones() => new();
+
+        [Fact]
+        public async Task El_reporte_de_donaciones_une_dinero_y_especie_de_la_mas_reciente_a_la_mas_antigua()
+        {
+            AgregarDonacionDinero("Ana Mora", 25000m, TiposMoneda.Colones, new DateTime(2026, 9, 3), "Para el comedor");
+            AgregarDonacionEspecie("Super Valle", new DateTime(2026, 9, 10), "Arroz", 3);
+
+            var resultado = await _servicio.GenerarReporteDonacionesAsync(TodasLasDonaciones());
+
+            Assert.Equal(2, resultado.Filas.Count);
+
+            var especie = resultado.Filas[0];
+            Assert.Equal(new DateTime(2026, 9, 10), especie.Fecha);
+            Assert.Equal("Especie", especie.TipoDonacion);
+            Assert.Equal("Super Valle", especie.Donante);
+            Assert.Equal("3 kg de Arroz", especie.Descripcion);
+
+            // La especie no se valoriza: sin monto ni moneda, no un 0.
+            Assert.Null(especie.Monto);
+            Assert.Null(especie.Moneda);
+
+            var dinero = resultado.Filas[1];
+            Assert.Equal("Dinero", dinero.TipoDonacion);
+            Assert.Equal("Ana Mora", dinero.Donante);
+            Assert.Equal(25000m, dinero.Monto);
+            Assert.Equal(TiposMoneda.Colones, dinero.Moneda);
+            Assert.Equal("Para el comedor", dinero.Descripcion);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_donaciones_cuenta_las_de_cada_clase()
+        {
+            AgregarDonacionDinero("Ana Mora", 1000m, TiposMoneda.Colones, new DateTime(2026, 9, 1));
+            AgregarDonacionDinero("Beto Solís", 2000m, TiposMoneda.Colones, new DateTime(2026, 9, 2));
+            AgregarDonacionEspecie("Super Valle", new DateTime(2026, 9, 3), "Arroz", 3);
+
+            var resultado = await _servicio.GenerarReporteDonacionesAsync(TodasLasDonaciones());
+
+            Assert.Equal(2, resultado.CantidadDinero);
+            Assert.Equal(1, resultado.CantidadEspecie);
+            Assert.Equal(3, resultado.Filas.Count);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_donaciones_totaliza_el_dinero_por_moneda_sin_mezclarlas()
+        {
+            AgregarDonacionDinero("Ana Mora", 1000m, TiposMoneda.Colones, new DateTime(2026, 9, 1));
+            AgregarDonacionDinero("Beto Solís", 500m, TiposMoneda.Colones, new DateTime(2026, 9, 2));
+            AgregarDonacionDinero("Carla Rojas", 20m, TiposMoneda.Dolares, new DateTime(2026, 9, 3));
+
+            var resultado = await _servicio.GenerarReporteDonacionesAsync(TodasLasDonaciones());
+
+            Assert.Equal(2, resultado.TotalesPorMoneda.Count);
+            Assert.Equal(1500m, Assert.Single(resultado.TotalesPorMoneda, t => t.Moneda == TiposMoneda.Colones).Total);
+            Assert.Equal(20m, Assert.Single(resultado.TotalesPorMoneda, t => t.Moneda == TiposMoneda.Dolares).Total);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_donaciones_lista_los_totales_en_el_orden_del_catalogo_de_monedas()
+        {
+            // De la más reciente a la más antigua aparecen euros, dólares y colones:
+            // el total tiene que salir al revés, igual que TiposMoneda.Todos.
+            AgregarDonacionDinero("Ana Mora", 1000m, TiposMoneda.Colones, new DateTime(2026, 9, 1));
+            AgregarDonacionDinero("Carla Rojas", 20m, TiposMoneda.Dolares, new DateTime(2026, 9, 2));
+            AgregarDonacionDinero("Dora Vega", 15m, TiposMoneda.Euros, new DateTime(2026, 9, 3));
+
+            var resultado = await _servicio.GenerarReporteDonacionesAsync(TodasLasDonaciones());
+
+            Assert.Equal(TiposMoneda.Todos, resultado.TotalesPorMoneda.Select(t => t.Moneda));
+        }
+
+        [Fact]
+        public async Task Las_donaciones_en_especie_no_suman_dinero()
+        {
+            AgregarDonacionEspecie("Super Valle", new DateTime(2026, 9, 3), "Arroz", 3);
+            AgregarDonacionEspecie("Super Valle", new DateTime(2026, 9, 4), "Frijoles", 5);
+
+            var resultado = await _servicio.GenerarReporteDonacionesAsync(TodasLasDonaciones());
+
+            Assert.Equal(2, resultado.CantidadEspecie);
+            Assert.Equal(0, resultado.CantidadDinero);
+            Assert.Empty(resultado.TotalesPorMoneda);
+        }
+
+        [Theory]
+        [InlineData("Dinero", 1, 0)]
+        [InlineData("Especie", 0, 1)]
+        [InlineData(null, 1, 1)]
+        [InlineData("", 1, 1)]
+        public async Task El_reporte_de_donaciones_filtra_por_tipo(string? tipo, int esperadasDinero, int esperadasEspecie)
+        {
+            AgregarDonacionDinero("Ana Mora", 1000m, TiposMoneda.Colones, new DateTime(2026, 9, 1));
+            AgregarDonacionEspecie("Super Valle", new DateTime(2026, 9, 3), "Arroz", 3);
+
+            var resultado = await _servicio.GenerarReporteDonacionesAsync(new FiltrosReporteDonacionesDto { TipoDonacion = tipo });
+
+            Assert.Equal(esperadasDinero, resultado.CantidadDinero);
+            Assert.Equal(esperadasEspecie, resultado.CantidadEspecie);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_donaciones_filtra_por_fechas_e_incluye_el_ultimo_dia()
+        {
+            AgregarDonacionDinero("Antes", 1m, TiposMoneda.Colones, new DateTime(2026, 8, 31, 23, 0, 0));
+            AgregarDonacionDinero("Primer día", 2m, TiposMoneda.Colones, new DateTime(2026, 9, 1, 8, 0, 0));
+            AgregarDonacionDinero("Último día", 4m, TiposMoneda.Colones, new DateTime(2026, 9, 30, 14, 30, 0));
+            AgregarDonacionDinero("Después", 8m, TiposMoneda.Colones, new DateTime(2026, 10, 1, 0, 0, 0));
+
+            var resultado = await _servicio.GenerarReporteDonacionesAsync(new FiltrosReporteDonacionesDto
+            {
+                FechaDesde = new DateTime(2026, 9, 1),
+                FechaHasta = new DateTime(2026, 9, 30)
+            });
+
+            Assert.Equal(new[] { "Último día", "Primer día" }, resultado.Filas.Select(f => f.Donante));
+            Assert.Equal(6m, Assert.Single(resultado.TotalesPorMoneda).Total);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_donaciones_sin_resultados_viene_vacio()
+        {
+            var resultado = await _servicio.GenerarReporteDonacionesAsync(TodasLasDonaciones());
+
+            Assert.Empty(resultado.Filas);
+            Assert.Empty(resultado.TotalesPorMoneda);
+            Assert.Equal(0, resultado.CantidadDinero);
+            Assert.Equal(0, resultado.CantidadEspecie);
+        }
+
+        [Fact]
+        public async Task El_reporte_de_donaciones_envuelve_los_errores_del_historial()
+        {
+            _donaciones.Falla = true;
+
+            var error = await Assert.ThrowsAsync<Exception>(() => _servicio.GenerarReporteDonacionesAsync(TodasLasDonaciones()));
+
+            Assert.Equal("Error al generar el reporte de donaciones.", error.Message);
         }
 
         [Fact]
@@ -188,6 +364,38 @@ namespace SIGAC.Tests.Application
                 Task.FromResult<IEnumerable<AsistenciaComedor>>(Asistencias);
             public Task<IReadOnlyList<ConteoComidaMensualDto>> ObtenerComidasPorTiempoYMesAsync(int mesesHaciaAtras) => throw new NotImplementedException();
             public Task<IReadOnlyList<ConteoPorMesDto>> ObtenerPersonasAtendidasPorMesAsync(int mesesHaciaAtras) => throw new NotImplementedException();
+        }
+
+        // Solo las dos consultas del historial, con el mismo criterio de fechas que
+        // DonacionesRepositoryEfCore (el último día entra completo). El resto no lo
+        // usa el reporte.
+        private sealed class RepositorioDonacionesFalso : IDonacionesRepository
+        {
+            public List<DonacionDinero> Dinero { get; } = new();
+            public List<DonacionEspecie> Especie { get; } = new();
+            public bool Falla { get; set; }
+
+            public Task<IEnumerable<DonacionDinero>> ObtenerDonacionesDineroAsync(FiltrosHistorialDonacionDto filtros) =>
+                Task.FromResult(Consultar(Dinero, d => d.Fecha, filtros));
+
+            public Task<IEnumerable<DonacionEspecie>> ObtenerDonacionesEspecieAsync(FiltrosHistorialDonacionDto filtros) =>
+                Task.FromResult(Consultar(Especie, d => d.Fecha, filtros));
+
+            private IEnumerable<T> Consultar<T>(List<T> donaciones, Func<T, DateTime> fecha, FiltrosHistorialDonacionDto filtros)
+            {
+                if (Falla)
+                    throw new InvalidOperationException("Falla simulada de la base de datos.");
+
+                return donaciones
+                    .Where(d => filtros.FechaDesde is null || fecha(d) >= filtros.FechaDesde.Value.Date)
+                    .Where(d => filtros.FechaHasta is null || fecha(d) < filtros.FechaHasta.Value.Date.AddDays(1))
+                    .ToList();
+            }
+
+            public Task AgregarDonacionDineroAsync(DonacionDinero donacion) => throw new NotImplementedException();
+            public Task AgregarDonacionEspecieAsync(DonacionEspecie donacion) => throw new NotImplementedException();
+            public Task AgregarDonacionEntregadaAsync(DonacionEntregada donacion) => throw new NotImplementedException();
+            public Task<IEnumerable<DonacionEntregada>> ObtenerEntregasAsync(FiltrosHistorialEntregaDto filtros) => throw new NotImplementedException();
         }
 
         private sealed class RepositorioBeneficiariosFalso : SIGAC.Application.Interfaces.IBeneficiariosRepository

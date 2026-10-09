@@ -21,6 +21,17 @@ namespace SIGAC.Components.Shared
                 ? "—"
                 : string.Join(" · ", montos.Select(m => $"{TiposMoneda.Simbolo(m.Moneda)} {m.Total:N2}"));
 
+        // Período de un reporte en palabras, para el subtítulo del PDF y el Excel:
+        // "01/09/2026 al 30/09/2026", "desde el ...", "hasta el ..." o, sin acotar,
+        // "todo el historial".
+        public static string Periodo(DateTime? desde, DateTime? hasta) => (desde, hasta) switch
+        {
+            ({ } d, { } h) => $"{d:dd/MM/yyyy} al {h:dd/MM/yyyy}",
+            ({ } d, null) => $"desde el {d:dd/MM/yyyy}",
+            (null, { } h) => $"hasta el {h:dd/MM/yyyy}",
+            _ => "todo el historial"
+        };
+
         // Compara el mes en curso con el anterior, en palabras.
         public static string VsMesAnterior(int actual, int anterior)
         {

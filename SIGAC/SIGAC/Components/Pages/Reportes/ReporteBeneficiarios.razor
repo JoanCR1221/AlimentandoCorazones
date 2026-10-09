@@ -98,15 +98,7 @@
     {
         var categoria = string.IsNullOrWhiteSpace(filtroCategoria) ? "Todas" : filtroCategoria;
 
-        var periodo = (rangoFechas?.Start, rangoFechas?.End) switch
-        {
-            ({ } desde, { } hasta) => $"{desde:dd/MM/yyyy} al {hasta:dd/MM/yyyy}",
-            ({ } desde, null) => $"desde el {desde:dd/MM/yyyy}",
-            (null, { } hasta) => $"hasta el {hasta:dd/MM/yyyy}",
-            _ => "todo el historial"
-        };
-
-        return $"Categoría: {categoria}  ·  Período: {periodo}";
+        return $"Categoría: {categoria}  ·  Período: {TextoResumen.Periodo(rangoFechas?.Start, rangoFechas?.End)}";
     }
 
     private IReadOnlyList<LineaResumenReporte> ConstruirResumen() => new[]

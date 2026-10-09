@@ -1,3 +1,4 @@
+using SIGAC.Application.DTOs.Donaciones;
 using SIGAC.Application.DTOs.Reportes;
 using SIGAC.Application.Interfaces;
 using SIGAC.Domain;
@@ -22,15 +23,18 @@ namespace SIGAC.Application.Services
         private readonly IAsistenciaRepository _asistenciaRepository;
         private readonly IBeneficiariosRepository _beneficiariosRepository;
         private readonly IGastosRepository _gastosRepository;
+        private readonly IDonacionesService _donacionesService;
 
         public ReportesService(
             IAsistenciaRepository asistenciaRepository,
             IBeneficiariosRepository beneficiariosRepository,
-            IGastosRepository gastosRepository)
+            IGastosRepository gastosRepository,
+            IDonacionesService donacionesService)
         {
             _asistenciaRepository = asistenciaRepository;
             _beneficiariosRepository = beneficiariosRepository;
             _gastosRepository = gastosRepository;
+            _donacionesService = donacionesService;
         }
 
         public async Task<ReporteBeneficiariosResultadoDto> GenerarReporteBeneficiariosAsync(FiltrosReporteBeneficiariosDto filtros)
@@ -183,6 +187,62 @@ namespace SIGAC.Application.Services
             {
                 throw new Exception("Error al generar el reporte de gastos operativos.", ex);
             }
+        }
+
+        public async Task<ReporteDonacionesResultadoDto> GenerarReporteDonacionesAsync(FiltrosReporteDonacionesDto filtros)
+        {
+            try
+            {
+                // El historial de donaciones ya une dinero y especie, filtra por tipo
+                // y fechas y calcula el total por moneda: el reporte es esa misma
+                // consulta con las columnas que se exportan, así que no se repite.
+                var historial = await _donacionesService.ObtenerHistorialDonacionesAsync(new FiltrosHistorialDonacionDto
+                {
+                    // Vacío también es "ambas": el historial solo entiende null, y con
+                    // una cadena vacía no incluiría ninguna de las dos clases.
+                    TipoDonacion = string.IsNullOrWhiteSpace(filtros.TipoDonacion) ? null : filtros.TipoDonacion,
+                    FechaDesde = filtros.FechaDesde,
+                    FechaHasta = filtros.FechaHasta
+                });
+
+                var filas = historial.Donaciones
+                    .Select(d => new ReporteDonacionesDto
+                    {
+                        Fecha = d.Fecha,
+                        TipoDonacion = d.TipoDonacion,
+                        Donante = d.NombreDonante,
+                        Monto = d.Monto,
+                        Moneda = d.Moneda,
+                        Descripcion = d.Descripcion
+                    })
+                    .ToList();
+
+                return new ReporteDonacionesResultadoDto
+                {
+                    Filas = filas,
+                    CantidadDinero = filas.Count(f => f.TipoDonacion == DonacionesService.TipoDonacionDinero),
+                    CantidadEspecie = filas.Count(f => f.TipoDonacion == DonacionesService.TipoDonacionEspecie),
+                    // En el orden del catálogo de monedas (colones, dólares, euros):
+                    // el historial las trae en el orden en que aparecen, y en el
+                    // reporte cambiaría de un período a otro según qué donación sea
+                    // la más reciente.
+                    TotalesPorMoneda = historial.TotalesPorMoneda
+                        .OrderBy(t => OrdenDeMoneda(t.Moneda))
+                        .ToList()
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Error al generar el reporte de donaciones.", ex);
+            }
+        }
+
+        // Posición de la moneda en TiposMoneda.Todos; una que no esté en el catálogo
+        // va al final en vez de romper el reporte.
+        private static int OrdenDeMoneda(string moneda)
+        {
+            var posicion = TiposMoneda.Todos.ToList().IndexOf(moneda);
+            return posicion < 0 ? int.MaxValue : posicion;
         }
     }
 }

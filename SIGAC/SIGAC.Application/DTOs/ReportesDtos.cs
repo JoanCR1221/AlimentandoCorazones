@@ -149,4 +149,48 @@ namespace SIGAC.Application.DTOs.Reportes
         public decimal GranTotalMonto { get; set; }
         public decimal GranTotalIva { get; set; }
     }
+
+    // Una fila del reporte de donaciones recibidas: dinero y especie en la misma
+    // tabla, igual que el historial de donaciones (PBI 1939). Sin Id: el del
+    // historial es el de su tabla y se repetiría entre dinero y especie, y al
+    // exportador no le sirve de columna.
+    public class ReporteDonacionesDto
+    {
+        public DateTime Fecha { get; set; }
+
+        [Display(Name = "Tipo")]
+        public string TipoDonacion { get; set; } = string.Empty;
+
+        public string Donante { get; set; } = string.Empty;
+
+        // Nullable y sin valor en las donaciones en especie, que no se valorizan:
+        // la celda queda vacía en vez de mostrar un 0 que se leería como "donó cero".
+        public decimal? Monto { get; set; }
+
+        public string? Moneda { get; set; }
+
+        [Display(Name = "Descripción")]
+        public string Descripcion { get; set; } = string.Empty;
+    }
+
+    // TipoDonacion en null significa "ambas" (Dinero y Especie); las fechas sin
+    // acotar son "desde siempre" / "hasta hoy", igual que en los otros reportes.
+    public class FiltrosReporteDonacionesDto
+    {
+        public string? TipoDonacion { get; set; }
+        public DateTime? FechaDesde { get; set; }
+        public DateTime? FechaHasta { get; set; }
+    }
+
+    // Las filas y lo que piden los criterios del PBI: la cantidad de donaciones
+    // de cada clase y el total de dinero. El total va POR MONEDA y nunca como un
+    // solo número, porque colones, dólares y euros no se suman entre sí; las
+    // donaciones en especie no aportan monto.
+    public class ReporteDonacionesResultadoDto
+    {
+        public IReadOnlyList<ReporteDonacionesDto> Filas { get; set; } = Array.Empty<ReporteDonacionesDto>();
+        public int CantidadDinero { get; set; }
+        public int CantidadEspecie { get; set; }
+        public IReadOnlyList<MontoPorMonedaDto> TotalesPorMoneda { get; set; } = Array.Empty<MontoPorMonedaDto>();
+    }
 }

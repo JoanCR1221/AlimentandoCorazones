@@ -1,0 +1,155 @@
+@page "/reportes/donaciones"
+@attribute [Authorize(Policy = Permisos.Reportes.VerDonaciones)]
+@using SIGAC.Application.DTOs.Reportes
+@using SIGAC.Application.Interfaces
+@inject IReportesService ReportesService
+@inject ISnackbar Snackbar
+
+<EncabezadoPagina Titulo="Reporte de donaciones"
+                   Descripcion="Donaciones recibidas en dinero y en especie durante el período, con el total de dinero por moneda, para rendir cuentas ante donantes y autoridades." />
+
+<MudCard Class="pa-4">
+    <MudCardContent>
+        <MudGrid Spacing="2" Class="mb-2">
+            <MudItem xs="12" sm="4">
+                @* Sin selección son ambas clases. Los valores son los mismos que usa
+                   el historial de donaciones. *@
+                <MudSelect T="string" Value="filtroTipo" ValueChanged="@(v => filtroTipo = v)"
+                           Label="Tipo de donación" Variant="Variant.Outlined" Clearable="true">
+                    <MudSelectItem T="string" Value="@("Dinero")">Dinero</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Especie")">Especie</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="8">
+                <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="@(v => rangoFechas = v)"
+                                    Label="Rango de fechas" Variant="Variant.Outlined"
+                                    DateFormat="dd/MM/yyyy" Clearable="true" MaxDate="DateTime.Today" />
+            </MudItem>
+        </MudGrid>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Assessment"
+                   Disabled="generando" OnClick="GenerarAsync" Class="mb-4">
+            @(generando ? "Generando..." : "Generar reporte")
+        </MudButton>
+
+        @if (generando)
+        {
+            <CargandoGrilla />
+        }
+        else if (seGenero)
+        {
+            @* El dinero va por moneda y nunca en un solo número: colones, dólares y
+               euros no se suman. Las donaciones en especie no se valorizan, así que
+               solo aparecen como cantidad. *@
+            <section class="ac-kpis" aria-label="Resumen del reporte">
+                <TarjetaResumen Titulo="Donaciones en el período"
+                                Valor="@TextoResumen.Numero(resultado.Filas.Count)"
+                                Icono="@Icons.Material.Filled.VolunteerActivism" />
+                <TarjetaResumen Titulo="Total en dinero"
+                                Valor="@TextoResumen.Montos(resultado.TotalesPorMoneda)"
+                                Detalle="@TextoResumen.Cantidad(resultado.CantidadDinero, "donación en dinero", "donaciones en dinero")"
+                                Icono="@Icons.Material.Filled.Payments" />
+                <TarjetaResumen Titulo="Donaciones en especie"
+                                Valor="@TextoResumen.Numero(resultado.CantidadEspecie)"
+                                Icono="@Icons.Material.Filled.Inventory2" />
+            </section>
+
+            <MudDataGrid T="ReporteDonacionesDto" Items="@resultado.Filas" Class="mb-4"
+                         SortMode="SortMode.None" Filterable="false" Dense="true">
+                <Columns>
+                    <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
+                    <PropertyColumn Property="x => x.TipoDonacion" Title="Tipo" />
+                    <PropertyColumn Property="x => x.Donante" Title="Donante" />
+                    <TemplateColumn Title="Monto">
+                        <CellTemplate>
+                            @(context.Item.Monto is null
+                                ? "—"
+                                : TiposMoneda.ConSimbolo(context.Item.Moneda, context.Item.Monto.Value))
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="x => x.Descripcion" Title="Descripción" />
+                </Columns>
+                <NoRecordsContent>
+                    <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
+                                 Titulo="No hay donaciones registradas con estos filtros"
+                                 Descripcion="Pruebe con otro tipo de donación o con un rango de fechas distinto." />
+                </NoRecordsContent>
+            </MudDataGrid>
+
+            <AccionesReporte TFila="ReporteDonacionesDto" Titulo="Reporte de donaciones" Datos="resultado.Filas"
+                             Subtitulo="@subtituloGenerado" Resumen="resumenGenerado" />
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private string? filtroTipo;
+    private DateRange? rangoFechas;
+    private bool generando;
+    private bool seGenero;
+    private ReporteDonacionesResultadoDto resultado = new();
+
+    // Lo que se imprime en el PDF y el Excel: se arma al generar, con los filtros de
+    // ese momento (ver ReporteBeneficiarios.razor), no al exportar.
+    private string? subtituloGenerado;
+    private IReadOnlyList<LineaResumenReporte> resumenGenerado = Array.Empty<LineaResumenReporte>();
+
+    private string ConstruirSubtitulo()
+    {
+        var tipo = string.IsNullOrWhiteSpace(filtroTipo) ? "Todas" : filtroTipo;
+
+        return $"Tipo de donación: {tipo}  ·  Período: {TextoResumen.Periodo(rangoFechas?.Start, rangoFechas?.End)}";
+    }
+
+    private IReadOnlyList<LineaResumenReporte> ConstruirResumen()
+    {
+        var lineas = new List<LineaResumenReporte>
+        {
+            new("Donaciones en el período", TextoResumen.Numero(resultado.Filas.Count)),
+            new("Donaciones en dinero", TextoResumen.Numero(resultado.CantidadDinero)),
+            new("Donaciones en especie", TextoResumen.Numero(resultado.CantidadEspecie))
+        };
+
+        // Un total por moneda, cada uno en su línea. Sin donaciones en dinero queda
+        // una sola línea con un guion, para que el resumen no omita el dato.
+        if (resultado.TotalesPorMoneda.Count == 0)
+        {
+            lineas.Add(new("Total en dinero", "—"));
+        }
+        else
+        {
+            lineas.AddRange(resultado.TotalesPorMoneda.Select(t =>
+                new LineaResumenReporte($"Total en dinero ({t.Moneda})", TiposMoneda.ConSimbolo(t.Moneda, t.Total))));
+        }
+
+        return lineas;
+    }
+
+    private async Task GenerarAsync()
+    {
+        generando = true;
+
+        try
+        {
+            var subtitulo = ConstruirSubtitulo();
+
+            resultado = await ReportesService.GenerarReporteDonacionesAsync(new FiltrosReporteDonacionesDto
+            {
+                TipoDonacion = filtroTipo,
+                FechaDesde = rangoFechas?.Start,
+                FechaHasta = rangoFechas?.End
+            });
+            subtituloGenerado = subtitulo;
+            resumenGenerado = ConstruirResumen();
+            seGenero = true;
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("No se pudo generar el reporte. Intentá de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            generando = false;
+        }
+    }
+}
