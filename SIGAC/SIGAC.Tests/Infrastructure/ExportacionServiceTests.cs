@@ -253,6 +253,71 @@ namespace SIGAC.Tests.Infrastructure
             Assert.Contains("0.00", texto);
         }
 
+        [Theory]
+        [InlineData("Mesa [grande]")]
+        [InlineData("Carpa [Datos.Nombre] 4x4")]
+        [InlineData("50% descuento & más {llaves} <b>")]
+        [InlineData("Comillas \"dobles\" y 'simples' \\ barra")]
+        public async Task El_pdf_acepta_texto_con_corchetes_y_simbolos_en_las_filas_el_subtitulo_y_el_resumen(string texto)
+        {
+            // Los nombres que escribe el usuario (artículos, sectores, donantes) llegan a
+            // las filas, al subtítulo con los filtros y al resumen. FastReport toma lo que
+            // va entre corchetes como una expresión: sin escapar, "[grande]" rompe el PDF.
+            var filas = new[] { new FilaDePrueba(texto, new DateTime(2026, 9, 1), 5m) };
+            var resumen = new[] { new LineaResumenReporte($"Total de {texto}", texto) };
+
+            var pdf = await _servicio.ExportarPDFAsync(filas, $"Reporte de {texto}", $"Artículo: {texto}", resumen);
+
+            Assert.True(pdf.Length > 1000);
+            Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(pdf, 0, 4));
+        }
+
+        [Theory]
+        [InlineData("=1+1")]
+        [InlineData("+SUMA(A1:A3)")]
+        [InlineData("@usuario")]
+        [InlineData("=HYPERLINK(\"http://ejemplo.com\",\"clic\")")]
+        public async Task El_excel_deja_como_texto_lo_que_parece_una_formula(string texto)
+        {
+            // Un donante o un artículo llamado "=1+1" no puede volverse una fórmula al
+            // abrir el archivo (inyección de fórmulas): la celda queda como texto.
+            var filas = new[] { new FilaDePrueba(texto, new DateTime(2026, 9, 1), 5m) };
+
+            var archivo = await _servicio.ExportarExcelAsync(filas, "Reporte", texto);
+
+            using var libro = new XLWorkbook(new MemoryStream(archivo));
+            var hoja = libro.Worksheets.First();
+            var celda = hoja.Cell(FilaEncabezado + 1, 1);
+
+            Assert.False(celda.HasFormula, "La celda quedó como fórmula");
+            Assert.Equal(XLDataType.Text, celda.DataType);
+            Assert.Equal(texto, celda.GetString());
+            Assert.False(hoja.Cell(2, 1).HasFormula, "El subtítulo quedó como fórmula");
+        }
+
+        [Fact]
+        public async Task Un_pdf_de_muchas_hojas_no_pesa_decenas_de_megas()
+        {
+            // 1 500 filas son unas 70 hojas. PDFSimpleExport escribe cada hoja como una
+            // imagen: a su calidad por defecto (300 dpi) serían unos 35 MB, y a la
+            // calidad reducida que se usa pasadas las 20 hojas, menos de 12. Y con 4 000
+            // filas (más de 100 hojas, el escalón más bajo) el peso por hoja es aún menor.
+            var medio = Enumerable.Range(1, 1500)
+                .Select(i => new FilaDePrueba($"Persona {i:0000}", new DateTime(2026, 9, 1), i))
+                .ToList();
+            var largo = Enumerable.Range(1, 4000)
+                .Select(i => new FilaDePrueba($"Persona {i:0000}", new DateTime(2026, 9, 1), i))
+                .ToList();
+
+            var pdfMedio = await _servicio.ExportarPDFAsync(medio, "Reporte largo");
+            var pdfLargo = await _servicio.ExportarPDFAsync(largo, "Reporte muy largo");
+
+            Assert.True(pdfMedio.Length < 20 * 1024 * 1024, $"El PDF de 1 500 filas pesa {pdfMedio.Length / 1024 / 1024} MB");
+
+            // Unas 190 hojas: a 490 KB serían 93 MB; con el escalón más bajo, menos de 25.
+            Assert.True(pdfLargo.Length < 25 * 1024 * 1024, $"El PDF de 4 000 filas pesa {pdfLargo.Length / 1024 / 1024} MB");
+        }
+
         // Ancho útil de la hoja carta apaisada con márgenes (ExportacionService.AnchoPagina).
         private const float AnchoHoja = 25.9f;
 

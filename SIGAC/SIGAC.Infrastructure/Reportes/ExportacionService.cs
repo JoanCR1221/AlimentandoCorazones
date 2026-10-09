@@ -42,7 +42,7 @@ namespace SIGAC.Infrastructure.Reportes
             try
             {
                 using var report = ConstruirReporte(datos, titulo, subtitulo, resumen);
-                using var export = new PDFSimpleExport();
+                using var export = CrearExportadorPdf(report);
                 using var salida = new MemoryStream();
 
                 report.Export(export, salida);
@@ -146,7 +146,7 @@ namespace SIGAC.Infrastructure.Reportes
             try
             {
                 using var report = ConstruirReporteGastos(reporte, mes, anio, formaPago);
-                using var export = new PDFSimpleExport();
+                using var export = CrearExportadorPdf(report);
                 using var salida = new MemoryStream();
 
                 report.Export(export, salida);
@@ -300,19 +300,30 @@ namespace SIGAC.Infrastructure.Reportes
             }
 
             // 4.2 cm menos de ancho: ese espacio de la derecha es del número de página.
+            // AllowExpressions = false en todo texto que no sea una expresión [Datos.X] o
+            // [Page]: FastReport toma lo que va entre corchetes como una expresión, y en
+            // el título, el subtítulo (que trae los filtros: el nombre de un artículo, de
+            // un sector) y el resumen puede venir un nombre como "Mesa [grande]", que
+            // rompía el PDF ("The name 'grande' does not exist") o, peor, se reemplazaba
+            // en silencio por un dato cuando coincidía con un campo ("[Datos.Nombre]").
             encabezado.Objects.Add(new TextObject
             {
                 Bounds = new RectangleF(Cm(AnchoLogo + 0.3f), Cm(0.2f), Cm(AnchoPagina - AnchoLogo - 0.3f - 4.2f), Cm(0.9f)),
                 Text = titulo,
+                AllowExpressions = false,
                 Font = new Font("Arial", 14, FontStyle.Bold)
             });
 
             AgregarNumeroPagina(encabezado);
 
+            // La fecha de generación se escribe acá y no con [Date]: así el texto entero
+            // se puede dejar sin expresiones, y el PDF dice lo mismo que el Excel
+            // (dd/MM/yyyy HH:mm) sin depender de la cultura del servidor.
             encabezado.Objects.Add(new TextObject
             {
                 Bounds = new RectangleF(Cm(AnchoLogo + 0.3f), Cm(1.1f), Cm(AnchoPagina - AnchoLogo - 0.3f), Cm(0.6f)),
-                Text = LineaSubtitulo(subtitulo, "[Date]"),
+                Text = LineaSubtitulo(subtitulo, DateTime.Now.ToString("dd/MM/yyyy HH:mm")),
+                AllowExpressions = false,
                 Font = new Font("Arial", 8, FontStyle.Italic)
             });
 
@@ -325,6 +336,7 @@ namespace SIGAC.Infrastructure.Reportes
                     // El título legible y no ColumnName: el nombre es la propiedad y
                     // es lo que enlaza [Datos.X] más abajo.
                     Text = TituloDe(tabla.Columns[i]),
+                    AllowExpressions = false,
                     Font = new Font("Arial", 9, FontStyle.Bold),
                     Border = { Lines = FastReport.BorderLines.Bottom }
                 });
@@ -384,12 +396,14 @@ namespace SIGAC.Infrastructure.Reportes
                     {
                         Bounds = new RectangleF(Cm(0), Cm(y), Cm(anchoEtiqueta), Cm(altoLinea)),
                         Text = resumen[i].Etiqueta,
+                        AllowExpressions = false,
                         Font = new Font("Arial", 9, FontStyle.Bold)
                     });
                     pie.Objects.Add(new TextObject
                     {
                         Bounds = new RectangleF(Cm(anchoEtiqueta + 0.2f), Cm(y), Cm(AnchoPagina - anchoEtiqueta - 0.2f), Cm(altoLinea)),
                         Text = resumen[i].Valor,
+                        AllowExpressions = false,
                         Font = new Font("Arial", 9)
                     });
                 }
@@ -400,6 +414,35 @@ namespace SIGAC.Infrastructure.Reportes
             report.DoublePass = true;
             report.Prepare();
             return report;
+        }
+
+        // PDFSimpleExport (el único exportador PDF de FastReport.OpenSource) no escribe
+        // texto: convierte cada hoja en una imagen JPEG de toda la página. Por defecto
+        // la hace a 300 dpi y calidad 90, unos 490 KB por hoja: bien para imprimir y
+        // sin problema en un reporte de unas pocas hojas, pero un reporte de 3 000
+        // filas (150 hojas) pesaba 80 MB y tardaba 17 segundos.
+        //
+        // Por eso la calidad baja según el largo del reporte, en tres escalones:
+        //  - hasta 20 hojas, la de FastReport (300 dpi, calidad 90): para imprimir y
+        //    hasta 10 MB;
+        //  - de 21 a 100 hojas, 150 dpi y calidad 75 (unos 140 a 170 KB por hoja): se
+        //    lee bien al imprimir; hasta unos 17 MB;
+        //  - más de 100 hojas, 110 dpi y calidad 65 (unos 90 KB por hoja): se lee bien
+        //    en pantalla, pero se nota la compresión al imprimir. Un reporte así (miles
+        //    de filas) conviene sacarlo en Excel o acotar el período.
+        private const int PaginasConCalidadCompleta = 20;
+        private const int PaginasConCalidadMedia = 100;
+
+        private static PDFSimpleExport CrearExportadorPdf(FastReport.Report report)
+        {
+            var paginas = report.PreparedPages.Count;
+
+            if (paginas <= PaginasConCalidadCompleta)
+                return new PDFSimpleExport();
+
+            return paginas <= PaginasConCalidadMedia
+                ? new PDFSimpleExport { ImageDpi = 150, JpegQuality = 75 }
+                : new PDFSimpleExport { ImageDpi = 110, JpegQuality = 65 };
         }
 
         // Lo que ocupa un carácter de Arial 9 pt, con margen (un dígito mide 0,176 cm
