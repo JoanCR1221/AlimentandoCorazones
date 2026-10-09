@@ -61,16 +61,40 @@ namespace SIGAC.Infrastructure.Repositories
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<AsistenciaComedor>> ObtenerHistorialAsync(FiltrosAsistenciaDto filtros)
+        public async Task<IReadOnlyList<AsistenciaComedor>> ObtenerPaginaHistorialAsync(FiltrosAsistenciaDto filtros)
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
 
-            // Recién se ejecuta la consulta acá. El orden se fija en SQL para que el
-            // resultado sea estable entre llamadas con los mismos filtros.
+            var tamanoPagina = filtros.TamanoPaginaEfectivo;
+
+            // Include trae el beneficiario en el mismo viaje: sin él la navegación
+            // llega en null y quien lea a.Beneficiario.NombreCompleto vería vacío.
+            // El Id desempata las asistencias del mismo día: sin un orden total,
+            // Skip/Take podría repetir o saltarse filas entre una página y la otra.
+            // Se traduce a ORDER BY ... OFFSET n ROWS FETCH NEXT m ROWS ONLY: la base
+            // devuelve solo las filas de la página.
             return await ConstruirConsultaFiltrada(context, filtros)
+                .Include(a => a.Beneficiario)
                 .OrderByDescending(a => a.Fecha)
                 .ThenByDescending(a => a.Id)
+                .Skip(filtros.PaginaEfectiva * tamanoPagina)
+                .Take(tamanoPagina)
                 .ToListAsync();
+        }
+
+        public async Task<IReadOnlyDictionary<string, int>> ObtenerTotalesPorTiempoComidaAsync(FiltrosAsistenciaDto filtros)
+        {
+            await using var context = await _contextFactory.CreateDbContextAsync();
+
+            // Los mismos filtros que la página y sin paginar: el total del período
+            // no cambia al pasar de página. Se proyecta a un tipo anónimo y no a un
+            // KeyValuePair: EF no traduce siempre un GroupBy hacia tipos con constructor.
+            var filas = await ConstruirConsultaFiltrada(context, filtros)
+                .GroupBy(a => a.TiempoComida)
+                .Select(g => new { TiempoComida = g.Key, Cantidad = g.Count() })
+                .ToListAsync();
+
+            return filas.ToDictionary(f => f.TiempoComida, f => f.Cantidad);
         }
 
         public async Task<IEnumerable<AsistenciaComedor>> ObtenerParaReporteBeneficiariosAsync(FiltrosReporteBeneficiariosDto filtros)
@@ -160,16 +184,14 @@ namespace SIGAC.Infrastructure.Repositories
             return inicioMesActual.AddMonths(-(mesesHaciaAtras - 1));
         }
 
-        // Compone los filtros sobre un IQueryable: todo viaja a la base como WHERE.
-        // Nada de LINQ to Objects, o habría que traer el historial entero para
-        // filtrarlo en memoria, y crece con cada día registrado.
+        // Compone los filtros sobre un IQueryable: todo viaja a la base como WHERE y
+        // se aplica ANTES de paginar. Nada de LINQ to Objects, o habría que traer el
+        // historial entero para filtrarlo en memoria, y crece con cada día registrado.
+        // Sin Include: lo comparten la página y el agregado de totales, y este último
+        // no devuelve entidades.
         private static IQueryable<AsistenciaComedor> ConstruirConsultaFiltrada(SigacDbContext context, FiltrosAsistenciaDto filtros)
         {
-            // Include trae el beneficiario en el mismo viaje: sin él la navegación
-            // llega en null y quien lea a.Beneficiario.NombreCompleto vería vacío.
-            IQueryable<AsistenciaComedor> consulta = context.AsistenciasComedor
-                .AsNoTracking()
-                .Include(a => a.Beneficiario);
+            IQueryable<AsistenciaComedor> consulta = context.AsistenciasComedor.AsNoTracking();
 
             if (filtros.BeneficiarioId.HasValue)
             {

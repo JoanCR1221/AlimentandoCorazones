@@ -1112,7 +1112,8 @@ namespace SIGAC.Tests.Application
             public Task AgregarAsync(AsistenciaComedor asistencia) => throw new NotImplementedException();
             public Task<bool> ExisteAsistenciaAsync(int beneficiarioId, DateTime fecha, string tiempoComida) => throw new NotImplementedException();
             public Task<IEnumerable<AsistenciaComedor>> ObtenerAsistenciasDiariasAsync(DateTime fecha) => throw new NotImplementedException();
-            public Task<IEnumerable<AsistenciaComedor>> ObtenerHistorialAsync(SIGAC.Application.DTOs.Asistencia.FiltrosAsistenciaDto filtros) => throw new NotImplementedException();
+            public Task<IReadOnlyList<AsistenciaComedor>> ObtenerPaginaHistorialAsync(SIGAC.Application.DTOs.Asistencia.FiltrosAsistenciaDto filtros) => throw new NotImplementedException();
+            public Task<IReadOnlyDictionary<string, int>> ObtenerTotalesPorTiempoComidaAsync(SIGAC.Application.DTOs.Asistencia.FiltrosAsistenciaDto filtros) => throw new NotImplementedException();
             public List<AsistenciaComedor> Asistencias { get; } = new();
 
             public Task<IEnumerable<AsistenciaComedor>> ObtenerParaReporteBeneficiariosAsync(FiltrosReporteBeneficiariosDto filtros) =>
