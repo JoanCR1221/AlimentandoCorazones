@@ -54,7 +54,10 @@
                                 Icono="@Icons.Material.Filled.Inventory2" />
             </section>
 
+            @* El reporte trae todas las filas (el PDF y el Excel las necesitan), pero la
+               pantalla las pagina en memoria: ver PaginacionReporte. *@
             <MudDataGrid T="ReporteDonacionesDto" Items="@resultado.Filas" Class="mb-4"
+                         RowsPerPage="PaginacionReporte.TamanoPredeterminado"
                          SortMode="SortMode.None" Filterable="false" Dense="true">
                 <Columns>
                     <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
@@ -74,6 +77,9 @@
                                  Titulo="No hay donaciones registradas con estos filtros"
                                  Descripcion="Pruebe con otro tipo de donación o con un rango de fechas distinto." />
                 </NoRecordsContent>
+                <PagerContent>
+                    <MudDataGridPager T="ReporteDonacionesDto" PageSizeOptions="PaginacionReporte.Opciones" />
+                </PagerContent>
             </MudDataGrid>
 
             <AccionesReporte TFila="ReporteDonacionesDto" Titulo="Reporte de donaciones" Datos="resultado.Filas"

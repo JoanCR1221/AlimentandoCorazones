@@ -67,33 +67,32 @@
                         @filtroFormaPago.ToUpperInvariant() · @grupo.DescripcionCuenta
                     </MudText>
 
-                    <MudSimpleTable Dense="true" Class="mb-1">
-                        <thead>
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Fact.</th>
-                                <th>Día</th>
-                                <th>Monto</th>
-                                <th>I.V.A.</th>
-                                <th>Cheque</th>
-                                <th>Cuenta corriente</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var fila in grupo.Filas)
-                            {
-                                <tr>
-                                    <td>@fila.Proveedor</td>
-                                    <td>@fila.NumeroFactura</td>
-                                    <td>@fila.Dia</td>
-                                    <td>@fila.Monto.ToString("N2")</td>
-                                    <td>@fila.Iva.ToString("N2")</td>
-                                    <td>@fila.NumeroCheque</td>
-                                    <td>@fila.CuentaContable</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </MudSimpleTable>
+                    @* Un mes con muchos gastos dejaba miles de filas en el DOM y la página se
+                       pegaba. Cada grupo pagina en memoria sus filas (los subtotales y el PDF
+                       siguen siendo de todas); el paginador solo aparece si el grupo no cabe en
+                       una página, para que los grupos cortos se vean igual que en el papel. *@
+                    <MudTable T="FilaReporteGastosDto" Items="grupo.Filas" Dense="true" Class="mb-1"
+                              Breakpoint="Breakpoint.None" RowsPerPage="PaginacionReporte.TamanoPredeterminado"
+                              PagerContent="@(grupo.Filas.Count > PaginacionReporte.TamanoPredeterminado ? PaginadorDelGrupo : null)">
+                        <HeaderContent>
+                            <MudTh>Nombre</MudTh>
+                            <MudTh>Fact.</MudTh>
+                            <MudTh>Día</MudTh>
+                            <MudTh>Monto</MudTh>
+                            <MudTh>I.V.A.</MudTh>
+                            <MudTh>Cheque</MudTh>
+                            <MudTh>Cuenta corriente</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.Proveedor</MudTd>
+                            <MudTd>@context.NumeroFactura</MudTd>
+                            <MudTd>@context.Dia</MudTd>
+                            <MudTd>@context.Monto.ToString("N2")</MudTd>
+                            <MudTd>@context.Iva.ToString("N2")</MudTd>
+                            <MudTd>@context.NumeroCheque</MudTd>
+                            <MudTd>@context.CuentaContable</MudTd>
+                        </RowTemplate>
+                    </MudTable>
                     <MudText Typo="Typo.body2" Class="mb-3">
                         <b>TOTAL: @grupo.SubtotalMonto.ToString("N2") · IVA: @grupo.SubtotalIva.ToString("N2")</b>
                     </MudText>
@@ -147,6 +146,8 @@
     private IJSObjectReference? moduloImprimir;
 
     private int TotalFilas => resultado.Grupos.Sum(g => g.Filas.Count);
+
+    private RenderFragment PaginadorDelGrupo => @<MudTablePager PageSizeOptions="PaginacionReporte.Opciones" />;
 
     private async Task GenerarAsync()
     {

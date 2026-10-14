@@ -71,7 +71,10 @@
                                 Icono="@Icons.Material.Filled.Schedule" />
             </section>
 
+            @* El reporte trae todas las filas (el PDF y el Excel las necesitan), pero la
+               pantalla las pagina en memoria: ver PaginacionReporte. *@
             <MudDataGrid T="ReporteAlquileresDto" Items="@resultado.Filas" Class="mb-4"
+                         RowsPerPage="PaginacionReporte.TamanoPredeterminado"
                          SortMode="SortMode.None" Filterable="false" Dense="true">
                 <Columns>
                     <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
@@ -98,6 +101,9 @@
                                  Titulo="No hay alquileres registrados con estos filtros"
                                  Descripcion="Pruebe con otro sector, rango de fechas o estado." />
                 </NoRecordsContent>
+                <PagerContent>
+                    <MudDataGridPager T="ReporteAlquileresDto" PageSizeOptions="PaginacionReporte.Opciones" />
+                </PagerContent>
             </MudDataGrid>
 
             <AccionesReporte TFila="ReporteAlquileresDto" Titulo="Reporte de alquileres de espacios" Datos="resultado.Filas"
