@@ -58,7 +58,10 @@
                                 Icono="@Icons.Material.Filled.People" />
             </section>
 
+            @* El reporte trae todas las filas (el PDF y el Excel las necesitan), pero la
+               pantalla las pagina en memoria: ver PaginacionReporte. *@
             <MudDataGrid T="ReporteProyectosDto" Items="@resultado.Filas" Class="mb-4"
+                         RowsPerPage="PaginacionReporte.TamanoPredeterminado"
                          SortMode="SortMode.None" Filterable="false" Dense="true">
                 <Columns>
                     <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
@@ -79,6 +82,9 @@
                                  Titulo="No hay proyectos con estos filtros"
                                  Descripcion="Pruebe con otro estado o con un rango de fechas distinto." />
                 </NoRecordsContent>
+                <PagerContent>
+                    <MudDataGridPager T="ReporteProyectosDto" PageSizeOptions="PaginacionReporte.Opciones" />
+                </PagerContent>
             </MudDataGrid>
 
             <AccionesReporte TFila="ReporteProyectosDto" Titulo="Reporte de proyectos comunitarios" Datos="resultado.Filas"

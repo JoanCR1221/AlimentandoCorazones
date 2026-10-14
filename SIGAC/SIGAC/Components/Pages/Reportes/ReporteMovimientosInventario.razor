@@ -62,7 +62,10 @@
                                 Icono="@Icons.Material.Filled.Output" />
             </section>
 
+            @* El reporte trae todas las filas (el PDF y el Excel las necesitan), pero la
+               pantalla las pagina en memoria: ver PaginacionReporte. *@
             <MudDataGrid T="ReporteMovimientosDto" Items="@resultado.Filas" Class="mb-4"
+                         RowsPerPage="PaginacionReporte.TamanoPredeterminado"
                          SortMode="SortMode.None" Filterable="false" Dense="true">
                 <Columns>
                     <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
@@ -76,6 +79,9 @@
                                  Titulo="No hay movimientos registrados con estos filtros"
                                  Descripcion="Pruebe con otro artículo, tipo de movimiento o rango de fechas." />
                 </NoRecordsContent>
+                <PagerContent>
+                    <MudDataGridPager T="ReporteMovimientosDto" PageSizeOptions="PaginacionReporte.Opciones" />
+                </PagerContent>
             </MudDataGrid>
 
             <AccionesReporte TFila="ReporteMovimientosDto" Titulo="Reporte de movimientos de inventario" Datos="resultado.Filas"

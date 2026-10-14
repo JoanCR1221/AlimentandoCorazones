@@ -52,7 +52,10 @@
                                 Icono="@Icons.Material.Filled.People" />
             </section>
 
+            @* El reporte trae todas las filas (el PDF y el Excel las necesitan), pero la
+               pantalla las pagina en memoria: ver PaginacionReporte. *@
             <MudDataGrid T="ReporteBeneficiariosDto" Items="@resultado.Filas" Class="mb-4"
+                         RowsPerPage="PaginacionReporte.TamanoPredeterminado"
                          SortMode="SortMode.None" Filterable="false" Dense="true">
                 <Columns>
                     <PropertyColumn Property="x => x.NombreCompleto" Title="Nombre" />
@@ -67,6 +70,9 @@
                                  Titulo="No hay asistencias registradas con estos filtros"
                                  Descripcion="Pruebe con otra categoría o con un rango de fechas distinto." />
                 </NoRecordsContent>
+                <PagerContent>
+                    <MudDataGridPager T="ReporteBeneficiariosDto" PageSizeOptions="PaginacionReporte.Opciones" />
+                </PagerContent>
             </MudDataGrid>
 
             <AccionesReporte TFila="ReporteBeneficiariosDto" Titulo="Reporte de beneficiarios atendidos" Datos="resultado.Filas"
