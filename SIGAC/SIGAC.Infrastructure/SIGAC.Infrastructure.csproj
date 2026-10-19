@@ -23,6 +23,25 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Ninguna de estas dos se usa directo: fijan la versión de una dependencia
+         transitiva para quitar advertencias de NuGet. Se pueden borrar cuando los
+         paquetes que las traen ya pidan una versión igual o mayor.
+
+         Pkcs: Microsoft.Data.SqlClient 6.1.x (vía EntityFrameworkCore.SqlServer)
+         pide 9.0.11, con CVE-2026-84008 y CVE-2026-70162 (NU1903/NU1902).
+         10.0.13 es la primera corregida de la línea 10. Al estar acá, la toman
+         también la app web y las pruebas.
+
+         Roslyn: FastReport.Compat pide CSharp y VisualBasic 4.0.1, que exigen
+         Microsoft.CodeAnalysis.Common 4.0.1 exacto, pero EntityFrameworkCore.Design
+         ya resuelve Common 5.0.0 (NU1608). Las dos en 5.0.0 quedan alineadas en
+         todos los proyectos, también en las pruebas, adonde Design no llega. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Solo para el tipo IWebHostEnvironment (ubicar wwwroot/img/logo.png desde
          ExportacionService); no arrastra el runtime completo de ASP.NET Core. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
