@@ -121,6 +121,20 @@ namespace SIGAC.Application.DTOs.Beneficiarios
         // número de identidad, todo en la misma caja. En el mostrador llega alguien
         // con la cédula en la mano y se busca por el número sin cambiar de campo.
         public string? Nombre { get; set; }
+
+        // Las palabras de Nombre, que el repositorio exige TODAS, cada una en
+        // cualquiera de los campos y en cualquier orden. El nombre completo está
+        // repartido en cuatro columnas, así que buscar el texto entero en cada una
+        // no encontraba a nadie con "María Pérez": ninguna columna tiene las dos.
+        // Cualquier espacio en blanco separa (varios seguidos cuentan como uno) y
+        // una palabra repetida se busca una sola vez.
+        public IReadOnlyList<string> PalabrasBusqueda =>
+            string.IsNullOrWhiteSpace(Nombre)
+                ? Array.Empty<string>()
+                : Nombre.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+
         public string? Categoria { get; set; }
         public string? TipoDocumento { get; set; }
         public bool? Estado { get; set; }
