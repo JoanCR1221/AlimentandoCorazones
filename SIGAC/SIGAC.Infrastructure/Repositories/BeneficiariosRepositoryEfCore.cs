@@ -223,6 +223,17 @@ namespace SIGAC.Infrastructure.Repositories
             // ("maria perez", "perez maria") cada una tiene que estar en algún
             // campo. Un Where por palabra: EF los encadena con AND en el mismo SQL.
             // El número no lleva collation: son dígitos y letras sin tildes.
+            //
+            // Un texto con dígitos es un número de documento y no se parte en
+            // palabras: se compara entero contra el número guardado sin guiones
+            // (REPLACE en SQL), así "1 2345 6789" o "AB 123" encuentran
+            // "123456789" o "AB-123".
+            if (filtros.NumeroIdentidadBuscado is string numero)
+            {
+                consulta = consulta.Where(b =>
+                    b.NumIdentidad != null && b.NumIdentidad.Replace("-", "").Contains(numero));
+            }
+
             foreach (var busqueda in filtros.PalabrasBusqueda)
             {
                 consulta = consulta.Where(b =>

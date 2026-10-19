@@ -42,23 +42,43 @@ namespace SIGAC.Tests.Application
             Assert.Equal(new[] { "maria", "MARÍA" }, filtros.PalabrasBusqueda);
         }
 
-        [Fact]
-        public void Un_numero_de_identidad_se_busca_como_una_sola_palabra()
+        [Theory]
+        [InlineData("123456789", "123456789")]
+        [InlineData("1 2345 6789", "123456789")]
+        [InlineData(" 1-2345-6789 ", "123456789")]
+        [InlineData("1\t2345  6789", "123456789")]
+        [InlineData("AB 123", "AB123")]
+        [InlineData("2345", "2345")]
+        public void Un_texto_con_digitos_se_busca_como_numero_sin_espacios_ni_guiones(string texto, string numero)
         {
-            var filtros = new FiltrosBeneficiarioDto { Nombre = "123456789" };
+            var filtros = new FiltrosBeneficiarioDto { Nombre = texto };
 
-            Assert.Equal(new[] { "123456789" }, filtros.PalabrasBusqueda);
+            Assert.Equal(numero, filtros.NumeroIdentidadBuscado);
+            Assert.Empty(filtros.PalabrasBusqueda);
+        }
+
+        [Theory]
+        [InlineData("María Pérez")]
+        [InlineData("AB")]
+        [InlineData("De-la Cruz")]
+        public void Un_texto_sin_digitos_no_se_busca_como_numero(string texto)
+        {
+            var filtros = new FiltrosBeneficiarioDto { Nombre = texto };
+
+            Assert.Null(filtros.NumeroIdentidadBuscado);
+            Assert.NotEmpty(filtros.PalabrasBusqueda);
         }
 
         [Theory]
         [InlineData(null)]
         [InlineData("")]
         [InlineData("   ")]
-        public void Sin_texto_no_hay_palabras_y_no_se_filtra_por_nombre(string? nombre)
+        public void Sin_texto_no_hay_palabras_ni_numero_y_no_se_filtra_por_nombre(string? nombre)
         {
             var filtros = new FiltrosBeneficiarioDto { Nombre = nombre };
 
             Assert.Empty(filtros.PalabrasBusqueda);
+            Assert.Null(filtros.NumeroIdentidadBuscado);
         }
     }
 }
