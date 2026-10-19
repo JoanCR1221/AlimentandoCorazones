@@ -27,7 +27,7 @@
         public string? Ubicacion { get; set; }
 
         // Cómo se nombra al artículo donde el Nombre solo no alcanza (historiales,
-        // listas de préstamo, mensajes): dos sillas en distinto estado tienen el
+        // selectores, mensajes): dos sillas en distinto estado tienen el
         // mismo nombre y se confundirían.
         public string Etiqueta => EtiquetaDe(Nombre, Estado);
 

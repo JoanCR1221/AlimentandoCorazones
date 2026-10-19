@@ -8,7 +8,7 @@
 @inject ISnackbar Snackbar
 
 <EncabezadoPagina Titulo="Reporte de movimientos de inventario"
-                   Descripcion="Entradas, donaciones y préstamos de artículos en el período, con las unidades que entraron y las que salieron." />
+                   Descripcion="Entradas y donaciones de artículos en el período, con las unidades que entraron y las que salieron." />
 
 <MudCard Class="pa-4">
     <MudCardContent>
@@ -25,7 +25,6 @@
                            Label="Tipo de movimiento" Variant="Variant.Outlined" Clearable="true">
                     <MudSelectItem T="string" Value="@("Entrada")">Entrada</MudSelectItem>
                     <MudSelectItem T="string" Value="@("Donacion")">Donación</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("Prestamo")">Préstamo</MudSelectItem>
                 </MudSelect>
             </MudItem>
             <MudItem xs="12" md="4">
@@ -58,7 +57,7 @@
                                 Icono="@Icons.Material.Filled.Input" />
                 <TarjetaResumen Titulo="Unidades que salieron"
                                 Valor="@TextoResumen.Numero(resultado.TotalSalidas)"
-                                Detalle="Donaciones y préstamos"
+                                Detalle="Donaciones"
                                 Icono="@Icons.Material.Filled.Output" />
             </section>
 
@@ -127,7 +126,6 @@
     {
         "Entrada" => "Entrada",
         "Donacion" => "Donación",
-        "Prestamo" => "Préstamo",
         _ => "Todos"
     };
 

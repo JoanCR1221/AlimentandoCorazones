@@ -4,7 +4,7 @@ using SIGAC.Infrastructure.Data;
 namespace SIGAC.Infrastructure.Repositories
 {
     // Descuento de stock compartido por los dos repositorios que lo necesitan:
-    // InventarioRepositoryEfCore (salidas y aprobación de préstamos) y
+    // InventarioRepositoryEfCore (salidas por donación) y
     // GastosRepositoryEfCore (anular un gasto revierte las entradas que lo
     // respaldaban). Vive acá y no dentro de uno de los dos para que la condición
     // "solo si alcanza" sea literalmente el mismo UPDATE en todos los caminos.

@@ -1328,9 +1328,6 @@ namespace SIGAC.Infrastructure.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(500)");
 
-                    b.Property<int?>("SolicitudPrestamoId")
-                        .HasColumnType("int");
-
                     b.Property<string>("TipoSalida")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1341,11 +1338,6 @@ namespace SIGAC.Infrastructure.Migrations
 
                     b.HasIndex("Fecha");
 
-                    b.HasIndex("SolicitudPrestamoId")
-                        .IsUnique()
-                        .HasDatabaseName("UX_SalidasInventario_SolicitudPrestamo")
-                        .HasFilter("[SolicitudPrestamoId] IS NOT NULL");
-
                     b.HasIndex("ArticuloId", "Fecha")
                         .HasDatabaseName("IX_SalidasInventario_Articulo_Fecha");
 
@@ -1353,66 +1345,7 @@ namespace SIGAC.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("CK_SalidasInventario_Cantidad", "[Cantidad] > 0");
 
-                            t.HasCheckConstraint("CK_SalidasInventario_TipoSalida", "[TipoSalida] IN ('Donacion', 'Prestamo')");
-                        });
-                });
-
-            modelBuilder.Entity("SIGAC.Domain.Entities.SolicitudPrestamo", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Actividad")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(150)");
-
-                    b.Property<int>("ArticuloId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Cantidad")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Estado")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<DateTime>("Fecha")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("FechaResolucion")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("MotivoRechazo")
-                        .HasMaxLength(500)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(500)");
-
-                    b.Property<string>("Solicitante")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(150)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ArticuloId");
-
-                    b.HasIndex("Estado");
-
-                    b.HasIndex("Fecha");
-
-                    b.ToTable("SolicitudesPrestamo", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_SolicitudesPrestamo_Cantidad", "[Cantidad] > 0");
-
-                            t.HasCheckConstraint("CK_SolicitudesPrestamo_Estado", "[Estado] IN ('Pendiente', 'Aprobada', 'Rechazada')");
+                            t.HasCheckConstraint("CK_SalidasInventario_TipoSalida", "[TipoSalida] IN ('Donacion')");
                         });
                 });
 
@@ -1830,22 +1763,6 @@ namespace SIGAC.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("SIGAC.Domain.Entities.SalidaInventario", b =>
-                {
-                    b.HasOne("SIGAC.Domain.Entities.Articulo", "Articulo")
-                        .WithMany()
-                        .HasForeignKey("ArticuloId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("SIGAC.Domain.Entities.SolicitudPrestamo", null)
-                        .WithMany()
-                        .HasForeignKey("SolicitudPrestamoId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Articulo");
-                });
-
-            modelBuilder.Entity("SIGAC.Domain.Entities.SolicitudPrestamo", b =>
                 {
                     b.HasOne("SIGAC.Domain.Entities.Articulo", "Articulo")
                         .WithMany()

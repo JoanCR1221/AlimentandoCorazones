@@ -6,7 +6,7 @@
 @inject ISnackbar Snackbar
 
 <EncabezadoPagina Titulo="Historial de movimientos de inventario"
-                  Descripcion="Consulte las entradas, donaciones y préstamos de artículos." />
+                  Descripcion="Consulte las entradas y donaciones de artículos." />
 
 <MudCard Class="pa-4">
     <MudCardContent>
@@ -18,7 +18,6 @@
                    Label="Tipo de movimiento" Variant="Variant.Outlined" Class="mb-4" Clearable="true">
             <MudSelectItem T="string" Value="@("Entrada")">Entrada</MudSelectItem>
             <MudSelectItem T="string" Value="@("Donacion")">Donación</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Prestamo")">Préstamo</MudSelectItem>
         </MudSelect>
 
         <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
@@ -114,7 +113,6 @@
     private static string EtiquetaTipoMovimiento(string tipoMovimiento) => tipoMovimiento switch
     {
         "Donacion" => "Donación",
-        "Prestamo" => "Préstamo",
         _ => tipoMovimiento
     };
 

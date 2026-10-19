@@ -72,7 +72,7 @@ namespace SIGAC.Application.DTOs.Inventario
         public bool StockBajo { get; set; }
 
         // Nombre + estado, para donde el nombre solo es ambiguo (buscadores de
-        // préstamo y entrega, donde dos sillas en distinto estado se confundirían).
+        // entrega, donde dos sillas en distinto estado se confundirían).
         public string Etiqueta => Articulo.EtiquetaDe(Nombre, Estado);
     }
 
@@ -148,10 +148,9 @@ namespace SIGAC.Application.DTOs.Inventario
         public int Id { get; set; }
         public string Articulo { get; set; } = string.Empty;
 
-        // "Entrada", "Donacion" o "Prestamo" (estas dos últimas son los valores de
-        // SalidaInventario.TipoSalida): distingue el sub-tipo de salida en vez de
-        // agrupar todo bajo "Salida", para que el historial pueda filtrar por
-        // cada uno por separado.
+        // "Entrada" o un valor de SalidaInventario.TipoSalida ("Donacion"):
+        // distingue el sub-tipo de salida en vez de agrupar todo bajo "Salida",
+        // para que un tipo de salida nuevo se pueda filtrar por separado.
         public string TipoMovimiento { get; set; } = string.Empty;
 
         public int Cantidad { get; set; }
@@ -170,7 +169,7 @@ namespace SIGAC.Application.DTOs.Inventario
         public const int TamanoPaginaMaximo = 100;
 
         public int? ArticuloId { get; set; }
-        public string? TipoMovimiento { get; set; } // "Entrada", "Donacion", "Prestamo" o null (todos)
+        public string? TipoMovimiento { get; set; } // "Entrada", "Donacion" o null (todos)
         public DateTime? Desde { get; set; }
         public DateTime? Hasta { get; set; }
 
@@ -190,17 +189,16 @@ namespace SIGAC.Application.DTOs.Inventario
             TamanoPaginaMaximo);
 
         // TipoMovimiento no es una columna: decide CUÁLES de las dos tablas se
-        // consultan y, con "Donacion" o "Prestamo", qué salidas. Una sola fuente de
+        // consultan y, con un tipo de salida, qué salidas. Una sola fuente de
         // esa regla para el servicio y el repositorio. Un valor desconocido no
         // incluye ninguna: no devuelve nada, en vez de fallar.
         public bool IncluyeEntradas => TipoMovimiento is null or TipoEntrada;
 
         public bool IncluyeSalidas => TipoMovimiento is null
-            or Domain.TiposSalidaInventario.Donacion
-            or Domain.TiposSalidaInventario.Prestamo;
+            || Domain.TiposSalidaInventario.Todos.Contains(TipoMovimiento);
 
         // Null cuando el filtro no acota el tipo de salida (todas las salidas).
-        public string? TipoSalida => TipoMovimiento is Domain.TiposSalidaInventario.Donacion or Domain.TiposSalidaInventario.Prestamo
+        public string? TipoSalida => TipoMovimiento is not null && Domain.TiposSalidaInventario.Todos.Contains(TipoMovimiento)
             ? TipoMovimiento
             : null;
     }
@@ -217,44 +215,5 @@ namespace SIGAC.Application.DTOs.Inventario
         // Unidades (no cantidad de movimientos) de TODO el período filtrado.
         public int TotalEntradas { get; set; }
         public int TotalSalidas { get; set; }
-    }
-
-    public class SolicitudPrestamoCrearDto
-    {
-        [Range(1, int.MaxValue, ErrorMessage = "Debe seleccionar un artículo.")]
-        public int ArticuloId { get; set; }
-
-        [Range(1, int.MaxValue, ErrorMessage = "La cantidad debe ser mayor a 0.")]
-        public int Cantidad { get; set; }
-
-        public DateTime Fecha { get; set; }
-
-        [Required(ErrorMessage = "La actividad es obligatoria.")]
-        public string Actividad { get; set; } = string.Empty;
-
-        [Required(ErrorMessage = "El solicitante es obligatorio.")]
-        public string Solicitante { get; set; } = string.Empty;
-    }
-
-    public class ResolucionPrestamoDto
-    {
-        public int SolicitudId { get; set; }
-        public bool Aprobado { get; set; }
-        public string? MotivoRechazo { get; set; }
-    }
-
-    public class SolicitudPrestamoListaDto
-    {
-        public int Id { get; set; }
-        public string Articulo { get; set; } = string.Empty;
-        public int Cantidad { get; set; }
-        public DateTime Fecha { get; set; }
-        public string Actividad { get; set; } = string.Empty;
-        public string Solicitante { get; set; } = string.Empty;
-        public string Estado { get; set; } = string.Empty;
-
-        // Complemento natural de Estado: dice CUÁNDO se resolvió. Null mientras la
-        // solicitud sigue Pendiente.
-        public DateTime? FechaResolucion { get; set; }
     }
 }

@@ -501,7 +501,6 @@ namespace SIGAC.Application.Services
                     EntradasPorCompra = entradas.Where(e => e.Tipo == OrigenesEntradaInventario.Compra).Sum(e => e.Unidades),
                     EntradasPorDonacion = entradas.Where(e => e.Tipo == OrigenesEntradaInventario.Donacion).Sum(e => e.Unidades),
                     SalidasPorDonacion = salidas.Where(s => s.Tipo == TiposSalidaInventario.Donacion).Sum(s => s.Unidades),
-                    SalidasPorPrestamo = salidas.Where(s => s.Tipo == TiposSalidaInventario.Prestamo).Sum(s => s.Unidades),
                     ArticulosConMasMovimientos = articulos
                 };
             }
@@ -518,12 +517,11 @@ namespace SIGAC.Application.Services
             .Select(g => new ConteoPorMesDto(g.Key.Anio, g.Key.Mes, g.Sum(f => f.Unidades)))
             .ToList();
 
-        // Los valores guardados no llevan tilde ("Donacion", "Prestamo"); el reporte
-        // los muestra bien escritos, igual que la pantalla del historial.
+        // Los valores guardados no llevan tilde ("Donacion"); el reporte los muestra
+        // bien escritos, igual que la pantalla del historial.
         private static string EtiquetaDeMovimiento(string valor) => valor switch
         {
             TiposSalidaInventario.Donacion => "Donación",
-            TiposSalidaInventario.Prestamo => "Préstamo",
             _ => valor
         };
 

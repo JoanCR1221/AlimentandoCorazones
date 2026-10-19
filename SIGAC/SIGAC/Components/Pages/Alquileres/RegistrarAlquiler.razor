@@ -112,7 +112,7 @@
 
                         <MudNumericField T="decimal" @bind-Value="modelo.Monto" For="@(() => modelo.Monto)" Label="Monto acordado" Variant="Variant.Outlined"
                                          Min="0m" Format="N2" Adornment="Adornment.Start" AdornmentText="@TiposMoneda.Simbolo(modelo.Moneda)"
-                                         HelperText="0 si es un préstamo sin costo." />
+                                         HelperText="0 si el uso es sin costo." />
                     </MudStack>
 
                     <MudTextField @bind-Value="modelo.Observaciones" For="@(() => modelo.Observaciones)" Label="Observaciones (opcional)"

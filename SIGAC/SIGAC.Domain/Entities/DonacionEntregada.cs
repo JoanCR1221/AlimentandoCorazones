@@ -3,10 +3,9 @@ namespace SIGAC.Domain.Entities
     // Donación que sale de la asociación hacia un beneficiario o una comunidad.
     //
     // Guarda el "quién y por qué" de la entrega. El "cuánto salió y cuándo" lo
-    // sigue registrando Inventario en SalidaInventario (tipo "Donacion"), que
-    // apuntará a esta donación igual que hoy apunta a una solicitud con
-    // SolicitudPrestamoId: Inventario sigue siendo el dueño del stock y el servicio
-    // de Donaciones delega en IInventarioService para descontarlo.
+    // sigue registrando Inventario en SalidaInventario (tipo "Donacion"):
+    // Inventario sigue siendo el dueño del stock y el servicio de Donaciones
+    // delega en IInventarioService para descontarlo.
     public class DonacionEntregada
     {
         public int Id { get; set; }

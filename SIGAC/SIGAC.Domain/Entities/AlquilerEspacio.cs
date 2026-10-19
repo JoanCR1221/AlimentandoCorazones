@@ -35,8 +35,8 @@ namespace SIGAC.Domain.Entities
         // preparar el mobiliario.
         public int CantidadPersonas { get; set; }
 
-        // Monto total acordado. 0 es válido: un préstamo sin costo a un grupo de la
-        // comunidad también es un uso que hay que registrar. Moneda es un valor de
+        // Monto total acordado. 0 es válido: el uso sin costo de un grupo de la
+        // comunidad también hay que registrarlo. Moneda es un valor de
         // TiposMoneda, igual que en DonacionDinero y GastoOperativo.
         public decimal Monto { get; set; }
         public string Moneda { get; set; } = string.Empty;

@@ -22,15 +22,14 @@ namespace SIGAC.Infrastructure.Repositories
 
         // Números de error de SQL Server para violación de unicidad: 2627 es una
         // restricción UNIQUE/PK y 2601 un índice único. Se usan para traducir el
-        // choque contra UX_Articulos_Nombre_Estado y UX_SalidasInventario_SolicitudPrestamo
-        // a excepciones con mensaje entendible en vez de un DbUpdateException crudo.
+        // choque contra los índices únicos de Articulos a excepciones con mensaje entendible en vez de un DbUpdateException crudo.
         private const int ErrorSqlRestriccionUnica = 2627;
         private const int ErrorSqlIndiceUnico = 2601;
 
         // 547 es el conflicto con una restricción: cubre tanto las FK como los CHECK.
         // Se usa para traducir el rechazo del DELETE de un artículo con movimientos,
-        // que las FK Restrict de EntradasInventario, SalidasInventario y
-        // SolicitudesPrestamo bloquean en la base.
+        // que las FK Restrict de EntradasInventario y SalidasInventario bloquean en
+        // la base.
         private const int ErrorSqlConflictoRestriccion = 547;
 
         // Nombres de los índices únicos de Articulos. SQL Server los incluye
@@ -237,14 +236,7 @@ namespace SIGAC.Infrastructure.Repositories
             if (tieneEntradas)
                 return true;
 
-            var tieneSalidas = await context.SalidasInventario
-                .AsNoTracking()
-                .AnyAsync(s => s.ArticuloId == articuloId);
-
-            if (tieneSalidas)
-                return true;
-
-            return await context.SolicitudesPrestamo
+            return await context.SalidasInventario
                 .AsNoTracking()
                 .AnyAsync(s => s.ArticuloId == articuloId);
         }
@@ -261,8 +253,8 @@ namespace SIGAC.Infrastructure.Repositories
 
             // Sin chequeo de movimientos acá a propósito: es responsabilidad de quien
             // llama (TieneMovimientosAsync se consulta antes). Si de todos modos
-            // hubiera historial, las FK Restrict de EntradasInventario,
-            // SalidasInventario y SolicitudesPrestamo rechazan el DELETE en la base.
+            // hubiera historial, las FK Restrict de EntradasInventario y
+            // SalidasInventario rechazan el DELETE en la base.
             context.Articulos.Remove(articulo);
 
             try
@@ -369,46 +361,6 @@ namespace SIGAC.Infrastructure.Repositories
 
             context.SalidasInventario.Add(salida);
             await context.SaveChangesAsync();
-
-            await DescontarStockAsync(context, salida.ArticuloId, salida.Cantidad);
-
-            await transaccion.CommitAsync();
-        }
-
-        public async Task AprobarPrestamoConStockAsync(SolicitudPrestamo solicitud, SalidaInventario salida)
-        {
-            await using var context = await _contextFactory.CreateDbContextAsync();
-            await using var transaccion = await context.Database.BeginTransactionAsync();
-
-            var existente = await context.SolicitudesPrestamo
-                .FirstOrDefaultAsync(s => s.Id == solicitud.Id)
-                ?? throw new NotFoundException("La solicitud no existe.");
-
-            // Se relee el estado DENTRO de la transacción y no se confía en el que
-            // validó el servicio: entre aquella lectura y esta pudo resolverse la
-            // solicitud. La red definitiva contra la doble aprobación sigue siendo
-            // UX_SalidasInventario_SolicitudPrestamo (índice único filtrado), que
-            // ahora además revierte la salida y el descuento en vez de dejarlos.
-            if (existente.Estado != EstadoSolicitudPrestamo.Pendiente)
-                throw new ValidationException("La solicitud ya fue resuelta.");
-
-            existente.Estado = solicitud.Estado;
-            existente.MotivoRechazo = solicitud.MotivoRechazo;
-            existente.FechaResolucion = solicitud.FechaResolucion;
-
-            context.SalidasInventario.Add(salida);
-
-            try
-            {
-                // Un solo SaveChanges para el cambio de estado y la salida: ambas son
-                // escrituras rastreadas y viajan juntas.
-                await context.SaveChangesAsync();
-            }
-            catch (DbUpdateException ex) when (EsViolacionDeUnicidad(ex))
-            {
-                throw new ValidationException(
-                    "La solicitud acaba de ser aprobada por otro usuario.");
-            }
 
             await DescontarStockAsync(context, salida.ArticuloId, salida.Cantidad);
 
@@ -687,83 +639,6 @@ namespace SIGAC.Infrastructure.Repositories
             }
 
             return consulta;
-        }
-
-        // ------------------------------------------------------------------
-        // Préstamos
-        // ------------------------------------------------------------------
-
-        public async Task AgregarSolicitudPrestamoAsync(SolicitudPrestamo solicitud)
-        {
-            await using var context = await _contextFactory.CreateDbContextAsync();
-            context.SolicitudesPrestamo.Add(solicitud);
-            await context.SaveChangesAsync();
-        }
-
-        public async Task<SolicitudPrestamo?> ObtenerSolicitudPorIdAsync(int id)
-        {
-            await using var context = await _contextFactory.CreateDbContextAsync();
-
-            // A propósito SIN Include del artículo: quien llama a este método
-            // (AprobarPrestamoAsync / RechazarPrestamoAsync) modifica la solicitud y se
-            // la devuelve al repositorio. Si viniera con el artículo colgado, el
-            // guardado podría arrastrar también esa fila y pisarle el stock. El
-            // servicio pide el artículo por separado cuando lo necesita.
-            return await context.SolicitudesPrestamo
-                .AsNoTracking()
-                .FirstOrDefaultAsync(s => s.Id == id);
-        }
-
-        public async Task ActualizarSolicitudAsync(SolicitudPrestamo solicitud)
-        {
-            await using var context = await _contextFactory.CreateDbContextAsync();
-
-            var existente = await context.SolicitudesPrestamo
-                .FirstOrDefaultAsync(s => s.Id == solicitud.Id);
-
-            if (existente is null)
-                return;
-
-            // Solo los campos de resolución, que son los únicos que el servicio cambia
-            // después de crear la solicitud. Artículo, cantidad, actividad y
-            // solicitante son el pedido original y no se reescriben.
-            //
-            // Este método queda para el RECHAZO, que es una escritura única y no mueve
-            // stock. La aprobación va por AprobarPrestamoConStockAsync, que además
-            // registra la salida y el descuento en la misma transacción.
-            existente.Estado = solicitud.Estado;
-            existente.MotivoRechazo = solicitud.MotivoRechazo;
-            existente.FechaResolucion = solicitud.FechaResolucion;
-
-            await context.SaveChangesAsync();
-        }
-
-        public async Task<IEnumerable<SolicitudPrestamo>> ObtenerSolicitudesAsync(EstadoSolicitudPrestamo? estado = null)
-        {
-            await using var context = await _contextFactory.CreateDbContextAsync();
-
-            // Acá sí va el Include: la lista muestra el nombre del artículo y las
-            // entidades salen en AsNoTracking, así que no hay riesgo de arrastrarlas a
-            // un guardado posterior.
-            IQueryable<SolicitudPrestamo> consulta = context.SolicitudesPrestamo
-                .AsNoTracking()
-                .Include(s => s.Articulo);
-
-            if (estado.HasValue)
-            {
-                // Variable local para que se capture como parámetro SQL. La columna
-                // guarda el enum como texto (HasConversion<string>), y EF Core aplica
-                // ese mismo conversor a la comparación, así que el WHERE viaja como
-                // [Estado] = 'Pendiente' y puede hacer seek sobre
-                // IX_SolicitudesPrestamo_Estado.
-                var estadoFiltro = estado.Value;
-                consulta = consulta.Where(s => s.Estado == estadoFiltro);
-            }
-
-            return await consulta
-                .OrderByDescending(s => s.Fecha)
-                .ThenByDescending(s => s.Id)
-                .ToListAsync();
         }
 
         // ------------------------------------------------------------------

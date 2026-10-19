@@ -622,8 +622,7 @@ namespace SIGAC.Application.Services
                 //
                 // Es un parche declarado: la solución correcta es que
                 // IInventarioService acepte un destino genérico —o directamente un
-                // DonacionEntregadaId, como ya hace con SolicitudPrestamoId para los
-                // préstamos— en lugar de exigir una comunidad.
+                // DonacionEntregadaId— en lugar de exigir una comunidad.
                 var destino = $"Beneficiario: {beneficiario.NombreCompleto}";
 
                 return (beneficiario.Id, null, Recortar(destino, LongitudMaximaDestinoSalida));

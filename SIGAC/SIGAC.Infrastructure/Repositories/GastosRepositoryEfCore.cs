@@ -227,8 +227,7 @@ namespace SIGAC.Infrastructure.Repositories
         }
 
         // Abarca tablas de dos módulos (GastosOperativos, EntradasInventario y
-        // Articulos) a propósito, con el mismo criterio que
-        // AprobarPrestamoConStockAsync: el todo-o-nada solo se puede garantizar desde
+        // Articulos) a propósito: el todo-o-nada solo se puede garantizar desde
         // una única transacción, y el dueño de esta operación es la anulación del
         // gasto. Antes eran dos pasos separados —GastosService anulaba el gasto,
         // commiteaba, y RECIÉN DESPUÉS llamaba al inventario— así que cualquier falla
@@ -248,7 +247,7 @@ namespace SIGAC.Infrastructure.Repositories
                 return;
 
             // Se relee el estado DENTRO de la transacción y no se confía en el que
-            // validó el servicio, igual que en AprobarPrestamoConStockAsync: entre
+            // validó el servicio: entre
             // aquella lectura y esta pudo anularse por otra vía, y anular dos veces
             // descontaría el stock de las mismas entradas dos veces.
             if (gasto.Estado == EstadoGastoOperativo.Anulado)

@@ -23,11 +23,5 @@ namespace SIGAC.Application.Interfaces
         // cubriendo TODO el período filtrado. Los reportes usan el completo de arriba,
         // que ignora la paginación.
         Task<HistorialMovimientosResultadoDto> ObtenerPaginaHistorialMovimientosAsync(FiltrosMovimientoDto filtros);
-
-        Task RegistrarSolicitudPrestamoAsync(SolicitudPrestamoCrearDto dto);
-        Task AprobarPrestamoAsync(ResolucionPrestamoDto dto);
-        Task RechazarPrestamoAsync(ResolucionPrestamoDto dto);
-        // estado opcional: null devuelve todas, que es como lo llama hoy el frontend.
-        Task<IEnumerable<SolicitudPrestamoListaDto>> ObtenerSolicitudesAsync(EstadoSolicitudPrestamo? estado = null);
     }
 }

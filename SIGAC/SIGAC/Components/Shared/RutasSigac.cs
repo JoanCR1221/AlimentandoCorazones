@@ -73,8 +73,6 @@ namespace SIGAC.Components.Shared
 
                 ("/inventario/existencias", new[] { new Miga("Inventario", null) }),
                 ("/inventario/entradas/registrar", new[] { inventario, new Miga("Registrar entrada", null) }),
-                ("/inventario/prestamos/solicitar", new[] { inventario, new Miga("Solicitar préstamo", null) }),
-                ("/inventario/prestamos/gestionar", new[] { inventario, new Miga("Gestionar solicitudes", null) }),
                 ("/inventario/movimientos/historial", new[] { inventario, new Miga("Historial de movimientos", null) }),
                 ("/inventario/articulos/editar/{id}", new[] { inventario, new Miga("Editar artículo", null) }),
 

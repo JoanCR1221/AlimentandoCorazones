@@ -44,7 +44,7 @@ namespace SIGAC.Application.Interfaces
         // CategoriasArticulo/UnidadesMedidaArticulo, así que las opciones salen del
         // código y no de lo que haya guardado en la tabla.
 
-        // Un artículo con historial (entradas, salidas o solicitudes de préstamo)
+        // Un artículo con historial (entradas o salidas)
         // no se puede borrar: el movimiento es el respaldo contable y no puede
         // quedar huérfano. EliminarArticuloAsync no hace este chequeo por su cuenta
         // (además de que el Restrict de las FK lo respalda en la base); quien llama
@@ -78,12 +78,6 @@ namespace SIGAC.Application.Interfaces
         /// </summary>
         Task RegistrarSalidaConStockAsync(SalidaInventario salida);
 
-        /// <summary>
-        /// Marca la solicitud con el estado y motivo que traiga, registra la salida
-        /// asociada y descuenta el stock, todo en la misma operación.
-        /// </summary>
-        Task AprobarPrestamoConStockAsync(SolicitudPrestamo solicitud, SalidaInventario salida);
-
         // Consultas de movimientos
         //
         // No devuelve las entradas anuladas (EntradaInventario.Anulada): ya se
@@ -116,21 +110,11 @@ namespace SIGAC.Application.Interfaces
         // Unidades que entraron por mes y origen ("Compra" o "Donacion").
         Task<IReadOnlyList<UnidadesPorMesYTipoDto>> ObtenerEntradasPorMesYOrigenAsync(int mesesHaciaAtras);
 
-        // Unidades que salieron por mes y tipo ("Donacion" o "Prestamo").
+        // Unidades que salieron por mes y tipo (valor de TiposSalidaInventario).
         Task<IReadOnlyList<UnidadesPorMesYTipoDto>> ObtenerSalidasPorMesYTipoAsync(int mesesHaciaAtras);
 
         // Los artículos con más movimientos (entradas y salidas juntas), de mayor a
         // menor; en empate, por nombre.
         Task<IReadOnlyList<MovimientosPorArticuloDto>> ObtenerArticulosConMasMovimientosAsync(int mesesHaciaAtras, int maximo);
-
-        // Préstamos
-        Task AgregarSolicitudPrestamoAsync(SolicitudPrestamo solicitud);
-        Task<SolicitudPrestamo?> ObtenerSolicitudPorIdAsync(int id);
-        Task ActualizarSolicitudAsync(SolicitudPrestamo solicitud);
-
-        // estado opcional: null devuelve todas. El filtro se resuelve en SQL sobre
-        // IX_SolicitudesPrestamo_Estado, que existe justamente para la bandeja de
-        // solicitudes pendientes.
-        Task<IEnumerable<SolicitudPrestamo>> ObtenerSolicitudesAsync(EstadoSolicitudPrestamo? estado = null);
     }
 }

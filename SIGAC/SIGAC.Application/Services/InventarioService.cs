@@ -355,7 +355,7 @@ namespace SIGAC.Application.Services
                 // de un mensaje que explique por qué no se puede borrar.
                 if (await _repository.TieneMovimientosAsync(id))
                     throw new ValidationException(
-                        "No se puede eliminar: el artículo tiene entradas, salidas o solicitudes de préstamo registradas. Puede editarlo, pero no borrarlo.");
+                        "No se puede eliminar: el artículo tiene entradas o salidas registradas. Puede editarlo, pero no borrarlo.");
 
                 await _repository.EliminarArticuloAsync(id);
 
@@ -381,7 +381,7 @@ namespace SIGAC.Application.Services
                     : Enumerable.Empty<SalidaInventario>();
 
                 // ObtenerSalidasAsync no filtra por TipoSalida (solo por artículo y
-                // fecha), así que un sub-tipo puntual (Donacion o Prestamo) se recorta
+                // fecha), así que un sub-tipo puntual de salida se recorta
                 // acá antes de mapear.
                 if (filtros.TipoSalida is not null)
                     salidas = salidas.Where(s => s.TipoSalida == filtros.TipoSalida);
@@ -464,195 +464,5 @@ namespace SIGAC.Application.Services
             Fecha = s.Fecha,
             OrigenODestino = s.ComunidadDestinataria ?? s.TipoSalida
         };
-
-        public async Task RegistrarSolicitudPrestamoAsync(SolicitudPrestamoCrearDto dto)
-        {
-            try
-            {
-                var articulo = await _repository.ObtenerArticuloPorIdAsync(dto.ArticuloId)
-                    ?? throw new NotFoundException("El artículo no existe.");
-
-                // Va primero, antes de mirar la cantidad: es un rechazo categórico, no
-                // una cuestión de cuánto se pide. Si el artículo no se presta, avisar
-                // "la cantidad debe ser mayor a 0" mandaría al usuario a corregir algo
-                // que no es el problema.
-                //
-                // Solo se presta Equipo (mobiliario, equipo de cocina, herramientas).
-                // Alimento, Ropa y Calzado se consumen o se entregan en forma
-                // definitiva: no vuelven, así que no hay préstamo que registrar.
-                //
-                // SolicitudPrestamo.razor ya filtra el buscador por esta categoría,
-                // pero eso es una comodidad de la pantalla, no la regla: sin esta
-                // comprobación, cualquier otro camino al servicio puede crear la
-                // solicitud igual.
-                if (articulo.Categoria != CategoriasArticulo.Equipo)
-                {
-                    throw new ValidationException(
-                        $"Solo se pueden prestar artículos de categoría {CategoriasArticulo.Equipo}.");
-                }
-
-                if (dto.Cantidad <= 0)
-                    throw new ValidationException("La cantidad debe ser mayor a 0.");
-
-                // Mismo chequeo que RegistrarSalidaDonacionAsync. Es una validación
-                // del momento del pedido, no una reserva: el stock puede cambiar antes
-                // de la aprobación, y AprobarPrestamoAsync lo vuelve a verificar (y el
-                // descuento lo cierra en SQL dentro de la transacción). Lo que evita es
-                // dejar entrar solicitudes que ya nacen imposibles de aprobar.
-                if (dto.Cantidad > articulo.StockActual)
-                    throw new ValidationException("La cantidad solicitada supera el stock disponible.");
-
-                // El DTO ya lleva [Required] en Actividad y Solicitante, pero eso solo
-                // corre en el EditForm del cliente; se repite acá para que un llamador
-                // que no pase por ese formulario no pueda dejarlos vacíos.
-                if (string.IsNullOrWhiteSpace(dto.Actividad))
-                    throw new ValidationException("La actividad es obligatoria.");
-
-                if (string.IsNullOrWhiteSpace(dto.Solicitante))
-                    throw new ValidationException("El solicitante es obligatorio.");
-
-                var solicitud = new SolicitudPrestamo
-                {
-                    ArticuloId = dto.ArticuloId,
-                    Cantidad = dto.Cantidad,
-                    Fecha = dto.Fecha,
-                    Actividad = dto.Actividad,
-                    Solicitante = dto.Solicitante,
-                    Estado = EstadoSolicitudPrestamo.Pendiente
-                };
-
-                await _repository.AgregarSolicitudPrestamoAsync(solicitud);
-
-                await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Inventario,
-                    $"Solicitud de préstamo #{solicitud.Id}: {solicitud.Cantidad} (artículo #{solicitud.ArticuloId}) " +
-                    $"para {solicitud.Actividad}, solicita {solicitud.Solicitante}");
-            }
-            catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
-            {
-                throw new Exception("Error al registrar la solicitud de préstamo.", ex);
-            }
-        }
-
-        public async Task AprobarPrestamoAsync(ResolucionPrestamoDto dto)
-        {
-            try
-            {
-                var solicitud = await _repository.ObtenerSolicitudPorIdAsync(dto.SolicitudId)
-                    ?? throw new NotFoundException("La solicitud no existe.");
-
-                if (solicitud.Estado != EstadoSolicitudPrestamo.Pendiente)
-                    throw new ValidationException("La solicitud ya fue resuelta.");
-
-                var articulo = await _repository.ObtenerArticuloPorIdAsync(solicitud.ArticuloId)
-                    ?? throw new NotFoundException("El artículo no existe.");
-
-                // Se revalida acá y no se confía en lo que se comprobó al crear la
-                // solicitud, por el mismo motivo que se revalidan el estado y el stock:
-                // el dato pudo cambiar en el medio. EditarArticuloAsync permite mover
-                // un artículo de categoría, así que un Equipo solicitado la semana
-                // pasada puede ser un Alimento hoy. La aprobación es el momento en que
-                // el artículo sale físicamente, así que es acá donde tiene que valer.
-                //
-                // También cubre las solicitudes creadas antes de que existiera la
-                // validación del alta: para esas, esta es la única barrera.
-                //
-                // Si una solicitud queda atrapada por este chequeo, el camino es
-                // rechazarla con su motivo, no aprobarla.
-                if (articulo.Categoria != CategoriasArticulo.Equipo)
-                {
-                    throw new ValidationException(
-                        $"No se puede aprobar: el artículo ya no es de categoría {CategoriasArticulo.Equipo} " +
-                        "y solo se prestan artículos de esa categoría.");
-                }
-
-                if (solicitud.Cantidad > articulo.StockActual)
-                    throw new ValidationException("El stock disponible ya no alcanza para este préstamo.");
-
-                var salida = new SalidaInventario
-                {
-                    ArticuloId = solicitud.ArticuloId,
-                    Cantidad = solicitud.Cantidad,
-                    Fecha = DateTime.Now,
-                    TipoSalida = TiposSalidaInventario.Prestamo,
-                    SolicitudPrestamoId = solicitud.Id
-                };
-
-                solicitud.Estado = EstadoSolicitudPrestamo.Aprobada;
-                solicitud.FechaResolucion = DateTime.Now;
-
-                // Una sola llamada: marcar la solicitud como aprobada, registrar la
-                // salida y descontar el stock son todo-o-nada. Antes eran tres
-                // guardados independientes en este orden: salida, descuento, estado.
-                // Si el último fallaba, el préstamo quedaba entregado y descontado con
-                // la solicitud todavía en Pendiente, lista para aprobarse otra vez.
-                await _repository.AprobarPrestamoConStockAsync(solicitud, salida);
-
-                await _bitacora.RegistrarAsync(AccionesBitacora.Aprobar, ModulosSistema.Inventario,
-                    $"Solicitud de préstamo #{solicitud.Id}: {solicitud.Cantidad} (artículo #{solicitud.ArticuloId}) para {solicitud.Actividad}");
-            }
-            catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
-            {
-                throw new Exception("Error al aprobar el préstamo.", ex);
-            }
-        }
-
-        public async Task RechazarPrestamoAsync(ResolucionPrestamoDto dto)
-        {
-            try
-            {
-                var solicitud = await _repository.ObtenerSolicitudPorIdAsync(dto.SolicitudId)
-                    ?? throw new NotFoundException("La solicitud no existe.");
-
-                if (solicitud.Estado != EstadoSolicitudPrestamo.Pendiente)
-                    throw new ValidationException("La solicitud ya fue resuelta.");
-
-                // Antes no se comprobaba: solo lo impedía el botón deshabilitado del
-                // diálogo de rechazo, no el servicio. Un rechazo sin motivo no dice
-                // nada de por qué no se prestó el artículo.
-                if (string.IsNullOrWhiteSpace(dto.MotivoRechazo))
-                    throw new ValidationException("El motivo del rechazo es obligatorio.");
-
-                solicitud.Estado = EstadoSolicitudPrestamo.Rechazada;
-                solicitud.FechaResolucion = DateTime.Now;
-                solicitud.MotivoRechazo = dto.MotivoRechazo;
-
-                await _repository.ActualizarSolicitudAsync(solicitud);
-
-                await _bitacora.RegistrarAsync(AccionesBitacora.Rechazar, ModulosSistema.Inventario,
-                    $"Solicitud de préstamo #{solicitud.Id}: {solicitud.Cantidad} (artículo #{solicitud.ArticuloId}). Motivo: {solicitud.MotivoRechazo}");
-            }
-            catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
-            {
-                throw new Exception("Error al rechazar el préstamo.", ex);
-            }
-        }
-
-        // estado opcional: sin él devuelve todas, como antes. Con él, el filtrado se
-        // resuelve en SQL apoyado en IX_SolicitudesPrestamo_Estado, en vez de traer
-        // el histórico completo para descartarlo en memoria.
-        public async Task<IEnumerable<SolicitudPrestamoListaDto>> ObtenerSolicitudesAsync(
-            EstadoSolicitudPrestamo? estado = null)
-        {
-            try
-            {
-                var solicitudes = await _repository.ObtenerSolicitudesAsync(estado);
-
-                return solicitudes.Select(s => new SolicitudPrestamoListaDto
-                {
-                    Id = s.Id,
-                    Articulo = s.Articulo?.Etiqueta ?? string.Empty,
-                    Cantidad = s.Cantidad,
-                    Fecha = s.Fecha,
-                    Actividad = s.Actividad,
-                    Solicitante = s.Solicitante,
-                    Estado = s.Estado.ToString(),
-                    FechaResolucion = s.FechaResolucion
-                });
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Error al consultar las solicitudes de préstamo.", ex);
-            }
-        }
     }
 }

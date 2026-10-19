@@ -285,8 +285,8 @@ namespace SIGAC.Application.DTOs.Reportes
         public IReadOnlyList<ParticipantesPorProyectoDto> ProyectosConMasParticipantes { get; set; } = Array.Empty<ParticipantesPorProyectoDto>();
     }
 
-    // Una fila del reporte de movimientos de inventario (PBI 1941): una entrada, una
-    // donación o un préstamo de un artículo. Sin Id: el de entradas y salidas son
+    // Una fila del reporte de movimientos de inventario (PBI 1941): una entrada o
+    // una donación de un artículo. Sin Id: el de entradas y salidas son
     // de tablas distintas y se repetirían, y al exportador no le sirve de columna.
     public class ReporteMovimientosDto
     {
@@ -294,8 +294,8 @@ namespace SIGAC.Application.DTOs.Reportes
 
         public string Articulo { get; set; } = string.Empty;
 
-        // "Entrada", "Donación" o "Préstamo", ya con tilde (el historial usa
-        // "Donacion" y "Prestamo", los valores guardados).
+        // "Entrada" o "Donación", ya con tilde (el historial usa "Donacion", el
+        // valor guardado).
         [Display(Name = "Tipo")]
         public string TipoMovimiento { get; set; } = string.Empty;
 
@@ -306,7 +306,7 @@ namespace SIGAC.Application.DTOs.Reportes
         public string OrigenODestino { get; set; } = string.Empty;
     }
 
-    // TipoMovimiento usa los valores guardados ("Entrada", "Donacion" o "Prestamo"),
+    // TipoMovimiento usa los valores guardados ("Entrada" o "Donacion"),
     // igual que FiltrosMovimientoDto; null es todos. Las fechas sin acotar son
     // "desde siempre" / "hasta hoy".
     public class FiltrosReporteMovimientosDto
@@ -327,8 +327,8 @@ namespace SIGAC.Application.DTOs.Reportes
     }
 
     // Unidades movidas en un mes calendario, separadas por tipo. Tipo es el origen de
-    // una entrada ("Compra" o "Donacion") o el tipo de una salida ("Donacion" o
-    // "Prestamo"), según de qué consulta salga: de una sola consulta por lado salen
+    // una entrada ("Compra" o "Donacion") o el tipo de una salida ("Donacion"),
+    // según de qué consulta salga: de una sola consulta por lado salen
     // el total del mes y el desglose por tipo, igual que ConteoComidaMensualDto.
     public sealed record UnidadesPorMesYTipoDto(int Anio, int Mes, string Tipo, int Unidades);
 
@@ -351,7 +351,6 @@ namespace SIGAC.Application.DTOs.Reportes
         public int EntradasPorCompra { get; set; }
         public int EntradasPorDonacion { get; set; }
         public int SalidasPorDonacion { get; set; }
-        public int SalidasPorPrestamo { get; set; }
         public IReadOnlyList<MovimientosPorArticuloDto> ArticulosConMasMovimientos { get; set; } = Array.Empty<MovimientosPorArticuloDto>();
     }
 

@@ -39,8 +39,6 @@ namespace SIGAC.Domain
             public const string VerExistencias = "Inventario.VerExistencias";
             public const string RegistrarEntrada = "Inventario.RegistrarEntrada";
             public const string EditarArticulo = "Inventario.EditarArticulo";
-            public const string SolicitarPrestamo = "Inventario.SolicitarPrestamo";
-            public const string GestionarSolicitudes = "Inventario.GestionarSolicitudes";
             public const string VerMovimientos = "Inventario.VerMovimientos";
         }
 
@@ -117,8 +115,6 @@ namespace SIGAC.Domain
             new Permiso(Inventario.VerExistencias, ModulosSistema.Inventario, "Ver existencias"),
             new Permiso(Inventario.RegistrarEntrada, ModulosSistema.Inventario, "Registrar entradas de inventario"),
             new Permiso(Inventario.EditarArticulo, ModulosSistema.Inventario, "Editar y eliminar artículos"),
-            new Permiso(Inventario.SolicitarPrestamo, ModulosSistema.Inventario, "Solicitar préstamos de artículos"),
-            new Permiso(Inventario.GestionarSolicitudes, ModulosSistema.Inventario, "Aprobar o rechazar solicitudes de préstamo"),
             new Permiso(Inventario.VerMovimientos, ModulosSistema.Inventario, "Ver el historial de movimientos"),
 
             new Permiso(Donaciones.VerDonantes, ModulosSistema.Donaciones, "Ver el listado de donantes"),

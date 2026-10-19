@@ -36,7 +36,7 @@ namespace SIGAC.Application.Interfaces
         // horas alquiladas e ingreso por moneda (los cancelados no suman).
         Task<ReporteAlquileresResultadoDto> GenerarReporteAlquileresAsync(FiltrosReporteAlquileresDto filtros);
 
-        // Reporte de movimientos de inventario (entradas, donaciones y préstamos) de un
+        // Reporte de movimientos de inventario (entradas y donaciones) de un
         // período, con las unidades que entraron y las que salieron.
         Task<ReporteMovimientosResultadoDto> GenerarReporteMovimientosAsync(FiltrosReporteMovimientosDto filtros);
 

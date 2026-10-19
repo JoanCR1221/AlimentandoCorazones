@@ -58,12 +58,12 @@ namespace SIGAC.Tests.Application
             Entrada(1, dia: 1);
             Salida(1, dia: 2);
             Entrada(2, dia: 3);
-            Salida(2, dia: 4, tipo: TiposSalidaInventario.Prestamo);
+            Salida(2, dia: 4);
 
             var resultado = await _servicio.ObtenerPaginaHistorialMovimientosAsync(new FiltrosMovimientoDto());
 
             Assert.Equal(
-                new[] { ("Prestamo", 2), ("Entrada", 2), ("Donacion", 1), ("Entrada", 1) },
+                new[] { ("Donacion", 2), ("Entrada", 2), ("Donacion", 1), ("Entrada", 1) },
                 resultado.Movimientos.Select(Clave));
         }
 
@@ -88,7 +88,7 @@ namespace SIGAC.Tests.Application
             // Mezcla con fechas repetidas y ids repetidos entre tipos: el caso que más
             // fácil repite o salta una fila entre páginas.
             for (var i = 1; i <= 40; i++) Entrada(i, dia: i % 9);
-            for (var i = 1; i <= 33; i++) Salida(i, dia: i % 9, tipo: i % 2 == 0 ? TiposSalidaInventario.Donacion : TiposSalidaInventario.Prestamo);
+            for (var i = 1; i <= 33; i++) Salida(i, dia: i % 9);
 
             var completo = await _servicio.ObtenerHistorialMovimientosAsync(new FiltrosMovimientoDto());
 
@@ -112,12 +112,12 @@ namespace SIGAC.Tests.Application
             Salida(9, dia: 7);
             Entrada(1, dia: 7);
             Entrada(2, dia: 7);
-            Salida(10, dia: 7, tipo: TiposSalidaInventario.Prestamo);
+            Salida(10, dia: 7);
 
             var resultado = await _servicio.ObtenerPaginaHistorialMovimientosAsync(new FiltrosMovimientoDto());
 
             Assert.Equal(
-                new[] { ("Entrada", 2), ("Entrada", 1), ("Prestamo", 10), ("Donacion", 9) },
+                new[] { ("Entrada", 2), ("Entrada", 1), ("Donacion", 10), ("Donacion", 9) },
                 resultado.Movimientos.Select(Clave));
         }
 
@@ -151,20 +151,20 @@ namespace SIGAC.Tests.Application
             Assert.Equal(1, resultado.TotalRegistros);
         }
 
-        [Theory]
-        [InlineData(TiposSalidaInventario.Donacion)]
-        [InlineData(TiposSalidaInventario.Prestamo)]
-        public async Task Un_subtipo_de_salida_trae_solo_las_salidas_de_ese_tipo(string tipo)
+        // Hoy hay un solo tipo de salida; "Traslado" representa uno que no es el
+        // filtrado, para verificar que el filtro recorta igual.
+        [Fact]
+        public async Task Un_subtipo_de_salida_trae_solo_las_salidas_de_ese_tipo()
         {
             Entrada(1, dia: 1);
             Salida(1, dia: 2, tipo: TiposSalidaInventario.Donacion);
-            Salida(2, dia: 3, tipo: TiposSalidaInventario.Prestamo);
+            Salida(2, dia: 3, tipo: "Traslado");
 
             var resultado = await _servicio.ObtenerPaginaHistorialMovimientosAsync(
-                new FiltrosMovimientoDto { TipoMovimiento = tipo });
+                new FiltrosMovimientoDto { TipoMovimiento = TiposSalidaInventario.Donacion });
 
             var fila = Assert.Single(resultado.Movimientos);
-            Assert.Equal(tipo, fila.TipoMovimiento);
+            Assert.Equal(TiposSalidaInventario.Donacion, fila.TipoMovimiento);
             Assert.Equal(1, resultado.TotalRegistros);
             Assert.Equal(0, resultado.TotalEntradas);
             Assert.Equal(4, resultado.TotalSalidas);
@@ -210,13 +210,13 @@ namespace SIGAC.Tests.Application
         {
             Entrada(1, dia: 1, origen: "Donacion");
             Salida(1, dia: 2, comunidad: "Barrio Esperanza");
-            Salida(2, dia: 3, tipo: TiposSalidaInventario.Prestamo);
+            Salida(2, dia: 3);
 
             var filas = (await _servicio.ObtenerPaginaHistorialMovimientosAsync(new FiltrosMovimientoDto())).Movimientos;
 
             Assert.Equal("Donacion", filas[2].OrigenODestino);
             Assert.Equal("Barrio Esperanza", filas[1].OrigenODestino);
-            Assert.Equal("Prestamo", filas[0].OrigenODestino);
+            Assert.Equal("Donacion", filas[0].OrigenODestino);
             Assert.Equal("Articulo 1", filas[0].Articulo);
         }
 
@@ -380,14 +380,9 @@ namespace SIGAC.Tests.Application
             public Task EliminarArticuloAsync(int articuloId) => throw new NotImplementedException();
             public Task RegistrarEntradaConStockAsync(EntradaInventario entrada, Articulo? articuloNuevo) => throw new NotImplementedException();
             public Task RegistrarSalidaConStockAsync(SalidaInventario salida) => throw new NotImplementedException();
-            public Task AprobarPrestamoConStockAsync(SolicitudPrestamo solicitud, SalidaInventario salida) => throw new NotImplementedException();
             public Task<IReadOnlyList<UnidadesPorMesYTipoDto>> ObtenerEntradasPorMesYOrigenAsync(int mesesHaciaAtras) => throw new NotImplementedException();
             public Task<IReadOnlyList<UnidadesPorMesYTipoDto>> ObtenerSalidasPorMesYTipoAsync(int mesesHaciaAtras) => throw new NotImplementedException();
             public Task<IReadOnlyList<MovimientosPorArticuloDto>> ObtenerArticulosConMasMovimientosAsync(int mesesHaciaAtras, int maximo) => throw new NotImplementedException();
-            public Task AgregarSolicitudPrestamoAsync(SolicitudPrestamo solicitud) => throw new NotImplementedException();
-            public Task<SolicitudPrestamo?> ObtenerSolicitudPorIdAsync(int id) => throw new NotImplementedException();
-            public Task ActualizarSolicitudAsync(SolicitudPrestamo solicitud) => throw new NotImplementedException();
-            public Task<IEnumerable<SolicitudPrestamo>> ObtenerSolicitudesAsync(EstadoSolicitudPrestamo? estado = null) => throw new NotImplementedException();
         }
     }
 }
