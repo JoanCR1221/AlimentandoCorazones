@@ -218,13 +218,24 @@ namespace SIGAC.Infrastructure.Repositories
         {
             var consulta = context.Beneficiarios.AsNoTracking();
 
-            if (!string.IsNullOrWhiteSpace(filtros.Nombre))
+            // Una sola caja para los cuatro campos de nombre y el número de
+            // identidad: sirve tanto "María" como "123456789", y con varias palabras
+            // ("maria perez", "perez maria") cada una tiene que estar en algún
+            // campo. Un Where por palabra: EF los encadena con AND en el mismo SQL.
+            // El número no lleva collation: son dígitos y letras sin tildes.
+            //
+            // Un texto con dígitos es un número de documento y no se parte en
+            // palabras: se compara entero contra el número guardado sin guiones
+            // (REPLACE en SQL), así "1 2345 6789" o "AB 123" encuentran
+            // "123456789" o "AB-123".
+            if (filtros.NumeroIdentidadBuscado is string numero)
             {
-                var busqueda = filtros.Nombre.Trim();
+                consulta = consulta.Where(b =>
+                    b.NumIdentidad != null && b.NumIdentidad.Replace("-", "").Contains(numero));
+            }
 
-                // Una sola caja para los cuatro campos de nombre y el número de
-                // identidad: sirve tanto "María" como "123456789".
-                // El número no lleva collation: son dígitos y letras sin tildes.
+            foreach (var busqueda in filtros.PalabrasBusqueda)
+            {
                 consulta = consulta.Where(b =>
                     EF.Functions.Collate(b.PrimerNombre, ColacionSinTildes).Contains(busqueda) ||
                     EF.Functions.Collate(b.SegundoNombre, ColacionSinTildes).Contains(busqueda) ||

@@ -121,6 +121,40 @@ namespace SIGAC.Application.DTOs.Beneficiarios
         // número de identidad, todo en la misma caja. En el mostrador llega alguien
         // con la cédula en la mano y se busca por el número sin cambiar de campo.
         public string? Nombre { get; set; }
+
+        // Las palabras de Nombre, que el repositorio exige TODAS, cada una en
+        // cualquiera de los campos y en cualquier orden. El nombre completo está
+        // repartido en cuatro columnas, así que buscar el texto entero en cada una
+        // no encontraba a nadie con "María Pérez": ninguna columna tiene las dos.
+        // Cualquier espacio en blanco separa (varios seguidos cuentan como uno) y
+        // una palabra repetida se busca una sola vez. Vacía cuando el texto es un
+        // número de documento (ver NumeroIdentidadBuscado): las dos búsquedas se
+        // excluyen.
+        public IReadOnlyList<string> PalabrasBusqueda =>
+            string.IsNullOrWhiteSpace(Nombre) || NumeroIdentidadBuscado is not null
+                ? Array.Empty<string>()
+                : Nombre.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+
+        // Un texto con algún dígito se busca como número de documento: los nombres
+        // no llevan dígitos (ReglasBeneficiario), así que no hay ambigüedad. Se
+        // quitan espacios y guiones, que la gente usa para agrupar ("1 2345 6789",
+        // "1-2345-6789"), y el repositorio compara contra el número guardado sin
+        // guiones (los pasaportes los conservan: "AB-123"). Partido en palabras,
+        // "1 2345 6789" exigiría tres trozos sueltos y traería a otras personas.
+        public string? NumeroIdentidadBuscado
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(Nombre) || !Nombre.Any(char.IsDigit))
+                    return null;
+
+                var numero = string.Concat(Nombre.Where(c => !char.IsWhiteSpace(c) && c != '-'));
+                return numero.Length == 0 ? null : numero;
+            }
+        }
+
         public string? Categoria { get; set; }
         public string? TipoDocumento { get; set; }
         public bool? Estado { get; set; }
