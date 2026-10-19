@@ -38,12 +38,16 @@
 
         @* Los totales son del período completo, no de la página que se ve: vienen
            de un agregado en la base, junto con cada página. *@
-        <MudText Typo="Typo.subtitle1" Class="mb-1">Total de asistencias del período: @TextoResumen.Numero(resultado.TotalRegistros)</MudText>
-        @if (resultado.TotalesPorTiempoComida.Count > 0)
+        @* Sin filtro no hay consulta: un "0" se leería como que no hubo asistencias. *@
+        @if (HayFiltro)
         {
-            <MudText Typo="Typo.body2" Class="mb-4">
-                @string.Join(" · ", resultado.TotalesPorTiempoComida.Select(kv => $"{kv.Key}: {TextoResumen.Numero(kv.Value)}"))
-            </MudText>
+            <MudText Typo="Typo.subtitle1" Class="mb-1">Total de asistencias del período: @TextoResumen.Numero(resultado.TotalRegistros)</MudText>
+            @if (resultado.TotalesPorTiempoComida.Count > 0)
+            {
+                <MudText Typo="Typo.body2" Class="mb-4">
+                    @string.Join(" · ", resultado.TotalesPorTiempoComida.Select(kv => $"{kv.Key}: {TextoResumen.Numero(kv.Value)}"))
+                </MudText>
+            }
         }
 
         @* ServerData en lugar de Items: el historial crece con cada día de servicio,
@@ -72,8 +76,11 @@
                 }
                 else
                 {
+                    @* Sin filtros no se consulta nada, así que acá no se sabe si hay
+                       asistencias: la invitación a buscar también ofrece registrar. *@
                     <EstadoVacio Icono="@Icons.Material.Filled.Restaurant"
-                                 Titulo="Todavía no hay asistencias registradas"
+                                 Titulo="Busque un beneficiario, o elija un tiempo de comida o un rango de fechas"
+                                 Descripcion="Así se consultan solo las asistencias que necesita, sin cargar el historial completo."
                                  TextoAccion="Registrar asistencia" HrefAccion="/asistencia/registrar"
                                  PermisoAccion="@Permisos.Asistencia.Registrar" />
                 }
@@ -140,6 +147,16 @@
     private async Task<GridData<HistorialAsistenciaDto>> CargarPaginaAsync(
         GridState<HistorialAsistenciaDto> estado, CancellationToken cancellationToken)
     {
+        // La pantalla abre sin consultar el historial: sin ningún criterio
+        // no se va a la base y la grilla queda vacía, con la invitación a buscar.
+        // Mismo criterio que ListadoGastos. Cubre también quitar todos los filtros.
+        if (!HayFiltro)
+        {
+            resultado = new HistorialAsistenciaResultadoDto();
+            StateHasChanged();
+            return new GridData<HistorialAsistenciaDto> { Items = Array.Empty<HistorialAsistenciaDto>(), TotalItems = 0 };
+        }
+
         try
         {
             resultado = await AsistenciaService.ObtenerHistorialAsistenciaAsync(new FiltrosAsistenciaDto

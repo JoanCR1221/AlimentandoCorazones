@@ -48,9 +48,13 @@
             </MudItem>
         </MudGrid>
 
-        <MudText Typo="Typo.subtitle1" Class="mb-4">
-            Total entregado del período: <b>@resultado.TotalEntregado</b>
-        </MudText>
+        @* Sin filtro no hay consulta: un "0" se leería como que no hubo entregas. *@
+        @if (HayFiltro)
+        {
+            <MudText Typo="Typo.subtitle1" Class="mb-4">
+                Total entregado del período: <b>@resultado.TotalEntregado</b>
+            </MudText>
+        }
 
         @* Destinatario primero: es el dato que responde "a quién se le entregó",
            que es la razón más común para abrir este historial. El tipo pasa a
@@ -136,8 +140,11 @@
                 }
                 else
                 {
+                    @* Sin filtros no se consulta nada, así que acá no se sabe si hay
+                       entregas: la invitación a buscar también ofrece registrar. *@
                     <EstadoVacio Icono="@Icons.Material.Filled.LocalShipping"
-                                 Titulo="Todavía no hay entregas registradas"
+                                 Titulo="Busque un beneficiario o un artículo, o elija un tipo de destinatario o un rango de fechas"
+                                 Descripcion="Así se consultan solo las entregas que necesita, sin cargar el historial completo."
                                  TextoAccion="Registrar entrega" HrefAccion="/donaciones/entregas/registrar"
                                  PermisoAccion="@Permisos.Donaciones.RegistrarEntrega" />
                 }
@@ -167,7 +174,7 @@
     private string? filtroTipoDestinatario;
     private BeneficiarioListaDto? beneficiarioSeleccionado;
     private DateRange? rangoFechas;
-    private bool cargando = true;
+    private bool cargando;
 
     private bool HayFiltro =>
         articuloSeleccionado is not null || !string.IsNullOrWhiteSpace(filtroTipoDestinatario) ||
@@ -197,10 +204,8 @@
             .OrderByDescending(f => f.Fecha)
             .ToList();
 
-    protected override async Task OnInitializedAsync()
-    {
-        await CargarAsync();
-    }
+    // Sin OnInitializedAsync a propósito: la pantalla abre sin consultar el
+    // historial, igual que ListadoProyectos. Se consulta al elegir un filtro.
 
     private async Task<IEnumerable<ArticuloExistenciaDto>> BuscarArticulosAsync(string valor, CancellationToken cancellationToken)
     {
@@ -242,6 +247,14 @@
 
     private async Task CargarAsync()
     {
+        // Sin ningún criterio no se va a la base. Cubre también quitar todos los
+        // filtros: la grilla se vacía en vez de traer todas las entregas.
+        if (!HayFiltro)
+        {
+            resultado = new HistorialEntregasResultadoDto();
+            return;
+        }
+
         cargando = true;
 
         try

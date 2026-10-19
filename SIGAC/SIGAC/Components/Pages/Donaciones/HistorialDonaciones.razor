@@ -82,8 +82,11 @@
                 }
                 else
                 {
+                    @* Sin filtros no se consulta nada, así que acá no se sabe si hay
+                       donaciones: se invita a buscar. *@
                     <EstadoVacio Icono="@Icons.Material.Filled.VolunteerActivism"
-                                 Titulo="Todavía no hay donaciones registradas" />
+                                 Titulo="Busque un donante, o elija un tipo de donación o un rango de fechas"
+                                 Descripcion="Así se consultan solo las donaciones que necesita, sin cargar el historial completo." />
                 }
             </NoRecordsContent>
             <PagerContent>
@@ -136,6 +139,16 @@
     private async Task<GridData<HistorialDonacionDto>> CargarPaginaAsync(
         GridState<HistorialDonacionDto> estado, CancellationToken cancellationToken)
     {
+        // La pantalla abre sin consultar el historial: sin ningún criterio
+        // no se va a la base y la grilla queda vacía, con la invitación a buscar.
+        // Mismo criterio que ListadoGastos. Cubre también quitar todos los filtros.
+        if (!HayFiltro)
+        {
+            resultado = new HistorialDonacionesResultadoDto();
+            StateHasChanged();
+            return new GridData<HistorialDonacionDto> { Items = Array.Empty<HistorialDonacionDto>(), TotalItems = 0 };
+        }
+
         try
         {
             resultado = await DonacionesService.ObtenerPaginaHistorialDonacionesAsync(new FiltrosHistorialDonacionDto

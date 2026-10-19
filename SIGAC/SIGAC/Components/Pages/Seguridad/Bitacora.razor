@@ -82,8 +82,10 @@
                 }
                 else
                 {
+                    @* Sin filtros no se consulta nada: se invita a buscar. *@
                     <EstadoVacio Icono="@Icons.Material.Filled.History"
-                                 Titulo="Todavía no hay acciones registradas" />
+                                 Titulo="Elija un usuario, rol, módulo o rango de fechas"
+                                 Descripcion="Así se consultan solo las acciones que necesita, sin cargar la bitácora completa." />
                 }
             </NoRecordsContent>
             <PagerContent>
@@ -125,6 +127,12 @@
     private async Task<GridData<BitacoraAccionDto>> CargarPaginaAsync(
         GridState<BitacoraAccionDto> estado, CancellationToken cancellationToken)
     {
+        // La pantalla abre sin consultar la bitácora: sin ningún criterio
+        // no se va a la base y la grilla queda vacía, con la invitación a buscar.
+        // Mismo criterio que ListadoGastos. Cubre también quitar todos los filtros.
+        if (!HayFiltro)
+            return new GridData<BitacoraAccionDto> { Items = Array.Empty<BitacoraAccionDto>(), TotalItems = 0 };
+
         try
         {
             var resultado = await BitacoraService.ObtenerBitacoraAsync(new FiltrosBitacoraDto

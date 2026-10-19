@@ -25,9 +25,13 @@
 
         @* Unidades de TODO el período filtrado, no de la página que se ve: vienen de
            un agregado en la base, junto con cada página. *@
-        <MudText Typo="Typo.subtitle1" Class="mb-4">
-            Total de entradas: @TextoResumen.Numero(resultado.TotalEntradas) · Total de salidas: @TextoResumen.Numero(resultado.TotalSalidas)
-        </MudText>
+        @* Sin filtro no hay consulta: un "0" se leería como que no hubo movimientos. *@
+        @if (HayFiltro)
+        {
+            <MudText Typo="Typo.subtitle1" Class="mb-4">
+                Total de entradas: @TextoResumen.Numero(resultado.TotalEntradas) · Total de salidas: @TextoResumen.Numero(resultado.TotalSalidas)
+            </MudText>
+        }
 
         @* ServerData en lugar de Items: el historial crece con cada movimiento, así
            que la grilla pide una página por vez y el repositorio trae de la base solo
@@ -61,8 +65,11 @@
                 }
                 else
                 {
+                    @* Sin filtros no se consulta nada, así que acá no se sabe si hay
+                       movimientos: se invita a buscar. *@
                     <EstadoVacio Icono="@Icons.Material.Filled.SwapHoriz"
-                                 Titulo="Todavía no hay movimientos registrados" />
+                                 Titulo="Busque un artículo, o elija un tipo de movimiento o un rango de fechas"
+                                 Descripcion="Así se consultan solo los movimientos que necesita, sin cargar el historial completo." />
                 }
             </NoRecordsContent>
             <PagerContent>
@@ -121,6 +128,16 @@
     private async Task<GridData<MovimientoInventarioDto>> CargarPaginaAsync(
         GridState<MovimientoInventarioDto> estado, CancellationToken cancellationToken)
     {
+        // La pantalla abre sin consultar el historial: sin ningún criterio
+        // no se va a la base y la grilla queda vacía, con la invitación a buscar.
+        // Mismo criterio que ListadoGastos. Cubre también quitar todos los filtros.
+        if (!HayFiltro)
+        {
+            resultado = new HistorialMovimientosResultadoDto();
+            StateHasChanged();
+            return new GridData<MovimientoInventarioDto> { Items = Array.Empty<MovimientoInventarioDto>(), TotalItems = 0 };
+        }
+
         try
         {
             resultado = await InventarioService.ObtenerPaginaHistorialMovimientosAsync(new FiltrosMovimientoDto

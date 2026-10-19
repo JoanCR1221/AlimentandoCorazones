@@ -90,12 +90,18 @@
                                  Titulo="Ningún donante coincide con los filtros"
                                  Descripcion="Pruebe con otro nombre, tipo de persona o estado." />
                 }
-                else
+                else if (NoHayDonantes)
                 {
                     <EstadoVacio Icono="@Icons.Material.Filled.VolunteerActivism"
                                  Titulo="Todavía no hay donantes registrados"
                                  TextoAccion="Registrar donante" HrefAccion="/donantes/registrar"
                                  PermisoAccion="@Permisos.Donaciones.RegistrarDonante" />
+                }
+                else
+                {
+                    <EstadoVacio Icono="@Icons.Material.Filled.PersonSearch"
+                                 Titulo="Busque por nombre o elija un filtro"
+                                 Descripcion="Así se consultan solo los donantes que necesita, sin cargar la lista completa." />
                 }
             </NoRecordsContent>
             <PagerContent>
@@ -117,6 +123,10 @@
 
     private ResumenRegistrosDto? resumen;
 
+    // Sale del resumen de las tarjetas (un conteo, no filas): permite decir
+    // "todavía no hay donantes" sin consultar la lista.
+    private bool NoHayDonantes => resumen is { Activos: 0, Inactivos: 0 };
+
     protected override async Task OnInitializedAsync() => await CargarResumenAsync();
 
     // Las tarjetas son un complemento del listado: si la consulta falla se
@@ -133,20 +143,16 @@
         }
     }
 
-    // MudDataGrid con ServerData no dispara la primera carga solo: sin este
-    // reload explícito la grilla se ve vacía al entrar aunque haya donantes,
-    // hasta que algún filtro cambie y llame a ReloadServerData por su cuenta.
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender && grilla is not null)
-        {
-            await grilla.ReloadServerData();
-        }
-    }
-
     private async Task<GridData<DonanteListaDto>> CargarPaginaAsync(
         GridState<DonanteListaDto> estado, CancellationToken cancellationToken)
     {
+        // La pantalla abre sin consultar la lista: sin ningún criterio no se va a
+        // la base y la grilla queda vacía, con la invitación a buscar. Mismo
+        // criterio que ListadoBeneficiarios. Cubre también borrar todos los
+        // filtros: la grilla se vacía en vez de volver a traer la lista completa.
+        if (!HayFiltro)
+            return new GridData<DonanteListaDto> { Items = Array.Empty<DonanteListaDto>(), TotalItems = 0 };
+
         var resultado = await DonantesService.ObtenerDonantesAsync(new FiltrosDonanteDto
         {
             Nombre = filtroTexto,
