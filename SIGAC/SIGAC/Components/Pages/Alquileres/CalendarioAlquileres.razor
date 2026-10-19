@@ -141,8 +141,11 @@
                 }
                 else
                 {
+                    @* Sin filtros no se consulta nada, así que acá no se sabe si hay
+                       alquileres: la invitación a buscar también ofrece registrar. *@
                     <EstadoVacio Icono="@Icons.Material.Filled.EventAvailable"
-                                 Titulo="Todavía no hay alquileres registrados"
+                                 Titulo="Elija un sector, un rango de fechas o un estado"
+                                 Descripcion="Así se consultan solo los alquileres que necesita, sin cargar el calendario completo."
                                  TextoAccion="Registrar alquiler" HrefAccion="/alquileres/registrar"
                                  PermisoAccion="@Permisos.Alquileres.Registrar" />
                 }
@@ -206,6 +209,16 @@
     private async Task<GridData<AlquilerListaDto>> CargarPaginaAsync(
         GridState<AlquilerListaDto> estado, CancellationToken cancellationToken)
     {
+        // La pantalla abre sin consultar el calendario: sin ningún criterio
+        // no se va a la base y la grilla queda vacía, con la invitación a buscar.
+        // Mismo criterio que ListadoGastos. Cubre también quitar todos los filtros.
+        if (!HayFiltro)
+        {
+            totalesPorMoneda = Array.Empty<MontoPorMonedaDto>();
+            StateHasChanged();
+            return new GridData<AlquilerListaDto> { Items = Array.Empty<AlquilerListaDto>(), TotalItems = 0 };
+        }
+
         try
         {
             var resultado = await AlquileresService.ObtenerPaginaHistorialAlquileresAsync(new FiltrosHistorialAlquilerDto

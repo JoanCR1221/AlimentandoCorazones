@@ -125,8 +125,10 @@
                 }
                 else
                 {
+                    @* Sin filtros no se consulta nada: se invita a buscar. *@
                     <EstadoVacio Icono="@Icons.Material.Filled.ManageAccounts"
-                                 Titulo="Todavía no hay usuarios registrados" />
+                                 Titulo="Busque por nombre o correo, o elija un rol o un estado"
+                                 Descripcion="Así se consultan solo los usuarios que necesita, sin cargar la lista completa." />
                 }
             </NoRecordsContent>
         </MudDataGrid>
@@ -138,7 +140,7 @@
     private Task<AuthenticationState>? EstadoAutenticacion { get; set; }
 
     private IReadOnlyList<UsuarioListaDto> usuarios = Array.Empty<UsuarioListaDto>();
-    private bool cargando = true;
+    private bool cargando;
     private string? idUsuarioActual;
 
     private string? filtroTexto;
@@ -156,11 +158,20 @@
             idUsuarioActual = estado.User.FindFirstValue(ClaimTypes.NameIdentifier);
         }
 
-        await CargarAsync();
+        // No se carga la lista acá: la pantalla abre sin consultar usuarios,
+        // igual que ListadoProyectos. Se consulta al elegir un filtro.
     }
 
     private async Task CargarAsync()
     {
+        // Sin ningún criterio no se va a la base. Cubre también quitar todos los
+        // filtros: la grilla se vacía en vez de traer todos los usuarios.
+        if (!HayFiltro)
+        {
+            usuarios = Array.Empty<UsuarioListaDto>();
+            return;
+        }
+
         cargando = true;
 
         try
