@@ -86,7 +86,7 @@ namespace SIGAC.Tests.Application
         }
 
         [Fact]
-        public async Task Un_prestamo_sin_costo_se_puede_registrar()
+        public async Task Un_uso_sin_costo_se_puede_registrar()
         {
             var dto = Alquiler(ProximoLunes, 10, 12);
             dto.Monto = 0;

@@ -25,7 +25,6 @@ namespace SIGAC.Infrastructure.Data
         public DbSet<Articulo> Articulos { get; set; }
         public DbSet<EntradaInventario> EntradasInventario { get; set; }
         public DbSet<SalidaInventario> SalidasInventario { get; set; }
-        public DbSet<SolicitudPrestamo> SolicitudesPrestamo { get; set; }
 
         // Módulo de Gestión de Donaciones
         public DbSet<Donante> Donantes { get; set; }
@@ -498,9 +497,8 @@ namespace SIGAC.Infrastructure.Data
                     .IsRequired();
 
                 // datetime2 y no "date" como en AsistenciasComedor: los movimientos se
-                // ordenan entre sí y varios pueden caer el mismo día (AprobarPrestamoAsync
-                // sella la salida con DateTime.Now). Sin la hora, el historial de un
-                // mismo día quedaría en orden arbitrario.
+                // ordenan entre sí y varios pueden caer el mismo día. Sin la hora, el
+                // historial de un mismo día quedaría en orden arbitrario.
                 entity.Property(e => e.Fecha)
                     .IsRequired();
 
@@ -544,8 +542,7 @@ namespace SIGAC.Infrastructure.Data
                 // con historial de entradas no se borra en duro (se desactiva con
                 // Estado, mismo criterio que en DonacionesDinero y DonacionesEspecie).
                 //
-                // Sin propiedad de navegación en la entidad, igual que la FK de
-                // SalidasInventario hacia SolicitudPrestamo: EntradaInventario
+                // Sin propiedad de navegación en la entidad: EntradaInventario
                 // pertenece al módulo de Inventario y no se le agrega una referencia
                 // a un tipo de Donaciones, así que la relación se declara con
                 // HasOne<T>() sin selector, apoyada solo en la columna FK.
@@ -619,12 +616,14 @@ namespace SIGAC.Infrastructure.Data
             modelBuilder.Entity<SalidaInventario>(entity =>
             {
                 // CHECK a nivel de BD: TipoSalida es un dominio cerrado y una salida
-                // siempre descuenta stock, nunca cero ni negativo.
+                // siempre descuenta stock, nunca cero ni negativo. Se genera desde
+                // TiposSalidaInventario, así que agregar un tipo exige una migración
+                // que reescriba la restricción.
                 entity.ToTable("SalidasInventario", t =>
                 {
                     t.HasCheckConstraint(
                         "CK_SalidasInventario_TipoSalida",
-                        $"[TipoSalida] IN ('{TiposSalidaInventario.Donacion}', '{TiposSalidaInventario.Prestamo}')");
+                        $"[TipoSalida] IN ('{string.Join("', '", TiposSalidaInventario.Todos)}')");
 
                     t.HasCheckConstraint(
                         "CK_SalidasInventario_Cantidad",
@@ -636,9 +635,8 @@ namespace SIGAC.Infrastructure.Data
                 entity.Property(s => s.Cantidad)
                     .IsRequired();
 
-                // datetime2 y no "date", por lo mismo que EntradasInventario: las
-                // salidas de préstamo se sellan con DateTime.Now y varias pueden
-                // caer el mismo día.
+                // datetime2 y no "date", por lo mismo que EntradasInventario: varias
+                // salidas pueden caer el mismo día.
                 entity.Property(s => s.Fecha)
                     .IsRequired();
 
@@ -647,8 +645,7 @@ namespace SIGAC.Infrastructure.Data
                     .IsUnicode(false)
                     .HasMaxLength(20);
 
-                // Opcional: solo las salidas por donación tienen comunidad destinataria.
-                // Las de préstamo identifican su destino por la solicitud asociada.
+                // Opcional: a dónde fue la mercadería (comunidad o beneficiario).
                 entity.Property(s => s.ComunidadDestinataria)
                     .IsUnicode(false)
                     .HasMaxLength(150);
@@ -666,113 +663,10 @@ namespace SIGAC.Infrastructure.Data
                     .IsRequired()
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // FK REAL y opcional hacia SolicitudPrestamo (y no un int suelto):
-                // el valor lo escribe AprobarPrestamoAsync a partir de una solicitud
-                // que acaba de leer, así que siempre apunta a una fila existente y la
-                // BD puede garantizarlo. Como int suelto se podrían colar ids
-                // inexistentes sin que nada avisara.
-                // Nullable porque las salidas por donación no nacen de una solicitud.
-                // Restrict: la salida es el comprobante de que el préstamo se entregó,
-                // no puede desaparecer al borrar la solicitud.
-                //
-                // Sin propiedad de navegación en la entidad: no se puede agregar una
-                // (las entidades del dominio están cerradas), así que se declara con
-                // HasOne<T>() sin selector, apoyada solo en la FK.
-                entity.HasOne<SolicitudPrestamo>()
-                    .WithMany()
-                    .HasForeignKey(s => s.SolicitudPrestamoId)
-                    .IsRequired(false)
-                    .OnDelete(DeleteBehavior.Restrict);
-
-                // Unicidad: una solicitud aprobada genera UNA sola salida. Cierra la
-                // condición de carrera de AprobarPrestamoAsync, donde dos aprobaciones
-                // simultáneas de la misma solicitud pasarían las dos el chequeo de
-                // "ya fue resuelta" y descontarían el stock dos veces.
-                //
-                // Índice FILTRADO: las salidas por donación llevan la columna en NULL
-                // y quedan fuera de la regla. Sin el filtro chocarían todas entre sí
-                // (en SQL Server el índice único trata dos NULL como iguales).
-                entity.HasIndex(s => s.SolicitudPrestamoId)
-                    .IsUnique()
-                    .HasFilter("[SolicitudPrestamoId] IS NOT NULL")
-                    .HasDatabaseName("UX_SalidasInventario_SolicitudPrestamo");
-
                 // Mismos índices que EntradasInventario: el historial de movimientos
                 // consulta las dos tablas con los mismos filtros.
                 entity.HasIndex(s => new { s.ArticuloId, s.Fecha })
                     .HasDatabaseName("IX_SalidasInventario_Articulo_Fecha");
-
-                entity.HasIndex(s => s.Fecha);
-            });
-
-            modelBuilder.Entity<SolicitudPrestamo>(entity =>
-            {
-                // CHECK a nivel de BD: Estado es un dominio cerrado (el enum
-                // EstadoSolicitudPrestamo) y se guarda como texto, así que sin el
-                // CHECK la columna aceptaría cualquier cadena escrita desde afuera.
-                entity.ToTable("SolicitudesPrestamo", t =>
-                {
-                    t.HasCheckConstraint(
-                        "CK_SolicitudesPrestamo_Estado",
-                        "[Estado] IN ('Pendiente', 'Aprobada', 'Rechazada')");
-
-                    t.HasCheckConstraint(
-                        "CK_SolicitudesPrestamo_Cantidad",
-                        "[Cantidad] > 0");
-                });
-
-                entity.HasKey(s => s.Id);
-
-                entity.Property(s => s.Cantidad)
-                    .IsRequired();
-
-                entity.Property(s => s.Fecha)
-                    .IsRequired();
-
-                entity.Property(s => s.Actividad)
-                    .IsRequired()
-                    .IsUnicode(false)
-                    .HasMaxLength(150);
-
-                entity.Property(s => s.Solicitante)
-                    .IsRequired()
-                    .IsUnicode(false)
-                    .HasMaxLength(150);
-
-                // El enum se guarda como texto legible ('Pendiente') y no como el int
-                // del enum: la columna se entiende leyendo la tabla, el CHECK de
-                // arriba puede escribirse sobre valores con significado, y agregar o
-                // reordenar valores del enum no reinterpreta las filas ya guardadas.
-                //
-                // HasConversion<string>() es el conversor integrado de EF Core para
-                // enums (EnumToStringConverter); no hace falta escribir uno a mano.
-                entity.Property(s => s.Estado)
-                    .IsRequired()
-                    .HasConversion<string>()
-                    .IsUnicode(false)
-                    .HasMaxLength(20);
-
-                // Solo se llena cuando la solicitud se rechaza.
-                entity.Property(s => s.MotivoRechazo)
-                    .IsUnicode(false)
-                    .HasMaxLength(500);
-
-                // Sin IsRequired(): es opcional porque una solicitud Pendiente todavía no
-                // tiene resolución. Queda en NULL hasta que se aprueba o se rechaza, y
-                // ese NULL es justamente lo que distingue "sin resolver" de "resuelta".
-                entity.Property(s => s.FechaResolucion);
-
-                // Relación FK obligatoria con Articulo. Restrict impide borrar un
-                // artículo que tenga solicitudes de préstamo asociadas.
-                entity.HasOne(s => s.Articulo)
-                    .WithMany()
-                    .HasForeignKey(s => s.ArticuloId)
-                    .IsRequired()
-                    .OnDelete(DeleteBehavior.Restrict);
-
-                // Índice en el campo de filtro frecuente: la bandeja de préstamos
-                // trabaja sobre las solicitudes en estado Pendiente.
-                entity.HasIndex(s => s.Estado);
 
                 entity.HasIndex(s => s.Fecha);
             });
@@ -797,9 +691,7 @@ namespace SIGAC.Infrastructure.Data
 
                 // 150 y no los 100 de ReglasBeneficiario.LongitudMaximaNombre: acá el
                 // nombre completo va en UNA sola columna (un beneficiario lo reparte
-                // en cuatro), y además puede ser la razón social de una empresa. Es la
-                // misma longitud que SolicitudPrestamo.Solicitante, que también guarda
-                // un nombre entero como texto libre.
+                // en cuatro), y además puede ser la razón social de una empresa.
                 entity.Property(d => d.Nombre)
                     .IsRequired()
                     .IsUnicode(false)
@@ -1202,7 +1094,7 @@ namespace SIGAC.Infrastructure.Data
                         $"[FormaPago] IN ('{string.Join("', '", FormasPago.Todos)}')");
 
                     // Estado también es un dominio cerrado guardado como texto, igual
-                    // que en SolicitudesPrestamo: sin el CHECK la columna aceptaría
+                    // que en ProyectosComunitarios: sin el CHECK la columna aceptaría
                     // cualquier cadena escrita desde afuera.
                     t.HasCheckConstraint(
                         "CK_GastosOperativos_Estado",
@@ -1294,7 +1186,7 @@ namespace SIGAC.Infrastructure.Data
                     .IsUnicode(false)
                     .HasMaxLength(ReglasGastoOperativo.LongitudMaximaResponsable);
 
-                // Enum como texto y no como int, igual que Estado en SolicitudesPrestamo:
+                // Enum como texto y no como int, igual que Estado en ProyectosComunitarios:
                 // la columna se entiende leyendo la tabla, el CHECK de arriba puede
                 // escribirse sobre valores con significado, y agregar o reordenar
                 // valores del enum no reinterpreta las filas ya guardadas.
@@ -1597,8 +1489,8 @@ namespace SIGAC.Infrastructure.Data
                         "CK_AlquileresEspacio_CantidadPersonas",
                         "[CantidadPersonas] > 0");
 
-                    // >= 0 y no > 0 como en DonacionesDinero: un préstamo sin costo
-                    // también es un alquiler que ocupa el local.
+                    // >= 0 y no > 0 como en DonacionesDinero: el uso sin costo también
+                    // es un alquiler que ocupa el local.
                     t.HasCheckConstraint(
                         "CK_AlquileresEspacio_Monto",
                         "[Monto] >= 0");

@@ -28,7 +28,7 @@
         {
             <EstadoVacio Icono="@Icons.Material.Filled.SwapHoriz"
                          Titulo="No hay movimientos en los últimos 12 meses"
-                         Descripcion="Las gráficas se llenan a medida que se registran entradas, donaciones y préstamos." />
+                         Descripcion="Las gráficas se llenan a medida que se registran entradas y donaciones." />
         }
         else
         {
@@ -69,7 +69,6 @@
         EntradasSalidas,
         PorMes,
         OrigenEntradas,
-        TipoSalidas,
         ArticulosConMasMovimientos
     }
 
@@ -87,7 +86,6 @@
         new(Estadistica.EntradasSalidas, "Unidades que entran y salen", Icons.Material.Filled.DonutLarge),
         new(Estadistica.PorMes, "Entradas y salidas por mes", Icons.Material.Filled.BarChart),
         new(Estadistica.OrigenEntradas, "Origen de las entradas", Icons.Material.Filled.DonutLarge),
-        new(Estadistica.TipoSalidas, "Tipo de las salidas", Icons.Material.Filled.DonutLarge),
         new(Estadistica.ArticulosConMasMovimientos, "Artículos con más movimientos", Icons.Material.Filled.BarChart)
     };
 
@@ -167,13 +165,6 @@
                 ChartType.Donut,
                 new() { new() { Name = "Unidades", Data = new double[] { datos.EntradasPorCompra, datos.EntradasPorDonacion } } },
                 new[] { "Compras", "Donaciones" }),
-
-            [Estadistica.TipoSalidas] = new(
-                "Tipo de las salidas",
-                NotaUnidades,
-                ChartType.Donut,
-                new() { new() { Name = "Unidades", Data = new double[] { datos.SalidasPorDonacion, datos.SalidasPorPrestamo } } },
-                new[] { "Donaciones", "Préstamos" }),
 
             [Estadistica.ArticulosConMasMovimientos] = new(
                 "Artículos con más movimientos",

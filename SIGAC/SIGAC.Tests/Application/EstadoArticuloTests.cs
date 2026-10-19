@@ -276,7 +276,6 @@ namespace SIGAC.Tests.Application
             public Task<bool> TieneMovimientosAsync(int articuloId) => throw new NotImplementedException();
             public Task EliminarArticuloAsync(int articuloId) => throw new NotImplementedException();
             public Task RegistrarSalidaConStockAsync(SalidaInventario salida) => throw new NotImplementedException();
-            public Task AprobarPrestamoConStockAsync(SolicitudPrestamo solicitud, SalidaInventario salida) => throw new NotImplementedException();
             public Task<IEnumerable<EntradaInventario>> ObtenerEntradasAsync(int? articuloId, DateTime? desde, DateTime? hasta) => throw new NotImplementedException();
             public Task<IEnumerable<SalidaInventario>> ObtenerSalidasAsync(int? articuloId, DateTime? desde, DateTime? hasta) => throw new NotImplementedException();
             public Task<ResultadoPaginado<ItemMovimiento>> ObtenerPaginaMovimientosAsync(FiltrosMovimientoDto filtros) => throw new NotImplementedException();
@@ -286,10 +285,6 @@ namespace SIGAC.Tests.Application
             public Task<IReadOnlyList<SIGAC.Application.DTOs.Reportes.UnidadesPorMesYTipoDto>> ObtenerEntradasPorMesYOrigenAsync(int mesesHaciaAtras) => throw new NotImplementedException();
             public Task<IReadOnlyList<SIGAC.Application.DTOs.Reportes.UnidadesPorMesYTipoDto>> ObtenerSalidasPorMesYTipoAsync(int mesesHaciaAtras) => throw new NotImplementedException();
             public Task<IReadOnlyList<SIGAC.Application.DTOs.Reportes.MovimientosPorArticuloDto>> ObtenerArticulosConMasMovimientosAsync(int mesesHaciaAtras, int maximo) => throw new NotImplementedException();
-            public Task AgregarSolicitudPrestamoAsync(SolicitudPrestamo solicitud) => throw new NotImplementedException();
-            public Task<SolicitudPrestamo?> ObtenerSolicitudPorIdAsync(int id) => throw new NotImplementedException();
-            public Task ActualizarSolicitudAsync(SolicitudPrestamo solicitud) => throw new NotImplementedException();
-            public Task<IEnumerable<SolicitudPrestamo>> ObtenerSolicitudesAsync(EstadoSolicitudPrestamo? estado = null) => throw new NotImplementedException();
         }
     }
 }

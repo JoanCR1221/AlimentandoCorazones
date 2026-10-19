@@ -168,8 +168,7 @@
     private async Task FinalizarAsync(int proyectoId, string nombre)
     {
         // ShowMessageBoxAsync y no un diálogo propio como AnularGastoDialog:
-        // finalizar no pide ningún dato adicional, solo la confirmación. Mismo
-        // criterio que Aprobar en GestionSolicitudesPrestamo.razor.
+        // finalizar no pide ningún dato adicional, solo la confirmación.
         var confirmado = await DialogService.ShowMessageBoxAsync(
             "Confirmar",
             $"¿Finalizar el proyecto \"{nombre}\"? Se registrará la fecha de finalización real y " +

@@ -353,16 +353,14 @@ namespace SIGAC.Tests.Application
             _inventario.EntradasPorMesYOrigen.Add(new UnidadesPorMesYTipoDto(2026, 9, "Compra", 20));
             _inventario.SalidasPorMesYTipo.Add(new UnidadesPorMesYTipoDto(2026, 8, "Donacion", 15));
             _inventario.SalidasPorMesYTipo.Add(new UnidadesPorMesYTipoDto(2026, 9, "Donacion", 5));
-            _inventario.SalidasPorMesYTipo.Add(new UnidadesPorMesYTipoDto(2026, 9, "Prestamo", 2));
 
             var panorama = await _servicio.ObtenerPanoramaInventarioAsync();
 
             Assert.Equal(100, panorama.UnidadesEntradas);
-            Assert.Equal(22, panorama.UnidadesSalidas);
+            Assert.Equal(20, panorama.UnidadesSalidas);
             Assert.Equal(70, panorama.EntradasPorCompra);
             Assert.Equal(30, panorama.EntradasPorDonacion);
             Assert.Equal(20, panorama.SalidasPorDonacion);
-            Assert.Equal(2, panorama.SalidasPorPrestamo);
         }
 
         [Fact]
@@ -372,7 +370,7 @@ namespace SIGAC.Tests.Application
             _inventario.EntradasPorMesYOrigen.Add(new UnidadesPorMesYTipoDto(2026, 8, "Donacion", 30));
             _inventario.EntradasPorMesYOrigen.Add(new UnidadesPorMesYTipoDto(2026, 9, "Compra", 20));
             _inventario.SalidasPorMesYTipo.Add(new UnidadesPorMesYTipoDto(2026, 9, "Donacion", 5));
-            _inventario.SalidasPorMesYTipo.Add(new UnidadesPorMesYTipoDto(2026, 9, "Prestamo", 2));
+            _inventario.SalidasPorMesYTipo.Add(new UnidadesPorMesYTipoDto(2026, 9, "Donacion", 2));
 
             var panorama = await _servicio.ObtenerPanoramaInventarioAsync();
 
@@ -420,19 +418,19 @@ namespace SIGAC.Tests.Application
             AgregarEntrada("Arroz", 50, new DateTime(2026, 9, 1), "Compra");
             AgregarEntrada("Frijoles", 20, new DateTime(2026, 9, 3), "Donacion");
             AgregarSalida("Arroz", 10, new DateTime(2026, 9, 5), TiposSalidaInventario.Donacion, "Comunidad El Roble");
-            AgregarSalida("Frijoles", 2, new DateTime(2026, 9, 7), TiposSalidaInventario.Prestamo);
+            AgregarSalida("Frijoles", 2, new DateTime(2026, 9, 7), TiposSalidaInventario.Donacion);
 
             var resultado = await _servicio.GenerarReporteMovimientosAsync(TodosLosMovimientos());
 
             // De la más reciente a la más antigua.
-            Assert.Equal(new[] { "Préstamo", "Donación", "Entrada", "Entrada" }, resultado.Filas.Select(f => f.TipoMovimiento));
+            Assert.Equal(new[] { "Donación", "Donación", "Entrada", "Entrada" }, resultado.Filas.Select(f => f.TipoMovimiento));
 
-            var prestamo = resultado.Filas[0];
-            Assert.Equal(new DateTime(2026, 9, 7), prestamo.Fecha);
-            Assert.Equal("Frijoles", prestamo.Articulo);
-            Assert.Equal(2, prestamo.Cantidad);
+            var sinDestino = resultado.Filas[0];
+            Assert.Equal(new DateTime(2026, 9, 7), sinDestino.Fecha);
+            Assert.Equal("Frijoles", sinDestino.Articulo);
+            Assert.Equal(2, sinDestino.Cantidad);
             // Sin destinatario, el destino es el tipo de salida, bien escrito.
-            Assert.Equal("Préstamo", prestamo.OrigenODestino);
+            Assert.Equal("Donación", sinDestino.OrigenODestino);
 
             Assert.Equal("Comunidad El Roble", resultado.Filas[1].OrigenODestino);
             Assert.Equal("Donación", resultado.Filas[2].OrigenODestino);
@@ -445,7 +443,7 @@ namespace SIGAC.Tests.Application
             AgregarEntrada("Arroz", 50, new DateTime(2026, 9, 1));
             AgregarEntrada("Arroz", 30, new DateTime(2026, 9, 2));
             AgregarSalida("Arroz", 15, new DateTime(2026, 9, 5), TiposSalidaInventario.Donacion, "Comunidad El Roble");
-            AgregarSalida("Frijoles", 5, new DateTime(2026, 9, 6), TiposSalidaInventario.Prestamo);
+            AgregarSalida("Frijoles", 5, new DateTime(2026, 9, 6), TiposSalidaInventario.Donacion);
 
             var resultado = await _servicio.GenerarReporteMovimientosAsync(TodosLosMovimientos());
 
@@ -456,8 +454,7 @@ namespace SIGAC.Tests.Application
 
         [Theory]
         [InlineData("Entrada", 2, 0)]
-        [InlineData("Donacion", 0, 1)]
-        [InlineData("Prestamo", 0, 1)]
+        [InlineData("Donacion", 0, 2)]
         [InlineData(null, 2, 2)]
         [InlineData("", 2, 2)]
         public async Task El_reporte_de_movimientos_filtra_por_tipo(string? tipo, int entradasEsperadas, int salidasEsperadas)
@@ -465,7 +462,7 @@ namespace SIGAC.Tests.Application
             AgregarEntrada("Arroz", 50, new DateTime(2026, 9, 1));
             AgregarEntrada("Frijoles", 20, new DateTime(2026, 9, 2), "Donacion");
             AgregarSalida("Arroz", 10, new DateTime(2026, 9, 5), TiposSalidaInventario.Donacion, "Comunidad El Roble");
-            AgregarSalida("Frijoles", 2, new DateTime(2026, 9, 7), TiposSalidaInventario.Prestamo);
+            AgregarSalida("Frijoles", 2, new DateTime(2026, 9, 7), TiposSalidaInventario.Donacion);
 
             var resultado = await _servicio.GenerarReporteMovimientosAsync(new FiltrosReporteMovimientosDto { TipoMovimiento = tipo });
 
@@ -478,7 +475,7 @@ namespace SIGAC.Tests.Application
         {
             AgregarEntrada("Arroz", 50, new DateTime(2026, 9, 1));
             AgregarEntrada("Frijoles", 20, new DateTime(2026, 9, 2));
-            AgregarSalida("Frijoles", 2, new DateTime(2026, 9, 7), TiposSalidaInventario.Prestamo);
+            AgregarSalida("Frijoles", 2, new DateTime(2026, 9, 7), TiposSalidaInventario.Donacion);
 
             var resultado = await _servicio.GenerarReporteMovimientosAsync(
                 new FiltrosReporteMovimientosDto { ArticuloId = IdDeArticulo("Frijoles") });
@@ -1294,11 +1291,6 @@ namespace SIGAC.Tests.Application
             public Task EliminarArticuloAsync(int articuloId) => throw new NotImplementedException();
             public Task RegistrarEntradaConStockAsync(EntradaInventario entrada, Articulo? articuloNuevo) => throw new NotImplementedException();
             public Task RegistrarSalidaConStockAsync(SalidaInventario salida) => throw new NotImplementedException();
-            public Task AprobarPrestamoConStockAsync(SolicitudPrestamo solicitud, SalidaInventario salida) => throw new NotImplementedException();
-            public Task AgregarSolicitudPrestamoAsync(SolicitudPrestamo solicitud) => throw new NotImplementedException();
-            public Task<SolicitudPrestamo?> ObtenerSolicitudPorIdAsync(int id) => throw new NotImplementedException();
-            public Task ActualizarSolicitudAsync(SolicitudPrestamo solicitud) => throw new NotImplementedException();
-            public Task<IEnumerable<SolicitudPrestamo>> ObtenerSolicitudesAsync(EstadoSolicitudPrestamo? estado = null) => throw new NotImplementedException();
         }
 
         // Solo el historial, con los mismos criterios que AlquileresRepositoryEfCore

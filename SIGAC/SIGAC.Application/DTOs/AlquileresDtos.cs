@@ -149,8 +149,8 @@ namespace SIGAC.Application.DTOs.Alquileres
         [Range(1, AlquilerValidator.CantidadPersonasMaxima, ErrorMessage = "La cantidad de personas debe estar entre {1} y {2}.")]
         public int CantidadPersonas { get; set; }
 
-        // Cota inferior 0 y no 0,01 como en DonacionDineroCrearDto: un préstamo sin
-        // costo también se registra.
+        // Cota inferior 0 y no 0,01 como en DonacionDineroCrearDto: el uso sin
+        // costo de un espacio también se registra.
         [Range(0, double.MaxValue, ErrorMessage = "El monto no puede ser negativo.")]
         public decimal Monto { get; set; }
 
