@@ -28,7 +28,20 @@ namespace SIGAC.Application.Services
 
         public async Task RegistrarAsync(string accion, string modulo, string? detalle = null)
         {
-            var actual = await _usuarioActual.ObtenerAsync();
+            // Leer el usuario también puede fallar (revalida la sesión contra la base),
+            // y esa lectura quedaba fuera del try de RegistrarDeUsuarioAsync: una base
+            // caída justo acá convertía una operación ya guardada en un error. Sin
+            // usuario, la acción se anota igual como "(sin sesión)".
+            DatosUsuarioActual? actual = null;
+
+            try
+            {
+                actual = await _usuarioActual.ObtenerAsync();
+            }
+            catch (Exception ex)
+            {
+                Trace.TraceError("No se pudo leer el usuario actual para la bitácora: {0}", ex);
+            }
 
             await RegistrarDeUsuarioAsync(
                 actual?.Id,

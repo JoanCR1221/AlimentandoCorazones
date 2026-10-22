@@ -14,21 +14,38 @@ namespace SIGAC.Application.Interfaces
     {
         // Escrituras
         //
-        // Ninguno de estos métodos toca el stock, a diferencia de los
-        // RegistrarEntradaConStockAsync / RegistrarSalidaConStockAsync de
-        // IInventarioRepository: Inventario sigue siendo el dueño del stock. El
-        // servicio de Donaciones guarda acá el "quién y por qué" y delega en
-        // IInventarioService el movimiento que ajusta las existencias.
+        // Cada una es COMPUESTA a propósito, por el mismo motivo que las de
+        // IInventarioRepository: agrupa todo lo que un registro necesita para que se
+        // escriba todo-o-nada. Antes el donante nuevo, la donación y el movimiento de
+        // stock eran escrituras sueltas y una falla a mitad de camino dejaba un donante
+        // huérfano, una donación sin stock o un stock descontado sin entrega.
+        //
+        // Inventario sigue siendo el dueño de las REGLAS del stock (qué artículo,
+        // cuánto, si alcanza), que decide IInventarioService antes de llegar acá. Lo
+        // que se comparte es solo la transacción.
 
-        Task AgregarDonacionDineroAsync(DonacionDinero donacion);
+        /// <summary>
+        /// Guarda la donación. Si <paramref name="nuevoDonante"/> no es null, lo crea en
+        /// la misma transacción y le asigna su Id a la donación.
+        /// </summary>
+        Task AgregarDonacionDineroAsync(DonacionDinero donacion, Donante? nuevoDonante);
 
-        // Guarda la cabecera y sus líneas de detalle en una sola operación: una
-        // cabecera sin detalle no registra nada, así que no pueden confirmarse por
-        // separado (es el mismo motivo por el que las operaciones de Inventario que
-        // mueven stock son compuestas).
-        Task AgregarDonacionEspecieAsync(DonacionEspecie donacion);
+        /// <summary>
+        /// Guarda la cabecera con sus líneas, el donante nuevo (si hay) y las entradas
+        /// de inventario con su suma al stock, todo en una sola transacción. Las
+        /// <paramref name="entradas"/> vienen ya validadas (ver
+        /// IInventarioService.PrepararEntradasAsync): el repositorio les completa el
+        /// donante y la referencia a la donación.
+        /// </summary>
+        Task AgregarDonacionEspecieAsync(
+            DonacionEspecie donacion, Donante? nuevoDonante, IReadOnlyList<EntradaInventario> entradas);
 
-        Task AgregarDonacionEntregadaAsync(DonacionEntregada donacion);
+        /// <summary>
+        /// Guarda la entrega y su salida de inventario, y descuenta el stock, todo en una
+        /// sola transacción. Si el stock ya no alcanza (otro usuario lo consumió entre la
+        /// validación y este momento) no queda nada escrito y lanza ValidationException.
+        /// </summary>
+        Task AgregarDonacionEntregadaAsync(DonacionEntregada donacion, SalidaInventario salida);
 
         // Consultas de historial
         //

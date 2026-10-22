@@ -29,9 +29,7 @@
                 }
             </MudSelect>
 
-            @* Sin MaxDate: a diferencia del resto de SIGAC, una entrega puede
-               coordinarse con antelación para una fecha futura. *@
-            <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" />
+            <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
 
             @if (modelo.TipoDestinatario == TiposDestinatarioDonacion.Beneficiario)
             {
@@ -81,13 +79,19 @@
             <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="AgregarArticulo">Agregar artículo</MudButton>
         </MudCardContent>
         <MudCardActions>
-            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="guardando" Class="ml-2 mb-2">Guardar</MudButton>
             <MudButton Variant="Variant.Text" Color="Color.Default" Href="/donaciones/entregas/historial" Class="mb-2">Cancelar</MudButton>
         </MudCardActions>
     </MudCard>
 </EditForm>
 
 @code {
+    // Se levanta antes del primer await y se baja en el finally: un doble clic
+    // rápido dispara Guardar dos veces antes de que el servidor responda, y la
+    // segunda llamada repetiría el registro (y, donde corresponde, el movimiento
+    // de stock).
+    private bool guardando;
+
     // Encabezado de la entrega: fecha, destinatario y observaciones son comunes a
     // todos los artículos entregados en el mismo acto, aunque cada uno termine
     // siendo una fila propia de DonacionEntregada. Es un tipo propio de la
@@ -211,6 +215,11 @@
         // final diga con precisión cuántas ya quedaron hechas.
         var registradas = 0;
 
+        if (guardando)
+            return;
+
+        guardando = true;
+
         try
         {
             foreach (var linea in lineas)
@@ -249,6 +258,10 @@
         catch (Exception)
         {
             Snackbar.Add(ConAvisoDeProgreso("No se pudo registrar la entrega. Intente de nuevo.", registradas), Severity.Error);
+        }
+        finally
+        {
+            guardando = false;
         }
     }
 

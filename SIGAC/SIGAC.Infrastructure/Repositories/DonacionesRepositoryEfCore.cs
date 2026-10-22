@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SIGAC.Application.DTOs;
 using SIGAC.Application.DTOs.Donaciones;
 using SIGAC.Application.DTOs.Reportes;
+using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
 using SIGAC.Application.Services;
 using SIGAC.Domain;
@@ -35,41 +36,110 @@ namespace SIGAC.Infrastructure.Repositories
         // Escrituras
         // ------------------------------------------------------------------
 
-        public async Task AgregarDonacionDineroAsync(DonacionDinero donacion)
+        public async Task AgregarDonacionDineroAsync(DonacionDinero donacion, Donante? nuevoDonante)
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
+            await using var transaccion = await context.Database.BeginTransactionAsync();
+
+            await AgregarDonanteNuevoAsync(context, nuevoDonante, id => donacion.DonanteId = id);
+
             context.DonacionesDinero.Add(donacion);
             await context.SaveChangesAsync();
+
+            await transaccion.CommitAsync();
         }
 
-        public async Task AgregarDonacionEspecieAsync(DonacionEspecie donacion)
+        public async Task AgregarDonacionEspecieAsync(
+            DonacionEspecie donacion, Donante? nuevoDonante, IReadOnlyList<EntradaInventario> entradas)
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
+            await using var transaccion = await context.Database.BeginTransactionAsync();
 
-            // Un solo Add para la cabecera y un solo SaveChanges para todo: al
-            // agregar la cabecera, EF Core recorre su colección Detalles y marca cada
-            // línea como Added también (rastreo en cascada de las entidades
-            // alcanzables). Emite el INSERT de la cabecera, toma el Id generado y lo
-            // usa en los INSERT de las líneas, todo dentro de la transacción implícita
-            // de SaveChanges.
-            //
-            // Por eso no hace falta una transacción explícita como en las operaciones
-            // de Inventario que mueven stock: aquellas combinan SaveChanges con
-            // ExecuteUpdateAsync, que no pasa por el change tracker y necesita algo
-            // que lo enrole. Acá todas las escrituras son rastreadas y viajan juntas.
-            //
-            // Guardar la cabecera por separado para obtener su Id y después las
-            // líneas dejaría, si el segundo guardado falla, una donación sin detalle:
-            // una fila que dice que alguien donó, sin decir qué.
+            await AgregarDonanteNuevoAsync(context, nuevoDonante, id => donacion.DonanteId = id);
+
+            // Cabecera y líneas en el mismo Add: EF marca cada línea como Added por el
+            // rastreo en cascada y le pone el Id de la cabecera al insertarlas.
             context.DonacionesEspecie.Add(donacion);
             await context.SaveChangesAsync();
+
+            // Las entradas necesitan el Id de la donación (para la observación) y el del
+            // donante, que recién existen en este punto.
+            foreach (var entrada in entradas)
+            {
+                entrada.DonanteId = donacion.DonanteId;
+                entrada.Observaciones = $"Donación en especie #{donacion.Id}";
+                context.EntradasInventario.Add(entrada);
+            }
+
+            try
+            {
+                // Inserta primero los artículos nuevos (entrada.Articulo) y luego las
+                // entradas con el ArticuloId ya resuelto.
+                await context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (ErroresSql.EsViolacionDeUnicidad(ex))
+            {
+                // Otro usuario creó el mismo artículo entre la validación y este INSERT.
+                // La transacción revierte todo, donación incluida.
+                throw new DuplicateException(
+                    "Otro usuario acaba de crear uno de los artículos de la donación. " +
+                    "Vuelva a registrarla para que se sume a ese artículo.");
+            }
+
+            // Una sola suma por artículo aunque varias líneas lo repitan. Va dentro de la
+            // transacción: ExecuteUpdate no pasa por el change tracker, pero sí se enrola.
+            foreach (var grupo in entradas.GroupBy(e => e.ArticuloId))
+            {
+                var articuloId = grupo.Key;
+                var cantidad = grupo.Sum(e => e.Cantidad);
+
+                var filas = await context.Articulos
+                    .Where(a => a.Id == articuloId)
+                    .ExecuteUpdateAsync(s => s.SetProperty(a => a.StockActual, a => a.StockActual + cantidad));
+
+                if (filas == 0)
+                {
+                    throw new InvalidOperationException(
+                        "No se pudo actualizar el stock: el artículo de la entrada no existe.");
+                }
+            }
+
+            await transaccion.CommitAsync();
         }
 
-        public async Task AgregarDonacionEntregadaAsync(DonacionEntregada donacion)
+        public async Task AgregarDonacionEntregadaAsync(DonacionEntregada donacion, SalidaInventario salida)
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
+            await using var transaccion = await context.Database.BeginTransactionAsync();
+
+            context.SalidasInventario.Add(salida);
             context.DonacionesEntregadas.Add(donacion);
             await context.SaveChangesAsync();
+
+            // Mismo UPDATE condicional que usa Inventario ("solo si alcanza"). Al lanzar
+            // antes del Commit, la salida y la entrega recién insertadas se revierten:
+            // no puede quedar una entrega sin su descuento ni un descuento sin entrega.
+            if (!await StockArticulos.IntentarDescontarAsync(context, salida.ArticuloId, salida.Cantidad))
+            {
+                throw new ValidationException(
+                    "El stock disponible cambió mientras se registraba la entrega y ya no alcanza. " +
+                    "Vuelva a intentarlo.");
+            }
+
+            await transaccion.CommitAsync();
+        }
+
+        // Crea el donante dentro de la transacción de quien llama. SaveChanges propio:
+        // hace falta el Id generado para colgarle la donación.
+        private static async Task AgregarDonanteNuevoAsync(
+            SigacDbContext context, Donante? nuevoDonante, Action<int> asignarId)
+        {
+            if (nuevoDonante is null)
+                return;
+
+            context.Donantes.Add(nuevoDonante);
+            await context.SaveChangesAsync();
+            asignarId(nuevoDonante.Id);
         }
 
         // ------------------------------------------------------------------
