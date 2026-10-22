@@ -19,6 +19,7 @@ internal sealed class RevalidacionSesionProvider : RevalidatingServerAuthenticat
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IdentityOptions _opciones;
+    private readonly ILogger<RevalidacionSesionProvider> _logger;
 
     public RevalidacionSesionProvider(
         ILoggerFactory loggerFactory,
@@ -28,6 +29,7 @@ internal sealed class RevalidacionSesionProvider : RevalidatingServerAuthenticat
     {
         _scopeFactory = scopeFactory;
         _opciones = opciones.Value;
+        _logger = loggerFactory.CreateLogger<RevalidacionSesionProvider>();
     }
 
     protected override TimeSpan RevalidationInterval => TimeSpan.FromMinutes(1);
@@ -37,10 +39,23 @@ internal sealed class RevalidacionSesionProvider : RevalidatingServerAuthenticat
     {
         // Scope propio: el UserManager es scoped y este provider vive tanto como
         // el circuito, así que no se puede inyectar directo.
-        await using var scope = _scopeFactory.CreateAsyncScope();
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<UsuarioSigac>>();
+        try
+        {
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<UsuarioSigac>>();
 
-        return await SigueVigenteAsync(userManager, estado.User);
+            return await SigueVigenteAsync(userManager, estado.User);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Si la base no responde no se puede saber si la sesión sigue vigente. Dejar
+            // escapar la excepción tumba el circuito y el usuario ve «Internal Server
+            // Error» (con el SQL a la vista en Development) en cualquier pantalla. Se
+            // conserva la sesión y se reintenta al próximo intervalo: una base caída no
+            // desactiva a nadie, y el cambio de rol o estado se aplica en cuanto vuelva.
+            _logger.LogWarning(ex, "No se pudo revalidar la sesión; se conserva hasta el próximo intervalo.");
+            return true;
+        }
     }
 
     private async Task<bool> SigueVigenteAsync(UserManager<UsuarioSigac> userManager, ClaimsPrincipal principal)

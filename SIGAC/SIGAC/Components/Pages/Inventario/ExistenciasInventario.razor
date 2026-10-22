@@ -4,6 +4,7 @@
 @using SIGAC.Application.Interfaces
 @using SIGAC.Domain
 @inject IInventarioService InventarioService
+@inject ISnackbar Snackbar
 
 <EncabezadoPagina Titulo="Existencias de inventario"
                   Descripcion="Consulte las existencias y registre nuevas entradas de artículos."
@@ -188,6 +189,12 @@
                 SoloStockBajo = filtroSoloStockBajo
             });
             articulos = pagina.Elementos;
+        }
+        catch (Exception)
+        {
+            // Una base caída no debe tumbar la pantalla con el error sin controlar.
+            articulos = Array.Empty<ArticuloExistenciaDto>();
+            Snackbar.Add("No se pudieron cargar las existencias. Intente de nuevo.", Severity.Error);
         }
         finally
         {
