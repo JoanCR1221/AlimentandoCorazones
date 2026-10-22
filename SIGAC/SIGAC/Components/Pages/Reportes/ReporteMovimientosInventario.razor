@@ -16,7 +16,8 @@
             <MudItem xs="12" md="4">
                 <MudAutocomplete T="ArticuloExistenciaDto" Label="Artículo" Variant="Variant.Outlined"
                                  Value="articuloSeleccionado" ValueChanged="@(v => articuloSeleccionado = v)"
-                                 SearchFunc="BuscarArticulosAsync" ToStringFunc="@(a => a?.Etiqueta)" Clearable="true" />
+                                 SearchFunc="BuscarArticulosAsync" ToStringFunc="@(a => a?.Etiqueta)" Clearable="true"
+                                 ResetValueOnEmptyText="true" />
             </MudItem>
             <MudItem xs="12" md="4">
                 @* Sin selección son todos. Los valores son los guardados, los mismos del
@@ -161,7 +162,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo generar el reporte. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo generar el reporte. Intente de nuevo.", Severity.Error);
         }
         finally
         {

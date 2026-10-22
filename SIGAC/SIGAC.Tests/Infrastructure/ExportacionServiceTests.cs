@@ -54,13 +54,22 @@ namespace SIGAC.Tests.Infrastructure
             Assert.Equal("Fecha", hoja.Cell(FilaEncabezado, 2).GetString());
             Assert.Equal("Monto", hoja.Cell(FilaEncabezado, 3).GetString());
 
-            Assert.Equal("Juan Perez", hoja.Cell(FilaEncabezado + 1, 1).GetString());
-            Assert.Equal(datos[0].Fecha.ToString("dd/MM/yyyy"), hoja.Cell(FilaEncabezado + 1, 2).GetString());
-            Assert.Equal(datos[0].Monto.ToString("N2"), hoja.Cell(FilaEncabezado + 1, 3).GetString());
+            // Fechas y montos van con su tipo y un formato de celda (no como texto):
+            // así Excel puede ordenarlos y sumarlos (F-04).
+            for (var i = 0; i < datos.Length; i++)
+            {
+                var fila = FilaEncabezado + 1 + i;
 
-            Assert.Equal("Maria Lopez", hoja.Cell(FilaEncabezado + 2, 1).GetString());
-            Assert.Equal(datos[1].Fecha.ToString("dd/MM/yyyy"), hoja.Cell(FilaEncabezado + 2, 2).GetString());
-            Assert.Equal(datos[1].Monto.ToString("N2"), hoja.Cell(FilaEncabezado + 2, 3).GetString());
+                Assert.Equal(datos[i].Nombre, hoja.Cell(fila, 1).GetString());
+
+                Assert.Equal(XLDataType.DateTime, hoja.Cell(fila, 2).DataType);
+                Assert.Equal(datos[i].Fecha, hoja.Cell(fila, 2).GetDateTime());
+                Assert.Equal("dd/MM/yyyy", hoja.Cell(fila, 2).Style.DateFormat.Format);
+
+                Assert.Equal(XLDataType.Number, hoja.Cell(fila, 3).DataType);
+                Assert.Equal((double)datos[i].Monto, hoja.Cell(fila, 3).GetDouble());
+                Assert.Equal("#,##0.00", hoja.Cell(fila, 3).Style.NumberFormat.Format);
+            }
         }
 
         [Fact]
@@ -107,7 +116,8 @@ namespace SIGAC.Tests.Infrastructure
             using var libro = new XLWorkbook(new MemoryStream(archivo));
             var hoja = libro.Worksheets.First();
 
-            Assert.Equal("14:30", hoja.Cell(FilaEncabezado + 1, 2).GetString());
+            Assert.Equal(new TimeSpan(14, 30, 0), hoja.Cell(FilaEncabezado + 1, 2).GetTimeSpan());
+            Assert.Equal("hh:mm", hoja.Cell(FilaEncabezado + 1, 2).Style.DateFormat.Format);
             Assert.Equal("No", hoja.Cell(FilaEncabezado + 1, 3).GetString());
         }
 
@@ -226,18 +236,27 @@ namespace SIGAC.Tests.Infrastructure
             var archivo = await _servicio.ExportarReporteGastosExcelAsync(reporte, 9, 2026, "Contado");
 
             using var libro = new XLWorkbook(new MemoryStream(archivo));
-            var texto = string.Join('\n', libro.Worksheets.First().CellsUsed().Select(c => c.GetString()));
+            var hoja = libro.Worksheets.First();
+            var texto = string.Join('\n', hoja.CellsUsed().Select(c => c.GetString()));
 
             Assert.Contains("DETALLE DE GASTOS MES DE :     SETIEMBRE     2026", texto);
             Assert.Contains("GASTOS DE CONTADO", texto);
             Assert.Contains("Alquiler de Equipo", texto);
             Assert.Contains("Renta Equipos S.A.", texto);
-            Assert.Contains("25,175.97", texto);
             Assert.Contains("Servicio de Agua", texto);
             Assert.Contains("AyA", texto);
-            Assert.Contains("23,798.40", texto);
-            Assert.Contains("48,974.37", texto);
-            Assert.Contains("6,031.48", texto);
+
+            // Los montos son números con formato de celda, no el texto "25,175.97" en
+            // formato anglosajón: Excel los muestra con el separador de la región de quien
+            // abre el archivo (F-12) y se pueden sumar.
+            var numeros = hoja.CellsUsed().Where(c => c.DataType == XLDataType.Number).Select(c => c.GetDouble()).ToList();
+            Assert.Contains(25175.97, numeros);
+            Assert.Contains(23798.40, numeros);
+            Assert.Contains(48974.37, numeros);
+            Assert.Contains(6031.48, numeros);
+            Assert.DoesNotContain("25,175.97", texto);
+            Assert.All(hoja.CellsUsed().Where(c => c.DataType == XLDataType.Number && c.GetDouble() > 100),
+                c => Assert.Equal("#,##0.00", c.Style.NumberFormat.Format));
         }
 
         [Fact]
@@ -250,7 +269,9 @@ namespace SIGAC.Tests.Infrastructure
 
             Assert.Contains("ASOCIACION ALIMENTANDO CORAZONES", texto);
             Assert.Contains("GRAN TOTAL . . .", texto);
-            Assert.Contains("0.00", texto);
+
+            var granTotal = libro.Worksheets.First().CellsUsed().First(c => c.GetString() == "GRAN TOTAL . . .");
+            Assert.Equal(0d, granTotal.CellRight(3).GetDouble());
         }
 
         [Theory]
@@ -293,6 +314,38 @@ namespace SIGAC.Tests.Infrastructure
             Assert.Equal(XLDataType.Text, celda.DataType);
             Assert.Equal(texto, celda.GetString());
             Assert.False(hoja.Cell(2, 1).HasFormula, "El subtítulo quedó como fórmula");
+        }
+
+        [Theory]
+        [InlineData("'Tito")]
+        [InlineData("''doble")]
+        public async Task El_excel_conserva_el_apostrofo_inicial(string texto)
+        {
+            // ClosedXML toma un apóstrofo inicial como prefijo de cita de Excel y lo quita:
+            // "'Tito" salía como "Tito" (F-09).
+            var filas = new[] { new FilaDePrueba(texto, new DateTime(2026, 9, 1), 5m) };
+
+            var archivo = await _servicio.ExportarExcelAsync(filas, "Reporte");
+
+            using var libro = new XLWorkbook(new MemoryStream(archivo));
+            var celda = libro.Worksheets.First().Cell(FilaEncabezado + 1, 1);
+
+            Assert.Equal(XLDataType.Text, celda.DataType);
+            Assert.Equal(texto, celda.GetString());
+        }
+
+        [Fact]
+        public async Task El_excel_deja_como_texto_un_numero_con_ceros_a_la_izquierda()
+        {
+            var filas = new[] { new FilaDePrueba("0012345", new DateTime(2026, 9, 1), 5m) };
+
+            var archivo = await _servicio.ExportarExcelAsync(filas, "Reporte");
+
+            using var libro = new XLWorkbook(new MemoryStream(archivo));
+            var celda = libro.Worksheets.First().Cell(FilaEncabezado + 1, 1);
+
+            Assert.Equal(XLDataType.Text, celda.DataType);
+            Assert.Equal("0012345", celda.GetString());
         }
 
         [Fact]

@@ -41,6 +41,8 @@ export function engancharBotonImprimir(idBoton) {
     }
 }
 
+// Devuelve false si no hay ventana donde imprimir (el navegador bloqueó la emergente
+// o la cerraron): quien llama avisa y no anota la impresión en la bitácora.
 export function imprimirPdf(base64) {
     const blob = new Blob([aBytes(base64)], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
@@ -49,7 +51,7 @@ export function imprimirPdf(base64) {
     window.__ventanaImpresionReporte = null;
 
     if (!ventana || ventana.closed) {
-        return;
+        return false;
     }
 
     ventana.location = url;
@@ -58,4 +60,5 @@ export function imprimirPdf(base64) {
     // cargado así; un margen corto antes de llamar a print() es lo que
     // recomienda la propia documentación de MDN para este caso.
     setTimeout(() => ventana.print(), 500);
+    return true;
 }

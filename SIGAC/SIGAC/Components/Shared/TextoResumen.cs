@@ -19,7 +19,9 @@ namespace SIGAC.Components.Shared
         public static string Montos(IReadOnlyList<MontoPorMonedaDto> montos) =>
             montos.Count == 0
                 ? "—"
-                : string.Join(" · ", montos.Select(m => $"{TiposMoneda.Simbolo(m.Moneda)} {m.Total:N2}"));
+                // ConSimbolo une símbolo y cifra con un espacio que no se parte: en una
+                // pantalla angosta el monto quedaba cortado entre el "₡" y el número.
+                : string.Join(" · ", montos.Select(m => TiposMoneda.ConSimbolo(m.Moneda, m.Total)));
 
         // Horas con minutos: 12,5 → "12 h 30 min", 3 → "3 h", 0,25 → "15 min". Sin
         // decimales porque "12,5 horas" se lee peor que "12 h 30 min"; las horas con

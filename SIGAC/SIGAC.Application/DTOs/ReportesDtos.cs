@@ -292,6 +292,7 @@ namespace SIGAC.Application.DTOs.Reportes
     {
         public DateTime Fecha { get; set; }
 
+        [Display(Name = "Artículo")]
         public string Articulo { get; set; } = string.Empty;
 
         // "Entrada" o "Donación", ya con tilde (el historial usa "Donacion", el

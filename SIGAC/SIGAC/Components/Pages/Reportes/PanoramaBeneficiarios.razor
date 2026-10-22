@@ -1,5 +1,6 @@
 @page "/reportes/beneficiarios/panorama"
 @attribute [Authorize(Policy = Permisos.Reportes.VerBeneficiarios)]
+@using MudBlazor.Charts
 @using SIGAC.Application.DTOs.Reportes
 @using SIGAC.Application.Interfaces
 @inject IReportesService ReportesService
@@ -72,8 +73,12 @@
             @if (_graficas.TryGetValue(_seleccionada, out var grafica))
             {
                 <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-3">@grafica.Titulo</MudText>
-                <MudChart T="double" ChartType="grafica.Tipo" ChartSeries="grafica.Series"
-                          ChartLabels="grafica.Etiquetas" Width="100%" Height="350px" />
+                @* role="img" con el resumen de las cifras: el SVG de la gráfica no dice nada
+                   a un lector de pantalla (F-07). *@
+                <div role="img" aria-label="@TextoAlternativoGrafica.De(grafica.Titulo, grafica.Etiquetas, grafica.Series)">
+                    <MudChart T="double" ChartType="grafica.Tipo" ChartSeries="grafica.Series"
+                              ChartLabels="grafica.Etiquetas" ChartOptions="grafica.Opciones" Width="100%" Height="350px" />
+                </div>
             }
         }
     </MudCardContent>
@@ -92,7 +97,7 @@
 
     private sealed record OpcionEstadistica(Estadistica Clave, string Titulo, string Icono);
 
-    private sealed record GraficaVista(string Titulo, ChartType Tipo, List<ChartSeries<double>> Series, string[] Etiquetas);
+    private sealed record GraficaVista(string Titulo, ChartType Tipo, List<ChartSeries<double>> Series, string[] Etiquetas, IChartOptions? Opciones = null);
 
     // Datos como lista, igual que los grupos de NavMenu: agregar una estadística
     // nueva es una entrada más acá, no un bloque de MudListItem repetido.
@@ -161,6 +166,11 @@
         var ventana = VentanaMeses();
         var etiquetasMeses = ventana.Select(m => EtiquetaMes(m.Anio, m.Mes)).ToArray();
 
+        var altasPorMes = AlinearPorMes(ventana, datos.AltasPorMes);
+        var comidasPorMes = AlinearPorMes(ventana, datos.ComidasPorMes);
+        var personasPorMes = AlinearPorMes(ventana, datos.PersonasAtendidasPorMes);
+        var comidasPorTiempo = new double[] { datos.Desayunos, datos.Almuerzos, datos.Meriendas };
+
         return new Dictionary<Estadistica, GraficaVista>
         {
             [Estadistica.PorCategoria] = new(
@@ -178,26 +188,32 @@
             [Estadistica.AltasPorMes] = new(
                 "Altas de beneficiarios por mes",
                 ChartType.Bar,
-                new() { new() { Name = "Altas", Data = AlinearPorMes(ventana, datos.AltasPorMes) } },
-                etiquetasMeses),
+                new() { new() { Name = "Altas", Data = altasPorMes } },
+                etiquetasMeses,
+                // El eje de conteo va en pasos chicos: con el paso por defecto (20) los
+                // valores de 1 a 5 quedaban aplastados abajo del eje 0-20.
+                new BarChartOptions { YAxisTicks = OpcionesGrafica.PasoDeConteo(altasPorMes.Max()) }),
 
             [Estadistica.PorTiempoComida] = new(
                 "Comidas servidas por tiempo de comida",
                 ChartType.Bar,
-                new() { new() { Name = "Comidas", Data = new double[] { datos.Desayunos, datos.Almuerzos, datos.Meriendas } } },
-                TiemposComida.Todos.ToArray()),
+                new() { new() { Name = "Comidas", Data = comidasPorTiempo } },
+                TiemposComida.Todos.ToArray(),
+                new BarChartOptions { YAxisTicks = OpcionesGrafica.PasoDeConteo(comidasPorTiempo.Max()) }),
 
             [Estadistica.TendenciaComidas] = new(
                 "Tendencia de comidas servidas",
                 ChartType.Line,
-                new() { new() { Name = "Comidas servidas", Data = AlinearPorMes(ventana, datos.ComidasPorMes) } },
-                etiquetasMeses),
+                new() { new() { Name = "Comidas servidas", Data = comidasPorMes } },
+                etiquetasMeses,
+                new LineChartOptions { YAxisTicks = OpcionesGrafica.PasoDeConteo(comidasPorMes.Max()) }),
 
             [Estadistica.PersonasPorMes] = new(
                 "Personas distintas atendidas por mes",
                 ChartType.Line,
-                new() { new() { Name = "Personas atendidas", Data = AlinearPorMes(ventana, datos.PersonasAtendidasPorMes) } },
-                etiquetasMeses)
+                new() { new() { Name = "Personas atendidas", Data = personasPorMes } },
+                etiquetasMeses,
+                new LineChartOptions { YAxisTicks = OpcionesGrafica.PasoDeConteo(personasPorMes.Max()) })
         };
     }
 

@@ -115,13 +115,19 @@
             var pdf = await ExportacionService.ExportarPDFAsync(Datos, Titulo, Subtitulo, Resumen);
 
             await using var modulo = await JS.InvokeAsync<IJSObjectReference>("import", "./js/reportes.js");
-            await modulo.InvokeVoidAsync("imprimirPdf", Convert.ToBase64String(pdf));
+            var seAbrio = await modulo.InvokeAsync<bool>("imprimirPdf", Convert.ToBase64String(pdf));
+
+            if (!seAbrio)
+            {
+                Snackbar.Add("El navegador bloqueó la ventana emergente y no se pudo imprimir. Permita las ventanas emergentes de este sitio e intente de nuevo.", Severity.Warning);
+                return;
+            }
 
             await RegistrarExportacionAsync("Imprimir");
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo generar el reporte para imprimir. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo generar el reporte para imprimir. Intente de nuevo.", Severity.Error);
         }
         finally
         {
@@ -149,7 +155,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo generar el archivo del reporte. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo generar el archivo del reporte. Intente de nuevo.", Severity.Error);
         }
         finally
         {
