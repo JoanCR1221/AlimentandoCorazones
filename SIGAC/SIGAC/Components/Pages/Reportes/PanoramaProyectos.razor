@@ -55,8 +55,12 @@
             {
                 <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-1">@grafica.Titulo</MudText>
                 <MudText Typo="Typo.caption" Class="mb-2 mud-text-secondary d-block">@grafica.Nota</MudText>
-                <MudChart T="double" ChartType="grafica.Tipo" ChartSeries="grafica.Series"
-                          ChartLabels="grafica.Etiquetas" ChartOptions="grafica.Opciones" Width="100%" Height="350px" />
+                @* role="img" con el resumen de las cifras: el SVG de la gráfica no dice nada
+                   a un lector de pantalla (F-07). *@
+                <div role="img" aria-label="@TextoAlternativoGrafica.De(grafica.Titulo, grafica.Etiquetas, grafica.Series)">
+                    <MudChart T="double" ChartType="grafica.Tipo" ChartSeries="grafica.Series"
+                              ChartLabels="grafica.Etiquetas" ChartOptions="grafica.Opciones" Width="100%" Height="350px" />
+                </div>
             }
         }
     </MudCardContent>

@@ -61,8 +61,12 @@
                         Solo gastos en colones: no se pueden sumar montos de monedas distintas.
                     </MudText>
                 }
-                <MudChart T="double" ChartType="grafica.Tipo" ChartSeries="grafica.Series"
-                          ChartLabels="grafica.Etiquetas" ChartOptions="grafica.Opciones" Width="100%" Height="350px" />
+                @* role="img" con el resumen de las cifras: el SVG de la gráfica no dice nada
+                   a un lector de pantalla (F-07). *@
+                <div role="img" aria-label="@TextoAlternativoGrafica.De(grafica.Titulo, grafica.Etiquetas, grafica.Series)">
+                    <MudChart T="double" ChartType="grafica.Tipo" ChartSeries="grafica.Series"
+                              ChartLabels="grafica.Etiquetas" ChartOptions="grafica.Opciones" Width="100%" Height="350px" />
+                </div>
             }
         }
     </MudCardContent>
@@ -138,6 +142,7 @@
         // Mismo criterio que PanoramaBeneficiarios.
         var ventana = VentanaMeses();
         var etiquetasMeses = ventana.Select(m => EtiquetaMes(m.Anio, m.Mes)).ToArray();
+        var cantidadPorMes = AlinearPorMes(ventana, datos.CantidadPorMes);
 
         return new Dictionary<Estadistica, GraficaVista>
         {
@@ -165,9 +170,11 @@
             [Estadistica.CantidadPorMes] = new(
                 "Cantidad de gastos por mes",
                 ChartType.Bar,
-                new() { new() { Name = "Gastos", Data = AlinearPorMes(ventana, datos.CantidadPorMes) } },
+                new() { new() { Name = "Gastos", Data = cantidadPorMes } },
                 etiquetasMeses,
-                SoloColones: false),
+                SoloColones: false,
+                // Conteo de uno o dos dígitos: sin esto el eje iba de 0 a 20.
+                Opciones: new BarChartOptions { YAxisTicks = OpcionesGrafica.PasoDeConteo(cantidadPorMes.Max()) }),
 
             [Estadistica.TopProveedores] = new(
                 "Proveedores con más gasto",

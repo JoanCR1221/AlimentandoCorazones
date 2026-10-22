@@ -74,8 +74,12 @@
                         Solo alquileres en colones: no se pueden sumar montos de monedas distintas.
                     </MudText>
                 }
-                <MudChart T="double" ChartType="grafica.Tipo" ChartSeries="grafica.Series"
-                          ChartLabels="grafica.Etiquetas" ChartOptions="grafica.Opciones" Width="100%" Height="350px" />
+                @* role="img" con el resumen de las cifras: el SVG de la gráfica no dice nada
+                   a un lector de pantalla (F-07). *@
+                <div role="img" aria-label="@TextoAlternativoGrafica.De(grafica.Titulo, grafica.Etiquetas, grafica.Series)">
+                    <MudChart T="double" ChartType="grafica.Tipo" ChartSeries="grafica.Series"
+                              ChartLabels="grafica.Etiquetas" ChartOptions="grafica.Opciones" Width="100%" Height="350px" />
+                </div>
             }
         }
     </MudCardContent>

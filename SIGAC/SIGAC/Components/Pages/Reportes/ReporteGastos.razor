@@ -166,7 +166,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo generar el reporte. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo generar el reporte. Intente de nuevo.", Severity.Error);
         }
         finally
         {
@@ -184,9 +184,13 @@
         if (botonImprimirEnganchado || !seGenero || resultado.Grupos.Count == 0)
             return;
 
+        // La bandera se levanta ANTES del primer await: OnAfterRenderAsync puede volver
+        // a ejecutarse mientras el import del módulo está en curso, y cada pasada
+        // enganchaba otro listener nativo, así que un clic abría dos pestañas.
+        botonImprimirEnganchado = true;
+
         moduloImprimir ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/reportes.js");
         await moduloImprimir.InvokeVoidAsync("engancharBotonImprimir", idBotonImprimir);
-        botonImprimirEnganchado = true;
     }
 
     private async Task<byte[]> GenerarPdfAsync() =>
@@ -210,7 +214,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo generar el archivo del reporte. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo generar el archivo del reporte. Intente de nuevo.", Severity.Error);
         }
         finally
         {
@@ -230,13 +234,19 @@
             var pdf = await GenerarPdfAsync();
 
             await using var modulo = await JS.InvokeAsync<IJSObjectReference>("import", "./js/reportes.js");
-            await modulo.InvokeVoidAsync("imprimirPdf", Convert.ToBase64String(pdf));
+            var seAbrio = await modulo.InvokeAsync<bool>("imprimirPdf", Convert.ToBase64String(pdf));
+
+            if (!seAbrio)
+            {
+                Snackbar.Add("El navegador bloqueó la ventana emergente y no se pudo imprimir. Permita las ventanas emergentes de este sitio e intente de nuevo.", Severity.Warning);
+                return;
+            }
 
             await RegistrarExportacionAsync("Imprimir");
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo generar el reporte para imprimir. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo generar el reporte para imprimir. Intente de nuevo.", Severity.Error);
         }
         finally
         {
@@ -263,7 +273,7 @@
         }
         catch (Exception)
         {
-            Snackbar.Add("No se pudo generar el archivo del reporte. Intentá de nuevo.", Severity.Error);
+            Snackbar.Add("No se pudo generar el archivo del reporte. Intente de nuevo.", Severity.Error);
         }
         finally
         {

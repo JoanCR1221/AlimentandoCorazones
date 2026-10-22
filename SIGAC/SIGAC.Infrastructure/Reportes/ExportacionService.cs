@@ -68,35 +68,40 @@ namespace SIGAC.Infrastructure.Reportes
             {
                 const int filaEncabezado = 4;
 
-                var tabla = ATabla(datos);
+                // Las celdas se escriben con su tipo (número, fecha, hora) y no como el
+                // texto que sale en el PDF: así Excel puede ordenar, sumar y filtrar, y los
+                // montos se ven con el separador de la configuración regional de quien
+                // abre el archivo. Las columnas son las mismas que en el PDF.
+                var propiedades = PropiedadesExportables(typeof(T));
+                var filas = datos.ToList();
 
                 using var libro = new XLWorkbook();
                 var hoja = libro.Worksheets.Add(NombreHoja(titulo));
 
                 var celdaTitulo = hoja.Cell(1, 1);
-                celdaTitulo.Value = titulo;
+                EscribirTexto(celdaTitulo, titulo);
                 celdaTitulo.Style.Font.Bold = true;
                 celdaTitulo.Style.Font.FontSize = 14;
 
                 var celdaSubtitulo = hoja.Cell(2, 1);
-                celdaSubtitulo.Value = LineaSubtitulo(subtitulo, DateTime.Now.ToString("dd/MM/yyyy HH:mm"));
+                EscribirTexto(celdaSubtitulo, LineaSubtitulo(subtitulo, DateTime.Now.ToString("dd/MM/yyyy HH:mm")));
                 celdaSubtitulo.Style.Font.Italic = true;
 
-                for (var columna = 0; columna < tabla.Columns.Count; columna++)
+                for (var columna = 0; columna < propiedades.Length; columna++)
                 {
                     var celda = hoja.Cell(filaEncabezado, columna + 1);
-                    celda.Value = TituloDe(tabla.Columns[columna]);
+                    EscribirTexto(celda, TituloDe(propiedades[columna]));
                     celda.Style.Font.Bold = true;
                     celda.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
                 }
 
-                for (var fila = 0; fila < tabla.Rows.Count; fila++)
+                for (var fila = 0; fila < filas.Count; fila++)
                 {
-                    for (var columna = 0; columna < tabla.Columns.Count; columna++)
-                        hoja.Cell(filaEncabezado + 1 + fila, columna + 1).Value = (string)tabla.Rows[fila][columna];
+                    for (var columna = 0; columna < propiedades.Length; columna++)
+                        EscribirValor(hoja.Cell(filaEncabezado + 1 + fila, columna + 1), propiedades[columna].GetValue(filas[fila]));
                 }
 
-                var ultimaFila = filaEncabezado + tabla.Rows.Count;
+                var ultimaFila = filaEncabezado + filas.Count;
 
                 if (resumen is { Count: > 0 })
                 {
@@ -106,9 +111,9 @@ namespace SIGAC.Infrastructure.Reportes
                     var fila = ultimaFila + 2;
                     foreach (var linea in resumen)
                     {
-                        hoja.Cell(fila, 1).Value = linea.Etiqueta;
+                        EscribirTexto(hoja.Cell(fila, 1), linea.Etiqueta);
                         hoja.Cell(fila, 1).Style.Font.Bold = true;
-                        hoja.Cell(fila, 2).Value = linea.Valor;
+                        EscribirTexto(hoja.Cell(fila, 2), linea.Valor);
                         hoja.Cell(fila, 2).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
                         fila++;
                     }
@@ -118,7 +123,7 @@ namespace SIGAC.Infrastructure.Reportes
 
                 // Solo desde el encabezado hacia abajo: con el título en A1, ajustar
                 // toda la hoja ensancharía la primera columna hasta el largo del título.
-                hoja.Columns(1, Math.Max(tabla.Columns.Count, 2))
+                hoja.Columns(1, Math.Max(propiedades.Length, 2))
                     .AdjustToContents(filaEncabezado, ultimaFila);
 
                 using var salida = new MemoryStream();
@@ -130,6 +135,60 @@ namespace SIGAC.Infrastructure.Reportes
                 throw new Exception("Error al exportar el reporte a Excel.", ex);
             }
         }
+
+        // Texto literal. ClosedXML trata un apóstrofo inicial como el prefijo de cita de
+        // Excel: lo quita y marca la celda (un nombre como 'Tito salía como Tito). Para
+        // conservarlo se antepone otro, que es el que se consume como prefijo. Un valor
+        // string no se interpreta como fórmula ni como número.
+        private static void EscribirTexto(IXLCell celda, string texto)
+        {
+            celda.Value = texto.StartsWith('\'') ? "'" + texto : texto;
+        }
+
+        // Escribe el valor con su tipo y le da el formato de celda que lo hace legible
+        // sin tocar el valor: decimales con miles y dos decimales, fechas dd/MM/yyyy y
+        // horas hh:mm. Los booleanos salen como Sí/No, igual que en el PDF.
+        private static void EscribirValor(IXLCell celda, object? valor)
+        {
+            switch (valor)
+            {
+                case null:
+                    break;
+                case DateTime fecha:
+                    celda.SetValue(fecha);
+                    celda.Style.DateFormat.Format = "dd/MM/yyyy";
+                    break;
+                case TimeSpan hora:
+                    celda.SetValue(hora);
+                    celda.Style.DateFormat.Format = "hh:mm";
+                    break;
+                case bool si:
+                    EscribirTexto(celda, si ? "Sí" : "No");
+                    break;
+                case decimal monto:
+                    celda.SetValue(monto);
+                    celda.Style.NumberFormat.Format = "#,##0.00";
+                    break;
+                case double or float:
+                    celda.SetValue(Convert.ToDouble(valor));
+                    celda.Style.NumberFormat.Format = "#,##0.00";
+                    break;
+                case byte or short or int or long or sbyte or ushort or uint:
+                    celda.SetValue(Convert.ToInt64(valor));
+                    break;
+                default:
+                    EscribirTexto(celda, valor.ToString() ?? string.Empty);
+                    break;
+            }
+        }
+
+        private static PropertyInfo[] PropiedadesExportables(Type tipo) =>
+            tipo.GetProperties()
+                .Where(p => p.GetCustomAttribute<DisplayAttribute>()?.GetAutoGenerateField() != false)
+                .ToArray();
+
+        private static string TituloDe(PropertyInfo propiedad) =>
+            propiedad.GetCustomAttribute<DisplayAttribute>()?.GetName() ?? propiedad.Name;
 
         // El título del reporte ("Reporte de beneficiarios atendidos") es el
         // nombre de hoja más natural, pero Excel limita a 31 caracteres y
@@ -171,64 +230,64 @@ namespace SIGAC.Infrastructure.Reportes
                 var hoja = libro.Worksheets.Add("Gastos");
                 var fila = 1;
 
-                hoja.Cell(fila, 1).Value = "ASOCIACION ALIMENTANDO CORAZONES";
+                EscribirTexto(hoja.Cell(fila, 1), "ASOCIACION ALIMENTANDO CORAZONES");
                 hoja.Cell(fila, 1).Style.Font.Bold = true;
                 fila++;
 
-                hoja.Cell(fila, 1).Value = $"DETALLE DE GASTOS MES DE :     {Meses[mes - 1]}     {anio}";
+                EscribirTexto(hoja.Cell(fila, 1), $"DETALLE DE GASTOS MES DE :     {Meses[mes - 1]}     {anio}");
                 fila++;
 
-                hoja.Cell(fila, 1).Value = $"POR TIPO DE GASTO Y DESCRIPCION CUENTA :  : GASTOS DE {formaPago.ToUpperInvariant()}";
+                EscribirTexto(hoja.Cell(fila, 1), $"POR TIPO DE GASTO Y DESCRIPCION CUENTA :  : GASTOS DE {formaPago.ToUpperInvariant()}");
                 fila += 2;
 
                 string[] columnas = { "NOMBRE", "FACT.", "DIA", "MONTO", "I.V.A.", "CHEQUE", "CUENTA CORRIENTE" };
 
                 foreach (var grupo in reporte.Grupos)
                 {
-                    hoja.Cell(fila, 1).Value = grupo.TipoGasto;
+                    EscribirTexto(hoja.Cell(fila, 1), grupo.TipoGasto);
                     hoja.Cell(fila, 1).Style.Font.Bold = true;
                     fila++;
 
-                    hoja.Cell(fila, 1).Value = formaPago.ToUpperInvariant();
+                    EscribirTexto(hoja.Cell(fila, 1), formaPago.ToUpperInvariant());
                     fila++;
 
-                    hoja.Cell(fila, 1).Value = grupo.DescripcionCuenta;
+                    EscribirTexto(hoja.Cell(fila, 1), grupo.DescripcionCuenta);
                     fila++;
 
                     for (var columna = 0; columna < columnas.Length; columna++)
                     {
                         var celda = hoja.Cell(fila, columna + 1);
-                        celda.Value = columnas[columna];
+                        EscribirTexto(celda, columnas[columna]);
                         celda.Style.Font.Bold = true;
                     }
                     fila++;
 
                     foreach (var gasto in grupo.Filas)
                     {
-                        hoja.Cell(fila, 1).Value = gasto.Proveedor;
-                        hoja.Cell(fila, 2).Value = gasto.NumeroFactura;
-                        hoja.Cell(fila, 3).Value = gasto.Dia.ToString();
-                        hoja.Cell(fila, 4).Value = FormatearMonto(gasto.Monto);
-                        hoja.Cell(fila, 5).Value = FormatearMonto(gasto.Iva);
-                        hoja.Cell(fila, 6).Value = gasto.NumeroCheque ?? string.Empty;
-                        hoja.Cell(fila, 7).Value = gasto.CuentaContable;
+                        EscribirTexto(hoja.Cell(fila, 1), gasto.Proveedor);
+                        EscribirTexto(hoja.Cell(fila, 2), gasto.NumeroFactura);
+                        EscribirValor(hoja.Cell(fila, 3), gasto.Dia);
+                        EscribirValor(hoja.Cell(fila, 4), gasto.Monto);
+                        EscribirValor(hoja.Cell(fila, 5), gasto.Iva);
+                        EscribirTexto(hoja.Cell(fila, 6), gasto.NumeroCheque ?? string.Empty);
+                        EscribirTexto(hoja.Cell(fila, 7), gasto.CuentaContable);
                         fila++;
                     }
 
-                    hoja.Cell(fila, 1).Value = "TOTAL . . .";
+                    EscribirTexto(hoja.Cell(fila, 1), "TOTAL . . .");
                     hoja.Cell(fila, 1).Style.Font.Bold = true;
-                    hoja.Cell(fila, 4).Value = FormatearMonto(grupo.SubtotalMonto);
+                    EscribirValor(hoja.Cell(fila, 4), grupo.SubtotalMonto);
                     hoja.Cell(fila, 4).Style.Font.Bold = true;
-                    hoja.Cell(fila, 5).Value = FormatearMonto(grupo.SubtotalIva);
+                    EscribirValor(hoja.Cell(fila, 5), grupo.SubtotalIva);
                     hoja.Cell(fila, 5).Style.Font.Bold = true;
                     fila += 2;
                 }
 
-                hoja.Cell(fila, 1).Value = "GRAN TOTAL . . .";
+                EscribirTexto(hoja.Cell(fila, 1), "GRAN TOTAL . . .");
                 hoja.Cell(fila, 1).Style.Font.Bold = true;
-                hoja.Cell(fila, 4).Value = FormatearMonto(reporte.GranTotalMonto);
+                EscribirValor(hoja.Cell(fila, 4), reporte.GranTotalMonto);
                 hoja.Cell(fila, 4).Style.Font.Bold = true;
-                hoja.Cell(fila, 5).Value = FormatearMonto(reporte.GranTotalIva);
+                EscribirValor(hoja.Cell(fila, 5), reporte.GranTotalIva);
                 hoja.Cell(fila, 5).Style.Font.Bold = true;
 
                 hoja.Columns().AdjustToContents();
