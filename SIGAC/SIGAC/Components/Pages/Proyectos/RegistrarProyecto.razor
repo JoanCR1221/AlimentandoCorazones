@@ -41,13 +41,19 @@
                            HelperText="No puede ser anterior a la fecha de inicio." />
         </MudCardContent>
         <MudCardActions>
-            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="guardando" Class="ml-2 mb-2">Guardar</MudButton>
             <MudButton Variant="Variant.Text" Color="Color.Default" Href="/proyectos" Class="mb-2">Cancelar</MudButton>
         </MudCardActions>
     </MudCard>
 </EditForm>
 
 @code {
+    // Se levanta antes del primer await y se baja en el finally: un doble clic
+    // rápido dispara Guardar dos veces antes de que el servidor responda, y la
+    // segunda llamada repetiría el registro (y, donde corresponde, el movimiento
+    // de stock).
+    private bool guardando;
+
     private ProyectoCrearDto modelo = new();
 
     private DateTime? fechaInicio
@@ -72,6 +78,11 @@
 
     private async Task Guardar()
     {
+        if (guardando)
+            return;
+
+        guardando = true;
+
         try
         {
             var proyectoId = await ProyectosService.RegistrarProyectoAsync(modelo);
@@ -105,6 +116,10 @@
         catch (Exception)
         {
             Snackbar.Add("No se pudo registrar el proyecto comunitario. Intente de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            guardando = false;
         }
     }
 }

@@ -48,7 +48,7 @@
             </MudGrid>
 
             <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" Class="mt-4"
-                       OnClick="GuardarHorarioAsync">Guardar horario</MudButton>
+                       OnClick="GuardarHorarioAsync" Disabled="guardandoHorario">Guardar horario</MudButton>
         }
     </MudCardContent>
 </MudCard>
@@ -111,7 +111,7 @@
                                       MaxLength="EspaciosValidator.LongitudMaximaNombre" Margin="Margin.Dense" />
                         <MudNumericField T="int?" @bind-Value="nuevoEspacio.Capacidad" For="@(() => nuevoEspacio.Capacidad)" Label="Capacidad" Variant="Variant.Outlined"
                                          Min="1" Max="EspaciosValidator.CapacidadMaxima" Margin="Margin.Dense" Style="max-width: 9rem;" />
-                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Class="mt-2">Agregar</MudButton>
+                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Class="mt-2" Disabled="ocupado">Agregar</MudButton>
                     </MudStack>
                 </EditForm>
             </MudCardContent>
@@ -160,7 +160,7 @@
                     <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Start">
                         <MudTextField @bind-Value="nuevaCaracteristica.Nombre" For="@(() => nuevaCaracteristica.Nombre)" Label="Nueva característica" Variant="Variant.Outlined"
                                       MaxLength="EspaciosValidator.LongitudMaximaNombre" Margin="Margin.Dense" />
-                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Class="mt-2">Agregar</MudButton>
+                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Class="mt-2" Disabled="ocupado">Agregar</MudButton>
                     </MudStack>
                 </EditForm>
             </MudCardContent>
@@ -174,6 +174,12 @@
     private EspacioFisicoCrearDto nuevoEspacio = new();
     private CaracteristicaCrearDto nuevaCaracteristica = new();
     private HorarioAlquilerDto? horario;
+
+    // Evitan que un doble clic repita el guardado: se levantan antes del primer await
+    // y se bajan en el finally. `ocupado` cubre todas las acciones que pasan por
+    // EjecutarAsync (agregar, activar, eliminar...), que no deben solaparse.
+    private bool guardandoHorario;
+    private bool ocupado;
 
     protected override async Task OnInitializedAsync()
     {
@@ -197,8 +203,10 @@
 
     private async Task GuardarHorarioAsync()
     {
-        if (horario is null)
+        if (horario is null || guardandoHorario)
             return;
+
+        guardandoHorario = true;
 
         try
         {
@@ -213,6 +221,10 @@
         catch (Exception)
         {
             Snackbar.Add("No se pudo guardar el horario. Intente de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            guardandoHorario = false;
         }
     }
 
@@ -285,6 +297,10 @@
     // Devuelve si se guardó.
     private async Task<bool> EjecutarAsync(Func<Task> accion, string mensajeExito)
     {
+        if (ocupado)
+            return false;
+
+        ocupado = true;
         var guardado = false;
 
         try
@@ -308,6 +324,10 @@
         catch (Exception)
         {
             Snackbar.Add("No se pudo guardar el cambio. Intente de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            ocupado = false;
         }
 
         await CargarAsync();

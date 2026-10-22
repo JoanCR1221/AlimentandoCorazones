@@ -2,11 +2,13 @@
 @attribute [Authorize(Policy = Permisos.Donaciones.RegistrarEspecie)]
 @using SIGAC.Application.DTOs
 @using SIGAC.Application.DTOs.Donaciones
+@using SIGAC.Application.DTOs.Inventario
 @using SIGAC.Application.Exceptions
 @using SIGAC.Application.Interfaces
 @using SIGAC.Domain
 @inject IDonantesService DonantesService
 @inject IDonacionesService DonacionesService
+@inject IInventarioService InventarioService
 @inject ISnackbar Snackbar
 
 <MudText Typo="Typo.h4" HtmlTag="h1" Class="mb-4">Registrar donación en especie</MudText>
@@ -49,10 +51,24 @@
                 var articulo = modelo.Articulos[indice];
 
                 <MudPaper Class="pa-4 mb-3" Outlined="true">
-                    <MudTextField @bind-Value="articulo.NombreArticulo" Label="Nombre del artículo" Variant="Variant.Outlined" />
+                    @* Al salir del campo se busca el nombre en el inventario. Si el artículo
+                       ya existe, la donación va a sumar a ESE artículo y a guardar SU
+                       categoría y unidad (Inventario es quien decide), así que se
+                       precargan y se bloquean para que lo que se ve sea lo que se guarda. *@
+                    <MudTextField @bind-Value="articulo.NombreArticulo" @bind-Value:after="() => OnNombreArticuloCambiadoAsync(articulo)"
+                                  Label="Nombre del artículo" Variant="Variant.Outlined" />
+
+                    @if (existentePorLinea.TryGetValue(articulo, out var existente))
+                    {
+                        <MudAlert Severity="Severity.Info" Class="mt-2">
+                            Ya existe este artículo en el inventario (stock actual: @existente.StockActual @existente.UnidadMedida).
+                            Se usará su categoría y unidad de medida registradas.
+                        </MudAlert>
+                    }
 
                     <MudSelect T="string" Value="articulo.Categoria" ValueChanged="@(valor => OnCategoriaCambiada(indice, valor))"
-                               Label="Categoría" Variant="Variant.Outlined" Class="mt-4">
+                               Label="Categoría" Variant="Variant.Outlined" Class="mt-4"
+                               Disabled="TieneCoincidencias(articulo)">
                         @foreach (var categoria in CategoriasArticulo.Todos)
                         {
                             <MudSelectItem T="string" Value="@categoria">@categoria</MudSelectItem>
@@ -64,7 +80,8 @@
                        para Equipo; el servicio lo exige ahí y lo descarta en el resto. *@
                     @if (EstadosArticulo.AplicaACategoria(articulo.Categoria))
                     {
-                        <MudSelect T="string" @bind-Value="articulo.Estado" Label="Estado" Variant="Variant.Outlined" Class="mt-4"
+                        <MudSelect T="string" @bind-Value="articulo.Estado" @bind-Value:after="() => ResolverExistente(articulo)"
+                                   Label="Estado" Variant="Variant.Outlined" Class="mt-4"
                                    Required="true" HelperText="Obligatorio para Equipo.">
                             @foreach (var estado in EstadosArticulo.Todos)
                             {
@@ -76,7 +93,7 @@
                     @* Mismas opciones que valida el servicio: filtradas por la categoría
                        elegida en esta línea, igual que en Inventario. *@
                     <MudSelect T="string" @bind-Value="articulo.UnidadMedida" Label="Unidad de medida" Variant="Variant.Outlined" Class="mt-4"
-                               Disabled="string.IsNullOrWhiteSpace(articulo.Categoria)"
+                               Disabled="@(string.IsNullOrWhiteSpace(articulo.Categoria) || existentePorLinea.ContainsKey(articulo))"
                                HelperText="@(string.IsNullOrWhiteSpace(articulo.Categoria) ? "Elija primero una categoría." : null)">
                         @foreach (var unidad in UnidadesMedidaArticulo.ObtenerUnidadesValidas(articulo.Categoria))
                         {
@@ -97,17 +114,87 @@
             <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="AgregarArticulo">Agregar artículo</MudButton>
         </MudCardContent>
         <MudCardActions>
-            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="guardando" Class="ml-2 mb-2">Guardar</MudButton>
             <MudButton Variant="Variant.Text" Color="Color.Default" Href="/donaciones/historial" Class="mb-2">Cancelar</MudButton>
         </MudCardActions>
     </MudCard>
 </EditForm>
 
 @code {
+    // Se levanta antes del primer await y se baja en el finally: un doble clic
+    // rápido dispara Guardar dos veces antes de que el servidor responda, y la
+    // segunda llamada repetiría el registro (y, donde corresponde, el movimiento
+    // de stock).
+    private bool guardando;
+
     private DonacionEspecieCrearDto modelo = new();
     private DonanteListaDto? donanteSeleccionado;
     private bool panelNuevoDonanteAbierto;
     private NuevoDonanteDto nuevoDonante = new();
+
+    // Filas del catálogo cuyo nombre coincide con el escrito en cada línea (una si no
+    // es Equipo, una por estado si lo es), y la que además coincide con su estado: el
+    // artículo al que realmente va a sumar la línea. Mismo criterio que
+    // RegistrarEntradaInventario.
+    private readonly Dictionary<DetalleArticuloDto, List<ArticuloExistenciaDto>> coincidenciasPorLinea = new();
+    private readonly Dictionary<DetalleArticuloDto, ArticuloExistenciaDto> existentePorLinea = new();
+
+    private bool TieneCoincidencias(DetalleArticuloDto articulo) =>
+        coincidenciasPorLinea.TryGetValue(articulo, out var coincidencias) && coincidencias.Count > 0;
+
+    private async Task OnNombreArticuloCambiadoAsync(DetalleArticuloDto articulo)
+    {
+        coincidenciasPorLinea.Remove(articulo);
+
+        if (!string.IsNullOrWhiteSpace(articulo.NombreArticulo))
+        {
+            try
+            {
+                var nombre = articulo.NombreArticulo.Trim();
+                var existencias = await InventarioService.ObtenerExistenciasAsync(new FiltrosExistenciaDto { Nombre = nombre });
+
+                coincidenciasPorLinea[articulo] = existencias.Elementos
+                    .Where(a => string.Equals(a.Nombre, nombre, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+            catch (Exception)
+            {
+                // La precarga es una ayuda: si la consulta falla no se bloquea el
+                // formulario, porque el servidor resuelve el artículo igual al guardar.
+            }
+        }
+
+        ResolverExistente(articulo);
+    }
+
+    private void ResolverExistente(DetalleArticuloDto articulo)
+    {
+        existentePorLinea.Remove(articulo);
+
+        if (!coincidenciasPorLinea.TryGetValue(articulo, out var coincidencias) || coincidencias.Count == 0)
+            return;
+
+        // Todas las filas de un mismo nombre son de la misma categoría.
+        var hermano = coincidencias[0];
+        articulo.Categoria = hermano.Categoria;
+
+        var existente = EstadosArticulo.AplicaACategoria(hermano.Categoria)
+            ? coincidencias.FirstOrDefault(a => a.Estado == articulo.Estado)
+            : hermano;
+
+        if (existente is not null)
+        {
+            articulo.Estado = existente.Estado;
+            articulo.UnidadMedida = existente.UnidadMedida;
+            existentePorLinea[articulo] = existente;
+        }
+        else if (string.IsNullOrWhiteSpace(articulo.UnidadMedida))
+        {
+            // Estado nuevo de un Equipo que ya existe: se parte de la unidad de sus
+            // hermanos, que el usuario todavía puede cambiar.
+            articulo.UnidadMedida = hermano.UnidadMedida;
+        }
+    }
 
     private DateTime? fecha
     {
@@ -184,13 +271,23 @@
         // Siempre queda al menos una línea: una donación en especie sin artículos
         // no registra nada, mismo mínimo que exige el servicio.
         if (modelo.Articulos.Count > 1)
+        {
+            var quitado = modelo.Articulos[indice];
+            coincidenciasPorLinea.Remove(quitado);
+            existentePorLinea.Remove(quitado);
             modelo.Articulos.RemoveAt(indice);
+        }
     }
 
     private async Task Guardar()
     {
         modelo.DonanteId = panelNuevoDonanteAbierto ? null : donanteSeleccionado?.Id;
         modelo.NuevoDonante = panelNuevoDonanteAbierto ? nuevoDonante : null;
+
+        if (guardando)
+            return;
+
+        guardando = true;
 
         try
         {
@@ -199,6 +296,8 @@
 
             modelo = new() { Fecha = DateTime.Today };
             modelo.Articulos.Add(new DetalleArticuloDto());
+            coincidenciasPorLinea.Clear();
+            existentePorLinea.Clear();
             donanteSeleccionado = null;
             panelNuevoDonanteAbierto = false;
             nuevoDonante = new();
@@ -214,6 +313,10 @@
         catch (Exception)
         {
             Snackbar.Add("No se pudo registrar la donación. Intente de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            guardando = false;
         }
     }
 }

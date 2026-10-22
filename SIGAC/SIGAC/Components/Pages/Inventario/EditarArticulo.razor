@@ -64,13 +64,19 @@
             <MudNumericField T="int" Value="modelo.StockActual" Label="Stock actual" Variant="Variant.Outlined" Class="mt-4" ReadOnly="true" />
         </MudCardContent>
         <MudCardActions>
-            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="guardando" Class="ml-2 mb-2">Guardar</MudButton>
             <MudButton Variant="Variant.Text" Color="Color.Default" Href="/inventario/existencias" Class="mb-2">Cancelar</MudButton>
         </MudCardActions>
     </MudCard>
 </EditForm>
 
 @code {
+    // Se levanta antes del primer await y se baja en el finally: un doble clic
+    // rápido dispara Guardar dos veces antes de que el servidor responda, y la
+    // segunda llamada repetiría el registro (y, donde corresponde, el movimiento
+    // de stock).
+    private bool guardando;
+
     [Parameter]
     public int Id { get; set; }
 
@@ -104,6 +110,11 @@
 
     private async Task Guardar()
     {
+        if (guardando)
+            return;
+
+        guardando = true;
+
         try
         {
             await InventarioService.EditarArticuloAsync(Id, modelo);
@@ -121,6 +132,10 @@
         catch (Exception)
         {
             Snackbar.Add("No se pudo actualizar el artículo. Intente de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            guardando = false;
         }
     }
 }

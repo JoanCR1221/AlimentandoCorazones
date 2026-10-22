@@ -100,11 +100,13 @@ namespace SIGAC.Application.Services
                 // recibido todavía.
                 ValidarFechaNoFutura(dto.Fecha, "la donación");
 
-                var donanteId = await ResolverDonanteAsync(dto.DonanteId, dto.NuevoDonante);
+                var (donanteId, nuevoDonante) = await ResolverDonanteAsync(dto.DonanteId, dto.NuevoDonante);
 
                 var donacion = new DonacionDinero
                 {
-                    DonanteId = donanteId,
+                    // Con donante nuevo todavía no hay Id: el repositorio lo asigna al
+                    // crearlo, dentro de la misma transacción que la donación.
+                    DonanteId = donanteId ?? 0,
                     Monto = dto.Monto,
                     Moneda = moneda,
                     Fecha = dto.Fecha,
@@ -113,7 +115,9 @@ namespace SIGAC.Application.Services
 
                 // Una sola escritura y nada de inventario: el dinero no es un
                 // artículo con stock, así que esta donación no genera movimiento.
-                await _repository.AgregarDonacionDineroAsync(donacion);
+                await _repository.AgregarDonacionDineroAsync(donacion, nuevoDonante);
+
+                await RegistrarAltaDeDonanteAsync(nuevoDonante);
 
                 await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Donaciones,
                     $"Donación en dinero #{donacion.Id}: {donacion.Monto:N2} {donacion.Moneda}, donante #{donacion.DonanteId}");
@@ -144,129 +148,72 @@ namespace SIGAC.Application.Services
                 // misma línea explotaría con las dos primeras ya ingresadas.
                 var lineas = dto.Articulos.Select(ValidarLinea).ToList();
 
-                var donanteId = await ResolverDonanteAsync(dto.DonanteId, dto.NuevoDonante);
+                var (donanteId, nuevoDonante) = await ResolverDonanteAsync(dto.DonanteId, dto.NuevoDonante);
+
+                // El ingreso al inventario se prepara ANTES de escribir nada: Inventario
+                // valida y resuelve a qué artículo suma cada línea (existente o nuevo).
+                // Si algo no cuadra, se rechaza la donación entera sin haber guardado
+                // ni movido stock.
+                var preparadas = await _inventarioService.PrepararEntradasAsync(
+                    lineas.Select(l => new EntradaInventarioCrearDto
+                    {
+                        NombreArticulo = l.NombreArticulo,
+                        Categoria = l.Categoria,
+                        Estado = l.Estado,
+                        UnidadMedida = l.UnidadMedida,
+                        Cantidad = l.Cantidad,
+                        Fecha = dto.Fecha,
+                        Origen = OrigenesEntradaInventario.Donacion
+                    }).ToList());
 
                 var donacion = new DonacionEspecie
                 {
-                    DonanteId = donanteId,
+                    DonanteId = donanteId ?? 0,
                     Fecha = dto.Fecha,
                     Observaciones = dto.Observaciones,
-                    Detalles = lineas.Select(l => new DetalleDonacionEspecie
+
+                    // La línea guarda lo MISMO que el inventario: el nombre, la categoría,
+                    // el estado y la unidad del artículo al que entró, no lo que se haya
+                    // tecleado. Si el artículo ya existía con otra categoría o unidad, el
+                    // stock usa las suyas (así lo resuelve Inventario) y la donación
+                    // quedaba describiendo algo distinto de lo que se sumó.
+                    Detalles = lineas.Select((l, i) =>
                     {
-                        NombreArticulo = l.NombreArticulo,
-                        Cantidad = l.Cantidad,
-                        Categoria = l.Categoria,
-                        Estado = l.Estado,
-                        UnidadMedida = l.UnidadMedida
+                        var articulo = preparadas[i].Articulo;
+
+                        return new DetalleDonacionEspecie
+                        {
+                            NombreArticulo = articulo.Nombre,
+                            Cantidad = l.Cantidad,
+                            Categoria = articulo.Categoria,
+                            Estado = articulo.Estado,
+                            UnidadMedida = articulo.UnidadMedida
+                        };
                     }).ToList()
                 };
 
-                // FASE 1: se guarda la donación con su detalle. Una sola operación
-                // atómica del lado del repositorio (cabecera y líneas en el mismo
-                // SaveChanges).
-                await _repository.AgregarDonacionEspecieAsync(donacion);
+                // UNA transacción: el donante nuevo (si hay), la cabecera con su detalle,
+                // las entradas de inventario y la suma al stock se escriben juntos o no
+                // se escribe nada. Antes eran dos fases independientes y una falla en la
+                // segunda dejaba la donación guardada con el stock a medias, y reintentar
+                // la duplicaba.
+                await _repository.AgregarDonacionEspecieAsync(
+                    donacion, nuevoDonante, preparadas.Select(p => p.Entrada).ToList());
+
+                await RegistrarAltaDeDonanteAsync(nuevoDonante);
 
                 await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Donaciones,
                     $"Donación en especie #{donacion.Id}: {donacion.Detalles.Count} artículo(s), donante #{donacion.DonanteId}");
 
-                // FASE 2: cada línea entra al stock como EntradaInventario con origen
-                // "Donacion", delegando en Inventario.
-                //
-                // Las dos fases NO comparten transacción y no pueden compartirla sin
-                // romper la frontera entre módulos: cada repositorio pide su propio
-                // DbContext a la factory, así que son conexiones distintas. Ver el
-                // análisis del bloque de comentarios de RegistrarEntradasEnInventarioAsync.
-                await RegistrarEntradasEnInventarioAsync(donacion, lineas);
+                foreach (var preparada in preparadas)
+                {
+                    await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Inventario,
+                        InventarioService.DescribirEntrada(preparada));
+                }
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException and not DuplicateException)
             {
                 throw new Exception("Error al registrar la donación en especie.", ex);
-            }
-        }
-
-        // Qué pasa si la donación se guardó y falla el ingreso del tercero de cinco
-        // artículos:
-        //
-        // Queda una inconsistencia real. La donación figura completa en el historial
-        // (cabecera y cinco líneas) pero el inventario solo tiene dos: el stock queda
-        // SUBVALUADO respecto de lo que físicamente entró a la bodega.
-        //
-        // No se puede evitar del todo desde acá. Una transacción que abarque las dos
-        // fases exigiría un contexto compartido entre IDonacionesRepository e
-        // IInventarioRepository, o un método de Inventario que reciba el lote entero
-        // y lo resuelva todo-o-nada. Las dos cosas son cambios en el módulo de
-        // Inventario, fuera del alcance de este paso, y la primera además disolvería
-        // la frontera que protege su atomicidad.
-        //
-        // Lo que sí se hace:
-        //
-        //  1. Validar todo antes de escribir (arriba), para que la causa más probable
-        //     de falla a mitad de camino —datos malos— no exista. Lo que queda son
-        //     fallas de infraestructura (base caída) o la carrera de que otro usuario
-        //     cree el mismo artículo nuevo en el medio.
-        //  2. Elegir el ORDEN que deja el daño menos grave. Guardar primero la
-        //     donación deja el stock subvaluado, que es la dirección segura: el
-        //     sistema nunca promete existencias que no tiene, y el comprobante de lo
-        //     que el donante entregó —que es el documento que hay que poder mostrar—
-        //     queda guardado. Al revés (inventario primero) una falla dejaría stock
-        //     sumado sin ninguna donación que lo respalde.
-        //  3. Fallar con el detalle EXACTO de qué entró y qué no, para que se pueda
-        //     completar a mano desde la pantalla de entradas de Inventario. Sin ese
-        //     detalle la inconsistencia sería invisible y nadie la corregiría.
-        //
-        // El trade-off aceptado: se cambia atomicidad por independencia entre
-        // módulos, y se compensa con un mensaje que convierte el problema en una
-        // tarea manual concreta en vez de un dato silenciosamente mal. La solución
-        // definitiva es un método de lote en IInventarioService que registre las N
-        // entradas en una sola transacción; queda como trabajo pendiente de
-        // Inventario.
-        private async Task RegistrarEntradasEnInventarioAsync(
-            DonacionEspecie donacion, IReadOnlyList<LineaValidada> lineas)
-        {
-            var ingresados = new List<string>();
-
-            foreach (var linea in lineas)
-            {
-                try
-                {
-                    await _inventarioService.RegistrarEntradaAsync(new EntradaInventarioCrearDto
-                    {
-                        NombreArticulo = linea.NombreArticulo,
-                        Categoria = linea.Categoria,
-                        Estado = linea.Estado,
-                        UnidadMedida = linea.UnidadMedida,
-                        Cantidad = linea.Cantidad,
-                        Fecha = donacion.Fecha,
-                        Origen = OrigenesEntradaInventario.Donacion,
-                        DonanteId = donacion.DonanteId,
-                        Observaciones = $"Donación en especie #{donacion.Id}"
-                    });
-
-                    ingresados.Add(linea.NombreArticulo);
-                }
-                catch (Exception ex)
-                {
-                    var faltantes = lineas
-                        .Skip(ingresados.Count)
-                        .Select(l => $"{l.Cantidad} {l.UnidadMedida} de {Articulo.EtiquetaDe(l.NombreArticulo, l.Estado)}");
-
-                    // ValidationException y no un Exception genérico: es el único tipo
-                    // que el filtro de excepciones deja pasar sin envolver, así que es
-                    // el que garantiza que este mensaje llegue textual al usuario. Un
-                    // Exception quedaría tapado por "Error al registrar la donación en
-                    // especie" y se perdería justo el detalle que permite corregir.
-                    //
-                    // (Es el punto débil de este manejo: el tipo dice "dato inválido"
-                    // cuando en realidad es una falla parcial. Un tipo propio sería
-                    // más honesto, pero agregarlo obliga a revisar los filtros de
-                    // excepción de todo el proyecto.)
-                    throw new ValidationException(
-                        $"La donación #{donacion.Id} quedó registrada, pero solo {ingresados.Count} de " +
-                        $"{lineas.Count} artículos entraron al inventario. " +
-                        $"Falta ingresar: {string.Join("; ", faltantes)}. " +
-                        "Registralos como entrada con origen Donación desde el módulo de Inventario. " +
-                        $"Motivo de la interrupción: {ex.Message}");
-                }
             }
         }
 
@@ -281,10 +228,11 @@ namespace SIGAC.Application.Services
                 if (dto.Cantidad <= 0)
                     throw new ValidationException("La cantidad debe ser mayor a 0.");
 
-                // A diferencia de las donaciones recibidas, una entrega sí puede
-                // programarse con fecha futura (coordinar de antemano cuándo se
-                // hará la entrega física), así que acá no se llama a
-                // ValidarFechaNoFutura.
+                // La fecha es obligatoria (un DateTime sin elegir llega como 0001-01-01
+                // y se guardaría tal cual) y la entrega se registra el día en que
+                // ocurre, igual que las donaciones recibidas y los gastos.
+                ValidarFechaObligatoria(dto.Fecha, "la entrega");
+                ValidarFechaNoFutura(dto.Fecha, "la entrega");
 
                 if (!TiposDestinatarioDonacion.EsValido(dto.TipoDestinatario))
                 {
@@ -299,21 +247,16 @@ namespace SIGAC.Application.Services
                 // validación existe para dar el mensaje entendible antes de llegar ahí.
                 var (beneficiarioId, comunidad, textoDestino) = await ResolverDestinatarioAsync(dto);
 
-                // ORDEN: primero el descuento de stock, después el registro de la
-                // entrega. Es la dirección segura, por lo mismo que en la donación en
-                // especie pero al revés:
+                // Inventario valida (artículo, cantidad, stock suficiente) y arma la salida,
+                // pero NO la guarda: la salida, la entrega y el descuento de stock se
+                // escriben en una sola transacción. El chequeo de stock suficiente se
+                // repite dentro del UPDATE (WHERE StockActual >= cantidad, atómico), así
+                // que si otro usuario consumió el stock en el medio no queda nada escrito.
                 //
-                //  - Descontando primero, una falla al guardar la entrega deja el
-                //    stock correcto (la mercadería salió) y el movimiento asentado en
-                //    SalidasInventario; lo que falta es el "a quién", recuperable.
-                //  - Guardando primero, una falla al descontar dejaría una entrega
-                //    registrada con el stock sin bajar: el sistema prometería
-                //    existencias que ya no están en la bodega.
-                //
-                // Además el chequeo de stock suficiente vive DENTRO del descuento
-                // (WHERE StockActual >= cantidad, atómico): si no alcanza, falla antes
-                // de crear el registro de una entrega que no pudo ocurrir.
-                await _inventarioService.RegistrarSalidaDonacionAsync(new SalidaDonacionCrearDto
+                // Antes el descuento se confirmaba primero y la entrega después: una falla
+                // al guardar la entrega dejaba el stock descontado sin registro de a quién
+                // se entregó, y el mensaje pedía no reintentar.
+                var salida = await _inventarioService.PrepararSalidaDonacionAsync(new SalidaDonacionCrearDto
                 {
                     ArticuloId = dto.ArticuloId,
                     Cantidad = dto.Cantidad,
@@ -333,26 +276,13 @@ namespace SIGAC.Application.Services
                     Observaciones = dto.Observaciones
                 };
 
-                try
-                {
-                    await _repository.AgregarDonacionEntregadaAsync(entrega);
+                await _repository.AgregarDonacionEntregadaAsync(entrega, salida);
 
-                    await _bitacora.RegistrarAsync(AccionesBitacora.Entregar, ModulosSistema.Donaciones,
-                        $"Entrega #{entrega.Id}: {entrega.Cantidad} (artículo #{entrega.ArticuloId}) a {textoDestino}");
-                }
-                catch (Exception ex)
-                {
-                    // Misma situación que en la donación en especie y mismo manejo:
-                    // el stock ya bajó y la salida quedó registrada, así que no se
-                    // puede reintentar la operación completa sin descontar dos veces.
-                    // El mensaje dice exactamente qué quedó hecho y qué falta.
-                    throw new ValidationException(
-                        $"El stock se descontó y la salida quedó registrada en Inventario, " +
-                        $"pero no se pudo guardar la entrega a {textoDestino}. " +
-                        "NO vuelva a registrarla desde aquí (descontaría el stock otra vez): " +
-                        "el movimiento ya figura en el historial de Inventario. " +
-                        $"Motivo: {ex.Message}");
-                }
+                await _bitacora.RegistrarAsync(AccionesBitacora.Entregar, ModulosSistema.Inventario,
+                    InventarioService.DescribirSalida(salida));
+
+                await _bitacora.RegistrarAsync(AccionesBitacora.Entregar, ModulosSistema.Donaciones,
+                    $"Entrega #{entrega.Id}: {entrega.Cantidad} (artículo #{entrega.ArticuloId}) a {textoDestino}");
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException and not DuplicateException)
             {
@@ -524,10 +454,13 @@ namespace SIGAC.Application.Services
         // Apoyo
         // ------------------------------------------------------------------
 
-        // Resuelve el par excluyente DonanteId / NuevoDonante y devuelve el Id con el
-        // que hay que grabar la donación. Es el mismo procedimiento para dinero y
-        // para especie, por eso está una sola vez.
-        private async Task<int> ResolverDonanteAsync(int? donanteId, NuevoDonanteDto? nuevoDonante)
+        // Resuelve el par excluyente DonanteId / NuevoDonante. Devuelve el Id del
+        // donante existente, o el donante nuevo ya validado pero SIN guardar: lo crea el
+        // repositorio dentro de la misma transacción que la donación, para que una
+        // donación que falla no deje un donante huérfano.
+        // Es el mismo procedimiento para dinero y para especie, por eso está una sola vez.
+        private async Task<(int? DonanteId, Donante? NuevoDonante)> ResolverDonanteAsync(
+            int? donanteId, NuevoDonanteDto? nuevoDonante)
         {
             var tieneExistente = donanteId.HasValue && donanteId.Value > 0;
             var tieneNuevo = nuevoDonante is not null;
@@ -551,7 +484,7 @@ namespace SIGAC.Application.Services
                 // puede ser una puerta con reglas más flojas.
                 var datos = DonanteValidator.Validar(nuevoDonante!);
 
-                var donante = new Donante
+                return (null, new Donante
                 {
                     Nombre = datos.Nombre,
                     TipoPersona = datos.TipoPersona,
@@ -560,12 +493,7 @@ namespace SIGAC.Application.Services
                     Correo = datos.Correo,
                     Estado = true,
                     FechaRegistro = DateTime.Now
-                };
-
-                // El repositorio deja el Id generado en la misma instancia.
-                await _donantesRepository.AgregarAsync(donante);
-
-                return donante.Id;
+                });
             }
 
             var existente = await _donantesRepository.ObtenerPorIdAsync(donanteId!.Value)
@@ -581,8 +509,16 @@ namespace SIGAC.Application.Services
                     "Activalo desde el módulo de donantes para registrarle donaciones.");
             }
 
-            return existente.Id;
+            return (existente.Id, null);
         }
+
+        // El alta de un donante hecha desde el formulario de donación también queda en la
+        // bitácora, igual que la del módulo de donantes (DonantesService.RegistrarDonanteAsync).
+        private Task RegistrarAltaDeDonanteAsync(Donante? donante) =>
+            donante is null
+                ? Task.CompletedTask
+                : _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Donaciones,
+                    $"Donante #{donante.Id}: {donante.Nombre} ({donante.TipoPersona})");
 
         // Valida la exclusión mutua y devuelve los tres valores que hacen falta:
         // el par (BeneficiarioId, ComunidadDestinataria) tal como se persiste, y el
@@ -723,6 +659,12 @@ namespace SIGAC.Application.Services
             }
 
             return entrega.ComunidadDestinataria ?? string.Empty;
+        }
+
+        private static void ValidarFechaObligatoria(DateTime fecha, string queCosa)
+        {
+            if (fecha == default)
+                throw new ValidationException($"La fecha de {queCosa} es obligatoria.");
         }
 
         private static void ValidarFechaNoFutura(DateTime fecha, string queCosa)

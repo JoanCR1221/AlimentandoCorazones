@@ -57,13 +57,19 @@
             <MudTextField @bind-Value="modelo.Observaciones" Label="Observaciones (opcional)" Variant="Variant.Outlined" Class="mt-4" Lines="2" />
         </MudCardContent>
         <MudCardActions>
-            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="guardando" Class="ml-2 mb-2">Guardar</MudButton>
             <MudButton Variant="Variant.Text" Color="Color.Default" Href="/donaciones/historial" Class="mb-2">Cancelar</MudButton>
         </MudCardActions>
     </MudCard>
 </EditForm>
 
 @code {
+    // Se levanta antes del primer await y se baja en el finally: un doble clic
+    // rápido dispara Guardar dos veces antes de que el servidor responda, y la
+    // segunda llamada repetiría el registro (y, donde corresponde, el movimiento
+    // de stock).
+    private bool guardando;
+
     private DonacionDineroCrearDto modelo = new();
     private DonanteListaDto? donanteSeleccionado;
     private bool panelNuevoDonanteAbierto;
@@ -130,6 +136,11 @@
         modelo.DonanteId = panelNuevoDonanteAbierto ? null : donanteSeleccionado?.Id;
         modelo.NuevoDonante = panelNuevoDonanteAbierto ? nuevoDonante : null;
 
+        if (guardando)
+            return;
+
+        guardando = true;
+
         try
         {
             await DonacionesService.RegistrarDonacionDineroAsync(modelo);
@@ -151,6 +162,10 @@
         catch (Exception)
         {
             Snackbar.Add("No se pudo registrar la donación. Intente de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            guardando = false;
         }
     }
 }

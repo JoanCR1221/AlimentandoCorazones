@@ -397,9 +397,9 @@ namespace SIGAC.Tests.Application
                 return Task.FromResult(totales);
             }
 
-            public Task AgregarDonacionDineroAsync(DonacionDinero donacion) => throw new NotImplementedException();
-            public Task AgregarDonacionEspecieAsync(DonacionEspecie donacion) => throw new NotImplementedException();
-            public Task AgregarDonacionEntregadaAsync(DonacionEntregada donacion) => throw new NotImplementedException();
+            public Task AgregarDonacionDineroAsync(DonacionDinero donacion, Donante? nuevoDonante) => throw new NotImplementedException();
+            public Task AgregarDonacionEspecieAsync(DonacionEspecie donacion, Donante? nuevoDonante, IReadOnlyList<EntradaInventario> entradas) => throw new NotImplementedException();
+            public Task AgregarDonacionEntregadaAsync(DonacionEntregada donacion, SalidaInventario salida) => throw new NotImplementedException();
             public Task<IEnumerable<DonacionEntregada>> ObtenerEntregasAsync(FiltrosHistorialEntregaDto filtros) => throw new NotImplementedException();
             public Task<IReadOnlyList<ConteoDonacionMensualDto>> ObtenerCantidadPorMesAsync(int mesesHaciaAtras) => throw new NotImplementedException();
             public Task<IReadOnlyList<MontoPorMesDto>> ObtenerDineroEnColonesPorMesAsync(int mesesHaciaAtras) => throw new NotImplementedException();

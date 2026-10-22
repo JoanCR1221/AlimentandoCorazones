@@ -1171,9 +1171,9 @@ namespace SIGAC.Tests.Application
                 return Task.FromResult<IReadOnlyList<T>>(datos.ToList());
             }
 
-            public Task AgregarDonacionDineroAsync(DonacionDinero donacion) => throw new NotImplementedException();
-            public Task AgregarDonacionEspecieAsync(DonacionEspecie donacion) => throw new NotImplementedException();
-            public Task AgregarDonacionEntregadaAsync(DonacionEntregada donacion) => throw new NotImplementedException();
+            public Task AgregarDonacionDineroAsync(DonacionDinero donacion, Donante? nuevoDonante) => throw new NotImplementedException();
+            public Task AgregarDonacionEspecieAsync(DonacionEspecie donacion, Donante? nuevoDonante, IReadOnlyList<EntradaInventario> entradas) => throw new NotImplementedException();
+            public Task AgregarDonacionEntregadaAsync(DonacionEntregada donacion, SalidaInventario salida) => throw new NotImplementedException();
             public Task<IEnumerable<DonacionEntregada>> ObtenerEntregasAsync(FiltrosHistorialEntregaDto filtros) => throw new NotImplementedException();
 
             // El reporte exporta todo el período: usa el historial completo, nunca el

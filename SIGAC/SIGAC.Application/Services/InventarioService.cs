@@ -23,135 +23,192 @@ namespace SIGAC.Application.Services
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(dto.NombreArticulo) || dto.Cantidad <= 0)
-                    throw new ValidationException("Nombre del artículo y cantidad (mayor a 0) son obligatorios.");
-
-                // Antes esta comprobación no existía: un Origen inválido pasaba de
-                // largo hasta que el CHECK de la base lo rechazaba con un error
-                // genérico. Se valida acá para dar un mensaje claro.
-                if (!OrigenesEntradaInventario.EsValido(dto.Origen))
-                    throw new ValidationException(
-                        $"El origen debe ser uno de los siguientes valores: {string.Join(", ", OrigenesEntradaInventario.Todos)}.");
-
-                // Se normaliza ANTES de buscar y ANTES de guardar, con el mismo valor
-                // para las dos cosas: el nombre es la clave natural del catálogo, así
-                // que comparar por un texto y persistir otro es lo que hacía que
-                // " Arroz" no encontrara a "Arroz" y entrara como un artículo aparte,
-                // partiendo el stock en dos filas.
-                var nombreArticulo = ArticuloValidator.ValidarNombre(dto.NombreArticulo);
-
-                // La clave del catálogo es (Nombre, Estado): un mismo nombre puede
-                // tener varias filas, una por estado, cuando es Equipo. Todas las
-                // filas de un nombre son de la misma categoría (ver
-                // ValidarNombreLibreDeOtraCategoria), así que basta mirar la primera
-                // para saber si el nombre lleva estado.
-                var coincidencias = await _repository.ObtenerArticulosPorNombreAsync(nombreArticulo);
-                Articulo? articulo = null;
-
-                if (coincidencias.Count > 0)
-                {
-                    if (EstadosArticulo.AplicaACategoria(coincidencias[0].Categoria))
-                    {
-                        // Equipo: el estado elige la fila. Es "sin fila" (artículo
-                        // nuevo) cuando ese nombre existe pero en otro estado.
-                        var estadoEntrada = ArticuloValidator.ValidarEstado(
-                            coincidencias[0].Categoria, dto.Estado);
-                        articulo = coincidencias.FirstOrDefault(a => a.Estado == estadoEntrada);
-                    }
-                    else
-                    {
-                        articulo = coincidencias[0];
-                    }
-                }
-
-                // La entrada se registra el día en que ocurre: una fecha futura no
-                // representa un movimiento real todavía. Antes solo lo restringía el
-                // calendario del formulario (MaxDate), sin repetirlo en el servidor.
-                if (dto.Fecha.Date > DateTime.Today)
-                    throw new ValidationException("La fecha de la entrada no puede ser futura.");
-
-                // El artículo nuevo se arma acá pero NO se guarda por separado: se le
-                // pasa al repositorio para que lo cree dentro de la misma transacción
-                // que la entrada y el stock. Guardarlo antes, por su cuenta, dejaba un
-                // artículo en el catálogo con stock 0 si la entrada fallaba después.
-                Articulo? articuloNuevo = null;
-
-                if (articulo is null)
-                {
-                    // Categoría, unidad, código y ubicación solo se validan cuando hay
-                    // artículo nuevo: son los únicos casos en que se persisten. Si el
-                    // artículo ya existe, el formulario deshabilita esos campos y el
-                    // servicio usa los que ya tiene guardados, así que exigirlos acá
-                    // rechazaría entradas de artículos viejos cuya categoría no esté en
-                    // el catálogo actual.
-                    //
-                    // ValidarCategoriaYUnidad cubre lo obligatorio, la longitud máxima
-                    // y además que la combinación exista en el catálogo cerrado.
-                    var (categoria, unidadMedida) =
-                        ArticuloValidator.ValidarCategoriaYUnidad(dto.Categoria, dto.UnidadMedida);
-
-                    // Un nombre que ya existe en otro estado (Equipo) no puede darse
-                    // de alta en otra categoría: esa fila y las de acá compartirían
-                    // nombre siendo de mundos distintos.
-                    ValidarNombreLibreDeOtraCategoria(coincidencias, categoria, nombreArticulo);
-
-                    var estado = ArticuloValidator.ValidarEstado(categoria, dto.Estado);
-
-                    // Normalizados con el mismo criterio que EditarArticuloAsync: el
-                    // valor que se compara contra el índice único tiene que ser el
-                    // mismo que se persiste. Comparar "P001 " en crudo y guardar
-                    // "P001" dejaba pasar el chequeo para chocar después contra
-                    // UX_Articulos_Codigo.
-                    var codigo = ArticuloValidator.ValidarCodigo(dto.Codigo);
-                    var ubicacion = ArticuloValidator.ValidarUbicacion(dto.Ubicacion);
-
-                    // Antes no se comprobaba: dos artículos nuevos con el mismo código
-                    // chocarían recién en la base, con un mensaje genérico que no dice
-                    // que fue el código (y no el nombre) lo que coincidió.
-                    if (await _repository.ExisteCodigoAsync(codigo))
-                        throw new DuplicateException($"Ya existe otro artículo con el código \"{codigo}\".");
-
-                    articuloNuevo = new Articulo
-                    {
-                        Nombre = nombreArticulo,
-                        Codigo = codigo,
-                        Categoria = categoria,
-                        Estado = estado,
-                        UnidadMedida = unidadMedida,
-                        Ubicacion = ubicacion,
-                        StockActual = 0
-                    };
-                }
-
-                var entrada = new EntradaInventario
-                {
-                    // Cuando el artículo es nuevo todavía no tiene Id (lo genera la
-                    // base al insertarlo); el repositorio lo completa dentro de la
-                    // transacción, una vez creado.
-                    ArticuloId = articulo?.Id ?? 0,
-                    Cantidad = dto.Cantidad,
-                    Fecha = dto.Fecha,
-                    Origen = dto.Origen,
-                    Observaciones = dto.Observaciones
-                };
-
-                if (dto.Origen.Equals(OrigenesEntradaInventario.Donacion, StringComparison.OrdinalIgnoreCase))
-                    entrada.DonanteId = dto.DonanteId;
-                else if (dto.Origen.Equals(OrigenesEntradaInventario.Compra, StringComparison.OrdinalIgnoreCase))
-                    entrada.GastoOperativoId = dto.GastoOperativoId;
+                var preparada = await PrepararEntradaAsync(dto, new List<Articulo>());
 
                 // Una sola llamada: crear el artículo (si hace falta), insertar la
                 // entrada y sumar el stock son todo-o-nada.
-                await _repository.RegistrarEntradaConStockAsync(entrada, articuloNuevo);
+                await _repository.RegistrarEntradaConStockAsync(
+                    preparada.Entrada, preparada.CreaArticulo ? preparada.Articulo : null);
 
                 await _bitacora.RegistrarAsync(AccionesBitacora.Registrar, ModulosSistema.Inventario,
-                    $"Entrada de {entrada.Cantidad} de '{(articulo ?? articuloNuevo)!.Etiqueta}' ({entrada.Origen})" +
-                    (articuloNuevo is not null ? ", artículo nuevo" : string.Empty));
+                    DescribirEntrada(preparada));
             }
             catch (Exception ex) when (ex is not ValidationException and not DuplicateException)
             {
                 throw new Exception("Error al registrar la entrada de inventario.", ex);
             }
+        }
+
+        // Valida un lote de entradas y resuelve a qué artículo suma cada una, SIN
+        // escribir nada: la escritura la hace quien llama, dentro de su propia
+        // transacción. Lo usa Donaciones para que la donación en especie y su ingreso
+        // al stock sean todo-o-nada (antes eran dos fases y una falla en la segunda
+        // dejaba la donación guardada con el inventario a medias).
+        //
+        // Inventario sigue siendo el dueño de las reglas del catálogo: qué artículo
+        // corresponde a (nombre, estado), qué categoría y unidad lleva uno nuevo y
+        // qué se rechaza. Solo se presta la ESCRITURA.
+        public async Task<IReadOnlyList<EntradaInventarioPreparada>> PrepararEntradasAsync(
+            IReadOnlyList<EntradaInventarioCrearDto> entradas)
+        {
+            try
+            {
+                var creadosEnElLote = new List<Articulo>();
+                var preparadas = new List<EntradaInventarioPreparada>(entradas.Count);
+
+                foreach (var dto in entradas)
+                    preparadas.Add(await PrepararEntradaAsync(dto, creadosEnElLote));
+
+                return preparadas;
+            }
+            catch (Exception ex) when (ex is not ValidationException and not DuplicateException)
+            {
+                throw new Exception("Error al preparar las entradas de inventario.", ex);
+            }
+        }
+
+        public static string DescribirEntrada(EntradaInventarioPreparada preparada) =>
+            $"Entrada de {preparada.Entrada.Cantidad} de '{preparada.Articulo.Etiqueta}' ({preparada.Entrada.Origen})" +
+            (preparada.CreaArticulo ? ", artículo nuevo" : string.Empty);
+
+        private async Task<EntradaInventarioPreparada> PrepararEntradaAsync(
+            EntradaInventarioCrearDto dto, List<Articulo> creadosEnElLote)
+        {
+            if (string.IsNullOrWhiteSpace(dto.NombreArticulo) || dto.Cantidad <= 0)
+                throw new ValidationException("Nombre del artículo y cantidad (mayor a 0) son obligatorios.");
+
+            // Antes esta comprobación no existía: un Origen inválido pasaba de
+            // largo hasta que el CHECK de la base lo rechazaba con un error
+            // genérico. Se valida acá para dar un mensaje claro.
+            if (!OrigenesEntradaInventario.EsValido(dto.Origen))
+                throw new ValidationException(
+                    $"El origen debe ser uno de los siguientes valores: {string.Join(", ", OrigenesEntradaInventario.Todos)}.");
+
+            // Se normaliza ANTES de buscar y ANTES de guardar, con el mismo valor
+            // para las dos cosas: el nombre es la clave natural del catálogo, así
+            // que comparar por un texto y persistir otro es lo que hacía que
+            // " Arroz" no encontrara a "Arroz" y entrara como un artículo aparte,
+            // partiendo el stock en dos filas.
+            var nombreArticulo = ArticuloValidator.ValidarNombre(dto.NombreArticulo);
+
+            // La clave del catálogo es (Nombre, Estado): un mismo nombre puede
+            // tener varias filas, una por estado, cuando es Equipo. Todas las
+            // filas de un nombre son de la misma categoría (ver
+            // ValidarNombreLibreDeOtraCategoria), así que basta mirar la primera
+            // para saber si el nombre lleva estado.
+            var coincidencias = (await _repository.ObtenerArticulosPorNombreAsync(nombreArticulo)).ToList();
+
+            // Los artículos que este mismo lote ya va a crear cuentan como existentes:
+            // dos líneas de una donación con el mismo artículo nuevo deben sumar a UNA
+            // sola fila, no chocar entre sí contra UX_Articulos_Nombre_Estado.
+            coincidencias.AddRange(creadosEnElLote.Where(a =>
+                string.Equals(a.Nombre, nombreArticulo, StringComparison.OrdinalIgnoreCase)));
+
+            Articulo? articulo = null;
+
+            if (coincidencias.Count > 0)
+            {
+                if (EstadosArticulo.AplicaACategoria(coincidencias[0].Categoria))
+                {
+                    // Equipo: el estado elige la fila. Es "sin fila" (artículo
+                    // nuevo) cuando ese nombre existe pero en otro estado.
+                    var estadoEntrada = ArticuloValidator.ValidarEstado(
+                        coincidencias[0].Categoria, dto.Estado);
+                    articulo = coincidencias.FirstOrDefault(a => a.Estado == estadoEntrada);
+                }
+                else
+                {
+                    articulo = coincidencias[0];
+                }
+            }
+
+            // La entrada se registra el día en que ocurre: una fecha futura no
+            // representa un movimiento real todavía. Antes solo lo restringía el
+            // calendario del formulario (MaxDate), sin repetirlo en el servidor.
+            if (dto.Fecha.Date > DateTime.Today)
+                throw new ValidationException("La fecha de la entrada no puede ser futura.");
+
+            // El artículo nuevo se arma acá pero NO se guarda por separado: se le
+            // pasa al repositorio para que lo cree dentro de la misma transacción
+            // que la entrada y el stock. Guardarlo antes, por su cuenta, dejaba un
+            // artículo en el catálogo con stock 0 si la entrada fallaba después.
+            Articulo? articuloNuevo = null;
+
+            if (articulo is null)
+            {
+                // Categoría, unidad, código y ubicación solo se validan cuando hay
+                // artículo nuevo: son los únicos casos en que se persisten. Si el
+                // artículo ya existe, el formulario deshabilita esos campos y el
+                // servicio usa los que ya tiene guardados, así que exigirlos acá
+                // rechazaría entradas de artículos viejos cuya categoría no esté en
+                // el catálogo actual.
+                //
+                // ValidarCategoriaYUnidad cubre lo obligatorio, la longitud máxima
+                // y además que la combinación exista en el catálogo cerrado.
+                var (categoria, unidadMedida) =
+                    ArticuloValidator.ValidarCategoriaYUnidad(dto.Categoria, dto.UnidadMedida);
+
+                // Un nombre que ya existe en otro estado (Equipo) no puede darse
+                // de alta en otra categoría: esa fila y las de acá compartirían
+                // nombre siendo de mundos distintos.
+                ValidarNombreLibreDeOtraCategoria(coincidencias, categoria, nombreArticulo);
+
+                var estado = ArticuloValidator.ValidarEstado(categoria, dto.Estado);
+
+                // Normalizados con el mismo criterio que EditarArticuloAsync: el
+                // valor que se compara contra el índice único tiene que ser el
+                // mismo que se persiste. Comparar "P001 " en crudo y guardar
+                // "P001" dejaba pasar el chequeo para chocar después contra
+                // UX_Articulos_Codigo.
+                var codigo = ArticuloValidator.ValidarCodigo(dto.Codigo);
+                var ubicacion = ArticuloValidator.ValidarUbicacion(dto.Ubicacion);
+
+                // Antes no se comprobaba: dos artículos nuevos con el mismo código
+                // chocarían recién en la base, con un mensaje genérico que no dice
+                // que fue el código (y no el nombre) lo que coincidió.
+                if (await _repository.ExisteCodigoAsync(codigo))
+                    throw new DuplicateException($"Ya existe otro artículo con el código \"{codigo}\".");
+
+                articuloNuevo = new Articulo
+                {
+                    Nombre = nombreArticulo,
+                    Codigo = codigo,
+                    Categoria = categoria,
+                    Estado = estado,
+                    UnidadMedida = unidadMedida,
+                    Ubicacion = ubicacion,
+                    StockActual = 0
+                };
+
+                creadosEnElLote.Add(articuloNuevo);
+            }
+
+            var entrada = new EntradaInventario
+            {
+                // Cuando el artículo es nuevo todavía no tiene Id (lo genera la
+                // base al insertarlo); el repositorio lo completa dentro de la
+                // transacción, una vez creado.
+                ArticuloId = articulo?.Id ?? 0,
+                Cantidad = dto.Cantidad,
+                Fecha = dto.Fecha,
+                Origen = dto.Origen,
+                Observaciones = dto.Observaciones
+            };
+
+            if (dto.Origen.Equals(OrigenesEntradaInventario.Donacion, StringComparison.OrdinalIgnoreCase))
+                entrada.DonanteId = dto.DonanteId;
+            else if (dto.Origen.Equals(OrigenesEntradaInventario.Compra, StringComparison.OrdinalIgnoreCase))
+                entrada.GastoOperativoId = dto.GastoOperativoId;
+
+            // Un artículo que todavía no tiene Id (nuevo en este lote, ya sea creado
+            // por esta línea o por una anterior) se cuelga por navegación, para que
+            // EF le ponga el Id al insertarlo. Los existentes van solo por ArticuloId:
+            // adjuntar su entidad leída aparte haría que EF intentara rastrearla.
+            var destino = articuloNuevo ?? articulo!;
+            if (destino.Id == 0)
+                entrada.Articulo = destino;
+
+            return new EntradaInventarioPreparada(entrada, destino, articuloNuevo is not null);
         }
 
         // Todas las filas de un mismo nombre tienen que ser de la misma categoría. La
@@ -176,30 +233,7 @@ namespace SIGAC.Application.Services
         {
             try
             {
-                var articulo = await _repository.ObtenerArticuloPorIdAsync(dto.ArticuloId)
-                    ?? throw new NotFoundException("El artículo no existe.");
-
-                if (dto.Cantidad <= 0)
-                    throw new ValidationException("La cantidad debe ser mayor a 0.");
-
-                if (dto.Cantidad > articulo.StockActual)
-                    throw new ValidationException("La cantidad solicitada supera el stock disponible.");
-
-                // Antes no se validaba: se podía registrar una salida por donación
-                // sin decir a qué comunidad fue, que es justo lo que le da
-                // trazabilidad a esta historia de usuario.
-                if (string.IsNullOrWhiteSpace(dto.ComunidadDestinataria))
-                    throw new ValidationException("La comunidad destinataria es obligatoria.");
-
-                var salida = new SalidaInventario
-                {
-                    ArticuloId = dto.ArticuloId,
-                    Cantidad = dto.Cantidad,
-                    Fecha = dto.Fecha,
-                    TipoSalida = TiposSalidaInventario.Donacion,
-                    ComunidadDestinataria = dto.ComunidadDestinataria,
-                    Observaciones = dto.Observaciones
-                };
+                var salida = await ValidarSalidaDonacionAsync(dto);
 
                 // Una sola llamada: insertar la salida y descontar el stock son
                 // todo-o-nada. Antes eran dos guardados independientes y una falla al
@@ -207,12 +241,68 @@ namespace SIGAC.Application.Services
                 await _repository.RegistrarSalidaConStockAsync(salida);
 
                 await _bitacora.RegistrarAsync(AccionesBitacora.Entregar, ModulosSistema.Inventario,
-                    $"Salida por donación de {salida.Cantidad} (artículo #{salida.ArticuloId}) a {salida.ComunidadDestinataria}");
+                    DescribirSalida(salida));
             }
             catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
             {
                 throw new Exception("Error al registrar la salida de inventario.", ex);
             }
+        }
+
+        // Valida la salida y la arma SIN escribir nada. Donaciones la guarda junto con
+        // la entrega en una sola transacción: antes la salida (con su descuento) se
+        // confirmaba primero y, si después fallaba el guardado de la entrega, el stock
+        // quedaba descontado sin entrega que lo respaldara.
+        public async Task<SalidaInventario> PrepararSalidaDonacionAsync(SalidaDonacionCrearDto dto)
+        {
+            try
+            {
+                return await ValidarSalidaDonacionAsync(dto);
+            }
+            catch (Exception ex) when (ex is not ValidationException and not NotFoundException)
+            {
+                throw new Exception("Error al preparar la salida de inventario.", ex);
+            }
+        }
+
+        public static string DescribirSalida(SalidaInventario salida) =>
+            $"Salida por donación de {salida.Cantidad} (artículo #{salida.ArticuloId}) a {salida.ComunidadDestinataria}";
+
+        private async Task<SalidaInventario> ValidarSalidaDonacionAsync(SalidaDonacionCrearDto dto)
+        {
+            var articulo = await _repository.ObtenerArticuloPorIdAsync(dto.ArticuloId)
+                ?? throw new NotFoundException("El artículo no existe.");
+
+            if (dto.Cantidad <= 0)
+                throw new ValidationException("La cantidad debe ser mayor a 0.");
+
+            if (dto.Cantidad > articulo.StockActual)
+                throw new ValidationException("La cantidad solicitada supera el stock disponible.");
+
+            // Antes no se validaba: se podía registrar una salida por donación
+            // sin decir a qué comunidad fue, que es justo lo que le da
+            // trazabilidad a esta historia de usuario.
+            if (string.IsNullOrWhiteSpace(dto.ComunidadDestinataria))
+                throw new ValidationException("La comunidad destinataria es obligatoria.");
+
+            // Sin fecha el servidor guardaba 01/01/0001: el formulario la pide, pero
+            // nada lo exigía del lado del servidor. Y una salida es una mercadería que
+            // ya salió, no una que va a salir, así que tampoco puede ser futura.
+            if (dto.Fecha == default)
+                throw new ValidationException("La fecha de la salida es obligatoria.");
+
+            if (dto.Fecha.Date > DateTime.Today)
+                throw new ValidationException("La fecha de la salida no puede ser futura.");
+
+            return new SalidaInventario
+            {
+                ArticuloId = dto.ArticuloId,
+                Cantidad = dto.Cantidad,
+                Fecha = dto.Fecha,
+                TipoSalida = TiposSalidaInventario.Donacion,
+                ComunidadDestinataria = dto.ComunidadDestinataria,
+                Observaciones = dto.Observaciones
+            };
         }
 
         public async Task<ResultadoPaginado<ArticuloExistenciaDto>> ObtenerExistenciasAsync(FiltrosExistenciaDto filtros)
