@@ -51,7 +51,17 @@
         </MudCardContent>
         <MudCardActions>
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
-            <MudButton Variant="Variant.Text" Color="Color.Default" Href="/asistencia/historial" Class="mb-2">Cancelar</MudButton>
+            @* El historial exige Asistencia.Ver, que el Asistente no tiene: mandarlo
+               ahí terminaba en "Acceso denegado". Quien no lo ve vuelve a la bienvenida,
+               que es una pantalla abierta a cualquier usuario con sesión. *@
+            <AuthorizeView Policy="@Permisos.Asistencia.Ver" Context="permiso">
+                <Authorized>
+                    <MudButton Variant="Variant.Text" Color="Color.Default" Href="/asistencia/historial" Class="mb-2">Cancelar</MudButton>
+                </Authorized>
+                <NotAuthorized>
+                    <MudButton Variant="Variant.Text" Color="Color.Default" Href="/bienvenida" Class="mb-2">Cancelar</MudButton>
+                </NotAuthorized>
+            </AuthorizeView>
         </MudCardActions>
     </MudCard>
 </EditForm>

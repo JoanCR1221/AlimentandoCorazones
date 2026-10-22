@@ -578,7 +578,7 @@ namespace SIGAC.Application.Services
             {
                 throw new ValidationException(
                     $"El donante '{existente.Nombre}' está inactivo. " +
-                    "Activalo desde el módulo de donantes para registrarle donaciones.");
+                    "Actívelo desde el módulo de donantes para registrarle donaciones.");
             }
 
             return existente.Id;
@@ -608,7 +608,7 @@ namespace SIGAC.Application.Services
                 {
                     throw new ValidationException(
                         $"El beneficiario '{beneficiario.NombreCompleto}' está inactivo. " +
-                        "Activalo desde el módulo de beneficiarios para registrarle entregas.");
+                        "Actívelo desde el módulo de beneficiarios para registrarle entregas.");
                 }
 
                 // TEXTO DE DESTINO PARA INVENTARIO.

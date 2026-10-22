@@ -184,21 +184,31 @@
         if (!HayFiltro)
             return new GridData<BeneficiarioListaDto> { Items = Array.Empty<BeneficiarioListaDto>(), TotalItems = 0 };
 
-        var resultado = await BeneficiariosService.ObtenerBeneficiariosAsync(new FiltrosBeneficiarioDto
+        try
         {
-            Nombre = filtroTexto,
-            Categoria = filtroCategoria,
-            TipoDocumento = filtroTipoDocumento,
-            Estado = filtroEstado,
-            Pagina = estado.Page,
-            TamanoPagina = estado.PageSize
-        });
+            var resultado = await BeneficiariosService.ObtenerBeneficiariosAsync(new FiltrosBeneficiarioDto
+            {
+                Nombre = filtroTexto,
+                Categoria = filtroCategoria,
+                TipoDocumento = filtroTipoDocumento,
+                Estado = filtroEstado,
+                Pagina = estado.Page,
+                TamanoPagina = estado.PageSize
+            });
 
-        return new GridData<BeneficiarioListaDto>
+            return new GridData<BeneficiarioListaDto>
+            {
+                Items = resultado.Elementos,
+                TotalItems = resultado.TotalRegistros
+            };
+        }
+        catch (Exception)
         {
-            Items = resultado.Elementos,
-            TotalItems = resultado.TotalRegistros
-        };
+            // Una base caída no debe tumbar la pantalla con el error sin controlar:
+            // mismo tratamiento que el historial de asistencia.
+            Snackbar.Add("No se pudo cargar el listado de beneficiarios. Intente de nuevo.", Severity.Error);
+            return new GridData<BeneficiarioListaDto> { Items = Array.Empty<BeneficiarioListaDto>(), TotalItems = 0 };
+        }
     }
 
     private async Task OnFiltroTextoCambiado(string? valor)

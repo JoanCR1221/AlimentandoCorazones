@@ -310,8 +310,9 @@ namespace SIGAC.Infrastructure.Repositories
                 throw new ValidationException(
                     $"No se puede anular el gasto: la entrada de {entrada.Cantidad} de " +
                     $"'{nombreArticulo}' ya fue consumida por movimientos posteriores y " +
-                    "revertirla dejaría el stock en negativo. Registrá primero el ajuste " +
-                    "de inventario correspondiente.");
+                    "revertirla dejaría el stock en negativo. Revise el historial de movimientos " +
+                    "de inventario para ver qué salidas la consumieron; no se puede anular " +
+                    "mientras esa mercadería ya no esté en existencia.");
             }
 
             await transaccion.CommitAsync();

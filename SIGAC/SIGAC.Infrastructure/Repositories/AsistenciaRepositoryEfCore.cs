@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SIGAC.Application.DTOs.Asistencia;
 using SIGAC.Application.DTOs.Reportes;
+using SIGAC.Application.Exceptions;
 using SIGAC.Application.Interfaces;
 using SIGAC.Domain;
 using SIGAC.Domain.Entities;
@@ -28,7 +29,19 @@ namespace SIGAC.Infrastructure.Repositories
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
             context.AsistenciasComedor.Add(asistencia);
-            await context.SaveChangesAsync();
+
+            try
+            {
+                await context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (ErroresSql.ViolaIndice(ex, "UX_AsistenciasComedor_Beneficiario_Fecha_TiempoComida"))
+            {
+                // Dos registros simultáneos del mismo beneficiario, fecha y tiempo de
+                // comida pasan juntos la comprobación previa del servicio; el índice
+                // único frena al segundo. Se traduce al mismo mensaje de esa
+                // comprobación en vez de dejarlo como error genérico (CA-5 del PBI 5).
+                throw new DuplicateException("Ya existe asistencia registrada para ese beneficiario, fecha y tiempo de comida.");
+            }
         }
 
         public async Task<bool> ExisteAsistenciaAsync(int beneficiarioId, DateTime fecha, string tiempoComida)

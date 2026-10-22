@@ -153,20 +153,30 @@
         if (!HayFiltro)
             return new GridData<DonanteListaDto> { Items = Array.Empty<DonanteListaDto>(), TotalItems = 0 };
 
-        var resultado = await DonantesService.ObtenerDonantesAsync(new FiltrosDonanteDto
+        try
         {
-            Nombre = filtroTexto,
-            TipoPersona = filtroTipoPersona,
-            Estado = filtroEstado,
-            Pagina = estado.Page,
-            TamanoPagina = estado.PageSize
-        });
+            var resultado = await DonantesService.ObtenerDonantesAsync(new FiltrosDonanteDto
+            {
+                Nombre = filtroTexto,
+                TipoPersona = filtroTipoPersona,
+                Estado = filtroEstado,
+                Pagina = estado.Page,
+                TamanoPagina = estado.PageSize
+            });
 
-        return new GridData<DonanteListaDto>
+            return new GridData<DonanteListaDto>
+            {
+                Items = resultado.Elementos,
+                TotalItems = resultado.TotalRegistros
+            };
+        }
+        catch (Exception)
         {
-            Items = resultado.Elementos,
-            TotalItems = resultado.TotalRegistros
-        };
+            // Una base caída no debe tumbar la pantalla con el error sin controlar:
+            // mismo tratamiento que el historial de asistencia.
+            Snackbar.Add("No se pudo cargar la lista de donantes. Intente de nuevo.", Severity.Error);
+            return new GridData<DonanteListaDto> { Items = Array.Empty<DonanteListaDto>(), TotalItems = 0 };
+        }
     }
 
     private async Task OnFiltroTextoCambiado(string? valor)

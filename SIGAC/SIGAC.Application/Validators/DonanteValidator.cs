@@ -1,4 +1,5 @@
-﻿using SIGAC.Application.DTOs.Donaciones;
+﻿
+using SIGAC.Application.DTOs.Donaciones;
 using SIGAC.Application.Exceptions;
 using SIGAC.Domain;
 
@@ -118,10 +119,12 @@ namespace SIGAC.Application.Validators
 
         // Opcional, mismo tratamiento que el teléfono: vacío se guarda como NULL.
         //
-        // Sin validación de formato acá: el [EmailAddress] del DTO ya la hace en el
-        // formulario, y replicar una regla de formato de correo en el servidor
-        // significa mantener dos criterios que se van a contradecir. Lo que sí se
-        // controla es la longitud, que es lo que la base puede rechazar.
+        // El formato se valida también acá y no solo con el [EmailAddress] del DTO:
+        // el donante nuevo del formulario de donación viaja como objeto anidado y el
+        // DataAnnotationsValidator del formulario no lo recorre, así que ese camino se
+        // saltaba la regla. Es el mismo atributo, por lo que el criterio no diverge.
+        // También lo usa ArrendatarioValidator.
+        //
         public static string? ValidarCorreo(string? valor)
         {
             var normalizado = TextoNormalizador.CompactarEspacios(valor);
@@ -132,6 +135,9 @@ namespace SIGAC.Application.Validators
             if (normalizado.Length > LongitudMaximaCorreo)
                 throw new ValidationException(
                     $"El correo no puede superar los {LongitudMaximaCorreo} caracteres.");
+
+            if (!new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(normalizado))
+                throw new ValidationException("El correo no tiene un formato válido.");
 
             return normalizado;
         }
