@@ -176,13 +176,19 @@
             }
         </MudCardContent>
         <MudCardActions>
-            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="guardando" Class="ml-2 mb-2">Guardar</MudButton>
             <MudButton Variant="Variant.Text" Color="Color.Default" Href="/inventario/existencias" Class="mb-2">Cancelar</MudButton>
         </MudCardActions>
     </MudCard>
 </EditForm>
 
 @code {
+    // Se levanta antes del primer await y se baja en el finally: un doble clic
+    // rápido dispara Guardar dos veces antes de que el servidor responda, y la
+    // segunda llamada repetiría el registro (y, donde corresponde, el movimiento
+    // de stock).
+    private bool guardando;
+
     // Llega desde RegistrarGasto.razor cuando se registra un gasto cuyo tipo
     // genera inventario (AB#2501): la persona decide desde ahí si quiere completar la entrada, así
     // que acá solo se recibe el Id y se preselecciona el origen. No se crea ni
@@ -432,6 +438,11 @@
 
     private async Task Guardar()
     {
+        if (guardando)
+            return;
+
+        guardando = true;
+
         try
         {
             await InventarioService.RegistrarEntradaAsync(modelo);
@@ -460,6 +471,10 @@
         catch (Exception)
         {
             Snackbar.Add("No se pudo registrar la entrada de inventario. Intente de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            guardando = false;
         }
     }
 }

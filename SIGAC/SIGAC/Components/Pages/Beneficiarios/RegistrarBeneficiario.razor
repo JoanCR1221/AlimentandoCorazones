@@ -20,13 +20,19 @@
             <CamposBeneficiario Modelo="modelo" AlCambiarTipoDocumento="OnTipoDocumentoCambiado" />
         </MudCardContent>
         <MudCardActions>
-            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-2 mb-2">Guardar</MudButton>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="guardando" Class="ml-2 mb-2">Guardar</MudButton>
             <MudButton Variant="Variant.Text" Color="Color.Default" Href="/beneficiarios" Class="mb-2">Cancelar</MudButton>
         </MudCardActions>
     </MudCard>
 </EditForm>
 
 @code {
+    // Se levanta antes del primer await y se baja en el finally: un doble clic
+    // rápido dispara Guardar dos veces antes de que el servidor responda, y la
+    // segunda llamada repetiría el registro (y, donde corresponde, el movimiento
+    // de stock).
+    private bool guardando;
+
     [CascadingParameter]
     private Task<AuthenticationState>? EstadoAutenticacion { get; set; }
 
@@ -51,6 +57,11 @@
 
     private async Task Guardar()
     {
+        if (guardando)
+            return;
+
+        guardando = true;
+
         try
         {
             await BeneficiariosService.RegistrarBeneficiarioAsync(modelo);
@@ -75,6 +86,10 @@
         catch (Exception)
         {
             Snackbar.Add("No se pudo registrar el beneficiario. Intente de nuevo.", Severity.Error);
+        }
+        finally
+        {
+            guardando = false;
         }
     }
 
