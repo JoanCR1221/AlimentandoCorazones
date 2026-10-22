@@ -120,7 +120,6 @@ namespace SIGAC.Tests.Application
             await Assert.ThrowsAsync<ValidationException>(() => _servicio.RegistrarDonacionDineroAsync(Dinero(donanteId: null, nuevo: nuevo)));
 
             Assert.Empty(_donaciones.Dinero);
-            Assert.Empty(_donantes.Agregados);
         }
 
         // ---------------------------------------------------------------
@@ -200,14 +199,10 @@ namespace SIGAC.Tests.Application
         private sealed class RepositorioDonantesFalso : IDonantesRepository
         {
             public List<Donante> Donantes { get; } = new();
-            public List<Donante> Agregados { get; } = new();
 
-            public Task AgregarAsync(Donante donante)
-            {
-                donante.Id = 100 + Agregados.Count;
-                Agregados.Add(donante);
-                return Task.CompletedTask;
-            }
+            // El donante nuevo se crea dentro de la transacción de la donación
+            // (IDonacionesRepository.AgregarDonacion*Async), no por acá.
+            public Task AgregarAsync(Donante donante) => throw new NotImplementedException();
 
             public Task<Donante?> ObtenerPorIdAsync(int id) => Task.FromResult(Donantes.FirstOrDefault(d => d.Id == id));
             public Task ActualizarAsync(Donante donante) => throw new NotImplementedException();
@@ -222,21 +217,26 @@ namespace SIGAC.Tests.Application
             public List<DonacionDinero> Dinero { get; } = new();
             public List<DonacionEspecie> Especie { get; } = new();
 
-            public Task AgregarDonacionDineroAsync(DonacionDinero donacion)
+            public Task AgregarDonacionDineroAsync(DonacionDinero donacion, Donante? nuevoDonante)
             {
                 donacion.Id = Dinero.Count + 1;
                 Dinero.Add(donacion);
+                if (nuevoDonante is not null)
+                    nuevoDonante.Id = 100 + Dinero.Count;
                 return Task.CompletedTask;
             }
 
-            public Task AgregarDonacionEspecieAsync(DonacionEspecie donacion)
+            public Task AgregarDonacionEspecieAsync(
+                DonacionEspecie donacion, Donante? nuevoDonante, IReadOnlyList<EntradaInventario> entradas)
             {
                 donacion.Id = Especie.Count + 1;
                 Especie.Add(donacion);
+                if (nuevoDonante is not null)
+                    nuevoDonante.Id = 100 + Especie.Count;
                 return Task.CompletedTask;
             }
 
-            public Task AgregarDonacionEntregadaAsync(DonacionEntregada donacion) => throw new NotImplementedException();
+            public Task AgregarDonacionEntregadaAsync(DonacionEntregada donacion, SalidaInventario salida) => throw new NotImplementedException();
             public Task<IEnumerable<DonacionDinero>> ObtenerDonacionesDineroAsync(FiltrosHistorialDonacionDto filtros) => throw new NotImplementedException();
             public Task<IEnumerable<DonacionEspecie>> ObtenerDonacionesEspecieAsync(FiltrosHistorialDonacionDto filtros) => throw new NotImplementedException();
             public Task<ResultadoPaginado<ItemHistorialDonacion>> ObtenerPaginaHistorialAsync(FiltrosHistorialDonacionDto filtros) => throw new NotImplementedException();
