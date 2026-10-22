@@ -181,7 +181,22 @@ namespace SIGAC.Infrastructure.Repositories
         {
             await using var context = await _contextFactory.CreateDbContextAsync();
             context.ParticipantesProyecto.Add(participante);
-            await context.SaveChangesAsync();
+
+            try
+            {
+                await context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (ErroresSql.ViolaIndice(ex, "UX_ParticipantesProyecto_Proyecto_Beneficiario"))
+            {
+                // Dos registros simultáneos del mismo beneficiario pasan juntos
+                // ExisteParticipanteAsync; el índice único frena al segundo. Se
+                // traduce al mismo mensaje de ese chequeo. ValidationException y no
+                // DuplicateException: el filtro de ProyectosService solo deja pasar
+                // ValidationException y NotFoundException, y con otra el usuario
+                // vería "No se pudo agregar el participante" en vez del motivo real.
+                throw new ValidationException(
+                    "Este beneficiario ya está registrado como participante en el proyecto.");
+            }
         }
 
         public async Task<bool> QuitarParticipanteAsync(int proyectoId, int participanteId)
