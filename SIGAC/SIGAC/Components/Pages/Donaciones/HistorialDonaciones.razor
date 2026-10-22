@@ -8,6 +8,8 @@
 @inject IDonacionesService DonacionesService
 @inject ISnackbar Snackbar
 
+<PageTitle>Historial de donaciones — SIGAC</PageTitle>
+
 <EncabezadoPagina Titulo="Historial de donaciones"
                   Descripcion="Consulte las donaciones recibidas en dinero y en especie." />
 
@@ -90,8 +92,12 @@
                 }
             </NoRecordsContent>
             <PagerContent>
-                <MudDataGridPager T="HistorialDonacionDto"
-                                  PageSizeOptions="@(new[] { FiltrosHistorialDonacionDto.TamanoPaginaPredeterminado, 50, FiltrosHistorialDonacionDto.TamanoPaginaMaximo })" />
+                @* Sin filas no hay nada que paginar: el paginador solo estorbaba (F-16). *@
+                @if (grilla?.GetFilteredItemsCount() > 0)
+                {
+                    <MudDataGridPager T="HistorialDonacionDto"
+                                      PageSizeOptions="@(new[] { FiltrosHistorialDonacionDto.TamanoPaginaPredeterminado, 50, FiltrosHistorialDonacionDto.TamanoPaginaMaximo })" />
+                }
             </PagerContent>
         </MudDataGrid>
     </MudCardContent>

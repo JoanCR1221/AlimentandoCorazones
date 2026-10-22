@@ -23,6 +23,7 @@ builder.Services.AddRazorComponents()
 builder.Services.AddScoped<AparienciaService>();
 
 builder.Services.AddMudServices();
+builder.Services.AddLocalizationInterceptor<InterceptorTraduccionMudBlazor>();
 
 // DbContext de EF Core contra SQL Server Express local.
 // Factory en lugar de AddDbContext: en Blazor Server el scope dura toda la

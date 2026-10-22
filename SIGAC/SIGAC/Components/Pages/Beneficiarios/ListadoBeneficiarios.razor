@@ -8,6 +8,8 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
+<PageTitle>Beneficiarios registrados — SIGAC</PageTitle>
+
 <EncabezadoPagina Titulo="Beneficiarios registrados"
                   Descripcion="Consulte, registre y administre a las personas atendidas por el comedor."
                   TextoAccion="Registrar beneficiario" HrefAccion="/beneficiarios/registrar"
@@ -126,8 +128,12 @@
                 }
             </NoRecordsContent>
             <PagerContent>
-                <MudDataGridPager T="BeneficiarioListaDto"
-                                  PageSizeOptions="@(new[] { FiltrosBeneficiarioDto.TamanoPaginaPredeterminado, 50, FiltrosBeneficiarioDto.TamanoPaginaMaximo })" />
+                @* Sin filas no hay nada que paginar: el paginador solo estorbaba (F-16). *@
+                @if (grilla?.GetFilteredItemsCount() > 0)
+                {
+                    <MudDataGridPager T="BeneficiarioListaDto"
+                                      PageSizeOptions="@(new[] { FiltrosBeneficiarioDto.TamanoPaginaPredeterminado, 50, FiltrosBeneficiarioDto.TamanoPaginaMaximo })" />
+                }
             </PagerContent>
         </MudDataGrid>
     </MudCardContent>

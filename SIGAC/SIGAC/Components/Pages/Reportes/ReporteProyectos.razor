@@ -6,6 +6,8 @@
 @inject IReportesService ReportesService
 @inject ISnackbar Snackbar
 
+<PageTitle>Reporte de proyectos comunitarios — SIGAC</PageTitle>
+
 <EncabezadoPagina Titulo="Reporte de proyectos comunitarios"
                    Descripcion="Proyectos de la asociación con sus fechas y las personas que participan, para mostrar ante donantes y autoridades qué se hace y a cuántos llega." />
 
@@ -83,7 +85,11 @@
                                  Descripcion="Pruebe con otro estado o con un rango de fechas distinto." />
                 </NoRecordsContent>
                 <PagerContent>
-                    <MudDataGridPager T="ReporteProyectosDto" PageSizeOptions="PaginacionReporte.Opciones" />
+                    @* Sin filas no hay nada que paginar: el paginador solo estorbaba (F-16). *@
+                    @if (resultado.Filas.Any())
+                    {
+                        <MudDataGridPager T="ReporteProyectosDto" PageSizeOptions="PaginacionReporte.Opciones" />
+                    }
                 </PagerContent>
             </MudDataGrid>
 

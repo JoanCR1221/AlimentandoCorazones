@@ -5,6 +5,8 @@
 @inject IReportesService ReportesService
 @inject ISnackbar Snackbar
 
+<PageTitle>Reporte de donaciones — SIGAC</PageTitle>
+
 <EncabezadoPagina Titulo="Reporte de donaciones"
                    Descripcion="Donaciones recibidas en dinero y en especie durante el período, con el total de dinero por moneda, para rendir cuentas ante donantes y autoridades." />
 
@@ -78,7 +80,11 @@
                                  Descripcion="Pruebe con otro tipo de donación o con un rango de fechas distinto." />
                 </NoRecordsContent>
                 <PagerContent>
-                    <MudDataGridPager T="ReporteDonacionesDto" PageSizeOptions="PaginacionReporte.Opciones" />
+                    @* Sin filas no hay nada que paginar: el paginador solo estorbaba (F-16). *@
+                    @if (resultado.Filas.Any())
+                    {
+                        <MudDataGridPager T="ReporteDonacionesDto" PageSizeOptions="PaginacionReporte.Opciones" />
+                    }
                 </PagerContent>
             </MudDataGrid>
 

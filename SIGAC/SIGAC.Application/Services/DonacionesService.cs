@@ -314,11 +314,12 @@ namespace SIGAC.Application.Services
                 donaciones.AddRange(enDinero.Select(AFilaDeHistorial));
                 donaciones.AddRange(enEspecie.Select(AFilaDeHistorial));
 
-                // Desempate por Id además de la fecha: las dos listas vienen
-                // ordenadas por separado y sin el desempate dos donaciones del
-                // mismo instante podrían intercambiarse entre consultas.
+                // Desempate por tipo y luego por Id, el mismo orden que la página del
+                // historial: el Id solo es comparable dentro de una misma tabla, así que
+                // no puede ir antes que el tipo. Dinero va antes que especie.
                 var ordenadas = donaciones
                     .OrderByDescending(d => d.Fecha)
+                    .ThenBy(d => d.TipoDonacion == TipoDonacionDinero ? 0 : 1)
                     .ThenByDescending(d => d.Id)
                     .ToList();
 

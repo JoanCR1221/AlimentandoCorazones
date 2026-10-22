@@ -10,6 +10,8 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
+<PageTitle>Calendario de alquileres — SIGAC</PageTitle>
+
 <EncabezadoPagina Titulo="Calendario de alquileres"
                   Descripcion="Consulte la disponibilidad de los espacios y los alquileres registrados."
                   TextoAccion="Registrar alquiler" HrefAccion="/alquileres/registrar"
@@ -151,8 +153,12 @@
                 }
             </NoRecordsContent>
             <PagerContent>
-                <MudDataGridPager T="AlquilerListaDto"
-                                  PageSizeOptions="@(new[] { FiltrosHistorialAlquilerDto.TamanoPaginaPredeterminado, 50, FiltrosHistorialAlquilerDto.TamanoPaginaMaximo })" />
+                @* Sin filas no hay nada que paginar: el paginador solo estorbaba (F-16). *@
+                @if (grilla?.GetFilteredItemsCount() > 0)
+                {
+                    <MudDataGridPager T="AlquilerListaDto"
+                                      PageSizeOptions="@(new[] { FiltrosHistorialAlquilerDto.TamanoPaginaPredeterminado, 50, FiltrosHistorialAlquilerDto.TamanoPaginaMaximo })" />
+                }
             </PagerContent>
         </MudDataGrid>
     </MudCardContent>

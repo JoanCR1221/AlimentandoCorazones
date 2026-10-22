@@ -246,16 +246,19 @@ namespace SIGAC.Infrastructure.Repositories
                 return ResultadoPaginado<ItemHistorialDonacion>.Vacio;
 
             // Consulta 2: las claves de la página. El OrderBy es obligatorio para que
-            // Skip/Take sea determinista, y el orden es total (fecha, Id y tipo): sin el
-            // desempate dos donaciones del mismo instante podrían repetirse o saltarse
-            // entre una página y la siguiente. Se traduce a ORDER BY ... OFFSET n ROWS
+            // Skip/Take sea determinista, y el orden es total (fecha, tipo e Id): sin el
+            // desempate dos donaciones del mismo día podrían repetirse o saltarse entre
+            // una página y la siguiente. El Id va DESPUÉS del tipo porque cada tabla tiene
+            // su propia numeración: comparar el Id de una donación en dinero con el de una
+            // en especie no dice cuál se registró antes. Dentro de un mismo tipo sí (el
+            // mayor es el más reciente). Se traduce a ORDER BY ... OFFSET n ROWS
             // FETCH NEXT m ROWS ONLY sobre el UNION ALL.
             var tamanoPagina = filtros.TamanoPaginaEfectivo;
 
             var pagina = await claves!
                 .OrderByDescending(c => c.Fecha)
-                .ThenByDescending(c => c.Id)
                 .ThenBy(c => c.Tipo)
+                .ThenByDescending(c => c.Id)
                 .Skip(filtros.PaginaEfectiva * tamanoPagina)
                 .Take(tamanoPagina)
                 .ToListAsync();

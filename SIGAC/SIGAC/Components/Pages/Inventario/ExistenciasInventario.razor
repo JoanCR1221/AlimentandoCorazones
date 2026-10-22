@@ -6,6 +6,8 @@
 @inject IInventarioService InventarioService
 @inject ISnackbar Snackbar
 
+<PageTitle>Existencias de inventario — SIGAC</PageTitle>
+
 <EncabezadoPagina Titulo="Existencias de inventario"
                   Descripcion="Consulte las existencias y registre nuevas entradas de artículos."
                   TextoAccion="Registrar entrada" HrefAccion="/inventario/entradas/registrar"
@@ -42,7 +44,13 @@
                    Color="Color.Error" Class="mb-4">
             Solo artículos con stock bajo
         </MudSwitch>
-        <MudDataGrid T="ArticuloExistenciaDto" Items="@articulos" Loading="cargando">
+        @* ServerData y no Items: la consulta ya pagina en SQL, pero la pantalla pedía solo la
+           primera página (20 artículos) y no tenía cómo ver las demás ni avisaba que había
+           más. Mismo patrón que ListadoDonantes. *@
+        <MudDataGrid T="ArticuloExistenciaDto" @ref="grilla"
+                     ServerData="CargarPaginaAsync"
+                     RowsPerPage="FiltrosExistenciaDto.TamanoPaginaPredeterminado"
+                     SortMode="SortMode.None" Filterable="false">
             <Columns>
                 <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
                 <PropertyColumn Property="x => x.Codigo" Title="Código" />
@@ -97,6 +105,14 @@
                                  Descripcion="Así se muestra el inventario, sin cargar el catálogo entero de una vez." />
                 }
             </NoRecordsContent>
+            <PagerContent>
+                @* Sin filas no hay nada que paginar. *@
+                @if (grilla?.GetFilteredItemsCount() > 0)
+                {
+                    <MudDataGridPager T="ArticuloExistenciaDto"
+                                      PageSizeOptions="@(new[] { FiltrosExistenciaDto.TamanoPaginaPredeterminado, 50, FiltrosExistenciaDto.TamanoPaginaMaximo })" />
+                }
+            </PagerContent>
         </MudDataGrid>
     </MudCardContent>
 </MudCard>
@@ -111,12 +127,11 @@
     [SupplyParameterFromQuery(Name = "stockBajo")]
     public bool? StockBajo { get; set; }
 
-    private IEnumerable<ArticuloExistenciaDto> articulos = Array.Empty<ArticuloExistenciaDto>();
+    private MudDataGrid<ArticuloExistenciaDto>? grilla;
     private string? filtroNombre;
     private string? filtroCategoria;
     private string? filtroEstado;
     private bool filtroSoloStockBajo;
-    private bool cargando;
 
     // Se usa IsNullOrWhiteSpace y no IsNullOrEmpty a propósito: es el mismo criterio
     // con el que el repositorio decide si aplica el filtro. Un campo con solo espacios
@@ -126,45 +141,19 @@
         !string.IsNullOrWhiteSpace(filtroNombre) || !string.IsNullOrWhiteSpace(filtroCategoria)
         || !string.IsNullOrWhiteSpace(filtroEstado) || filtroSoloStockBajo;
 
-    // Sin OnInitializedAsync general a propósito: la pantalla abre sin consultar
-    // nada. Antes cargaba con los filtros vacíos, y como el repositorio los
-    // ignora, mostraba la primera página del catálogo completo sin que nadie
-    // hubiera buscado. La única excepción es llegar con ?stockBajo=true: ahí sí
-    // hay un criterio puesto de entrada, así que corresponde cargar.
-    protected override async Task OnInitializedAsync()
+    // Sin consulta propia al iniciar a propósito: la pantalla abre sin traer nada. Antes
+    // cargaba con los filtros vacíos, y como el repositorio los ignora, mostraba la
+    // primera página del catálogo completo sin que nadie hubiera buscado. La única
+    // excepción es llegar con ?stockBajo=true: ahí sí hay un criterio puesto de entrada
+    // y la grilla, al dibujarse, ya consulta con el interruptor encendido.
+    protected override void OnInitialized()
     {
         if (StockBajo == true)
-        {
             filtroSoloStockBajo = true;
-            await CargarAsync();
-        }
     }
 
-    private async Task OnFiltroNombreCambiadoAsync(string? valor)
-    {
-        filtroNombre = valor;
-        await CargarAsync();
-    }
-
-    private async Task OnFiltroCategoriaCambiadoAsync(string? valor)
-    {
-        filtroCategoria = valor;
-        await CargarAsync();
-    }
-
-    private async Task OnFiltroEstadoCambiadoAsync(string? valor)
-    {
-        filtroEstado = valor;
-        await CargarAsync();
-    }
-
-    private async Task OnFiltroSoloStockBajoCambiadoAsync(bool valor)
-    {
-        filtroSoloStockBajo = valor;
-        await CargarAsync();
-    }
-
-    private async Task CargarAsync()
+    private async Task<GridData<ArticuloExistenciaDto>> CargarPaginaAsync(
+        GridState<ArticuloExistenciaDto> estado, CancellationToken cancellationToken)
     {
         // Sin ningún criterio no se consulta y la tabla queda vacía. Cubre las
         // entradas a este estado: abrir la pantalla, y borrar el texto, quitar la
@@ -172,12 +161,7 @@
         // último caso, salir sin vaciar dejaría en pantalla los resultados de la
         // búsqueda anterior.
         if (!HayFiltro)
-        {
-            articulos = Array.Empty<ArticuloExistenciaDto>();
-            return;
-        }
-
-        cargando = true;
+            return new GridData<ArticuloExistenciaDto> { Items = Array.Empty<ArticuloExistenciaDto>(), TotalItems = 0 };
 
         try
         {
@@ -186,19 +170,59 @@
                 Nombre = filtroNombre,
                 Categoria = filtroCategoria,
                 Estado = filtroEstado,
-                SoloStockBajo = filtroSoloStockBajo
+                SoloStockBajo = filtroSoloStockBajo,
+                Pagina = estado.Page,
+                TamanoPagina = estado.PageSize
             });
-            articulos = pagina.Elementos;
+
+            return new GridData<ArticuloExistenciaDto>
+            {
+                Items = pagina.Elementos,
+                TotalItems = pagina.TotalRegistros
+            };
         }
         catch (Exception)
         {
             // Una base caída no debe tumbar la pantalla con el error sin controlar.
-            articulos = Array.Empty<ArticuloExistenciaDto>();
             Snackbar.Add("No se pudieron cargar las existencias. Intente de nuevo.", Severity.Error);
+            return new GridData<ArticuloExistenciaDto> { Items = Array.Empty<ArticuloExistenciaDto>(), TotalItems = 0 };
         }
-        finally
-        {
-            cargando = false;
-        }
+    }
+
+    private async Task OnFiltroNombreCambiadoAsync(string? valor)
+    {
+        filtroNombre = valor;
+        await RecargarAsync();
+    }
+
+    private async Task OnFiltroCategoriaCambiadoAsync(string? valor)
+    {
+        filtroCategoria = valor;
+        await RecargarAsync();
+    }
+
+    private async Task OnFiltroEstadoCambiadoAsync(string? valor)
+    {
+        filtroEstado = valor;
+        await RecargarAsync();
+    }
+
+    private async Task OnFiltroSoloStockBajoCambiadoAsync(bool valor)
+    {
+        filtroSoloStockBajo = valor;
+        await RecargarAsync();
+    }
+
+    // Un filtro nuevo vuelve a la primera página: seguir en la 3 de una búsqueda distinta
+    // podría caer fuera de rango.
+    private async Task RecargarAsync()
+    {
+        if (grilla is null)
+            return;
+
+        if (grilla.CurrentPage != 0)
+            grilla.NavigateTo(Page.First);
+        else
+            await grilla.ReloadServerData();
     }
 }
