@@ -1208,7 +1208,9 @@ namespace SIGAC.Infrastructure.Migrations
                         .HasDatabaseName("IX_ParticipantesProyecto_Beneficiario");
 
                     b.HasIndex("ProyectoId", "BeneficiarioId")
-                        .HasDatabaseName("IX_ParticipantesProyecto_Proyecto_Beneficiario");
+                        .IsUnique()
+                        .HasDatabaseName("UX_ParticipantesProyecto_Proyecto_Beneficiario")
+                        .HasFilter("[BeneficiarioId] IS NOT NULL");
 
                     b.ToTable("ParticipantesProyecto", null, t =>
                         {
