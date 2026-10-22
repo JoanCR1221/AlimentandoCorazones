@@ -121,13 +121,24 @@
 
         var rol = (await UserManager.GetRolesAsync(usuario)).FirstOrDefault();
 
+        // Los mensajes específicos (desactivado, bloqueado) solo se muestran a quien
+        // demuestra conocer la contraseña. Antes se daban primero, así que cualquiera
+        // podía averiguar qué correos existen, cuáles están desactivados y bloquear
+        // cuentas ajenas viendo la confirmación. Ante cualquier otra falla, el mismo
+        // mensaje genérico; en la bitácora sí queda el motivo real.
+        //
+        // CheckPasswordAsync no toca los contadores de bloqueo: no suma intentos
+        // fallidos ni desbloquea.
+        //
         // Un usuario desactivado tiene LockoutEnd en MaxValue y Identity lo
         // rechazaría como "bloqueado"; se distingue antes para dar el mensaje
         // que pide el PBI 1947 y no confundirlo con el bloqueo temporal.
         if (!usuario.Estado)
         {
             await RegistrarIntentoFallidoAsync(usuario.Id, usuario.Nombre, rol, "Usuario desactivado");
-            mensajeError = "Su usuario está desactivado. Contacte a un administrador.";
+            mensajeError = await UserManager.CheckPasswordAsync(usuario, Entrada.Password)
+                ? "Su usuario está desactivado. Contacte a un administrador."
+                : MensajeCredenciales;
             return;
         }
 
@@ -150,8 +161,13 @@
 
         if (resultado.IsLockedOut)
         {
+            // Identity responde "bloqueado" sin mirar la contraseña, así que se
+            // comprueba aparte: con una contraseña incorrecta (incluido el intento que
+            // acaba de provocar el bloqueo) el mensaje es el genérico.
             await RegistrarIntentoFallidoAsync(usuario.Id, usuario.Nombre, rol, "Bloqueado por intentos fallidos");
-            mensajeError = $"Demasiados intentos fallidos. Espere {ReglasUsuario.MinutosBloqueo} minutos e intente de nuevo.";
+            mensajeError = await UserManager.CheckPasswordAsync(usuario, Entrada.Password)
+                ? $"Demasiados intentos fallidos. Espere {ReglasUsuario.MinutosBloqueo} minutos e intente de nuevo."
+                : MensajeCredenciales;
             return;
         }
 
