@@ -7,6 +7,8 @@
 @inject IInventarioService InventarioService
 @inject ISnackbar Snackbar
 
+<PageTitle>Reporte de movimientos de inventario — SIGAC</PageTitle>
+
 <EncabezadoPagina Titulo="Reporte de movimientos de inventario"
                    Descripcion="Entradas y donaciones de artículos en el período, con las unidades que entraron y las que salieron." />
 
@@ -79,7 +81,11 @@
                                  Descripcion="Pruebe con otro artículo, tipo de movimiento o rango de fechas." />
                 </NoRecordsContent>
                 <PagerContent>
-                    <MudDataGridPager T="ReporteMovimientosDto" PageSizeOptions="PaginacionReporte.Opciones" />
+                    @* Sin filas no hay nada que paginar: el paginador solo estorbaba (F-16). *@
+                    @if (resultado.Filas.Any())
+                    {
+                        <MudDataGridPager T="ReporteMovimientosDto" PageSizeOptions="PaginacionReporte.Opciones" />
+                    }
                 </PagerContent>
             </MudDataGrid>
 

@@ -67,6 +67,25 @@ namespace SIGAC.Tests.Application
         }
 
         [Fact]
+        public async Task En_el_mismo_dia_desempata_por_tipo_y_despues_por_Id_dentro_de_cada_tipo()
+        {
+            // Los Id de dinero y de especie son numeraciones distintas: un 9 de especie no
+            // es "más reciente" que un 5 de dinero. El orden es dinero (Id mayor primero) y
+            // luego especie, estable en cualquier página.
+            Dinero(2, dia: 5);
+            Especie(9, dia: 5);
+            Dinero(5, dia: 5);
+            Especie(3, dia: 5);
+
+            var resultado = await _servicio.ObtenerPaginaHistorialDonacionesAsync(new FiltrosHistorialDonacionDto());
+            var completo = await _servicio.ObtenerHistorialDonacionesAsync(new FiltrosHistorialDonacionDto());
+
+            var esperado = new[] { ("Dinero", 5), ("Dinero", 2), ("Especie", 9), ("Especie", 3) };
+            Assert.Equal(esperado, resultado.Donaciones.Select(Clave));
+            Assert.Equal(esperado, completo.Donaciones.Select(Clave));
+        }
+
+        [Fact]
         public async Task Devuelve_solo_la_pagina_pedida_y_el_total_de_todo_el_periodo()
         {
             for (var i = 1; i <= 30; i++) Dinero(i, dia: i);
@@ -374,7 +393,7 @@ namespace SIGAC.Tests.Application
                 var tamano = filtros.TamanoPaginaEfectivo;
 
                 var pagina = items
-                    .OrderByDescending(i => i.Fecha).ThenByDescending(i => i.Id).ThenBy(i => i.Tipo)
+                    .OrderByDescending(i => i.Fecha).ThenBy(i => i.Tipo).ThenByDescending(i => i.Id)
                     .Skip(filtros.PaginaEfectiva * tamano)
                     .Take(tamano)
                     .Select(i => i.Item)

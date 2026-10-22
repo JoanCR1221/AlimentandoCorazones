@@ -8,6 +8,8 @@
 @inject IBeneficiariosService BeneficiariosService
 @inject ISnackbar Snackbar
 
+<PageTitle>Historial de asistencia — SIGAC</PageTitle>
+
 <EncabezadoPagina Titulo="Historial de asistencia"
                   Descripcion="Consulte la asistencia diaria al comedor."
                   TextoAccion="Registrar asistencia" HrefAccion="/asistencia/registrar"
@@ -86,8 +88,12 @@
                 }
             </NoRecordsContent>
             <PagerContent>
-                <MudDataGridPager T="HistorialAsistenciaDto"
-                                  PageSizeOptions="@(new[] { FiltrosAsistenciaDto.TamanoPaginaPredeterminado, 50, FiltrosAsistenciaDto.TamanoPaginaMaximo })" />
+                @* Sin filas no hay nada que paginar: el paginador solo estorbaba (F-16). *@
+                @if (grilla?.GetFilteredItemsCount() > 0)
+                {
+                    <MudDataGridPager T="HistorialAsistenciaDto"
+                                      PageSizeOptions="@(new[] { FiltrosAsistenciaDto.TamanoPaginaPredeterminado, 50, FiltrosAsistenciaDto.TamanoPaginaMaximo })" />
+                }
             </PagerContent>
         </MudDataGrid>
     </MudCardContent>

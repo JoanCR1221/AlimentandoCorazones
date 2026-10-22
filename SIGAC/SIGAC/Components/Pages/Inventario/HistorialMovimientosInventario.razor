@@ -5,6 +5,8 @@
 @inject IInventarioService InventarioService
 @inject ISnackbar Snackbar
 
+<PageTitle>Historial de movimientos de inventario — SIGAC</PageTitle>
+
 <EncabezadoPagina Titulo="Historial de movimientos de inventario"
                   Descripcion="Consulte las entradas y donaciones de artículos." />
 
@@ -73,8 +75,12 @@
                 }
             </NoRecordsContent>
             <PagerContent>
-                <MudDataGridPager T="MovimientoInventarioDto"
-                                  PageSizeOptions="@(new[] { FiltrosMovimientoDto.TamanoPaginaPredeterminado, 50, FiltrosMovimientoDto.TamanoPaginaMaximo })" />
+                @* Sin filas no hay nada que paginar: el paginador solo estorbaba (F-16). *@
+                @if (grilla?.GetFilteredItemsCount() > 0)
+                {
+                    <MudDataGridPager T="MovimientoInventarioDto"
+                                      PageSizeOptions="@(new[] { FiltrosMovimientoDto.TamanoPaginaPredeterminado, 50, FiltrosMovimientoDto.TamanoPaginaMaximo })" />
+                }
             </PagerContent>
         </MudDataGrid>
     </MudCardContent>

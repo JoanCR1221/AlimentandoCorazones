@@ -8,6 +8,8 @@
 @inject IEspaciosService EspaciosService
 @inject ISnackbar Snackbar
 
+<PageTitle>Reporte de alquileres de espacios — SIGAC</PageTitle>
+
 <EncabezadoPagina Titulo="Reporte de alquileres de espacios"
                    Descripcion="Alquileres del local en el período, con las horas alquiladas y el ingreso por moneda, para presentar ante la administración y los entes fiscalizadores." />
 
@@ -102,7 +104,11 @@
                                  Descripcion="Pruebe con otro sector, rango de fechas o estado." />
                 </NoRecordsContent>
                 <PagerContent>
-                    <MudDataGridPager T="ReporteAlquileresDto" PageSizeOptions="PaginacionReporte.Opciones" />
+                    @* Sin filas no hay nada que paginar: el paginador solo estorbaba (F-16). *@
+                    @if (resultado.Filas.Any())
+                    {
+                        <MudDataGridPager T="ReporteAlquileresDto" PageSizeOptions="PaginacionReporte.Opciones" />
+                    }
                 </PagerContent>
             </MudDataGrid>
 

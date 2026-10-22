@@ -8,6 +8,8 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 
+<PageTitle>Donantes registrados — SIGAC</PageTitle>
+
 <EncabezadoPagina Titulo="Donantes registrados"
                   Descripcion="Consulte, registre y administre a los donantes y sus aportes."
                   TextoAccion="Registrar donante" HrefAccion="/donantes/registrar"
@@ -105,7 +107,11 @@
                 }
             </NoRecordsContent>
             <PagerContent>
-                <MudDataGridPager T="DonanteListaDto" />
+                @* Sin filas no hay nada que paginar: el paginador solo estorbaba (F-16). *@
+                @if (grilla?.GetFilteredItemsCount() > 0)
+                {
+                    <MudDataGridPager T="DonanteListaDto" />
+                }
             </PagerContent>
         </MudDataGrid>
     </MudCardContent>

@@ -5,6 +5,8 @@
 @inject IReportesService ReportesService
 @inject ISnackbar Snackbar
 
+<PageTitle>Reporte de beneficiarios atendidos — SIGAC</PageTitle>
+
 <EncabezadoPagina Titulo="Reporte de beneficiarios atendidos"
                    Descripcion="Asistencias por beneficiario y tiempo de comida en el período, para mostrar el impacto ante donantes y autoridades." />
 
@@ -71,7 +73,11 @@
                                  Descripcion="Pruebe con otra categoría o con un rango de fechas distinto." />
                 </NoRecordsContent>
                 <PagerContent>
-                    <MudDataGridPager T="ReporteBeneficiariosDto" PageSizeOptions="PaginacionReporte.Opciones" />
+                    @* Sin filas no hay nada que paginar: el paginador solo estorbaba (F-16). *@
+                    @if (resultado.Filas.Any())
+                    {
+                        <MudDataGridPager T="ReporteBeneficiariosDto" PageSizeOptions="PaginacionReporte.Opciones" />
+                    }
                 </PagerContent>
             </MudDataGrid>
 

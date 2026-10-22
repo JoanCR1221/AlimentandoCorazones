@@ -11,6 +11,8 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
+<PageTitle>Gastos operativos — SIGAC</PageTitle>
+
 <EncabezadoPagina Titulo="Gastos operativos"
                   Descripcion="Registre y consulte los gastos operativos de la asociación."
                   TextoAccion="Registrar gasto" HrefAccion="/gastos/registrar"
@@ -153,8 +155,12 @@
                 }
             </NoRecordsContent>
             <PagerContent>
-                <MudDataGridPager T="GastoOperativoListaDto"
-                                  PageSizeOptions="@(new[] { FiltrosGastoDto.TamanoPaginaPredeterminado, 50, FiltrosGastoDto.TamanoPaginaMaximo })" />
+                @* Sin filas no hay nada que paginar: el paginador solo estorbaba (F-16). *@
+                @if (grilla?.GetFilteredItemsCount() > 0)
+                {
+                    <MudDataGridPager T="GastoOperativoListaDto"
+                                      PageSizeOptions="@(new[] { FiltrosGastoDto.TamanoPaginaPredeterminado, 50, FiltrosGastoDto.TamanoPaginaMaximo })" />
+                }
             </PagerContent>
         </MudDataGrid>
     </MudCardContent>
