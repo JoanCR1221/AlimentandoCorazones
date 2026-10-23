@@ -5,3 +5,14 @@ obj/
 Fundamentos Liderazgo Teorias Estilos.pptx
 SIGAC/SIGAC/appsettings.json
 SIGAC/SIGAC/appsettings.Development.json
+
+# El repositorio es público: nada con credenciales, datos ni paquetes de despliegue
+*.zip
+publish/
+*.pfx
+*.pem
+*.env
+.mcp.json
+.claude/
+datos-prueba-*.sql
+migracion-*.sql
