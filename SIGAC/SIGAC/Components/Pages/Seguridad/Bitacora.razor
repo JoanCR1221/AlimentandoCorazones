@@ -50,20 +50,65 @@
         @* ServerData: la bitácora crece con cada operación del sistema, así que
            siempre se pide una página por vez. HierarchyColumn para desplegar el
            detalle completo de una fila sin ensanchar la tabla. *@
-        <MudDataGrid T="BitacoraAccionDto" @ref="grilla"
+        @* Una sola grilla para los tres tamaños (ver ListadoBeneficiarios): en móvil
+           (< 768px) solo se ve la celda "tarjeta", con el detalle completo en su
+           "Ver más" (ahí no se usa la fila desplegable); en tableta y laptop chico,
+           sin Rol (va en chico bajo el usuario) ni el resumen del Detalle (el
+           detalle completo sigue en la fila desplegable); en escritorio, todas las
+           columnas. Dense se queda: en tableta y en la tarjeta, app.css le corrige
+           el relleno. *@
+        <MudDataGrid T="BitacoraAccionDto" @ref="grilla" Class="ac-grilla-tarjetas" Breakpoint="Breakpoint.None"
                      ServerData="CargarPaginaAsync"
                      RowsPerPage="FiltrosBitacoraDto.TamanoPaginaPredeterminado"
                      SortMode="SortMode.None" Filterable="false" Dense="true">
             <Columns>
-                <HierarchyColumn T="BitacoraAccionDto" ButtonDisabledFunc="@(x => string.IsNullOrEmpty(x.Detalle))" />
-                <PropertyColumn Property="x => x.Fecha" Title="Fecha y hora" Format="dd/MM/yyyy HH:mm" />
-                <PropertyColumn Property="x => x.NombreUsuario" Title="Usuario" />
-                <PropertyColumn Property="x => x.Rol" Title="Rol" />
-                <PropertyColumn Property="x => x.Accion" Title="Acción" />
-                <PropertyColumn Property="x => x.Modulo" Title="Módulo" />
-                <TemplateColumn Title="Detalle">
+                @* HierarchyColumn no acepta CellClass: en móvil app.css oculta su celda
+                   (la reconoce por el botón de icono) y la fila hija. *@
+                <HierarchyColumn T="BitacoraAccionDto" ButtonDisabledFunc="@(x => string.IsNullOrEmpty(x.Detalle))" HeaderClass="ac-col-clasica" />
+                @* El encabezado puede partirse en dos líneas en tableta (la regla
+                   general de app.css lo deja en una); en escritorio sigue en una. *@
+                <PropertyColumn Property="x => x.Fecha" Title="Fecha y hora" Format="dd/MM/yyyy HH:mm" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" HeaderStyle="white-space: normal" />
+                @* En tableta la columna Rol se oculta y el rol va en chico bajo el
+                   nombre (.ac-solo-tableta), sin un "Ver más": la fila ya tiene su
+                   propio botón para desplegar. El nombre puede ser el correo de un
+                   inicio de sesión fallido (hasta 256 caracteres): parte la línea. *@
+                <TemplateColumn Title="Usuario" CellClass="ac-col-clasica ac-celda-larga" HeaderClass="ac-col-clasica">
+                    <CellTemplate>
+                        @context.Item.NombreUsuario
+                        @if (!string.IsNullOrWhiteSpace(context.Item.Rol))
+                        {
+                            <MudText Typo="Typo.caption" HtmlTag="div" Class="mud-text-secondary ac-solo-tableta">@context.Item.Rol</MudText>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.Rol" Title="Rol" CellClass="ac-col-clasica ac-col-escritorio" HeaderClass="ac-col-clasica ac-col-escritorio" />
+                <PropertyColumn Property="x => x.Accion" Title="Acción" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <PropertyColumn Property="x => x.Modulo" Title="Módulo" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <TemplateColumn Title="Detalle" CellClass="ac-col-clasica ac-col-escritorio" HeaderClass="ac-col-clasica ac-col-escritorio">
                     <CellTemplate>
                         <span title="@context.Item.Detalle">@Resumir(context.Item.Detalle)</span>
+                    </CellTemplate>
+                </TemplateColumn>
+                @* Solo móvil: el usuario arriba con el módulo como etiqueta; la fecha y
+                   hora, la acción y el rol siempre a la vista, y el detalle completo
+                   en "Ver más", que no aparece si la acción no tiene detalle (igual
+                   que el botón de desplegar de la tabla, que queda deshabilitado). *@
+                <TemplateColumn Title="Acción registrada" CellClass="ac-col-tarjeta" HeaderClass="ac-col-tarjeta">
+                    <CellTemplate>
+                        <TarjetaFila Titulo="@context.Item.NombreUsuario"
+                                     Detalle="@(string.IsNullOrEmpty(context.Item.Detalle) ? null : DetalleCompleto(context.Item))">
+                            <Estado>
+                                <span class="ac-tarjeta-etiqueta">@context.Item.Modulo</span>
+                            </Estado>
+                            <Lineas>
+                                <p class="ac-tarjeta-dato">@context.Item.Fecha.ToString("dd/MM/yyyy HH:mm")</p>
+                                <p class="ac-tarjeta-dato">Acción: @context.Item.Accion</p>
+                                @if (!string.IsNullOrWhiteSpace(context.Item.Rol))
+                                {
+                                    <p class="ac-tarjeta-dato">Rol: @context.Item.Rol</p>
+                                }
+                            </Lineas>
+                        </TarjetaFila>
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
@@ -214,4 +259,12 @@
 
         return detalle.Length <= LargoResumenDetalle ? detalle : detalle[..LargoResumenDetalle] + "…";
     }
+
+    // El detalle completo en el "Ver más" de la tarjeta de móvil, con sus saltos
+    // de línea, como en la fila desplegable de la tabla. Solo se pasa cuando hay
+    // detalle: sin él, TarjetaFila no pinta el "Ver más".
+    private RenderFragment DetalleCompleto(BitacoraAccionDto accion) => @<text>
+        <dt>Detalle</dt>
+        <dd style="white-space: pre-wrap;">@accion.Detalle</dd>
+    </text>;
 }

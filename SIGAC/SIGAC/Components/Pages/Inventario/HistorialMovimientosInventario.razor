@@ -40,19 +40,49 @@
            esos registros. SortMode.None porque el orden (más reciente primero) lo
            fija la consulta en SQL: dejar ordenar por columna solo reordenaría la
            página visible, que sería engañoso. *@
-        <MudDataGrid T="MovimientoInventarioDto" @ref="grilla"
+        @* Una sola grilla para los tres tamaños (ver ListadoBeneficiarios): en móvil
+           (< 768px) solo se ve la celda "tarjeta"; desde 768px, la tabla con las
+           cinco columnas, que en tableta caben partiendo en dos líneas los dos
+           encabezados largos. *@
+        <MudDataGrid T="MovimientoInventarioDto" @ref="grilla" Class="ac-grilla-tarjetas" Breakpoint="Breakpoint.None"
                      ServerData="CargarPaginaAsync"
                      RowsPerPage="FiltrosMovimientoDto.TamanoPaginaPredeterminado"
                      SortMode="SortMode.None" Filterable="false">
             <Columns>
-                <PropertyColumn Property="x => x.Articulo" Title="Artículo" />
-                <TemplateColumn Title="Tipo de movimiento">
+                <PropertyColumn Property="x => x.Articulo" Title="Artículo" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                @* Estos dos encabezados pueden partirse en dos líneas (la regla general
+                   de app.css los deja en una): enteros, "Tipo de movimiento" y
+                   "Origen / Destino" pedían ~290 px y la tabla no entraba en tableta.
+                   En escritorio hay lugar y siguen en una línea. Mismo criterio que
+                   ListadoTiposGasto. *@
+                <TemplateColumn Title="Tipo de movimiento" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" HeaderStyle="white-space: normal">
                     <CellTemplate>@EtiquetaTipoMovimiento(context.Item.TipoMovimiento)</CellTemplate>
                 </TemplateColumn>
-                <PropertyColumn Property="x => x.Cantidad" Title="Cantidad" />
-                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
-                <TemplateColumn Title="Origen / Destino">
+                <PropertyColumn Property="x => x.Cantidad" Title="Cantidad" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <TemplateColumn Title="Origen / Destino" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" HeaderStyle="white-space: normal">
                     <CellTemplate>@EtiquetaTipoMovimiento(context.Item.OrigenODestino ?? string.Empty)</CellTemplate>
+                </TemplateColumn>
+                @* Solo móvil: el artículo arriba con el tipo de movimiento como
+                   etiqueta; la fecha, la cantidad y el origen (de una entrada) o el
+                   destino (de una salida) siempre a la vista, sin "Ver más": no queda
+                   nada más que mostrar. *@
+                <TemplateColumn Title="Movimiento" CellClass="ac-col-tarjeta" HeaderClass="ac-col-tarjeta">
+                    <CellTemplate>
+                        <TarjetaFila Titulo="@context.Item.Articulo">
+                            <Estado>
+                                <span class="ac-tarjeta-etiqueta">@EtiquetaTipoMovimiento(context.Item.TipoMovimiento)</span>
+                            </Estado>
+                            <Lineas>
+                                <p class="ac-tarjeta-dato">@context.Item.Fecha.ToString("dd/MM/yyyy")</p>
+                                <p class="ac-tarjeta-dato">Cantidad: @context.Item.Cantidad</p>
+                                @if (!string.IsNullOrWhiteSpace(context.Item.OrigenODestino))
+                                {
+                                    <p class="ac-tarjeta-dato">@EtiquetaOrigenODestino(context.Item): @EtiquetaTipoMovimiento(context.Item.OrigenODestino)</p>
+                                }
+                            </Lineas>
+                        </TarjetaFila>
+                    </CellTemplate>
                 </TemplateColumn>
             </Columns>
             <LoadingContent>
@@ -128,6 +158,11 @@
         "Donacion" => "Donación",
         _ => tipoMovimiento
     };
+
+    // En la tarjeta de móvil no está el encabezado "Origen / Destino": una entrada
+    // dice de dónde vino (donación o compra) y una salida, a quién fue.
+    private static string EtiquetaOrigenODestino(MovimientoInventarioDto movimiento) =>
+        movimiento.TipoMovimiento == FiltrosMovimientoDto.TipoEntrada ? "Origen" : "Destino";
 
     // La llama la grilla cada vez que cambia de página o se recarga. Devuelve solo
     // los movimientos de esa página más el total, que es lo que necesita el paginador.

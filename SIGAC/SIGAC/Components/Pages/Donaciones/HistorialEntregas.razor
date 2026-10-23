@@ -69,22 +69,34 @@
            destinatario aparecía repetido una vez por cada uno. La columna
            Artículo muestra "N artículos" con el detalle en un tooltip cuando
            hay más de uno, en vez de una fila por artículo. *@
-        <MudDataGrid T="FilaHistorialEntrega" Items="@FilasAgrupadas" Loading="cargando">
+        @* Una sola grilla para los tres tamaños (ver ListadoBeneficiarios): en móvil
+           (< 768px) solo se ve la celda "tarjeta", con cada artículo de la entrega
+           en su propia línea; en tableta y laptop chico, sin Observaciones (van en
+           el "Ver más" bajo el destinatario, solo cuando hay); en escritorio, las
+           seis columnas. *@
+        <MudDataGrid T="FilaHistorialEntrega" Items="@FilasAgrupadas" Loading="cargando"
+                     Class="ac-grilla-tarjetas" Breakpoint="Breakpoint.None">
             <Columns>
-                <PropertyColumn Property="x => x.NombreDestinatario" Title="Destinatario" />
-                <TemplateColumn Title="Tipo">
+                @* PropertyColumn con CellTemplate y no TemplateColumn: así la columna
+                   se sigue pudiendo ordenar por destinatario, como antes. *@
+                <PropertyColumn Property="x => x.NombreDestinatario" Title="Destinatario" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
-                        @if (context.Item.TipoDestinatario == TiposDestinatarioDonacion.Beneficiario)
+                        @context.Item.NombreDestinatario
+                        @if (!string.IsNullOrWhiteSpace(context.Item.Observaciones))
                         {
-                            <MudChip T="string" Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Person">Beneficiario</MudChip>
-                        }
-                        else
-                        {
-                            <MudChip T="string" Color="Color.Secondary" Size="Size.Small" Icon="@Icons.Material.Filled.People">Comunidad</MudChip>
+                            <VerMasTabla>
+                                <dt>Observaciones</dt>
+                                <dd>@context.Item.Observaciones</dd>
+                            </VerMasTabla>
                         }
                     </CellTemplate>
+                </PropertyColumn>
+                <TemplateColumn Title="Tipo" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
+                    <CellTemplate>
+                        @ChipTipoDestinatario(context.Item.TipoDestinatario)
+                    </CellTemplate>
                 </TemplateColumn>
-                <TemplateColumn Title="Artículo">
+                <TemplateColumn Title="Artículo" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
                         @if (context.Item.Articulos.Count == 1)
                         {
@@ -108,7 +120,7 @@
                                     <MudStack Spacing="1">
                                         @foreach (var articulo in context.Item.Articulos)
                                         {
-                                            <MudText Typo="Typo.body2">@articulo.Cantidad @articulo.UnidadMedida de @articulo.Articulo</MudText>
+                                            <MudText Typo="Typo.body2">@TextoArticulo(articulo)</MudText>
                                         }
                                     </MudStack>
                                 </TooltipContent>
@@ -116,7 +128,7 @@
                         }
                     </CellTemplate>
                 </TemplateColumn>
-                <TemplateColumn Title="Cantidad">
+                <TemplateColumn Title="Cantidad" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
                         @* En blanco y no una suma cuando hay varios artículos: mezclar
                            cantidades de unidades de medida distintas (kilos con pares de
@@ -127,8 +139,29 @@
                             : "—")
                     </CellTemplate>
                 </TemplateColumn>
-                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
-                <PropertyColumn Property="x => x.Observaciones" Title="Observaciones" />
+                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <PropertyColumn Property="x => x.Observaciones" Title="Observaciones" CellClass="ac-col-clasica ac-col-escritorio" HeaderClass="ac-col-clasica ac-col-escritorio" />
+                @* Solo móvil: el destinatario arriba con su tipo como chip; la fecha y
+                   cada artículo entregado ("10 kg de Arroz") siempre a la vista, una
+                   línea por artículo en vez del chip "N artículos" con tooltip de la
+                   tabla; las observaciones, solo cuando hay, en "Ver más". *@
+                <TemplateColumn Title="Entrega" CellClass="ac-col-tarjeta" HeaderClass="ac-col-tarjeta">
+                    <CellTemplate>
+                        <TarjetaFila Titulo="@context.Item.NombreDestinatario"
+                                     Detalle="@(string.IsNullOrWhiteSpace(context.Item.Observaciones) ? null : DetalleObservaciones(context.Item))">
+                            <Estado>
+                                @ChipTipoDestinatario(context.Item.TipoDestinatario)
+                            </Estado>
+                            <Lineas>
+                                <p class="ac-tarjeta-dato">@context.Item.Fecha.ToString("dd/MM/yyyy")</p>
+                                @foreach (var articulo in context.Item.Articulos)
+                                {
+                                    <p class="ac-tarjeta-dato">@TextoArticulo(articulo)</p>
+                                }
+                            </Lineas>
+                        </TarjetaFila>
+                    </CellTemplate>
+                </TemplateColumn>
             </Columns>
             <LoadingContent>
                 <CargandoGrilla />
@@ -170,6 +203,31 @@
         public string? Observaciones { get; set; }
         public List<HistorialDonacionEntregadaDto> Articulos { get; set; } = new();
     }
+
+    // Beneficiario o Comunidad como chip: la misma etiqueta en la columna Tipo y
+    // en la tarjeta de móvil.
+    private RenderFragment ChipTipoDestinatario(string tipoDestinatario) => @<text>
+        @if (tipoDestinatario == TiposDestinatarioDonacion.Beneficiario)
+        {
+            <MudChip T="string" Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Person">Beneficiario</MudChip>
+        }
+        else
+        {
+            <MudChip T="string" Color="Color.Secondary" Size="Size.Small" Icon="@Icons.Material.Filled.People">Comunidad</MudChip>
+        }
+    </text>;
+
+    // "10 kg de Arroz": el mismo texto en el tooltip de la columna Artículo y en
+    // las líneas de la tarjeta de móvil.
+    private static string TextoArticulo(HistorialDonacionEntregadaDto articulo) =>
+        $"{articulo.Cantidad} {articulo.UnidadMedida} de {articulo.Articulo}";
+
+    // Las observaciones en el "Ver más" de la tarjeta de móvil. Solo se pasa
+    // cuando hay: sin Detalle, TarjetaFila no pinta un "Ver más" vacío.
+    private RenderFragment DetalleObservaciones(FilaHistorialEntrega fila) => @<text>
+        <dt>Observaciones</dt>
+        <dd>@fila.Observaciones</dd>
+    </text>;
 
     private HistorialEntregasResultadoDto resultado = new();
     private ArticuloExistenciaDto? articuloSeleccionado;
