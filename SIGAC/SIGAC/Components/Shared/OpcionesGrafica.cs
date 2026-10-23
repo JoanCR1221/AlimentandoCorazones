@@ -15,5 +15,11 @@ namespace SIGAC.Components.Shared
             <= 60 => 10,
             _ => 20
         };
+
+        // Etiquetas de mes ("Ene 2026") inclinadas, como los nombres largos de
+        // proveedor, donante o artículo. Las gráficas se dibujan al ancho real
+        // (MatchBoundsToSize): en un teléfono quedan unos 20px por mes y las doce
+        // etiquetas derechas se montaban unas sobre otras.
+        public const int RotacionEtiquetasMes = 45;
     }
 }

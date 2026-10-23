@@ -64,10 +64,12 @@
                     </MudText>
                 }
                 @* role="img" con el resumen de las cifras: el SVG de la gráfica no dice nada
-                   a un lector de pantalla (F-07). *@
-                <div role="img" aria-label="@TextoAlternativoGrafica.De(grafica.Titulo, grafica.Etiquetas, grafica.Series)">
+                   a un lector de pantalla (F-07). MatchBoundsToSize: se dibuja al ancho
+                   real del contenedor; sin esto el SVG de 700px se encogía como una
+                   imagen y en un teléfono los textos de los ejes quedaban de unos 5px. *@
+                <div role="img" class="ac-grafica" aria-label="@TextoAlternativoGrafica.De(grafica.Titulo, grafica.Etiquetas, grafica.Series)">
                     <MudChart T="double" ChartType="grafica.Tipo" ChartSeries="grafica.Series"
-                              ChartLabels="grafica.Etiquetas" ChartOptions="grafica.Opciones" Width="100%" Height="350px" />
+                              ChartLabels="grafica.Etiquetas" ChartOptions="grafica.Opciones" Width="100%" Height="350px" MatchBoundsToSize="true" />
                 </div>
             }
         }
@@ -167,7 +169,8 @@
                 ChartType.Line,
                 new() { new() { Name = "Monto gastado", Data = AlinearMontoPorMes(ventana, datos.MontoPorMes) } },
                 etiquetasMeses,
-                SoloColones: true),
+                SoloColones: true,
+                Opciones: new LineChartOptions { XAxisLabelRotation = OpcionesGrafica.RotacionEtiquetasMes }),
 
             [Estadistica.CantidadPorMes] = new(
                 "Cantidad de gastos por mes",
@@ -176,7 +179,7 @@
                 etiquetasMeses,
                 SoloColones: false,
                 // Conteo de uno o dos dígitos: sin esto el eje iba de 0 a 20.
-                Opciones: new BarChartOptions { YAxisTicks = OpcionesGrafica.PasoDeConteo(cantidadPorMes.Max()) }),
+                Opciones: new BarChartOptions { YAxisTicks = OpcionesGrafica.PasoDeConteo(cantidadPorMes.Max()), XAxisLabelRotation = OpcionesGrafica.RotacionEtiquetasMes }),
 
             [Estadistica.TopProveedores] = new(
                 "Proveedores con más gasto",

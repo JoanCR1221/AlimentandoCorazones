@@ -1089,6 +1089,155 @@ html[data-alto-contraste="true"] .sigac-usuario-activador:hover {
     }
 }
 
+/* --- Reportes (MudCard con Class="pa-4 ac-reporte") ---
+   Los reportes siguen siendo tablas en todos los tamaños (se consultan, se
+   exportan y se imprimen): nada de tarjetas. Si la tabla no cabe, se desliza
+   dentro de su propio marco (.mud-table-container, que Mud ya deja con
+   overflow automático), nunca la página. Cubre las MudDataGrid y las MudTable
+   del reporte de gastos sin marcar columna por columna. */
+
+/* Sombra en el borde por donde quedan columnas ocultas, solo si la tabla de
+   verdad se desliza: las dos primeras capas son "tapas" del color de la tabla
+   que viajan con el contenido (local) y esconden la sombra al llegar a cada
+   extremo; las otras dos son la sombra fija del marco. El tono sale de
+   --ac-ink para que en oscuro sea un brillo claro y no una sombra negra que
+   no se ve. */
+html .ac-reporte .mud-table-container {
+    background-image:
+        linear-gradient(to right, var(--mud-palette-surface) 30%, transparent),
+        linear-gradient(to left, var(--mud-palette-surface) 30%, transparent),
+        radial-gradient(farthest-side at 0 50%, color-mix(in srgb, var(--ac-ink) 22%, transparent), transparent),
+        radial-gradient(farthest-side at 100% 50%, color-mix(in srgb, var(--ac-ink) 22%, transparent), transparent);
+    background-position: left center, right center, left center, right center;
+    background-repeat: no-repeat;
+    background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
+    background-attachment: local, local, scroll, scroll;
+}
+
+/* Una fila, una línea: fechas, montos, cantidades y nombres no se parten.
+   Las columnas de texto libre (.ac-celda-texto: descripción, sectores,
+   origen/destino) sí bajan de línea, con un ancho mínimo para no quedar de
+   una palabra por renglón cuando la tabla se desliza. */
+html .ac-reporte .mud-table-root .mud-table-body .mud-table-cell {
+    white-space: nowrap;
+}
+
+html .ac-reporte .mud-table-root .mud-table-body .mud-table-cell.ac-celda-texto {
+    min-width: 12rem;
+    white-space: normal;
+}
+
+/* Primera columna (nombre o fecha) fija a la izquierda al deslizar, para no
+   perder de qué fila es cada cifra; la raya de la derecha hace de borde. En
+   el cuerpo lleva fondo opaco (el encabezado ya lo tiene) y puede partir un
+   nombre largo, con 8rem de mínimo para dejar sitio a las demás columnas en
+   un teléfono. La fila "No hay ..." de Mud (th.mud-table-empty-row, sin
+   .mud-table-cell) no entra. */
+html .ac-reporte .mud-table-root tr > .mud-table-cell:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    box-shadow: inset -1px 0 0 var(--ac-borde-suave);
+}
+
+html .ac-reporte .mud-table-root .mud-table-body tr > .mud-table-cell:first-child {
+    min-width: 8rem;
+    white-space: normal;
+    overflow-wrap: break-word;
+    background-color: var(--mud-palette-surface);
+}
+
+/* Sin filas: el encabezado de 6 a 8 columnas ensanchaba la tabla y el aviso
+   "No hay ... con estos filtros" quedaba centrado fuera de la vista en un
+   teléfono. Sin encabezado ocupa el ancho del marco (igual que el reporte de
+   gastos, que sin grupos no dibuja tabla). */
+html .ac-reporte .mud-table-root:has(.mud-table-empty-row) .mud-table-head {
+    display: none;
+}
+
+@media (max-width: 767px) {
+    /* Celdas a 16px (pauta de móvil) y relleno lateral de 12px en vez de los
+       16/24px de Dense. Con "html" y .mud-table-root para ganarle a Mud, que
+       carga su hoja después de app.css. */
+    html .ac-reporte .mud-table .mud-table-root .mud-table-cell {
+        padding: 8px 12px;
+        padding-inline: 12px;
+    }
+
+    html .ac-reporte .mud-table .mud-table-root .mud-table-body .mud-table-cell {
+        font-size: 1rem;
+    }
+
+    /* "Generar reporte" a todo el ancho, como el botón principal de un
+       formulario. */
+    .ac-reporte .mud-card-content > .mud-button-root {
+        width: 100%;
+    }
+
+    /* Exportar PDF / Excel / Imprimir: uno por fila y a todo el ancho (el
+       MudStack ya envuelve con Wrap.Wrap); en una fila no cabían en un
+       teléfono y empujaban la página hacia el costado. */
+    .ac-acciones-reporte > .mud-button-root {
+        flex: 1 1 100%;
+    }
+
+    /* Paginador en una línea: "1-20 de 45" a la izquierda y anterior/siguiente
+       a la derecha. Sin "Filas por página" ni primera/última página, que no
+       cabían. Sirve para el de MudDataGrid (rótulo en <p>) y el de MudTable
+       (bloque .mud-table-pagination-display). Mud fija 100px de alto bajo
+       417px y corre las flechas -14px: de ahí el "html" extra. */
+    html .ac-reporte .mud-table-pagination .mud-table-pagination-toolbar {
+        flex-wrap: nowrap;
+        justify-content: space-between;
+        min-height: 56px;
+        padding: 0 4px 0 12px;
+        padding-inline: 12px 4px;
+    }
+
+    .ac-reporte .mud-table-pagination-toolbar > .mud-table-pagination-spacer,
+    .ac-reporte .mud-table-pagination-toolbar > .mud-table-pagination-display,
+    .ac-reporte .mud-table-pagination-toolbar > .mud-select,
+    .ac-reporte .mud-table-pagination-toolbar > p.mud-table-pagination-caption:first-of-type,
+    .ac-reporte .mud-table-pagination-actions > .mud-icon-button:first-child,
+    .ac-reporte .mud-table-pagination-actions > .mud-icon-button:last-child {
+        display: none;
+    }
+
+    .ac-reporte .mud-table-pagination-toolbar > .mud-table-pagination-caption {
+        margin: 0;
+        padding: 0;
+        font-size: 1rem;
+    }
+
+    html .ac-reporte .mud-table .mud-table-pagination .mud-table-pagination-toolbar .mud-table-pagination-actions {
+        flex: none;
+        margin: 0;
+        margin-inline: 0;
+    }
+
+    /* Gráficas de los panoramas (<div role="img" class="ac-grafica">): la
+       leyenda es HTML bajo el dibujo y baja de línea sola; a 16px como el
+       resto del texto. */
+    .ac-grafica .mud-chart-legend .mud-typography-body2 {
+        font-size: 1rem;
+    }
+}
+
+/* Impresión: el botón Imprimir de los reportes manda el PDF del servidor, no
+   la pantalla. Esto es solo para quien use Ctrl+P sobre la página: sin la
+   sombra ni la columna fija, que en papel no significan nada. */
+@media print {
+    html .ac-reporte .mud-table-container {
+        background: none;
+        overflow: visible;
+    }
+
+    html .ac-reporte .mud-table-root tr > .mud-table-cell:first-child {
+        position: static;
+        box-shadow: none;
+    }
+}
+
 /* --- Portada (Home.razor): hero + tarjetas de módulos --- */
 .ac-hero {
     margin-bottom: 2rem;

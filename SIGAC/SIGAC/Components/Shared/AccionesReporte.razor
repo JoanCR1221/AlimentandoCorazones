@@ -12,7 +12,7 @@
    el indicador de carga, la descarga (js/reportes.js, Blazor Server no puede
    bajar archivos por su cuenta) y los mensajes de error, así que un reporte
    nuevo (Donaciones, Inventario, Gastos) no repite este código. *@
-<MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+<MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="ac-acciones-reporte">
     <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PictureAsPdf"
                Disabled="@(exportando || Datos.Count == 0)" OnClick="ExportarPdfAsync">
         Exportar PDF

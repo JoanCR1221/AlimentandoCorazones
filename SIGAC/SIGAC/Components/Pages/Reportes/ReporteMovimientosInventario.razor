@@ -12,16 +12,16 @@
 <EncabezadoPagina Titulo="Reporte de movimientos de inventario"
                    Descripcion="Entradas y donaciones de artículos en el período, con las unidades que entraron y las que salieron." />
 
-<MudCard Class="pa-4">
+<MudCard Class="pa-4 ac-reporte">
     <MudCardContent>
         <MudGrid Spacing="2" Class="mb-2">
-            <MudItem xs="12" md="4">
+            <MudItem xs="12" sm="6" lg="4">
                 <MudAutocomplete T="ArticuloExistenciaDto" Label="Artículo" Variant="Variant.Outlined"
                                  Value="articuloSeleccionado" ValueChanged="@(v => articuloSeleccionado = v)"
                                  SearchFunc="BuscarArticulosAsync" ToStringFunc="@(a => a?.Etiqueta)" Clearable="true"
                                  ResetValueOnEmptyText="true" />
             </MudItem>
-            <MudItem xs="12" md="4">
+            <MudItem xs="12" sm="6" lg="4">
                 @* Sin selección son todos. Los valores son los guardados, los mismos del
                    historial de movimientos. *@
                 <MudSelect T="string" Value="filtroTipo" ValueChanged="@(v => filtroTipo = v)"
@@ -30,7 +30,7 @@
                     <MudSelectItem T="string" Value="@("Donacion")">Donación</MudSelectItem>
                 </MudSelect>
             </MudItem>
-            <MudItem xs="12" md="4">
+            <MudItem xs="12" sm="6" lg="4">
                 <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="@(v => rangoFechas = v)"
                                     Label="Rango de fechas" Variant="Variant.Outlined"
                                     DateFormat="dd/MM/yyyy" Clearable="true" MaxDate="DateTime.Today" />
@@ -65,16 +65,18 @@
             </section>
 
             @* El reporte trae todas las filas (el PDF y el Excel las necesitan), pero la
-               pantalla las pagina en memoria: ver PaginacionReporte. *@
+               pantalla las pagina en memoria: ver PaginacionReporte. Breakpoint.None:
+               también en el teléfono es tabla (Mud la apilaba bajo 600px) y se desliza
+               dentro de su marco; ver "Reportes" en app.css. *@
             <MudDataGrid T="ReporteMovimientosDto" Items="@resultado.Filas" Class="mb-4"
                          RowsPerPage="PaginacionReporte.TamanoPredeterminado"
-                         SortMode="SortMode.None" Filterable="false" Dense="true">
+                         SortMode="SortMode.None" Filterable="false" Dense="true" Breakpoint="Breakpoint.None">
                 <Columns>
                     <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
                     <PropertyColumn Property="x => x.Articulo" Title="Artículo" />
                     <PropertyColumn Property="x => x.TipoMovimiento" Title="Tipo" />
                     <PropertyColumn Property="x => x.Cantidad" Title="Cantidad" />
-                    <PropertyColumn Property="x => x.OrigenODestino" Title="Origen / destino" />
+                    <PropertyColumn Property="x => x.OrigenODestino" Title="Origen / destino" CellClass="ac-celda-texto" />
                 </Columns>
                 <NoRecordsContent>
                     <EstadoVacio Icono="@Icons.Material.Filled.SearchOff"
