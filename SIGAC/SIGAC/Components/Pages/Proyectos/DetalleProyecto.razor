@@ -67,9 +67,13 @@ else
                 }
             </div>
 
-            <MudDataGrid T="ParticipanteListaDto" Items="@proyecto.Participantes" SortMode="SortMode.None" Filterable="false">
+            @* Una sola grilla para los tres tamaños (ver ListadoBeneficiarios): en móvil
+               (< 768px) solo se ve la celda "tarjeta"; desde 768px, la tabla con
+               todas las columnas (Acciones solo con el proyecto abierto). *@
+            <MudDataGrid T="ParticipanteListaDto" Items="@proyecto.Participantes" SortMode="SortMode.None" Filterable="false"
+                         Class="ac-grilla-tarjetas" Breakpoint="Breakpoint.None">
                 <Columns>
-                    <TemplateColumn Title="Nombre">
+                    <TemplateColumn Title="Nombre" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                         <CellTemplate>
                             @context.Item.Nombre
                             @if (context.Item.EsBeneficiario && !context.Item.BeneficiarioActivo)
@@ -78,22 +82,54 @@ else
                             }
                         </CellTemplate>
                     </TemplateColumn>
-                    <TemplateColumn Title="Tipo">
-                        <CellTemplate>@(context.Item.EsBeneficiario ? "Beneficiario" : "Externo")</CellTemplate>
+                    <TemplateColumn Title="Tipo" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
+                        <CellTemplate>@TipoDeParticipante(context.Item)</CellTemplate>
                     </TemplateColumn>
-                    <PropertyColumn Property="x => x.Contacto" Title="Contacto" />
-                    <PropertyColumn Property="x => x.FechaRegistro" Title="Agregado el" Format="dd/MM/yyyy" />
+                    @* El contacto es texto libre ("teléfono o correo"): un correo largo
+                       parte la línea en vez de ensanchar la tabla en tableta. *@
+                    <PropertyColumn Property="x => x.Contacto" Title="Contacto" CellClass="ac-col-clasica ac-celda-larga" HeaderClass="ac-col-clasica" />
+                    <PropertyColumn Property="x => x.FechaRegistro" Title="Agregado el" Format="dd/MM/yyyy" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
                     @if (!proyecto.EstaCerrado)
                     {
-                        <TemplateColumn Title="Acciones">
+                        <TemplateColumn Title="Acciones" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                             <CellTemplate>
-                                <AuthorizeView Policy="@Permisos.Proyectos.RegistrarParticipante" Context="auth">
-                                    <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error"
-                                               OnClick="@(() => QuitarAsync(context.Item))">Quitar</MudButton>
-                                </AuthorizeView>
+                                <div class="ac-acciones-tabla">
+                                    @Acciones(context.Item, false)
+                                </div>
                             </CellTemplate>
                         </TemplateColumn>
                     }
+                    @* Solo móvil: nombre y tipo arriba; el aviso de beneficiario
+                       inactivo, el contacto y la fecha en que se sumó siempre a la
+                       vista (sin "Ver más": no queda nada más que mostrar), y Quitar
+                       al pie mientras el proyecto siga abierto. *@
+                    <TemplateColumn Title="Participante" CellClass="ac-col-tarjeta" HeaderClass="ac-col-tarjeta">
+                        <CellTemplate>
+                            <TarjetaFila Titulo="@context.Item.Nombre">
+                                <Estado>
+                                    <span class="ac-tarjeta-etiqueta">@TipoDeParticipante(context.Item)</span>
+                                </Estado>
+                                <Lineas>
+                                    @if (context.Item.EsBeneficiario && !context.Item.BeneficiarioActivo)
+                                    {
+                                        <p class="ac-tarjeta-dato">(beneficiario inactivo)</p>
+                                    }
+                                    @* Texto y no EnlaceContacto: el contacto es libre (de un
+                                       externo puede ser un teléfono, un correo o los dos, hasta
+                                       150 caracteres) y no alcanza para armar un tel: o un
+                                       mailto: confiable. *@
+                                    @if (!string.IsNullOrWhiteSpace(context.Item.Contacto))
+                                    {
+                                        <p class="ac-tarjeta-dato">Contacto: @context.Item.Contacto</p>
+                                    }
+                                    <p class="ac-tarjeta-dato">Agregado el @context.Item.FechaRegistro.ToString("dd/MM/yyyy")</p>
+                                </Lineas>
+                                <Acciones>
+                                    @Acciones(context.Item, true)
+                                </Acciones>
+                            </TarjetaFila>
+                        </CellTemplate>
+                    </TemplateColumn>
                 </Columns>
                 <NoRecordsContent>
                     <EstadoVacio Icono="@Icons.Material.Filled.GroupAdd"
@@ -113,6 +149,25 @@ else
     public int Id { get; set; }
 
     private ProyectoDetalleDto? proyecto;
+
+    // Solo Quitar, y solo con el proyecto abierto: un proyecto cerrado conserva
+    // la lista con la que se cerró (el servicio también lo rechaza). En la tabla
+    // la columna entera ya no se dibuja; en la tarjeta, sin botón no se pinta el
+    // pie. La misma pieza sirve a la tabla (botón chico) y a la tarjeta de móvil
+    // (del tamaño normal; lo estira app.css).
+    private RenderFragment Acciones(ParticipanteListaDto item, bool tarjeta) => @<text>
+        @if (proyecto is { EstaCerrado: false })
+        {
+            <AuthorizeView Policy="@Permisos.Proyectos.RegistrarParticipante" Context="auth">
+                <MudButton Variant="Variant.Outlined" Size="@(tarjeta ? Size.Medium : Size.Small)" Color="Color.Error"
+                           OnClick="@(() => QuitarAsync(item))">Quitar</MudButton>
+            </AuthorizeView>
+        }
+    </text>;
+
+    // El mismo texto en la columna Tipo y en la etiqueta de la tarjeta.
+    private static string TipoDeParticipante(ParticipanteListaDto participante) =>
+        participante.EsBeneficiario ? "Beneficiario" : "Externo";
 
     protected override async Task OnParametersSetAsync() => await CargarAsync();
 

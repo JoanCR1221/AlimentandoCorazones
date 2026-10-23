@@ -38,49 +38,51 @@
            devuelve IReadOnlyList sin paginar, con el mismo criterio que Gastos (el
            volumen de proyectos de la asociación no la justifica). Si algún día se
            agrega paginación al repositorio, esta grilla pasa a ServerData. *@
-        <MudDataGrid T="ProyectoListaDto" Items="@proyectos" Loading="cargando">
+        @* Una sola grilla para los tres tamaños (ver ListadoBeneficiarios): en móvil
+           (< 768px) solo se ve la celda "tarjeta"; desde 768px, la tabla con las
+           seis columnas. *@
+        <MudDataGrid T="ProyectoListaDto" Items="@proyectos" Loading="cargando"
+                     Class="ac-grilla-tarjetas" Breakpoint="Breakpoint.None">
             <Columns>
                 @* El nombre abre la ficha del proyecto, donde están los participantes. *@
-                <TemplateColumn Title="Nombre">
+                <TemplateColumn Title="Nombre" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
                         <MudLink Href="@($"/proyectos/{context.Item.Id}")">@context.Item.Nombre</MudLink>
                     </CellTemplate>
                 </TemplateColumn>
-                <PropertyColumn Property="x => x.FechaInicio" Title="Inicio" Format="dd/MM/yyyy" />
-                <PropertyColumn Property="x => x.FechaEstimadaFin" Title="Fin estimado" Format="dd/MM/yyyy" />
-                <TemplateColumn Title="Estado">
+                <PropertyColumn Property="x => x.FechaInicio" Title="Inicio" Format="dd/MM/yyyy" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <PropertyColumn Property="x => x.FechaEstimadaFin" Title="Fin estimado" Format="dd/MM/yyyy" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <TemplateColumn Title="Estado" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
                         @* El DTO trae el estado ya como string (Estado.ToString()),
                            así que se traduce desde el texto y no desde el enum. *@
                         @EtiquetaEstado(context.Item.Estado)
                     </CellTemplate>
                 </TemplateColumn>
-                <PropertyColumn Property="x => x.TotalParticipantes" Title="Participantes" />
-                <TemplateColumn Title="Acciones">
+                <PropertyColumn Property="x => x.TotalParticipantes" Title="Participantes" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <TemplateColumn Title="Acciones" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
-                        @* Ver siempre, también en un proyecto cerrado: la ficha es de
-                           consulta. Los participantes se agregan y quitan desde ahí. *@
-                        <MudButton Variant="Variant.Text" Color="Color.Secondary" Href="@($"/proyectos/{context.Item.Id}")">Ver</MudButton>
-
-                        @* Finalizado y Cancelado son estados de cierre: el servicio
-                           rechaza editarlos, así que los botones se ocultan en vez de
-                           dejar que el usuario descubra el error al guardar. Mismo
-                           criterio que ListadoGastos.razor con el botón Anular de un
-                           gasto ya anulado. *@
-                        @if (!EsEstadoTerminal(context.Item.Estado))
-                        {
-                            @* Cada acción solo si el usuario tiene su permiso (módulo de
-                               seguridad). Context="auth" para no pisar el context de la celda. *@
-                            <AuthorizeView Policy="@Permisos.Proyectos.Editar" Context="auth">
-                                <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/proyectos/editar/{context.Item.Id}")">Editar</MudButton>
-                            </AuthorizeView>
-                            @* Cancelado no aparece acá aunque también sea terminal:
-                               un proyecto cancelado no se finaliza (el servicio lo
-                               rechaza), se queda cancelado. *@
-                            <AuthorizeView Policy="@Permisos.Proyectos.Finalizar" Context="auth">
-                                <MudButton Variant="Variant.Text" Color="Color.Success" OnClick="@(() => FinalizarAsync(context.Item.Id, context.Item.Nombre))">Finalizar</MudButton>
-                            </AuthorizeView>
-                        }
+                        <div class="ac-acciones-tabla">
+                            @Acciones(context.Item, false)
+                        </div>
+                    </CellTemplate>
+                </TemplateColumn>
+                @* Solo móvil: nombre y estado arriba, las fechas y los participantes
+                   siempre a la vista, y Ver / Editar / Finalizar al pie. *@
+                <TemplateColumn Title="Proyecto" CellClass="ac-col-tarjeta" HeaderClass="ac-col-tarjeta">
+                    <CellTemplate>
+                        <TarjetaFila Titulo="@context.Item.Nombre">
+                            <Estado>
+                                <span class="ac-tarjeta-etiqueta">@EtiquetaEstado(context.Item.Estado)</span>
+                            </Estado>
+                            <Lineas>
+                                <p class="ac-tarjeta-dato">@context.Item.FechaInicio.ToString("dd/MM/yyyy") – @context.Item.FechaEstimadaFin.ToString("dd/MM/yyyy") (estimado)</p>
+                                <p class="ac-tarjeta-dato">@TextoResumen.Cantidad(context.Item.TotalParticipantes, "participante", "participantes")</p>
+                            </Lineas>
+                            <Acciones>
+                                @Acciones(context.Item, true)
+                            </Acciones>
+                        </TarjetaFila>
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
@@ -111,6 +113,34 @@
 </MudCard>
 
 @code {
+    // La misma pieza sirve a la tabla (botones planos) y a la tarjeta de móvil
+    // (botones con contorno; los estira app.css).
+    private RenderFragment Acciones(ProyectoListaDto item, bool tarjeta) => @<text>
+        @* Ver siempre, también en un proyecto cerrado: la ficha es de
+           consulta. Los participantes se agregan y quitan desde ahí. *@
+        <MudButton Variant="@(tarjeta ? Variant.Outlined : Variant.Text)" Color="Color.Secondary" Href="@($"/proyectos/{item.Id}")">Ver</MudButton>
+
+        @* Finalizado y Cancelado son estados de cierre: el servicio
+           rechaza editarlos, así que los botones se ocultan en vez de
+           dejar que el usuario descubra el error al guardar. Mismo
+           criterio que ListadoGastos.razor con el botón Anular de un
+           gasto ya anulado. *@
+        @if (!EsEstadoTerminal(item.Estado))
+        {
+            @* Cada acción solo si el usuario tiene su permiso (módulo de
+               seguridad). Context="auth" para no pisar el context de la celda. *@
+            <AuthorizeView Policy="@Permisos.Proyectos.Editar" Context="auth">
+                <MudButton Variant="@(tarjeta ? Variant.Outlined : Variant.Text)" Color="Color.Primary" Href="@($"/proyectos/editar/{item.Id}")">Editar</MudButton>
+            </AuthorizeView>
+            @* Cancelado no aparece acá aunque también sea terminal:
+               un proyecto cancelado no se finaliza (el servicio lo
+               rechaza), se queda cancelado. *@
+            <AuthorizeView Policy="@Permisos.Proyectos.Finalizar" Context="auth">
+                <MudButton Variant="@(tarjeta ? Variant.Outlined : Variant.Text)" Color="Color.Success" OnClick="@(() => FinalizarAsync(item.Id, item.Nombre))">Finalizar</MudButton>
+            </AuthorizeView>
+        }
+    </text>;
+
     private IReadOnlyList<ProyectoListaDto> proyectos = Array.Empty<ProyectoListaDto>();
     private string? filtroNombre;
     private EstadoProyecto? filtroEstado;

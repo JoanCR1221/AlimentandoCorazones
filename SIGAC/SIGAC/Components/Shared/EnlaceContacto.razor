@@ -1,0 +1,29 @@
+@* Teléfono o correo de la tarjeta de un listado, como enlace para llamar o
+   escribir con un toque (zona táctil de 48px, ver .ac-tarjeta-enlace en
+   app.css). Un valor vacío no pinta nada. *@
+@if (!string.IsNullOrWhiteSpace(Telefono))
+{
+    <a class="ac-tarjeta-enlace" href="@HrefTelefono">
+        <MudIcon Icon="@Icons.Material.Filled.Phone" Size="Size.Small" aria-hidden="true" />
+        @Telefono
+    </a>
+}
+@if (!string.IsNullOrWhiteSpace(Correo))
+{
+    <a class="ac-tarjeta-enlace" href="@($"mailto:{Correo}")">
+        <MudIcon Icon="@Icons.Material.Filled.Email" Size="Size.Small" aria-hidden="true" />
+        @Correo
+    </a>
+}
+
+@code {
+    [Parameter]
+    public string? Telefono { get; set; }
+
+    [Parameter]
+    public string? Correo { get; set; }
+
+    // Solo dígitos y el "+" inicial: lo que entiende el marcador del teléfono.
+    private string HrefTelefono =>
+        "tel:" + new string((Telefono ?? string.Empty).Where(c => char.IsDigit(c) || c == '+').ToArray());
+}

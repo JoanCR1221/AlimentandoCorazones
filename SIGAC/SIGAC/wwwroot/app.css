@@ -768,6 +768,327 @@ html[data-alto-contraste="true"] .sigac-usuario-activador:hover {
     justify-self: start;
 }
 
+/* --- Listados en tres tamaños (MudDataGrid con Class="ac-grilla-tarjetas") ---
+   La grilla trae siempre las mismas celdas y acá se decide cuáles se ven:
+   - móvil (< 768px): solo la celda .ac-col-tarjeta; cada fila es una tarjeta;
+   - tableta y laptop chico (768px a 1439px): sin las .ac-col-escritorio (el
+     detalle de cada fila queda en "Ver más", .ac-detalle-tableta). El tope es
+     1439px y no 1024px porque desde 960px el menú lateral es fijo y le quita
+     240px al contenido: a 1280px de pantalla solo quedan ~930px para la
+     tabla y las ocho columnas necesitan ~1010px;
+   - escritorio (1440px o más): todas las columnas, sin "Ver más".
+   Mismo diseño que usarán los demás listados: basta con marcar las celdas con
+   estas clases. */
+/* .ac-solo-tableta: un dato que en tableta va en chico bajo el principal porque
+   su columna se oculta ahí y no amerita un "Ver más" (el rol bajo el usuario en
+   la Bitácora, cuya fila ya tiene su propio botón para desplegar). */
+.ac-grilla-tarjetas .mud-table-root .ac-col-tarjeta,
+.ac-grilla-tarjetas .mud-table-root .ac-detalle-tableta,
+.ac-grilla-tarjetas .mud-table-root .ac-solo-tableta {
+    display: none;
+}
+
+@media (min-width: 768px) and (max-width: 1439px) {
+    .ac-grilla-tarjetas .mud-table-root .ac-col-escritorio {
+        display: none;
+    }
+
+    .ac-grilla-tarjetas .mud-table-root .ac-detalle-tableta,
+    .ac-grilla-tarjetas .mud-table-root .ac-solo-tableta {
+        display: block;
+    }
+
+    /* Con 6 columnas y el relleno de 16px de Mud, la tabla no cabe en 768px:
+       celdas más compactas y los dos botones de acción uno sobre otro. */
+    .ac-grilla-tarjetas .mud-table-root .mud-table-cell {
+        padding: 12px 8px;
+    }
+
+    /* Grillas con Dense="true" (Calendario de alquileres, Usuarios): Mud les
+       pone 16px y 24px a los lados con la misma especificidad que la regla de
+       arriba, y como su hoja carga después de app.css, ganaba. El "html" extra
+       le gana; arriba y abajo se respeta el alto compacto de Dense. */
+    html .ac-grilla-tarjetas.mud-table-dense .mud-table-root .mud-table-cell {
+        padding: 6px 8px;
+    }
+
+    /* Celda del botón para desplegar (HierarchyColumn de la Bitácora): el botón
+       trae un margen de -12px (ma-n3, con !important) pensado para los 16px de
+       relleno de Mud; con los 8px de arriba se salía 4px de la celda y quedaba
+       pegado al borde de la tabla. HierarchyColumn no acepta CellClass: la celda
+       se reconoce por tener un botón de icono como hijo directo. */
+    html .ac-grilla-tarjetas.mud-table-dense .mud-table-root .mud-table-body .mud-table-cell:has(> .mud-icon-button) {
+        padding: 6px 8px 6px 16px;
+    }
+
+    /* Datos largos (correos): parten la línea en vez de ensanchar la tabla. El
+       ancho mínimo evita que, con tantas columnas, la tabla le deje al correo
+       solo 6 o 7 letras por línea. */
+    .ac-grilla-tarjetas .mud-table-root .ac-celda-larga {
+        min-width: 9rem;
+        overflow-wrap: anywhere;
+    }
+
+    .ac-grilla-tarjetas .ac-acciones-tabla {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+    }
+
+    .ac-grilla-tarjetas .ac-acciones-tabla .mud-button-root {
+        margin: 0;
+    }
+}
+
+/* Detalle desplegable (tableta y tarjeta de móvil): el resumen es un control
+   de 48px de alto. */
+.ac-grilla-tarjetas summary {
+    display: flex;
+    align-items: center;
+    min-height: 48px;
+    color: var(--ac-coral-700);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.ac-detalle-datos {
+    display: grid;
+    /* minmax(0, 1fr) y no 1fr: un valor largo sin espacios (un correo, un
+       detalle) no ensancha la columna más allá de la tarjeta. */
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 4px 16px;
+    margin: 0 0 8px;
+}
+
+.ac-detalle-datos dt {
+    color: var(--ac-ink-suave);
+}
+
+.ac-detalle-datos dd {
+    margin: 0;
+    overflow-wrap: break-word;
+}
+
+/* En la celda del nombre (tableta) no hay ancho para dos columnas: etiqueta
+   arriba y valor debajo. */
+.ac-detalle-tableta .ac-detalle-datos {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+}
+
+.ac-detalle-tableta .ac-detalle-datos dd {
+    margin-bottom: 8px;
+}
+
+@media (max-width: 767px) {
+    /* La grilla deja de ser un marco con tabla: las tarjetas son el marco. */
+    html .ac-grilla-tarjetas.mud-data-grid,
+    html .ac-grilla-tarjetas .mud-table-container {
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        overflow: visible;
+    }
+
+    /* Paginador en una sola línea: sin el selector de filas por página (en un
+       teléfono sobra), con "1-20 de 45" a la izquierda y las flechas, de 48px,
+       a la derecha. */
+    .ac-grilla-tarjetas .mud-table-pagination {
+        border: 0;
+        background: transparent;
+    }
+
+    /* Mud fija una altura de 100px (dos filas) para su paginador en pantallas
+       angostas: de ahí el "html" extra para pisarla. */
+    html .ac-grilla-tarjetas .mud-table-pagination .mud-table-pagination-toolbar {
+        flex-wrap: nowrap;
+        justify-content: space-between;
+        min-height: 56px;
+        padding: 0;
+    }
+
+    .ac-grilla-tarjetas .mud-table-pagination-toolbar > .mud-table-pagination-spacer,
+    .ac-grilla-tarjetas .mud-table-pagination-toolbar > .mud-select,
+    .ac-grilla-tarjetas .mud-table-pagination-toolbar > p.mud-table-pagination-caption:first-of-type {
+        display: none;
+    }
+
+    .ac-grilla-tarjetas .mud-table-pagination-toolbar > p.mud-table-pagination-caption {
+        margin: 0;
+        padding: 0 8px;
+        font-size: 1rem;
+    }
+
+    /* Mud, bajo 417px, les pone margin-inline "auto -14px" (con 4 selectores de
+       clase): hay que igualarlo y ponerlo en forma lógica también. */
+    html .mud-table.ac-grilla-tarjetas .mud-table-pagination .mud-table-pagination-toolbar .mud-table-pagination-actions {
+        flex: none;
+        margin: 0;
+        margin-inline: 0;
+    }
+
+    /* Mud declara estas mismas propiedades con la misma especificidad y carga su
+       hoja después de app.css: el ".mud-table-root" extra es para ganarle. */
+    .ac-grilla-tarjetas .mud-table-root,
+    .ac-grilla-tarjetas .mud-table-root .mud-table-body,
+    .ac-grilla-tarjetas .mud-table-root .mud-table-row,
+    .ac-grilla-tarjetas .mud-table-root .mud-table-cell {
+        display: block;
+    }
+
+    .ac-grilla-tarjetas .mud-table-root .mud-table-head {
+        display: none;
+    }
+
+    .ac-grilla-tarjetas .mud-table-root .ac-col-clasica {
+        display: none;
+    }
+
+    /* Fila desplegable (HierarchyColumn, en la Bitácora): en la tarjeta el
+       detalle va en su "Ver más", así que se ocultan la celda del botón para
+       desplegar (sin CellClass propio: es la única con un botón de icono como
+       hijo directo) y la fila hija, por si quedó abierta al achicar la ventana
+       desde tableta; si no, quedaría como una tarjeta suelta. */
+    .ac-grilla-tarjetas .mud-table-root .mud-table-body .mud-table-cell:has(> .mud-icon-button),
+    .ac-grilla-tarjetas .mud-table-root .mud-table-body .mud-table-row:has(> .mud-table-child-content) {
+        display: none;
+    }
+
+    .ac-grilla-tarjetas .mud-table-root .mud-table-body .mud-table-row {
+        margin-bottom: 12px;
+        border: 1px solid var(--ac-borde-suave);
+        border-radius: 10px;
+        background: var(--ac-superficie);
+        box-shadow: 0 1px 2px rgba(var(--ac-sombra-rgb), 0.06);
+    }
+
+    .ac-grilla-tarjetas .mud-table-root .ac-col-tarjeta {
+        display: block;
+        padding: 16px;
+        border: 0;
+        white-space: normal;
+    }
+
+    /* Mismo choque con Dense="true": sin el "html" extra, la tarjeta quedaba
+       con 6px arriba y abajo en vez de 16px. */
+    html .ac-grilla-tarjetas.mud-table-dense .mud-table-root .ac-col-tarjeta {
+        padding: 16px;
+    }
+
+    .ac-tarjeta-cabecera {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .ac-tarjeta-titulo {
+        min-width: 0;
+        font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
+        font-size: 1.125rem;
+        font-weight: 600;
+        line-height: 1.3;
+        overflow-wrap: anywhere;
+        color: var(--ac-ink);
+    }
+
+    .ac-tarjeta-dato {
+        margin: 4px 0 0;
+        font-size: 1rem;
+        color: var(--ac-ink-suave);
+        overflow-wrap: anywhere;
+    }
+
+    /* Teléfono o correo (EnlaceContacto): una línea por enlace, de 48px de alto. */
+    .ac-tarjeta-enlace {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 48px;
+        font-size: 1rem;
+        font-variant-numeric: tabular-nums;
+        overflow-wrap: anywhere;
+    }
+
+    /* Un enlace de contacto dentro del "Ver más" (el teléfono del arrendatario
+       en el Calendario de alquileres) mide 48px de alto: su etiqueta se centra
+       con él en vez de quedar pegada arriba. */
+    .ac-detalle-datos dt:has(+ dd > .ac-tarjeta-enlace) {
+        align-self: center;
+    }
+
+    .ac-tarjeta-mas {
+        margin-top: 4px;
+        border-top: 1px solid var(--ac-borde-suave);
+    }
+
+    /* Acciones al pie, lado a lado y de 48px. Sin ningún botón (acciones sin
+       permiso o que no aplican al estado de la fila) no se pinta ni la raya. */
+    .ac-tarjeta-acciones {
+        display: flex;
+        gap: 8px;
+        padding-top: 8px;
+        border-top: 1px solid var(--ac-borde-suave);
+    }
+
+    .ac-tarjeta-acciones:not(:has(*)) {
+        display: none;
+    }
+
+    /* Un menú (MudMenu) como única acción: ocupa todo el ancho. */
+    .ac-tarjeta-acciones .mud-menu {
+        flex: 1 1 0;
+        display: flex;
+    }
+
+    /* Dentro del menú, junto al botón va el contenedor (vacío) de su popover:
+       solo el botón se estira. */
+    .ac-tarjeta-acciones .mud-menu > .mud-popover-cascading-value {
+        flex: none;
+        width: 0;
+    }
+
+    .ac-tarjeta-acciones .mud-menu > .mud-button-root {
+        flex: 1 1 auto;
+        width: 100%;
+    }
+
+    /* Cifra destacada de la tarjeta (un monto, por ejemplo). */
+    .ac-tarjeta-total {
+        margin: 4px 0 0;
+        font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
+        font-size: 1.25rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        color: var(--ac-ink);
+    }
+
+    /* Etiqueta de texto (como un estado sin color propio) junto al título. */
+    .ac-tarjeta-etiqueta {
+        flex: none;
+        padding: 2px 10px;
+        border: 1px solid var(--ac-borde);
+        border-radius: 999px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--ac-ink);
+    }
+
+    .ac-tarjeta-acciones .mud-button-root {
+        flex: 1 1 0;
+        min-height: 48px;
+        margin: 0;
+    }
+
+    /* Tarjetas de página con "pa-4": con el relleno propio de MudCardContent
+       sumaban 32px por lado y el contenido quedaba angosto en un teléfono. */
+    .sigac-main .mud-card.pa-4 {
+        padding: 4px !important;
+    }
+}
+
 /* --- Portada (Home.razor): hero + tarjetas de módulos --- */
 .ac-hero {
     margin-bottom: 2rem;

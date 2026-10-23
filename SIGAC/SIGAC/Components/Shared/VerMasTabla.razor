@@ -1,0 +1,13 @@
+@* "Ver más" bajo el dato principal de una fila de tabla, solo en tableta y
+   laptop chico (768px a 1439px; ver .ac-detalle-tableta en app.css): ahí las
+   columnas secundarias se ocultan y sus datos se despliegan acá, como pares
+   <dt>/<dd>. En móvil y escritorio no se ve. *@
+<details class="ac-detalle-tableta">
+    <summary>Ver más</summary>
+    <dl class="ac-detalle-datos">@ChildContent</dl>
+</details>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

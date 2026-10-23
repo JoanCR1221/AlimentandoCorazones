@@ -1,0 +1,41 @@
+@* Contenido de la celda "tarjeta" de un listado en móvil (< 768px): una fila de
+   la grilla convertida en tarjeta. Va dentro de un TemplateColumn con
+   CellClass="ac-col-tarjeta"; las reglas .ac-grilla-tarjetas de app.css hacen
+   que solo esa celda se vea en un teléfono.
+   - Titulo y Estado: arriba, el dato principal y la etiqueta de estado.
+   - Lineas: los datos que siempre se ven (p. ej. <p class="ac-tarjeta-dato">).
+   - Detalle: los pares <dt>/<dd> que quedan en "Ver más".
+   - Acciones: botones al pie, de 48px. *@
+<div class="ac-tarjeta-cabecera">
+    <span class="ac-tarjeta-titulo">@Titulo</span>
+    @Estado
+</div>
+@Lineas
+@if (Detalle is not null)
+{
+    <details class="ac-tarjeta-mas">
+        <summary>Ver más</summary>
+        <dl class="ac-detalle-datos">@Detalle</dl>
+    </details>
+}
+@if (Acciones is not null)
+{
+    <div class="ac-tarjeta-acciones">@Acciones</div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public string Titulo { get; set; } = string.Empty;
+
+    [Parameter]
+    public RenderFragment? Estado { get; set; }
+
+    [Parameter]
+    public RenderFragment? Lineas { get; set; }
+
+    [Parameter]
+    public RenderFragment? Detalle { get; set; }
+
+    [Parameter]
+    public RenderFragment? Acciones { get; set; }
+}

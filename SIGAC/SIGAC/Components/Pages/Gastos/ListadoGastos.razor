@@ -79,55 +79,80 @@
            columna solo reordenaría la página visible, que sería engañoso. El total
            acumulado de arriba es del conjunto filtrado completo, no de la página:
            viene de un agregado en la base. *@
-        <MudDataGrid T="GastoOperativoListaDto" @ref="grilla"
+        @* Una sola grilla para los tres tamaños (ver ListadoBeneficiarios): en móvil
+           (< 768px) solo se ve la celda "tarjeta"; en tableta y laptop chico, sin
+           Factura ni los montos sin IVA y con IVA, que van en el "Ver más" bajo el
+           proveedor; en escritorio, las nueve columnas. *@
+        <MudDataGrid T="GastoOperativoListaDto" @ref="grilla" Class="ac-grilla-tarjetas" Breakpoint="Breakpoint.None"
                      ServerData="CargarPaginaAsync"
                      RowsPerPage="FiltrosGastoDto.TamanoPaginaPredeterminado"
-                     SortMode="SortMode.None" Filterable="false" Breakpoint="Breakpoint.Sm">
+                     SortMode="SortMode.None" Filterable="false">
             <Columns>
-                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
-                <PropertyColumn Property="x => x.TipoGasto" Title="Tipo de gasto" />
-                <PropertyColumn Property="x => x.Proveedor" Title="Proveedor" />
-                <PropertyColumn Property="x => x.NumeroFactura" Title="Factura" />
-                <TemplateColumn Title="Monto sin IVA" CellStyle="white-space: nowrap">
+                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <PropertyColumn Property="x => x.TipoGasto" Title="Tipo de gasto" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <TemplateColumn Title="Proveedor" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
+                    <CellTemplate>
+                        @context.Item.Proveedor
+                        <VerMasTabla>
+                            <dt>Factura</dt>
+                            <dd>@context.Item.NumeroFactura</dd>
+                            <dt>Monto sin IVA</dt>
+                            <dd>@TiposMoneda.ConSimbolo(context.Item.Moneda, context.Item.MontoSinIva)</dd>
+                            <dt>IVA</dt>
+                            <dd>@TiposMoneda.ConSimbolo(context.Item.Moneda, context.Item.Iva)</dd>
+                        </VerMasTabla>
+                    </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.NumeroFactura" Title="Factura" CellClass="ac-col-clasica ac-col-escritorio" HeaderClass="ac-col-clasica ac-col-escritorio" />
+                <TemplateColumn Title="Monto sin IVA" CellClass="ac-col-clasica ac-col-escritorio" HeaderClass="ac-col-clasica ac-col-escritorio" CellStyle="white-space: nowrap">
                     <CellTemplate>@TiposMoneda.ConSimbolo(context.Item.Moneda, context.Item.MontoSinIva)</CellTemplate>
                 </TemplateColumn>
-                <TemplateColumn Title="IVA" CellStyle="white-space: nowrap">
+                <TemplateColumn Title="IVA" CellClass="ac-col-clasica ac-col-escritorio" HeaderClass="ac-col-clasica ac-col-escritorio" CellStyle="white-space: nowrap">
                     <CellTemplate>@TiposMoneda.ConSimbolo(context.Item.Moneda, context.Item.Iva)</CellTemplate>
                 </TemplateColumn>
-                <TemplateColumn Title="Total" CellStyle="white-space: nowrap">
+                <TemplateColumn Title="Total" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" CellStyle="white-space: nowrap">
                     <CellTemplate>@TiposMoneda.ConSimbolo(context.Item.Moneda, context.Item.Total)</CellTemplate>
                 </TemplateColumn>
-                <TemplateColumn Title="Estado">
+                <TemplateColumn Title="Estado" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
-                        @* Activo en verde; cualquier otro estado (Anulado) en rojo, con su propio texto. *@
-                        <EstadoChip Activo="@(context.Item.Estado == nameof(EstadoGastoOperativo.Activo))"
-                                    TextoInactivo="@context.Item.Estado" />
+                        @EstadoDelGasto(context.Item)
                     </CellTemplate>
                 </TemplateColumn>
                 @* nowrap en Acciones y en los montos: con nueve columnas, en escritorio la
                    celda de Acciones quedaba en ~100 px y Editar/Anular se apilaban,
                    duplicando la altura de cada fila. *@
-                <TemplateColumn Title="Acciones" CellStyle="white-space: nowrap">
+                <TemplateColumn Title="Acciones" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" CellStyle="white-space: nowrap">
                     <CellTemplate>
-                        @* Un gasto anulado es un registro cerrado: no se edita ni se
-                           vuelve a anular. El servicio rechaza las dos cosas igual
-                           (EditarGastoAsync, AB#2572), pero ocultar los botones evita
-                           llevar a la persona a un formulario que no va a poder guardar. *@
-                        @if (context.Item.Estado == nameof(EstadoGastoOperativo.Activo))
-                        {
-                            <AuthorizeView Policy="@Permisos.Gastos.Editar" Context="auth">
-                                <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/gastos/editar/{context.Item.Id}")">Editar</MudButton>
-                            </AuthorizeView>
-                            <AuthorizeView Policy="@Permisos.Gastos.Anular" Context="auth">
-                                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error" Class="ac-btn-inactivar ml-1" OnClick="@(() => AnularAsync(context.Item.Id))">Anular</MudButton>
-                            </AuthorizeView>
-                        }
-                        else
-                        {
-                            @* Un guion y no la celda vacía: en la vista de tarjetas
-                               (celular) quedaba el rótulo "Acciones" sin nada al lado. *@
-                            <MudText Typo="Typo.body2" Class="mud-text-secondary">—</MudText>
-                        }
+                        <div class="ac-acciones-tabla">
+                            @Acciones(context.Item, false)
+                        </div>
+                    </CellTemplate>
+                </TemplateColumn>
+                @* Solo móvil: proveedor y estado arriba, el total y "fecha · tipo de
+                   gasto" siempre a la vista, factura y montos en "Ver más", y
+                   Editar/Anular al pie cuando el gasto sigue activo. *@
+                <TemplateColumn Title="Gasto" CellClass="ac-col-tarjeta" HeaderClass="ac-col-tarjeta">
+                    <CellTemplate>
+                        <TarjetaFila Titulo="@context.Item.Proveedor">
+                            <Estado>
+                                @EstadoDelGasto(context.Item)
+                            </Estado>
+                            <Lineas>
+                                <p class="ac-tarjeta-total">@TiposMoneda.ConSimbolo(context.Item.Moneda, context.Item.Total)</p>
+                                <p class="ac-tarjeta-dato">@context.Item.Fecha.ToString("dd/MM/yyyy") · @context.Item.TipoGasto</p>
+                            </Lineas>
+                            <Detalle>
+                                <dt>Factura</dt>
+                                <dd>@context.Item.NumeroFactura</dd>
+                                <dt>Monto sin IVA</dt>
+                                <dd>@TiposMoneda.ConSimbolo(context.Item.Moneda, context.Item.MontoSinIva)</dd>
+                                <dt>IVA</dt>
+                                <dd>@TiposMoneda.ConSimbolo(context.Item.Moneda, context.Item.Iva)</dd>
+                            </Detalle>
+                            <Acciones>
+                                @Acciones(context.Item, true)
+                            </Acciones>
+                        </TarjetaFila>
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
@@ -167,6 +192,34 @@
 </MudCard>
 
 @code {
+    // Activo en verde; cualquier otro estado (Anulado) en rojo, con su propio texto.
+    private RenderFragment EstadoDelGasto(GastoOperativoListaDto item) => @<EstadoChip Activo="@(item.Estado == nameof(EstadoGastoOperativo.Activo))"
+                                                                                    TextoInactivo="@item.Estado" />;
+
+    // La misma pieza sirve a la tabla (Editar plano, Anular chico) y a la tarjeta
+    // de móvil (botones del tamaño normal; los estira app.css).
+    private RenderFragment Acciones(GastoOperativoListaDto item, bool tarjeta) => @<text>
+        @* Un gasto anulado es un registro cerrado: no se edita ni se
+           vuelve a anular. El servicio rechaza las dos cosas igual
+           (EditarGastoAsync, AB#2572), pero ocultar los botones evita
+           llevar a la persona a un formulario que no va a poder guardar. *@
+        @if (item.Estado == nameof(EstadoGastoOperativo.Activo))
+        {
+            <AuthorizeView Policy="@Permisos.Gastos.Editar" Context="auth">
+                <MudButton Variant="@(tarjeta ? Variant.Outlined : Variant.Text)" Color="Color.Primary" Href="@($"/gastos/editar/{item.Id}")">Editar</MudButton>
+            </AuthorizeView>
+            <AuthorizeView Policy="@Permisos.Gastos.Anular" Context="auth">
+                <MudButton Variant="Variant.Outlined" Size="@(tarjeta ? Size.Medium : Size.Small)" Color="Color.Error" Class="@(tarjeta ? "ac-btn-inactivar" : "ac-btn-inactivar ml-1")" OnClick="@(() => AnularAsync(item.Id))">Anular</MudButton>
+            </AuthorizeView>
+        }
+        else if (!tarjeta)
+        {
+            @* Un guion y no la celda vacía: una celda en blanco se lee como "falta
+               el dato". En la tarjeta no hace falta: sin botones no se pinta el pie. *@
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">—</MudText>
+        }
+    </text>;
+
     private ResumenGastos? resumenGastos;
     private MudDataGrid<GastoOperativoListaDto>? grilla;
 
