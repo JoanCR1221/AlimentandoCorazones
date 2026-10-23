@@ -2,9 +2,11 @@
     position: relative;
 }
 
+/* min-height: el enlace al inicio también es zona táctil (48px). */
 .sigac-brand {
     display: flex;
     align-items: center;
+    min-height: 48px;
     color: inherit;
     text-decoration: none;
 }

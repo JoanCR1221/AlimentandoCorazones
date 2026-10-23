@@ -8,24 +8,40 @@
 @if (migas is { Count: > 0 })
 {
     <nav class="ac-migas" aria-label="Ruta de navegación">
-        <a href="/">Inicio</a>
-        @foreach (var miga in migas)
-        {
-            <MudIcon Icon="@Icons.Material.Filled.ChevronRight" aria-hidden="true" />
-            @if (miga.Href is not null)
+        @* En móvil (< 768px) la ruta completa ocupa dos líneas de enlaces
+           diminutos y repite el título de la pantalla: en su lugar va un solo
+           enlace al nivel anterior, con zona táctil de 48px. Cuál se ve lo
+           decide app.css (.ac-migas-volver / .ac-migas-ruta). *@
+        <a href="@volver.Href" class="ac-migas-volver" aria-label="@($"Volver a {volver.Texto}")">
+            <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" aria-hidden="true" />
+            @volver.Texto
+        </a>
+        <span class="ac-migas-ruta">
+            <a href="/">Inicio</a>
+            @foreach (var miga in migas)
             {
-                <a href="@miga.Href">@miga.Texto</a>
+                <MudIcon Icon="@Icons.Material.Filled.ChevronRight" aria-hidden="true" />
+                @if (miga.Href is not null)
+                {
+                    <a href="@miga.Href">@miga.Texto</a>
+                }
+                else
+                {
+                    <span class="ac-migas-actual">@miga.Texto</span>
+                }
             }
-            else
-            {
-                <span class="ac-migas-actual">@miga.Texto</span>
-            }
-        }
+        </span>
     </nav>
 }
 
 @code {
+    private static readonly RutasSigac.Miga Inicio = new("Inicio", "/");
+
     private IReadOnlyList<RutasSigac.Miga>? migas;
+
+    // Nivel anterior a la pantalla actual: la última miga con enlace o, en las
+    // pantallas principales de cada módulo, Inicio.
+    private RutasSigac.Miga volver = Inicio;
 
     protected override void OnInitialized()
     {
@@ -42,6 +58,7 @@
     private void Actualizar()
     {
         migas = RutasSigac.MigasPara(Navigation.ToBaseRelativePath(Navigation.Uri));
+        volver = migas?.LastOrDefault(m => m.Href is not null) ?? Inicio;
     }
 
     public void Dispose()

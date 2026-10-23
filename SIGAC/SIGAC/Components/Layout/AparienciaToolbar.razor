@@ -52,8 +52,8 @@
     <div class="d-inline-flex" style="position: relative;">
         <MudIconButton Icon="@Icons.Material.Filled.AccessibilityNew"
                        Color="Color.Inherit"
-                       aria-label="Abrir opciones de contraste y tamaño de letra"
-                       title="Contraste y tamaño de letra"
+                       aria-label="Abrir opciones de lectura"
+                       title="Opciones de lectura"
                        OnClick="TogglePanel" />
 
         <MudPopover Open="_panelAbierto"
@@ -68,6 +68,19 @@
                                    aria-label="Cerrar opciones de lectura"
                                    OnClick="@(() => _panelAbierto = false)" />
                 </MudStack>
+
+                @* En móvil el interruptor día/noche no cabe en la barra (se oculta
+                   en AparienciaToolbar.razor.css) y el modo oscuro pasa acá. *@
+                <div class="apariencia-solo-movil">
+                    <MudSwitch T="bool"
+                               Value="Apariencia.EsOscuro"
+                               ValueChanged="OnEsOscuroSwitchChanged"
+                               Color="Color.Primary"
+                               Label="Modo oscuro"
+                               LabelPlacement="Placement.Start"
+                               Class="mb-3"
+                               aria-label="Alternar modo claro u oscuro" />
+                </div>
 
                 <MudSwitch T="bool"
                            Value="Apariencia.AltoContraste"
@@ -107,6 +120,11 @@
     private async Task OnAltoContrasteChanged(bool valor)
     {
         await Apariencia.SetAltoContrasteAsync(valor);
+    }
+
+    private async Task OnEsOscuroSwitchChanged(bool valor)
+    {
+        await Apariencia.SetEsOscuroAsync(valor);
     }
 
     private async Task OnEsOscuroChangedAsync(ChangeEventArgs e)

@@ -165,10 +165,22 @@ h1, h2, h3, h4, h5, h6 {
    a .mud-main-content un padding-top automático para no quedar tapado por
    ella, pero la utilidad "pa-4" (padding parejo en los cuatro lados,
    !important) lo pisa. Resultado: el título de cada pantalla queda debajo
-   de la barra. Clase propia en vez de pa-4 para no perder esa separación. */
+   de la barra. Clase propia en vez de pa-4 para no perder esa separación.
+   Margen lateral de 16px en móvil y 24px desde tableta (768px). min-width: 0
+   deja que el contenido se encoja dentro del layout flex de Mud en vez de
+   empujar la página hacia los lados. */
 .sigac-main {
-    padding: 1rem;
-    padding-top: calc(var(--mud-appbar-height, 64px) + 1rem);
+    min-width: 0;
+    padding: 16px;
+    padding-top: calc(var(--mud-appbar-height, 64px) + 16px);
+    overflow-wrap: break-word;
+}
+
+@media (min-width: 768px) {
+    .sigac-main {
+        padding: 24px;
+        padding-top: calc(var(--mud-appbar-height, 64px) + 24px);
+    }
 }
 
 /* --- Barra superior: blanca (gris #1F1F1F en oscuro) con un borde inferior fino
@@ -323,6 +335,12 @@ html[data-alto-contraste="true"] :focus-visible {
     margin-right: 0;
 }
 
+/* 8px entre el botón de la cuenta y los controles de apariencia, para no
+   tocar uno por el otro. */
+.apariencia-toolbar {
+    margin-left: 8px;
+}
+
 a {
     color: var(--ac-coral-700);
 }
@@ -377,16 +395,23 @@ html:not([data-alto-contraste="true"]) :is(a, button, [role="button"], [tabindex
     font-variant-numeric: tabular-nums;
 }
 
-/* Pantallas táctiles: objetivos de 44px como mínimo (los botones Small de las
+/* Pantallas táctiles: objetivos de 48px como mínimo (los botones Small de las
    grillas, como Activar/Desactivar, quedarían en ~30px). */
 @media (pointer: coarse) {
     .mud-button-root,
     .mud-icon-button {
-        min-height: 44px;
+        min-height: 48px;
     }
 
     .mud-icon-button {
-        min-width: 44px;
+        min-width: 48px;
+    }
+
+    /* Enlaces y cabeceras de grupo del menú lateral. Va acá y no en
+       NavMenu.razor.css porque ese componente no tiene un elemento HTML propio
+       que lleve el atributo de aislamiento, y sus reglas ::deep no llegan. */
+    .mud-drawer .mud-nav-link {
+        min-height: 48px;
     }
 }
 
@@ -419,6 +444,13 @@ html:not([data-alto-contraste="true"]) :is(a, button, [role="button"], [tabindex
 html[data-alto-contraste="true"] .sigac-usuario-activador:hover {
     background-color: rgba(255, 255, 255, 0.2);
     border-color: currentColor;
+}
+
+/* Pantalla táctil: 48px como el resto de los controles (ver más arriba). */
+@media (pointer: coarse) {
+    .sigac-usuario-activador {
+        height: 48px;
+    }
 }
 
 .sigac-avatar {
@@ -590,15 +622,59 @@ html[data-alto-contraste="true"] .sigac-usuario-activador:hover {
     flex: none;
 }
 
-/* --- Migas de pan (MigasPan) --- */
+/* --- Migas de pan (MigasPan) ---
+   Móvil: solo el enlace "‹ nivel anterior" (.ac-migas-volver), de 48px de
+   alto; el margen negativo de arriba compensa el aire que ya trae esa zona
+   táctil. Desde tableta (768px): la ruta completa (.ac-migas-ruta). */
 .ac-migas {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px;
     margin-bottom: 12px;
     font-size: 0.8125rem;
     color: var(--ac-ink-suave);
+}
+
+.ac-migas .ac-migas-volver {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    min-height: 48px;
+    margin: -12px 0 0 -6px;
+    padding-right: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--ac-ink);
+}
+
+.ac-migas .ac-migas-volver .mud-icon-root {
+    width: 24px;
+    height: 24px;
+    opacity: 1;
+}
+
+.ac-migas-ruta {
+    display: none;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+
+@media (min-width: 768px) {
+    .ac-migas .ac-migas-volver {
+        display: none;
+    }
+
+    .ac-migas-ruta {
+        display: flex;
+    }
+}
+
+/* Tableta táctil: cada enlace de la ruta llega a 48px de alto. */
+@media (min-width: 768px) and (pointer: coarse) {
+    .ac-migas-ruta a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 48px;
+        padding: 0 4px;
+    }
 }
 
 .ac-migas a {
