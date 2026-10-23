@@ -29,12 +29,12 @@ La cadena vive en `SIGAC/appsettings.json` bajo la clave `SigacDb`. **Ese archiv
   "AdministradorInicial": {
     "Correo": "admin@alimentandocorazones.local",
     "Nombre": "Administrador inicial",
-    "Password": "CambiarEsta.Clave1!"
+    "Password": "<elegí una contraseña>"
   }
 }
 ```
 
-**La sección `AdministradorInicial` es obligatoria en una base nueva.** Como solo un administrador puede crear usuarios, al arrancar la aplicación `SeedSeguridad` crea ese usuario si todavía no existe ningún Administrador activo; si falta la sección, la aplicación no arranca y lo dice en el mensaje. Una vez que hay un administrador activo la sección se ignora, así que la contraseña que pongas acá solo sirve para el primer ingreso: cambiala desde Configuración apenas entres. Tiene que cumplir las reglas del sistema (8 caracteres con mayúscula, minúscula, número y símbolo). Por eso `appsettings.example.json` está en el repositorio y `appsettings.json` no.
+**La sección `AdministradorInicial` es obligatoria en una base nueva.** Como solo un administrador puede crear usuarios, al arrancar la aplicación `SeedSeguridad` crea ese usuario si todavía no existe ningún Administrador activo; si falta la sección, la aplicación no arranca y lo dice en el mensaje. Una vez que hay un administrador activo la sección se ignora, así que la contraseña que pongas acá solo sirve para el primer ingreso: cambiala desde Configuración apenas entres. El repositorio es público: la contraseña la elige cada quien y nunca se commitea, ni en este README ni en `appsettings.example.json`. Tiene que cumplir las reglas del sistema (8 caracteres con mayúscula, minúscula, número y símbolo). Por eso `appsettings.example.json` está en el repositorio y `appsettings.json` no.
 
 > **Al desplegar en Ubuntu**, `Trusted_Connection=True` no sirve: la autenticación integrada de Windows no existe ahí. Hay que pasar a autenticación SQL (`User Id=...;Password=...`) y tomar la cadena de una variable de entorno o un gestor de secretos, no de un archivo en el repositorio.
 
