@@ -17,12 +17,15 @@ internal sealed class InterceptorTraduccionMudBlazor : ILocalizationInterceptor
         _porDefecto = new DefaultLocalizationInterceptor(loggerFactory, null!);
     }
 
-    // Los marcadores con nombre ({first_item}...) los reemplaza el propio componente:
-    // por eso el texto no se pasa por string.Format salvo que lleguen argumentos.
+    // Los textos con datos van con marcadores POSICIONALES ({0}, {1}...): MudBlazor 9.x
+    // le pasa a este interceptor los valores como texto y en orden, sin nombres, y se
+    // pasan por string.Format. Con marcadores con nombre ({first_item}...) lanza
+    // FormatException al pintar el paginador y tumba el circuito de la pantalla.
     private static readonly Dictionary<string, string> Textos = new()
     {
         ["MudDataGridPager_RowsPerPage"] = "Filas por página:",
-        ["MudDataGridPager_InfoFormat"] = "{first_item}-{last_item} de {all_items}",
+        // Orden de los valores: primer registro, último registro, total.
+        ["MudDataGridPager_InfoFormat"] = "{0}-{1} de {2}",
         ["MudDataGridPager_AllItems"] = "Todas",
         ["MudDataGridPager_FirstPage"] = "Primera página",
         ["MudDataGridPager_PreviousPage"] = "Página anterior",
