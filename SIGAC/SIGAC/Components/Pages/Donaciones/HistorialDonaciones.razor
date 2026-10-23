@@ -29,7 +29,7 @@
             <MudSelectItem T="string" Value="@("Especie")">Especie</MudSelectItem>
         </MudSelect>
 
-        <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
+        <MudDateRangePicker Culture="CulturaSigac.EsCr" DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
                              Label="Rango de fechas" Variant="Variant.Outlined" Class="mb-4" />
 
         @* Un total por moneda y no un solo número: desde que el monto declara en

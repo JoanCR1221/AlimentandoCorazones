@@ -30,7 +30,7 @@
                 @* Filtra por la fecha de INICIO del proyecto. Sin fecha máxima: un
                    proyecto se planifica con anticipación y el reporte tiene que poder
                    incluirlos. *@
-                <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="@(v => rangoFechas = v)"
+                <MudDateRangePicker Culture="CulturaSigac.EsCr" DateRange="rangoFechas" DateRangeChanged="@(v => rangoFechas = v)"
                                     Label="Inicio del proyecto entre" Variant="Variant.Outlined"
                                     DateFormat="dd/MM/yyyy" Clearable="true" />
             </MudItem>

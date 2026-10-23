@@ -112,7 +112,7 @@
             <MudNumericField T="int" @bind-Value="modelo.Cantidad" For="@(() => modelo.Cantidad)"
                               Label="Cantidad" Variant="Variant.Outlined" Class="mt-4" Min="1" />
 
-            <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
+            <MudDatePicker Culture="CulturaSigac.EsCr" @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
 
             <MudSelect T="string" @bind-Value="modelo.Origen" For="@(() => modelo.Origen)" @bind-Value:after="OnOrigenCambiadoAsync"
                        Label="Origen" Variant="Variant.Outlined" Class="mt-4">

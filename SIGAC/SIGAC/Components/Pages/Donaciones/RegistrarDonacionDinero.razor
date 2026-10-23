@@ -55,7 +55,7 @@
 
             <MudNumericField T="decimal" @bind-Value="modelo.Monto" For="@(() => modelo.Monto)" Label="Monto" Variant="Variant.Outlined" Class="mt-4"
                               Min="0.01M" Format="N2" Adornment="Adornment.Start" AdornmentText="@TiposMoneda.Simbolo(modelo.Moneda)" />
-            <MudDatePicker @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
+            <MudDatePicker Culture="CulturaSigac.EsCr" @bind-Date="fecha" Label="Fecha" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
             <MudTextField @bind-Value="modelo.Observaciones" Label="Observaciones (opcional)" Variant="Variant.Outlined" Class="mt-4" Lines="2" />
         </MudCardContent>
         <MudCardActions>

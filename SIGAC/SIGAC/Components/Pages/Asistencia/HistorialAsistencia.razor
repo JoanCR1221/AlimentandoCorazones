@@ -35,7 +35,7 @@
                 <MudSelectItem T="string" Value="@tiempoComida">@tiempoComida</MudSelectItem>
             }
         </MudSelect>
-        <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
+        <MudDateRangePicker Culture="CulturaSigac.EsCr" DateRange="rangoFechas" DateRangeChanged="OnRangoFechasCambiadoAsync"
                              Label="Rango de fechas" Variant="Variant.Outlined" Class="mb-4" />
 
         @* Los totales son del período completo, no de la página que se ve: vienen

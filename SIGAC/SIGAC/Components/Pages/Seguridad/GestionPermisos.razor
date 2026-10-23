@@ -68,11 +68,11 @@ else
                 <ChildContent>
                     @foreach (var permiso in modulo)
                     {
-                        <MudSwitch T="bool" @bind-Value="permiso.Habilitado" Color="Color.Success"
+                        <MudSwitch Size="Size.Large" T="bool" @bind-Value="permiso.Habilitado" Color="Color.Success"
                                    Disabled="@(!admiteCambios || guardando)"
                                    Label="@permiso.Descripcion"
                                    aria-label="@permiso.Descripcion"
-                                   Class="d-block my-1" />
+                                   Class="d-block my-1 ac-switch" />
                     }
                 </ChildContent>
             </MudExpansionPanel>
