@@ -69,26 +69,14 @@
                                    OnClick="@(() => _panelAbierto = false)" />
                 </MudStack>
 
-                @* En móvil el interruptor día/noche no cabe en la barra (se oculta
-                   en AparienciaToolbar.razor.css) y el modo oscuro pasa acá. *@
-                <div class="apariencia-solo-movil">
-                    <MudSwitch T="bool"
-                               Value="Apariencia.EsOscuro"
-                               ValueChanged="OnEsOscuroSwitchChanged"
-                               Color="Color.Primary"
-                               Label="Modo oscuro"
-                               LabelPlacement="Placement.Start"
-                               Class="mb-3"
-                               aria-label="Alternar modo claro u oscuro" />
-                </div>
-
                 <MudSwitch T="bool"
                            Value="Apariencia.AltoContraste"
                            ValueChanged="OnAltoContrasteChanged"
                            Color="Color.Primary"
-                           Label="Contraste"
+                           Size="Size.Large"
+                           Label="Contraste alto"
                            LabelPlacement="Placement.Start"
-                           Class="mb-3"
+                           Class="mb-3 ac-switch"
                            aria-label="Alternar alto contraste" />
 
                 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
@@ -120,11 +108,6 @@
     private async Task OnAltoContrasteChanged(bool valor)
     {
         await Apariencia.SetAltoContrasteAsync(valor);
-    }
-
-    private async Task OnEsOscuroSwitchChanged(bool valor)
-    {
-        await Apariencia.SetEsOscuroAsync(valor);
     }
 
     private async Task OnEsOscuroChangedAsync(ChangeEventArgs e)
