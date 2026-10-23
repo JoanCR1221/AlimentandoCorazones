@@ -68,12 +68,18 @@
            página visible, que sería engañoso. Los ingresos de arriba son del
            conjunto filtrado completo, no de la página: vienen de un agregado en la
            base. *@
-        <MudDataGrid T="AlquilerListaDto" @ref="grilla"
+        @* Una sola grilla para los tres tamaños (ver ListadoBeneficiarios): en móvil
+           (< 768px) solo se ve la celda "tarjeta"; en tableta y laptop chico, sin
+           Características ni Personas, que van en el "Ver más" bajo el
+           arrendatario junto con el motivo de una cancelación; en escritorio, las
+           nueve columnas de siempre. Dense se queda por esas nueve columnas: en
+           tableta y en la tarjeta, app.css le corrige el relleno. *@
+        <MudDataGrid T="AlquilerListaDto" @ref="grilla" Class="ac-grilla-tarjetas" Breakpoint="Breakpoint.None"
                      ServerData="CargarPaginaAsync"
                      RowsPerPage="FiltrosHistorialAlquilerDto.TamanoPaginaPredeterminado"
                      SortMode="SortMode.None" Filterable="false" Dense="true">
             <Columns>
-                <TemplateColumn Title="Fecha">
+                <TemplateColumn Title="Fecha" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
                         <div>@context.Item.Fecha.ToString("ddd dd/MM/yyyy")</div>
                         @if (context.Item.EsFinDeSemana)
@@ -82,52 +88,106 @@
                         }
                     </CellTemplate>
                 </TemplateColumn>
-                <TemplateColumn Title="Horario">
+                <TemplateColumn Title="Horario" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
                         <div style="white-space: nowrap;">@ReglasAlquiler.FormatearHora(context.Item.HoraInicio)</div>
                         <div style="white-space: nowrap;">a @ReglasAlquiler.FormatearHora(context.Item.HoraFin)</div>
                     </CellTemplate>
                 </TemplateColumn>
-                <TemplateColumn Title="Arrendatario">
+                <TemplateColumn Title="Arrendatario" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
                         <div>@context.Item.Arrendatario</div>
                         @if (!string.IsNullOrWhiteSpace(context.Item.TelefonoArrendatario))
                         {
                             <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Item.TelefonoArrendatario</MudText>
                         }
+                        <VerMasTabla>
+                            <dt>Características</dt>
+                            <dd>@TextoCaracteristicas(context.Item)</dd>
+                            <dt>Personas</dt>
+                            <dd>@context.Item.CantidadPersonas</dd>
+                            @if (MuestraMotivo(context.Item))
+                            {
+                                <dt>Motivo de cancelación</dt>
+                                <dd>@context.Item.MotivoCancelacion</dd>
+                            }
+                        </VerMasTabla>
                     </CellTemplate>
                 </TemplateColumn>
-                <TemplateColumn Title="Sectores">
+                <TemplateColumn Title="Sectores" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>@string.Join(", ", context.Item.Espacios)</CellTemplate>
                 </TemplateColumn>
-                <TemplateColumn Title="Características">
-                    <CellTemplate>@(context.Item.Caracteristicas.Count == 0 ? "—" : string.Join(", ", context.Item.Caracteristicas))</CellTemplate>
+                <TemplateColumn Title="Características" CellClass="ac-col-clasica ac-col-escritorio" HeaderClass="ac-col-clasica ac-col-escritorio">
+                    <CellTemplate>@TextoCaracteristicas(context.Item)</CellTemplate>
                 </TemplateColumn>
-                <PropertyColumn Property="x => x.CantidadPersonas" Title="Personas" />
-                <TemplateColumn Title="Monto">
+                <PropertyColumn Property="x => x.CantidadPersonas" Title="Personas" CellClass="ac-col-clasica ac-col-escritorio" HeaderClass="ac-col-clasica ac-col-escritorio" />
+                @* nowrap: entre el símbolo y la cifra va un espacio, y en la tabla
+                   apretada de tableta el "₡" quedaría solo en una línea. Mismo
+                   criterio que la columna Total de ListadoGastos. *@
+                <TemplateColumn Title="Monto" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" CellStyle="white-space: nowrap">
                     <CellTemplate>@TiposMoneda.Simbolo(context.Item.Moneda) @context.Item.Monto.ToString("N2")</CellTemplate>
                 </TemplateColumn>
-                <TemplateColumn Title="Estado">
+                <TemplateColumn Title="Estado" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
-                        <EstadoChip Activo="@(context.Item.Estado == EstadoAlquiler.Reservado)"
-                                    TextoActivo="Reservado" TextoInactivo="Cancelado" />
-                        @if (context.Item.Estado == EstadoAlquiler.Cancelado && !string.IsNullOrWhiteSpace(context.Item.MotivoCancelacion))
+                        @EstadoDelAlquiler(context.Item)
+                        @* El motivo admite hasta 500 caracteres: bajo la etiqueta, en la
+                           columna angosta de tableta, estiraría la fila a decenas de
+                           líneas. Ahí va en el "Ver más" del arrendatario y acá se
+                           oculta (ac-col-escritorio); en escritorio sigue bajo la
+                           etiqueta. HtmlTag div en vez de d-block: el !important de
+                           d-block le ganaría al ocultamiento. *@
+                        @if (MuestraMotivo(context.Item))
                         {
-                            <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">@context.Item.MotivoCancelacion</MudText>
+                            <MudText Typo="Typo.caption" HtmlTag="div" Class="mud-text-secondary ac-col-escritorio">@context.Item.MotivoCancelacion</MudText>
                         }
                     </CellTemplate>
                 </TemplateColumn>
-                <TemplateColumn Title="Acciones">
+                <TemplateColumn Title="Acciones" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
-                        @* Un alquiler cancelado no se vuelve a cancelar (el servicio lo
-                           rechaza igual; ocultar el botón evita el viaje). *@
-                        @if (context.Item.Estado == EstadoAlquiler.Reservado)
-                        {
-                            <AuthorizeView Policy="@Permisos.Alquileres.Cancelar" Context="auth">
-                                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error" Class="ac-btn-inactivar"
-                                           OnClick="@(() => CancelarAsync(context.Item))">Cancelar</MudButton>
-                            </AuthorizeView>
-                        }
+                        <div class="ac-acciones-tabla">
+                            @Acciones(context.Item, false)
+                        </div>
+                    </CellTemplate>
+                </TemplateColumn>
+                @* Solo móvil: arrendatario y estado arriba; fecha, horario, sectores
+                   y monto siempre a la vista; características, personas, teléfono
+                   (enlace para llamar) y el motivo de una cancelación en "Ver más",
+                   y Cancelar al pie mientras el alquiler siga reservado. *@
+                <TemplateColumn Title="Alquiler" CellClass="ac-col-tarjeta" HeaderClass="ac-col-tarjeta">
+                    <CellTemplate>
+                        <TarjetaFila Titulo="@context.Item.Arrendatario">
+                            <Estado>
+                                @EstadoDelAlquiler(context.Item)
+                            </Estado>
+                            <Lineas>
+                                <p class="ac-tarjeta-dato">@LineaFecha(context.Item)</p>
+                                <p class="ac-tarjeta-dato">@ReglasAlquiler.FormatearHora(context.Item.HoraInicio) a @ReglasAlquiler.FormatearHora(context.Item.HoraFin)</p>
+                                @if (context.Item.Espacios.Count > 0)
+                                {
+                                    <p class="ac-tarjeta-dato">@string.Join(", ", context.Item.Espacios)</p>
+                                }
+                                <p class="ac-tarjeta-total">@TiposMoneda.Simbolo(context.Item.Moneda) @context.Item.Monto.ToString("N2")</p>
+                            </Lineas>
+                            <Detalle>
+                                <dt>Características</dt>
+                                <dd>@TextoCaracteristicas(context.Item)</dd>
+                                <dt>Personas</dt>
+                                <dd>@context.Item.CantidadPersonas</dd>
+                                @if (!string.IsNullOrWhiteSpace(context.Item.TelefonoArrendatario))
+                                {
+                                    <dt>Teléfono</dt>
+                                    <dd><EnlaceContacto Telefono="@context.Item.TelefonoArrendatario" /></dd>
+                                }
+                                @if (MuestraMotivo(context.Item))
+                                {
+                                    <dt>Motivo de cancelación</dt>
+                                    <dd>@context.Item.MotivoCancelacion</dd>
+                                }
+                            </Detalle>
+                            <Acciones>
+                                @Acciones(context.Item, true)
+                            </Acciones>
+                        </TarjetaFila>
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
@@ -165,6 +225,43 @@
 </MudCard>
 
 @code {
+    // Reservado en verde y Cancelado en rojo: la misma etiqueta en la tabla y en
+    // la tarjeta de móvil.
+    private RenderFragment EstadoDelAlquiler(AlquilerListaDto item) => @<EstadoChip Activo="@(item.Estado == EstadoAlquiler.Reservado)"
+                                                                                  TextoActivo="Reservado" TextoInactivo="Cancelado" />;
+
+    // Solo Cancelar: la misma pieza sirve a la tabla (botón chico) y a la tarjeta
+    // de móvil (del tamaño normal; lo estira app.css).
+    private RenderFragment Acciones(AlquilerListaDto item, bool tarjeta) => @<text>
+        @* Un alquiler cancelado no se vuelve a cancelar (el servicio lo
+           rechaza igual; ocultar el botón evita el viaje). En la tarjeta,
+           sin botón tampoco se pinta el pie. *@
+        @if (item.Estado == EstadoAlquiler.Reservado)
+        {
+            <AuthorizeView Policy="@Permisos.Alquileres.Cancelar" Context="auth">
+                <MudButton Variant="Variant.Outlined" Size="@(tarjeta ? Size.Medium : Size.Small)" Color="Color.Error" Class="ac-btn-inactivar"
+                           OnClick="@(() => CancelarAsync(item))">Cancelar</MudButton>
+            </AuthorizeView>
+        }
+    </text>;
+
+    // Solo un alquiler cancelado tiene motivo, y no siempre se escribió uno: la
+    // misma condición para la tabla, el "Ver más" de tableta y la tarjeta.
+    private static bool MuestraMotivo(AlquilerListaDto alquiler) =>
+        alquiler.Estado == EstadoAlquiler.Cancelado && !string.IsNullOrWhiteSpace(alquiler.MotivoCancelacion);
+
+    // Un guion y no la celda vacía cuando no se pidió ninguna: el mismo texto en
+    // la columna de escritorio, en el "Ver más" de tableta y en la tarjeta.
+    private static string TextoCaracteristicas(AlquilerListaDto alquiler) =>
+        alquiler.Caracteristicas.Count == 0 ? "—" : string.Join(", ", alquiler.Caracteristicas);
+
+    // "sáb. 03/10/2026 · Fin de semana" en una sola línea: en la tarjeta el aviso
+    // de fin de semana no tiene una línea propia como en la tabla.
+    private static string LineaFecha(AlquilerListaDto alquiler) =>
+        alquiler.EsFinDeSemana
+            ? $"{alquiler.Fecha:ddd dd/MM/yyyy} · Fin de semana"
+            : alquiler.Fecha.ToString("ddd dd/MM/yyyy");
+
     // Sin filtros de entrada: al abrir se ve la primera página de todos los
     // alquileres, reservados y cancelados. Los filtros solo acotan lo que ya está a
     // la vista.

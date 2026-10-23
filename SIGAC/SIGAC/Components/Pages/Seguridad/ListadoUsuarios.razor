@@ -37,79 +37,60 @@
 
         @* Items y no ServerData: el listado completo cabe en memoria (decenas de
            usuarios) y el filtrado ya lo hace el servicio en SQL. *@
+        @* Una sola grilla para los tres tamaños (ver ListadoBeneficiarios): en móvil
+           (< 768px) solo se ve la celda "tarjeta"; en tableta y laptop chico, sin
+           Registrado (va en el "Ver más" bajo el nombre); en escritorio, las
+           seis columnas. *@
         <MudDataGrid T="UsuarioListaDto" Items="@usuarios" Loading="cargando"
+                     Class="ac-grilla-tarjetas" Breakpoint="Breakpoint.None"
                      SortMode="SortMode.None" Filterable="false" Dense="true">
             <Columns>
-                <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
-                <PropertyColumn Property="x => x.Correo" Title="Correo" />
-                <PropertyColumn Property="x => x.Rol" Title="Rol" />
-                <TemplateColumn Title="Estado">
+                <TemplateColumn Title="Nombre" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
-                        @if (!context.Item.Estado)
-                        {
-                            <EstadoChip Activo="false" />
-                        }
-                        else if (context.Item.BloqueadoTemporalmente)
-                        {
-                            <MudChip T="string" Color="Color.Warning" Size="Size.Small" Icon="@Icons.Material.Filled.Lock"
-                                     title="@($"Demasiados intentos fallidos. El bloqueo dura {ReglasUsuario.MinutosBloqueo} minutos; restablecer la contraseña lo levanta.")">
-                                Bloqueado temporalmente
-                            </MudChip>
-                        }
-                        else
-                        {
-                            <EstadoChip Activo="true" />
-                        }
+                        @context.Item.Nombre
+                        <VerMasTabla>
+                            <dt>Registrado</dt>
+                            <dd>@context.Item.FechaRegistro.ToString("dd/MM/yyyy")</dd>
+                        </VerMasTabla>
                     </CellTemplate>
                 </TemplateColumn>
-                <PropertyColumn Property="x => x.FechaRegistro" Title="Registrado" Format="dd/MM/yyyy" />
-                <TemplateColumn Title="Acciones">
+                <PropertyColumn Property="x => x.Correo" Title="Correo" CellClass="ac-col-clasica ac-celda-larga" HeaderClass="ac-col-clasica" />
+                <PropertyColumn Property="x => x.Rol" Title="Rol" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <TemplateColumn Title="Estado" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
-                        @{
-                            // El servicio rechaza igual estas acciones sobre uno mismo;
-                            // deshabilitarlas evita mostrar un error que ya se conoce.
-                            var esElMismo = context.Item.Id == idUsuarioActual;
-                        }
-                        @* Un menú por fila y no cuatro botones: la columna no cabe en
-                           pantallas angostas y las acciones son poco frecuentes. *@
-                        <MudMenu Label="Acciones" Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
-                                 EndIcon="@Icons.Material.Filled.KeyboardArrowDown"
-                                 AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft"
-                                 aria-label="@($"Acciones para {context.Item.Nombre}")">
-                            <MudMenuItem Icon="@Icons.Material.Filled.SwapHoriz" Disabled="esElMismo"
-                                         OnClick="@(() => CambiarRolAsync(context.Item))">
-                                Cambiar rol
-                            </MudMenuItem>
-                            <MudMenuItem Icon="@Icons.Material.Filled.Tune"
-                                         Href="@($"/usuarios/{context.Item.Id}/permisos")"
-                                         Disabled="@(!PermisosPorRol.AdmiteRevocaciones(context.Item.Rol))">
-                                Permisos
-                            </MudMenuItem>
-                            <MudMenuItem Icon="@Icons.Material.Filled.LockReset" Disabled="esElMismo"
-                                         OnClick="@(() => RestablecerPasswordAsync(context.Item))">
-                                Restablecer contraseña
-                            </MudMenuItem>
-                            <MudDivider />
-                            @if (context.Item.Estado)
-                            {
-                                <MudMenuItem Icon="@Icons.Material.Filled.Block" IconColor="Color.Error" Disabled="esElMismo"
-                                             OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item, false))">
-                                    Desactivar
-                                </MudMenuItem>
-                            }
-                            else
-                            {
-                                <MudMenuItem Icon="@Icons.Material.Filled.CheckCircle" IconColor="Color.Success"
-                                             OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item, true))">
-                                    Activar
-                                </MudMenuItem>
-                            }
-                            @if (esElMismo)
-                            {
-                                <MudDivider />
-                                <MudMenuItem Disabled="true">Su propio usuario: cambie su contraseña desde Configuración.</MudMenuItem>
-                            }
-                        </MudMenu>
+                        @EstadoDelUsuario(context.Item)
+                    </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.FechaRegistro" Title="Registrado" Format="dd/MM/yyyy" CellClass="ac-col-clasica ac-col-escritorio" HeaderClass="ac-col-clasica ac-col-escritorio" />
+                <TemplateColumn Title="Acciones" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
+                    <CellTemplate>
+                        @MenuAcciones(context.Item, false)
+                    </CellTemplate>
+                </TemplateColumn>
+                @* Solo móvil: nombre y estado arriba, el correo (enlace para escribir)
+                   y el rol siempre a la vista, la fecha de registro en "Ver más" y
+                   el menú de acciones al pie, a todo el ancho. *@
+                <TemplateColumn Title="Usuario" CellClass="ac-col-tarjeta" HeaderClass="ac-col-tarjeta">
+                    <CellTemplate>
+                        <TarjetaFila Titulo="@context.Item.Nombre">
+                            <Estado>
+                                @EstadoDelUsuario(context.Item)
+                            </Estado>
+                            <Lineas>
+                                @if (!string.IsNullOrWhiteSpace(context.Item.Rol))
+                                {
+                                    <p class="ac-tarjeta-dato">@context.Item.Rol</p>
+                                }
+                                <EnlaceContacto Correo="@context.Item.Correo" />
+                            </Lineas>
+                            <Detalle>
+                                <dt>Registrado</dt>
+                                <dd>@context.Item.FechaRegistro.ToString("dd/MM/yyyy")</dd>
+                            </Detalle>
+                            <Acciones>
+                                @MenuAcciones(context.Item, true)
+                            </Acciones>
+                        </TarjetaFila>
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
@@ -136,6 +117,76 @@
 </MudCard>
 
 @code {
+    // Activo, inactivo o bloqueado temporalmente: la misma etiqueta en la tabla y
+    // en la tarjeta de móvil.
+    private RenderFragment EstadoDelUsuario(UsuarioListaDto item) => @<text>
+        @if (!item.Estado)
+        {
+            <EstadoChip Activo="false" />
+        }
+        else if (item.BloqueadoTemporalmente)
+        {
+            <MudChip T="string" Color="Color.Warning" Size="Size.Small" Icon="@Icons.Material.Filled.Lock"
+                     title="@($"Demasiados intentos fallidos. El bloqueo dura {ReglasUsuario.MinutosBloqueo} minutos; restablecer la contraseña lo levanta.")">
+                Bloqueado temporalmente
+            </MudChip>
+        }
+        else
+        {
+            <EstadoChip Activo="true" />
+        }
+    </text>;
+
+    // Un menú por fila y no cuatro botones. En la tarjeta de móvil el menú es
+    // del tamaño normal y app.css lo estira a todo el ancho.
+    private RenderFragment MenuAcciones(UsuarioListaDto item, bool tarjeta) => @<text>
+        @{
+            // El servicio rechaza igual estas acciones sobre uno mismo;
+            // deshabilitarlas evita mostrar un error que ya se conoce.
+            var esElMismo = item.Id == idUsuarioActual;
+        }
+        @* Un menú por fila y no cuatro botones: la columna no cabe en
+           pantallas angostas y las acciones son poco frecuentes. *@
+        <MudMenu Label="Acciones" Variant="Variant.Outlined" Color="Color.Primary" Size="@(tarjeta ? Size.Medium : Size.Small)"
+                 EndIcon="@Icons.Material.Filled.KeyboardArrowDown"
+                 AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft"
+                 aria-label="@($"Acciones para {item.Nombre}")">
+            <MudMenuItem Icon="@Icons.Material.Filled.SwapHoriz" Disabled="esElMismo"
+                         OnClick="@(() => CambiarRolAsync(item))">
+                Cambiar rol
+            </MudMenuItem>
+            <MudMenuItem Icon="@Icons.Material.Filled.Tune"
+                         Href="@($"/usuarios/{item.Id}/permisos")"
+                         Disabled="@(!PermisosPorRol.AdmiteRevocaciones(item.Rol))">
+                Permisos
+            </MudMenuItem>
+            <MudMenuItem Icon="@Icons.Material.Filled.LockReset" Disabled="esElMismo"
+                         OnClick="@(() => RestablecerPasswordAsync(item))">
+                Restablecer contraseña
+            </MudMenuItem>
+            <MudDivider />
+            @if (item.Estado)
+            {
+                <MudMenuItem Icon="@Icons.Material.Filled.Block" IconColor="Color.Error" Disabled="esElMismo"
+                             OnClick="@(() => ConfirmarCambioEstadoAsync(item, false))">
+                    Desactivar
+                </MudMenuItem>
+            }
+            else
+            {
+                <MudMenuItem Icon="@Icons.Material.Filled.CheckCircle" IconColor="Color.Success"
+                             OnClick="@(() => ConfirmarCambioEstadoAsync(item, true))">
+                    Activar
+                </MudMenuItem>
+            }
+            @if (esElMismo)
+            {
+                <MudDivider />
+                <MudMenuItem Disabled="true">Su propio usuario: cambie su contraseña desde Configuración.</MudMenuItem>
+            }
+        </MudMenu>
+    </text>;
+
     [CascadingParameter]
     private Task<AuthenticationState>? EstadoAutenticacion { get; set; }
 

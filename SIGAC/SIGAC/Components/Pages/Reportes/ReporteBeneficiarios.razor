@@ -10,7 +10,7 @@
 <EncabezadoPagina Titulo="Reporte de beneficiarios atendidos"
                    Descripcion="Asistencias por beneficiario y tiempo de comida en el período, para mostrar el impacto ante donantes y autoridades." />
 
-<MudCard Class="pa-4">
+<MudCard Class="pa-4 ac-reporte">
     <MudCardContent>
         <MudGrid Spacing="2" Class="mb-2">
             <MudItem xs="12" sm="4">
@@ -55,10 +55,12 @@
             </section>
 
             @* El reporte trae todas las filas (el PDF y el Excel las necesitan), pero la
-               pantalla las pagina en memoria: ver PaginacionReporte. *@
+               pantalla las pagina en memoria: ver PaginacionReporte. Breakpoint.None:
+               también en el teléfono es tabla (Mud la apilaba bajo 600px) y se desliza
+               dentro de su marco; ver "Reportes" en app.css. *@
             <MudDataGrid T="ReporteBeneficiariosDto" Items="@resultado.Filas" Class="mb-4"
                          RowsPerPage="PaginacionReporte.TamanoPredeterminado"
-                         SortMode="SortMode.None" Filterable="false" Dense="true">
+                         SortMode="SortMode.None" Filterable="false" Dense="true" Breakpoint="Breakpoint.None">
                 <Columns>
                     <PropertyColumn Property="x => x.NombreCompleto" Title="Nombre" />
                     <PropertyColumn Property="x => x.Categoria" Title="Categoría" />

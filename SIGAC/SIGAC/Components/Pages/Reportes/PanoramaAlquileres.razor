@@ -77,10 +77,12 @@
                     </MudText>
                 }
                 @* role="img" con el resumen de las cifras: el SVG de la gráfica no dice nada
-                   a un lector de pantalla (F-07). *@
-                <div role="img" aria-label="@TextoAlternativoGrafica.De(grafica.Titulo, grafica.Etiquetas, grafica.Series)">
+                   a un lector de pantalla (F-07). MatchBoundsToSize: se dibuja al ancho
+                   real del contenedor; sin esto el SVG de 700px se encogía como una
+                   imagen y en un teléfono los textos de los ejes quedaban de unos 5px. *@
+                <div role="img" class="ac-grafica" aria-label="@TextoAlternativoGrafica.De(grafica.Titulo, grafica.Etiquetas, grafica.Series)">
                     <MudChart T="double" ChartType="grafica.Tipo" ChartSeries="grafica.Series"
-                              ChartLabels="grafica.Etiquetas" ChartOptions="grafica.Opciones" Width="100%" Height="350px" />
+                              ChartLabels="grafica.Etiquetas" ChartOptions="grafica.Opciones" Width="100%" Height="350px" MatchBoundsToSize="true" />
                 </div>
             }
         }
@@ -183,7 +185,8 @@
                     }
                 },
                 etiquetasMeses,
-                SoloColones: true),
+                SoloColones: true,
+                Opciones: new LineChartOptions { XAxisLabelRotation = OpcionesGrafica.RotacionEtiquetasMes }),
 
             [Estadistica.AlquileresPorMes] = new(
                 "Cantidad de alquileres por mes",
@@ -195,7 +198,7 @@
                 },
                 etiquetasMeses,
                 SoloColones: false,
-                Opciones: new BarChartOptions { YAxisTicks = OpcionesGrafica.PasoDeConteo(reservadosPorMes.Concat(canceladosPorMes).Max()) }),
+                Opciones: new BarChartOptions { YAxisTicks = OpcionesGrafica.PasoDeConteo(reservadosPorMes.Concat(canceladosPorMes).Max()), XAxisLabelRotation = OpcionesGrafica.RotacionEtiquetasMes }),
 
             [Estadistica.HorasPorMes] = new(
                 "Horas alquiladas por mes",
@@ -203,7 +206,7 @@
                 new() { new() { Name = "Horas", Data = horasPorMes } },
                 etiquetasMeses,
                 SoloColones: false,
-                Opciones: new BarChartOptions { YAxisTicks = OpcionesGrafica.PasoDeConteo(horasPorMes.Max()) }),
+                Opciones: new BarChartOptions { YAxisTicks = OpcionesGrafica.PasoDeConteo(horasPorMes.Max()), XAxisLabelRotation = OpcionesGrafica.RotacionEtiquetasMes }),
 
             [Estadistica.PorSector] = new(
                 "Sectores más alquilados",

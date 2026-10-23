@@ -57,14 +57,32 @@
            solo esos registros. SortMode.None porque el orden (más reciente primero) lo
            fija la consulta en SQL: dejar ordenar por columna solo reordenaría la
            página visible, que sería engañoso. *@
-        <MudDataGrid T="HistorialAsistenciaDto" @ref="grilla"
+        @* Una sola grilla para los tres tamaños (ver ListadoBeneficiarios): en móvil
+           (< 768px) solo se ve la celda "tarjeta"; desde 768px, la tabla con sus
+           tres columnas, que caben también en tableta. *@
+        <MudDataGrid T="HistorialAsistenciaDto" @ref="grilla" Class="ac-grilla-tarjetas" Breakpoint="Breakpoint.None"
                      ServerData="CargarPaginaAsync"
                      RowsPerPage="FiltrosAsistenciaDto.TamanoPaginaPredeterminado"
                      SortMode="SortMode.None" Filterable="false">
             <Columns>
-                <PropertyColumn Property="x => x.NombreBeneficiario" Title="Beneficiario" />
-                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
-                <PropertyColumn Property="x => x.TiempoComida" Title="Tiempo de comida" />
+                <PropertyColumn Property="x => x.NombreBeneficiario" Title="Beneficiario" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <PropertyColumn Property="x => x.TiempoComida" Title="Tiempo de comida" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                @* Solo móvil: el beneficiario arriba con el tiempo de comida como
+                   etiqueta y la fecha debajo (sin "Ver más": no queda nada más que
+                   mostrar). *@
+                <TemplateColumn Title="Asistencia" CellClass="ac-col-tarjeta" HeaderClass="ac-col-tarjeta">
+                    <CellTemplate>
+                        <TarjetaFila Titulo="@context.Item.NombreBeneficiario">
+                            <Estado>
+                                <span class="ac-tarjeta-etiqueta">@context.Item.TiempoComida</span>
+                            </Estado>
+                            <Lineas>
+                                <p class="ac-tarjeta-dato">@context.Item.Fecha.ToString("dd/MM/yyyy")</p>
+                            </Lineas>
+                        </TarjetaFila>
+                    </CellTemplate>
+                </TemplateColumn>
             </Columns>
             <LoadingContent>
                 <CargandoGrilla />

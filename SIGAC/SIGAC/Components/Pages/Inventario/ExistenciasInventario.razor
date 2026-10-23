@@ -47,24 +47,40 @@
         @* ServerData y no Items: la consulta ya pagina en SQL, pero la pantalla pedía solo la
            primera página (20 artículos) y no tenía cómo ver las demás ni avisaba que había
            más. Mismo patrón que ListadoDonantes. *@
-        <MudDataGrid T="ArticuloExistenciaDto" @ref="grilla"
+        @* Una sola grilla para los tres tamaños (ver ListadoBeneficiarios): en móvil
+           (< 768px) solo se ve la celda "tarjeta"; en tableta y laptop chico, sin
+           Estado, Unidad de medida ni Ubicación (van en el "Ver más" bajo el
+           nombre); en escritorio, las ocho columnas. *@
+        <MudDataGrid T="ArticuloExistenciaDto" @ref="grilla" Class="ac-grilla-tarjetas" Breakpoint="Breakpoint.None"
                      ServerData="CargarPaginaAsync"
                      RowsPerPage="FiltrosExistenciaDto.TamanoPaginaPredeterminado"
                      SortMode="SortMode.None" Filterable="false">
             <Columns>
-                <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
-                <PropertyColumn Property="x => x.Codigo" Title="Código" />
-                <PropertyColumn Property="x => x.Categoria" Title="Categoría" />
+                <TemplateColumn Title="Nombre" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
+                    <CellTemplate>
+                        @context.Item.Nombre
+                        <VerMasTabla>
+                            <dt>Estado</dt>
+                            <dd>@(context.Item.Estado ?? "—")</dd>
+                            <dt>Unidad de medida</dt>
+                            <dd>@context.Item.UnidadMedida</dd>
+                            <dt>Ubicación</dt>
+                            <dd>@(context.Item.Ubicacion ?? "—")</dd>
+                        </VerMasTabla>
+                    </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.Codigo" Title="Código" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <PropertyColumn Property="x => x.Categoria" Title="Categoría" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
                 @* Guion y no vacío para lo que no lleva estado: una celda en blanco
                    se lee como "falta el dato", y acá simplemente no aplica. *@
-                <TemplateColumn Title="Estado">
+                <TemplateColumn Title="Estado" CellClass="ac-col-clasica ac-col-escritorio" HeaderClass="ac-col-clasica ac-col-escritorio">
                     <CellTemplate>
                         @(context.Item.Estado ?? "—")
                     </CellTemplate>
                 </TemplateColumn>
-                <PropertyColumn Property="x => x.UnidadMedida" Title="Unidad de medida" />
-                <PropertyColumn Property="x => x.Ubicacion" Title="Ubicación" />
-                <TemplateColumn Title="Stock actual">
+                <PropertyColumn Property="x => x.UnidadMedida" Title="Unidad de medida" CellClass="ac-col-clasica ac-col-escritorio" HeaderClass="ac-col-clasica ac-col-escritorio" />
+                <PropertyColumn Property="x => x.Ubicacion" Title="Ubicación" CellClass="ac-col-clasica ac-col-escritorio" HeaderClass="ac-col-clasica ac-col-escritorio" />
+                <TemplateColumn Title="Stock actual" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
                         @if (context.Item.StockBajo)
                         {
@@ -76,11 +92,44 @@
                         }
                     </CellTemplate>
                 </TemplateColumn>
-                <TemplateColumn Title="Acciones">
+                <TemplateColumn Title="Acciones" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
-                        <AuthorizeView Policy="@Permisos.Inventario.EditarArticulo" Context="auth">
-                            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/inventario/articulos/editar/{context.Item.Id}")">Editar</MudButton>
-                        </AuthorizeView>
+                        <div class="ac-acciones-tabla">
+                            @Acciones(context.Item, false)
+                        </div>
+                    </CellTemplate>
+                </TemplateColumn>
+                @* Solo móvil: nombre y stock arriba (en rojo si es stock bajo), "código
+                   · categoría" siempre a la vista, estado, unidad y ubicación en
+                   "Ver más", y Editar al pie. *@
+                <TemplateColumn Title="Artículo" CellClass="ac-col-tarjeta" HeaderClass="ac-col-tarjeta">
+                    <CellTemplate>
+                        <TarjetaFila Titulo="@context.Item.Nombre">
+                            <Estado>
+                                @if (context.Item.StockBajo)
+                                {
+                                    <MudChip T="string" Color="Color.Error" Size="Size.Small" Icon="@Icons.Material.Filled.Warning">Stock bajo: @context.Item.StockActual</MudChip>
+                                }
+                                else
+                                {
+                                    <span class="ac-tarjeta-etiqueta">Stock: @context.Item.StockActual</span>
+                                }
+                            </Estado>
+                            <Lineas>
+                                <p class="ac-tarjeta-dato">@LineaCodigo(context.Item)</p>
+                            </Lineas>
+                            <Detalle>
+                                <dt>Estado</dt>
+                                <dd>@(context.Item.Estado ?? "—")</dd>
+                                <dt>Unidad de medida</dt>
+                                <dd>@context.Item.UnidadMedida</dd>
+                                <dt>Ubicación</dt>
+                                <dd>@(context.Item.Ubicacion ?? "—")</dd>
+                            </Detalle>
+                            <Acciones>
+                                @Acciones(context.Item, true)
+                            </Acciones>
+                        </TarjetaFila>
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
@@ -118,6 +167,19 @@
 </MudCard>
 
 @code {
+    // Solo Editar: la misma pieza sirve a la tabla (botón plano) y a la tarjeta
+    // de móvil (con contorno; lo estira app.css).
+    private RenderFragment Acciones(ArticuloExistenciaDto item, bool tarjeta) => @<text>
+        <AuthorizeView Policy="@Permisos.Inventario.EditarArticulo" Context="auth">
+            <MudButton Variant="@(tarjeta ? Variant.Outlined : Variant.Text)" Color="Color.Primary" Href="@($"/inventario/articulos/editar/{item.Id}")">Editar</MudButton>
+        </AuthorizeView>
+    </text>;
+
+    // "Código · Categoría"; un artículo sin código muestra solo la categoría.
+    private static string LineaCodigo(ArticuloExistenciaDto articulo) =>
+        string.Join(" · ", new[] { articulo.Codigo, articulo.Categoria }
+            .Where(texto => !string.IsNullOrWhiteSpace(texto)));
+
     // Llega desde la notificación de stock bajo de Inicio
     // (/inventario/existencias?stockBajo=true): activa el interruptor y ya
     // carga la grilla, para que tocar la notificación muestre de una vez los

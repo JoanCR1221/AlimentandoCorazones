@@ -14,7 +14,7 @@
 <EncabezadoPagina Titulo="Reporte de gastos operativos"
                   Descripcion="Mismo formato que usa la contadora: gastos del mes agrupados por tipo y cuenta, con subtotales y total general." />
 
-<MudCard Class="pa-4">
+<MudCard Class="pa-4 ac-reporte">
     <MudCardContent>
         <MudGrid Spacing="2" Class="mb-2">
             <MudItem xs="12" sm="4">
@@ -105,7 +105,7 @@
                     <b>GRAN TOTAL: @resultado.GranTotalMonto.ToString("N2") · IVA: @resultado.GranTotalIva.ToString("N2")</b>
                 </MudText>
 
-                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="ac-acciones-reporte">
                     <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PictureAsPdf"
                                Disabled="exportando" OnClick="ExportarPdfAsync">
                         Exportar PDF

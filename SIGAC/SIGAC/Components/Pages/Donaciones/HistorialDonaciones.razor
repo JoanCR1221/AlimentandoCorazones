@@ -55,22 +55,51 @@
            fija la consulta en SQL: dejar ordenar por columna solo reordenaría la
            página visible, que sería engañoso. El total de arriba es del período
            completo, no de la página: viene de un agregado en la base. *@
-        <MudDataGrid T="HistorialDonacionDto" @ref="grilla"
+        @* Una sola grilla para los tres tamaños (ver ListadoBeneficiarios): en móvil
+           (< 768px) solo se ve la celda "tarjeta"; desde 768px, la tabla con las
+           cinco columnas: en tableta caben con el monto en una sola línea y la
+           descripción partiendo la línea (.ac-celda-larga). *@
+        <MudDataGrid T="HistorialDonacionDto" @ref="grilla" Class="ac-grilla-tarjetas" Breakpoint="Breakpoint.None"
                      ServerData="CargarPaginaAsync"
                      RowsPerPage="FiltrosHistorialDonacionDto.TamanoPaginaPredeterminado"
                      SortMode="SortMode.None" Filterable="false">
             <Columns>
-                <PropertyColumn Property="x => x.TipoDonacion" Title="Tipo" />
-                <PropertyColumn Property="x => x.NombreDonante" Title="Donante" />
-                <TemplateColumn Title="Monto">
+                <PropertyColumn Property="x => x.TipoDonacion" Title="Tipo" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <PropertyColumn Property="x => x.NombreDonante" Title="Donante" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                @* nowrap: entre el símbolo y la cifra va un espacio, y en la tabla
+                   apretada de tableta el "₡" quedaría solo en una línea. Mismo
+                   criterio que la columna Monto del Calendario de alquileres. *@
+                <TemplateColumn Title="Monto" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" CellStyle="white-space: nowrap">
+                    <CellTemplate>@TextoMonto(context.Item)</CellTemplate>
+                </TemplateColumn>
+                @* La descripción puede ser larga (en dinero son las observaciones):
+                   parte la línea en vez de ensanchar la tabla en tableta. *@
+                <PropertyColumn Property="x => x.Descripcion" Title="Descripción" CellClass="ac-col-clasica ac-celda-larga" HeaderClass="ac-col-clasica" />
+                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                @* Solo móvil: el donante arriba con el tipo (Dinero / Especie) como
+                   etiqueta; la fecha, el monto (solo en dinero) y la descripción
+                   siempre a la vista, sin "Ver más": en especie la descripción es
+                   lo donado, el dato que más se busca. *@
+                <TemplateColumn Title="Donación" CellClass="ac-col-tarjeta" HeaderClass="ac-col-tarjeta">
                     <CellTemplate>
-                        @(context.Item.Monto is null
-                            ? "—"
-                            : $"{TiposMoneda.Simbolo(context.Item.Moneda)} {context.Item.Monto:N2}")
+                        <TarjetaFila Titulo="@context.Item.NombreDonante">
+                            <Estado>
+                                <span class="ac-tarjeta-etiqueta">@context.Item.TipoDonacion</span>
+                            </Estado>
+                            <Lineas>
+                                <p class="ac-tarjeta-dato">@context.Item.Fecha.ToString("dd/MM/yyyy")</p>
+                                @if (context.Item.Monto is not null)
+                                {
+                                    <p class="ac-tarjeta-total">@TextoMonto(context.Item)</p>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(context.Item.Descripcion))
+                                {
+                                    <p class="ac-tarjeta-dato">@context.Item.Descripcion</p>
+                                }
+                            </Lineas>
+                        </TarjetaFila>
                     </CellTemplate>
                 </TemplateColumn>
-                <PropertyColumn Property="x => x.Descripcion" Title="Descripción" />
-                <PropertyColumn Property="x => x.Fecha" Title="Fecha" Format="dd/MM/yyyy" />
             </Columns>
             <LoadingContent>
                 <CargandoGrilla />
@@ -104,6 +133,14 @@
 </MudCard>
 
 @code {
+    // El mismo texto en la columna Monto y en la tarjeta de móvil. Guion para una
+    // donación en especie, que no tiene monto: en la tabla una celda vacía se
+    // leería como un dato que falta; la tarjeta directamente omite la línea.
+    private static string TextoMonto(HistorialDonacionDto donacion) =>
+        donacion.Monto is null
+            ? "—"
+            : $"{TiposMoneda.Simbolo(donacion.Moneda)} {donacion.Monto:N2}";
+
     private MudDataGrid<HistorialDonacionDto>? grilla;
 
     // Lo último que devolvió el servicio: la grilla muestra su página y el total de

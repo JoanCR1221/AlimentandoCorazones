@@ -59,10 +59,12 @@
                 <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-1">@grafica.Titulo</MudText>
                 <MudText Typo="Typo.caption" Class="mb-2 mud-text-secondary d-block">@grafica.Nota</MudText>
                 @* role="img" con el resumen de las cifras: el SVG de la gráfica no dice nada
-                   a un lector de pantalla (F-07). *@
-                <div role="img" aria-label="@TextoAlternativoGrafica.De(grafica.Titulo, grafica.Etiquetas, grafica.Series)">
+                   a un lector de pantalla (F-07). MatchBoundsToSize: se dibuja al ancho
+                   real del contenedor; sin esto el SVG de 700px se encogía como una
+                   imagen y en un teléfono los textos de los ejes quedaban de unos 5px. *@
+                <div role="img" class="ac-grafica" aria-label="@TextoAlternativoGrafica.De(grafica.Titulo, grafica.Etiquetas, grafica.Series)">
                     <MudChart T="double" ChartType="grafica.Tipo" ChartSeries="grafica.Series"
-                              ChartLabels="grafica.Etiquetas" ChartOptions="grafica.Opciones" Width="100%" Height="350px" />
+                              ChartLabels="grafica.Etiquetas" ChartOptions="grafica.Opciones" Width="100%" Height="350px" MatchBoundsToSize="true" />
                 </div>
             }
         }
@@ -163,7 +165,7 @@
                 etiquetasMeses,
                 // Unidades: el máximo puede pasar de 100 y entonces el paso por
                 // defecto (20) ya es razonable; con pocas unidades se ajusta.
-                new BarChartOptions { YAxisTicks = OpcionesGrafica.PasoDeConteo(entradasPorMes.Concat(salidasPorMes).Max()) }),
+                new BarChartOptions { YAxisTicks = OpcionesGrafica.PasoDeConteo(entradasPorMes.Concat(salidasPorMes).Max()), XAxisLabelRotation = OpcionesGrafica.RotacionEtiquetasMes }),
 
             [Estadistica.OrigenEntradas] = new(
                 "Origen de las entradas",

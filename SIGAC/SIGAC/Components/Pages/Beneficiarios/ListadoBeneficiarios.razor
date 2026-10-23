@@ -62,44 +62,77 @@
            repositorio trae de la base solo esos registros.
            SortMode.None porque el orden lo fija la consulta en SQL: dejar ordenar
            por columna solo reordenaría la página visible, que sería engañoso. *@
-        <MudDataGrid T="BeneficiarioListaDto" @ref="grilla"
+        @* Un solo MudDataGrid sirve a los tres tamaños, así la carga del servidor, el
+           paginador y los estados vacío y de carga no se duplican. Lo que cambia es
+           qué celdas se ven (reglas .ac-grilla-tarjetas en app.css):
+           - móvil (< 768px): solo la columna "tarjeta"; cada fila es una tarjeta;
+           - tableta y laptop chico (768px a 1439px): sin Documento ni Fecha de nacimiento, que van
+             en el "Ver más" de la celda del nombre;
+           - escritorio (1440px o más): las ocho columnas de siempre.
+           Breakpoint.None apaga el modo apilado propio de Mud (corta en 600/960px). *@
+        <MudDataGrid T="BeneficiarioListaDto" @ref="grilla" Class="ac-grilla-tarjetas" Breakpoint="Breakpoint.None"
                      ServerData="CargarPaginaAsync"
                      RowsPerPage="FiltrosBeneficiarioDto.TamanoPaginaPredeterminado"
                      SortMode="SortMode.None" Filterable="false">
             <Columns>
-                <PropertyColumn Property="x => x.NombreCompleto" Title="Nombre completo" />
-                <TemplateColumn Title="Documento">
+                <TemplateColumn Title="Nombre completo" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
+                    <CellTemplate>
+                        @context.Item.NombreCompleto
+                        <VerMasTabla>
+                            <dt>Documento</dt>
+                            <dd>@(DescribirDocumento(context.Item))</dd>
+                            <dt>Fecha de nacimiento</dt>
+                            <dd>@context.Item.FechaNacimiento.ToString("dd/MM/yyyy")</dd>
+                        </VerMasTabla>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Documento" CellClass="ac-col-clasica ac-col-escritorio" HeaderClass="ac-col-clasica ac-col-escritorio">
                     <CellTemplate>
                         @DescribirDocumento(context.Item)
                     </CellTemplate>
                 </TemplateColumn>
-                <PropertyColumn Property="x => x.NumIdentidad" Title="N.º de identidad" />
-                <PropertyColumn Property="x => x.FechaNacimiento" Title="Fecha de nacimiento" Format="dd/MM/yyyy" />
-                <PropertyColumn Property="x => x.Categoria" Title="Categoría" />
-                <PropertyColumn Property="x => x.TelefonoCompleto" Title="Teléfono" />
-                <TemplateColumn Title="Estado">
+                <PropertyColumn Property="x => x.NumIdentidad" Title="N.º de identidad" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <PropertyColumn Property="x => x.FechaNacimiento" Title="Fecha de nacimiento" Format="dd/MM/yyyy" CellClass="ac-col-clasica ac-col-escritorio" HeaderClass="ac-col-clasica ac-col-escritorio" />
+                <PropertyColumn Property="x => x.Categoria" Title="Categoría" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <PropertyColumn Property="x => x.TelefonoCompleto" Title="Teléfono" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <TemplateColumn Title="Estado" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
                         <EstadoChip Activo="@context.Item.Estado" />
                     </CellTemplate>
                 </TemplateColumn>
-                <TemplateColumn Title="Acciones">
+                <TemplateColumn Title="Acciones" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
-                        @* Cada acción solo si el usuario tiene su permiso (fase 4 del
-                           módulo de seguridad). Context="auth" para no pisar el
-                           context de la celda. *@
-                        <AuthorizeView Policy="@Permisos.Beneficiarios.Editar" Context="auth">
-                            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/beneficiarios/editar/{context.Item.Id}")">Editar</MudButton>
-                        </AuthorizeView>
-                        <AuthorizeView Policy="@Permisos.Beneficiarios.CambiarEstado" Context="auth">
-                            @if (context.Item.Estado)
-                            {
-                                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error" Class="ac-btn-inactivar ml-1" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.NombreCompleto, false))">Desactivar</MudButton>
-                            }
-                            else
-                            {
-                                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Success" Class="ac-btn-activar ml-1" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.NombreCompleto, true))">Activar</MudButton>
-                            }
-                        </AuthorizeView>
+                        <div class="ac-acciones-tabla">
+                            @Acciones(context.Item, false)
+                        </div>
+                    </CellTemplate>
+                </TemplateColumn>
+                @* Solo móvil: toda la fila en una tarjeta. Nombre y estado arriba, el
+                   documento con su número y el teléfono siempre a la vista, el resto
+                   en "Ver más" y las acciones al pie (botones de 48px). *@
+                <TemplateColumn Title="Beneficiario" CellClass="ac-col-tarjeta" HeaderClass="ac-col-tarjeta">
+                    <CellTemplate>
+                        <TarjetaFila Titulo="@context.Item.NombreCompleto">
+                            <Estado>
+                                <EstadoChip Activo="@context.Item.Estado" />
+                            </Estado>
+                            <Lineas>
+                                @if (LineaIdentidad(context.Item) is { Length: > 0 } identidad)
+                                {
+                                    <p class="ac-tarjeta-dato">@identidad</p>
+                                }
+                                <EnlaceContacto Telefono="@context.Item.TelefonoCompleto" />
+                            </Lineas>
+                            <Detalle>
+                                <dt>Categoría</dt>
+                                <dd>@context.Item.Categoria</dd>
+                                <dt>Fecha de nacimiento</dt>
+                                <dd>@context.Item.FechaNacimiento.ToString("dd/MM/yyyy")</dd>
+                            </Detalle>
+                            <Acciones>
+                                @Acciones(context.Item, true)
+                            </Acciones>
+                        </TarjetaFila>
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
@@ -257,6 +290,32 @@
         else
             await grilla.ReloadServerData();
     }
+
+    // Cada acción solo si el usuario tiene su permiso (fase 4 del módulo de
+    // seguridad). Context="auth" para no pisar el context de la celda. La misma
+    // pieza sirve a la tabla (Editar plano, Activar/Desactivar chico) y a la
+    // tarjeta de móvil (botones del tamaño normal; los estira app.css).
+    private RenderFragment Acciones(BeneficiarioListaDto item, bool tarjeta) => @<text>
+        <AuthorizeView Policy="@Permisos.Beneficiarios.Editar" Context="auth">
+            <MudButton Variant="@(tarjeta ? Variant.Outlined : Variant.Text)" Color="Color.Primary" Href="@($"/beneficiarios/editar/{item.Id}")">Editar</MudButton>
+        </AuthorizeView>
+        <AuthorizeView Policy="@Permisos.Beneficiarios.CambiarEstado" Context="auth">
+            @if (item.Estado)
+            {
+                <MudButton Variant="Variant.Outlined" Size="@(tarjeta ? Size.Medium : Size.Small)" Color="Color.Error" Class="@(tarjeta ? "ac-btn-inactivar" : "ac-btn-inactivar ml-1")" OnClick="@(() => ConfirmarCambioEstadoAsync(item.Id, item.NombreCompleto, false))">Desactivar</MudButton>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Outlined" Size="@(tarjeta ? Size.Medium : Size.Small)" Color="Color.Success" Class="@(tarjeta ? "ac-btn-activar" : "ac-btn-activar ml-1")" OnClick="@(() => ConfirmarCambioEstadoAsync(item.Id, item.NombreCompleto, true))">Activar</MudButton>
+            }
+        </AuthorizeView>
+    </text>;
+
+    // "Cédula · 1-2345-6789" en una línea: en la tarjeta el tipo de documento solo
+    // no dice nada y el número solo tampoco.
+    private static string LineaIdentidad(BeneficiarioListaDto beneficiario) =>
+        string.Join(" · ", new[] { DescribirDocumento(beneficiario), beneficiario.NumIdentidad }
+            .Where(texto => !string.IsNullOrWhiteSpace(texto)));
 
     // "Otro" por sí solo no dice nada: se muestra cómo se llama el documento.
     private static string DescribirDocumento(BeneficiarioListaDto beneficiario)

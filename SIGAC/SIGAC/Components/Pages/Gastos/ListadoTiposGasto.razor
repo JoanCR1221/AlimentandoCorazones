@@ -18,34 +18,57 @@
 
 <MudCard Class="pa-1 pa-sm-4">
     <MudCardContent>
-        @* Breakpoint Sm: por debajo de 960 px cada fila se muestra como tarjeta con
-           sus etiquetas, en vez de cortar las columnas de Estado y Acciones. *@
-        <MudDataGrid T="TipoGastoDto" Items="@tipos" Loading="cargando" Breakpoint="Breakpoint.Sm">
+        @* Una sola grilla para los tres tamaños (ver ListadoBeneficiarios): en móvil
+           (< 768px) solo se ve la celda "tarjeta"; desde 768px, la tabla con las
+           cinco columnas. Reemplaza al Breakpoint Sm, que por debajo de 960 px
+           apilaba cada fila con sus etiquetas. *@
+        <MudDataGrid T="TipoGastoDto" Items="@tipos" Loading="cargando"
+                     Class="ac-grilla-tarjetas" Breakpoint="Breakpoint.None">
             <Columns>
-                <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
-                <TemplateColumn Title="Genera inventario">
+                <PropertyColumn Property="x => x.Nombre" Title="Nombre" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                @* Estos dos encabezados pueden partirse en dos líneas (la regla general
+                   de app.css los deja en una): enteros, "Cuenta contable por defecto"
+                   y "Genera inventario" pedían ~360 px y la tabla no entraba en
+                   768 px. En escritorio hay lugar y siguen en una línea. *@
+                <TemplateColumn Title="Genera inventario" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" HeaderStyle="white-space: normal">
                     <CellTemplate>@(context.Item.GeneraInventario ? "Sí" : "No")</CellTemplate>
                 </TemplateColumn>
-                <PropertyColumn Property="x => x.CuentaContablePorDefecto" Title="Cuenta contable por defecto" />
-                <TemplateColumn Title="Estado">
+                <PropertyColumn Property="x => x.CuentaContablePorDefecto" Title="Cuenta contable por defecto" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" HeaderStyle="white-space: normal" />
+                <TemplateColumn Title="Estado" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
                         <EstadoChip Activo="@context.Item.Activo" />
                     </CellTemplate>
                 </TemplateColumn>
-                <TemplateColumn Title="Acciones" CellStyle="white-space: nowrap">
+                @* nowrap: en escritorio Editar y Desactivar van en una sola línea; en
+                   tableta app.css los apila (.ac-acciones-tabla). *@
+                <TemplateColumn Title="Acciones" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" CellStyle="white-space: nowrap">
                     <CellTemplate>
-                        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => EditarAsync(context.Item))">Editar</MudButton>
-                        @* Baja lógica y nunca borrado: los gastos registrados apuntan al
-                           tipo (FK Restrict). Un tipo inactivo sale del desplegable del
-                           formulario de gastos y sigue mostrándose en los que ya lo usan. *@
-                        @if (context.Item.Activo)
-                        {
-                            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error" Class="ac-btn-inactivar ml-1" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item, false))">Desactivar</MudButton>
-                        }
-                        else
-                        {
-                            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Success" Class="ac-btn-activar ml-1" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item, true))">Activar</MudButton>
-                        }
+                        <div class="ac-acciones-tabla">
+                            @Acciones(context.Item, false)
+                        </div>
+                    </CellTemplate>
+                </TemplateColumn>
+                @* Solo móvil: nombre y estado arriba, si genera inventario y la cuenta
+                   contable siempre a la vista (sin "Ver más": no queda nada más que
+                   mostrar) y Editar / Desactivar al pie. *@
+                <TemplateColumn Title="Tipo de gasto" CellClass="ac-col-tarjeta" HeaderClass="ac-col-tarjeta">
+                    <CellTemplate>
+                        <TarjetaFila Titulo="@context.Item.Nombre">
+                            <Estado>
+                                <EstadoChip Activo="@context.Item.Activo" />
+                            </Estado>
+                            <Lineas>
+                                <p class="ac-tarjeta-dato">Genera inventario: @(context.Item.GeneraInventario ? "Sí" : "No")</p>
+                                @* Guion y no la línea omitida: la cuenta es opcional, y el
+                                   guion dice que este tipo no precarga ninguna en el
+                                   formulario de gasto. Así todas las tarjetas traen las
+                                   mismas dos líneas. *@
+                                <p class="ac-tarjeta-dato">Cuenta contable: @(string.IsNullOrWhiteSpace(context.Item.CuentaContablePorDefecto) ? "—" : context.Item.CuentaContablePorDefecto)</p>
+                            </Lineas>
+                            <Acciones>
+                                @Acciones(context.Item, true)
+                            </Acciones>
+                        </TarjetaFila>
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
@@ -61,6 +84,23 @@
 </MudCard>
 
 @code {
+    // La misma pieza sirve a la tabla (Editar plano, Activar/Desactivar chico) y
+    // a la tarjeta de móvil (botones del tamaño normal; los estira app.css).
+    private RenderFragment Acciones(TipoGastoDto item, bool tarjeta) => @<text>
+        <MudButton Variant="@(tarjeta ? Variant.Outlined : Variant.Text)" Color="Color.Primary" OnClick="@(() => EditarAsync(item))">Editar</MudButton>
+        @* Baja lógica y nunca borrado: los gastos registrados apuntan al
+           tipo (FK Restrict). Un tipo inactivo sale del desplegable del
+           formulario de gastos y sigue mostrándose en los que ya lo usan. *@
+        @if (item.Activo)
+        {
+            <MudButton Variant="Variant.Outlined" Size="@(tarjeta ? Size.Medium : Size.Small)" Color="Color.Error" Class="@(tarjeta ? "ac-btn-inactivar" : "ac-btn-inactivar ml-1")" OnClick="@(() => ConfirmarCambioEstadoAsync(item, false))">Desactivar</MudButton>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Outlined" Size="@(tarjeta ? Size.Medium : Size.Small)" Color="Color.Success" Class="@(tarjeta ? "ac-btn-activar" : "ac-btn-activar ml-1")" OnClick="@(() => ConfirmarCambioEstadoAsync(item, true))">Activar</MudButton>
+        }
+    </text>;
+
     private IReadOnlyList<TipoGastoDto> tipos = Array.Empty<TipoGastoDto>();
     private bool cargando = true;
 

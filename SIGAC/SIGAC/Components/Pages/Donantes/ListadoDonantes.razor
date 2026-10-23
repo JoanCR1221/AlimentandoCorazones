@@ -50,35 +50,51 @@
             <MudSelectItem T="bool?" Value="false">Inactivo</MudSelectItem>
         </MudSelect>
 
-        <MudDataGrid T="DonanteListaDto" @ref="grilla"
+        @* Una sola grilla para los tres tamaños (ver ListadoBeneficiarios): en móvil
+           (< 768px) solo se ve la celda "tarjeta"; desde 768px, la tabla. Aquí las
+           seis columnas se quedan también en tableta; el correo parte la línea
+           (.ac-celda-larga) para que la tabla quepa en 768px. *@
+        <MudDataGrid T="DonanteListaDto" @ref="grilla" Class="ac-grilla-tarjetas" Breakpoint="Breakpoint.None"
                      ServerData="CargarPaginaAsync"
                      RowsPerPage="FiltrosDonanteDto.TamanoPaginaPredeterminado"
                      SortMode="SortMode.None" Filterable="false">
             <Columns>
-                <PropertyColumn Property="x => x.Nombre" Title="Nombre" />
-                <PropertyColumn Property="x => x.TipoPersona" Title="Tipo de persona" />
-                <PropertyColumn Property="x => x.Correo" Title="Correo" />
-                <PropertyColumn Property="x => x.TelefonoCompleto" Title="Teléfono" />
-                <TemplateColumn Title="Estado">
+                <PropertyColumn Property="x => x.Nombre" Title="Nombre" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <PropertyColumn Property="x => x.TipoPersona" Title="Tipo de persona" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <PropertyColumn Property="x => x.Correo" Title="Correo" CellClass="ac-col-clasica ac-celda-larga" HeaderClass="ac-col-clasica" />
+                <PropertyColumn Property="x => x.TelefonoCompleto" Title="Teléfono" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica" />
+                <TemplateColumn Title="Estado" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
                         <EstadoChip Activo="@context.Item.Estado" />
                     </CellTemplate>
                 </TemplateColumn>
-                <TemplateColumn Title="Acciones">
+                <TemplateColumn Title="Acciones" CellClass="ac-col-clasica" HeaderClass="ac-col-clasica">
                     <CellTemplate>
-                        @* Editar y cambiar el estado comparten el permiso EditarDonante:
-                           son la misma pantalla de mantenimiento del donante. *@
-                        <AuthorizeView Policy="@Permisos.Donaciones.EditarDonante" Context="auth">
-                            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/donantes/editar/{context.Item.Id}")">Editar</MudButton>
-                            @if (context.Item.Estado)
-                            {
-                                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error" Class="ac-btn-inactivar ml-1" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.Nombre, false))">Desactivar</MudButton>
-                            }
-                            else
-                            {
-                                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Success" Class="ac-btn-activar ml-1" OnClick="@(() => ConfirmarCambioEstadoAsync(context.Item.Id, context.Item.Nombre, true))">Activar</MudButton>
-                            }
-                        </AuthorizeView>
+                        <div class="ac-acciones-tabla">
+                            @Acciones(context.Item, false)
+                        </div>
+                    </CellTemplate>
+                </TemplateColumn>
+                @* Solo móvil: nombre y estado arriba, teléfono y correo (enlaces para
+                   llamar y escribir) siempre a la vista, el tipo de persona en
+                   "Ver más" y las acciones al pie. *@
+                <TemplateColumn Title="Donante" CellClass="ac-col-tarjeta" HeaderClass="ac-col-tarjeta">
+                    <CellTemplate>
+                        <TarjetaFila Titulo="@context.Item.Nombre">
+                            <Estado>
+                                <EstadoChip Activo="@context.Item.Estado" />
+                            </Estado>
+                            <Lineas>
+                                <EnlaceContacto Telefono="@context.Item.TelefonoCompleto" Correo="@context.Item.Correo" />
+                            </Lineas>
+                            <Detalle>
+                                <dt>Tipo de persona</dt>
+                                <dd>@context.Item.TipoPersona</dd>
+                            </Detalle>
+                            <Acciones>
+                                @Acciones(context.Item, true)
+                            </Acciones>
+                        </TarjetaFila>
                     </CellTemplate>
                 </TemplateColumn>
             </Columns>
@@ -132,6 +148,24 @@
     // Sale del resumen de las tarjetas (un conteo, no filas): permite decir
     // "todavía no hay donantes" sin consultar la lista.
     private bool NoHayDonantes => resumen is { Activos: 0, Inactivos: 0 };
+
+    // Editar y cambiar el estado comparten el permiso EditarDonante: son la misma
+    // pantalla de mantenimiento del donante. La misma pieza sirve a la tabla
+    // (Editar plano, Activar/Desactivar chico) y a la tarjeta de móvil (botones
+    // del tamaño normal; los estira app.css).
+    private RenderFragment Acciones(DonanteListaDto item, bool tarjeta) => @<text>
+        <AuthorizeView Policy="@Permisos.Donaciones.EditarDonante" Context="auth">
+            <MudButton Variant="@(tarjeta ? Variant.Outlined : Variant.Text)" Color="Color.Primary" Href="@($"/donantes/editar/{item.Id}")">Editar</MudButton>
+            @if (item.Estado)
+            {
+                <MudButton Variant="Variant.Outlined" Size="@(tarjeta ? Size.Medium : Size.Small)" Color="Color.Error" Class="@(tarjeta ? "ac-btn-inactivar" : "ac-btn-inactivar ml-1")" OnClick="@(() => ConfirmarCambioEstadoAsync(item.Id, item.Nombre, false))">Desactivar</MudButton>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Outlined" Size="@(tarjeta ? Size.Medium : Size.Small)" Color="Color.Success" Class="@(tarjeta ? "ac-btn-activar" : "ac-btn-activar ml-1")" OnClick="@(() => ConfirmarCambioEstadoAsync(item.Id, item.Nombre, true))">Activar</MudButton>
+            }
+        </AuthorizeView>
+    </text>;
 
     protected override async Task OnInitializedAsync() => await CargarResumenAsync();
 

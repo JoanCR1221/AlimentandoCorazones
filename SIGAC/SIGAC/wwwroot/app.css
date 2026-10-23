@@ -165,10 +165,22 @@ h1, h2, h3, h4, h5, h6 {
    a .mud-main-content un padding-top automático para no quedar tapado por
    ella, pero la utilidad "pa-4" (padding parejo en los cuatro lados,
    !important) lo pisa. Resultado: el título de cada pantalla queda debajo
-   de la barra. Clase propia en vez de pa-4 para no perder esa separación. */
+   de la barra. Clase propia en vez de pa-4 para no perder esa separación.
+   Margen lateral de 16px en móvil y 24px desde tableta (768px). min-width: 0
+   deja que el contenido se encoja dentro del layout flex de Mud en vez de
+   empujar la página hacia los lados. */
 .sigac-main {
-    padding: 1rem;
-    padding-top: calc(var(--mud-appbar-height, 64px) + 1rem);
+    min-width: 0;
+    padding: 16px;
+    padding-top: calc(var(--mud-appbar-height, 64px) + 16px);
+    overflow-wrap: break-word;
+}
+
+@media (min-width: 768px) {
+    .sigac-main {
+        padding: 24px;
+        padding-top: calc(var(--mud-appbar-height, 64px) + 24px);
+    }
 }
 
 /* --- Barra superior: blanca (gris #1F1F1F en oscuro) con un borde inferior fino
@@ -323,6 +335,12 @@ html[data-alto-contraste="true"] :focus-visible {
     margin-right: 0;
 }
 
+/* 8px entre el botón de la cuenta y los controles de apariencia, para no
+   tocar uno por el otro. */
+.apariencia-toolbar {
+    margin-left: 8px;
+}
+
 a {
     color: var(--ac-coral-700);
 }
@@ -377,16 +395,23 @@ html:not([data-alto-contraste="true"]) :is(a, button, [role="button"], [tabindex
     font-variant-numeric: tabular-nums;
 }
 
-/* Pantallas táctiles: objetivos de 44px como mínimo (los botones Small de las
+/* Pantallas táctiles: objetivos de 48px como mínimo (los botones Small de las
    grillas, como Activar/Desactivar, quedarían en ~30px). */
 @media (pointer: coarse) {
     .mud-button-root,
     .mud-icon-button {
-        min-height: 44px;
+        min-height: 48px;
     }
 
     .mud-icon-button {
-        min-width: 44px;
+        min-width: 48px;
+    }
+
+    /* Enlaces y cabeceras de grupo del menú lateral. Va acá y no en
+       NavMenu.razor.css porque ese componente no tiene un elemento HTML propio
+       que lleve el atributo de aislamiento, y sus reglas ::deep no llegan. */
+    .mud-drawer .mud-nav-link {
+        min-height: 48px;
     }
 }
 
@@ -419,6 +444,13 @@ html:not([data-alto-contraste="true"]) :is(a, button, [role="button"], [tabindex
 html[data-alto-contraste="true"] .sigac-usuario-activador:hover {
     background-color: rgba(255, 255, 255, 0.2);
     border-color: currentColor;
+}
+
+/* Pantalla táctil: 48px como el resto de los controles (ver más arriba). */
+@media (pointer: coarse) {
+    .sigac-usuario-activador {
+        height: 48px;
+    }
 }
 
 .sigac-avatar {
@@ -590,15 +622,59 @@ html[data-alto-contraste="true"] .sigac-usuario-activador:hover {
     flex: none;
 }
 
-/* --- Migas de pan (MigasPan) --- */
+/* --- Migas de pan (MigasPan) ---
+   Móvil: solo el enlace "‹ nivel anterior" (.ac-migas-volver), de 48px de
+   alto; el margen negativo de arriba compensa el aire que ya trae esa zona
+   táctil. Desde tableta (768px): la ruta completa (.ac-migas-ruta). */
 .ac-migas {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px;
     margin-bottom: 12px;
     font-size: 0.8125rem;
     color: var(--ac-ink-suave);
+}
+
+.ac-migas .ac-migas-volver {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    min-height: 48px;
+    margin: -12px 0 0 -6px;
+    padding-right: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--ac-ink);
+}
+
+.ac-migas .ac-migas-volver .mud-icon-root {
+    width: 24px;
+    height: 24px;
+    opacity: 1;
+}
+
+.ac-migas-ruta {
+    display: none;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+
+@media (min-width: 768px) {
+    .ac-migas .ac-migas-volver {
+        display: none;
+    }
+
+    .ac-migas-ruta {
+        display: flex;
+    }
+}
+
+/* Tableta táctil: cada enlace de la ruta llega a 48px de alto. */
+@media (min-width: 768px) and (pointer: coarse) {
+    .ac-migas-ruta a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 48px;
+        padding: 0 4px;
+    }
 }
 
 .ac-migas a {
@@ -690,6 +766,476 @@ html[data-alto-contraste="true"] .sigac-usuario-activador:hover {
 
 .sigac-main .mud-card-content:has(> .mud-data-grid) > .mud-button-root {
     justify-self: start;
+}
+
+/* --- Listados en tres tamaños (MudDataGrid con Class="ac-grilla-tarjetas") ---
+   La grilla trae siempre las mismas celdas y acá se decide cuáles se ven:
+   - móvil (< 768px): solo la celda .ac-col-tarjeta; cada fila es una tarjeta;
+   - tableta y laptop chico (768px a 1439px): sin las .ac-col-escritorio (el
+     detalle de cada fila queda en "Ver más", .ac-detalle-tableta). El tope es
+     1439px y no 1024px porque desde 960px el menú lateral es fijo y le quita
+     240px al contenido: a 1280px de pantalla solo quedan ~930px para la
+     tabla y las ocho columnas necesitan ~1010px;
+   - escritorio (1440px o más): todas las columnas, sin "Ver más".
+   Mismo diseño que usarán los demás listados: basta con marcar las celdas con
+   estas clases. */
+/* .ac-solo-tableta: un dato que en tableta va en chico bajo el principal porque
+   su columna se oculta ahí y no amerita un "Ver más" (el rol bajo el usuario en
+   la Bitácora, cuya fila ya tiene su propio botón para desplegar). */
+.ac-grilla-tarjetas .mud-table-root .ac-col-tarjeta,
+.ac-grilla-tarjetas .mud-table-root .ac-detalle-tableta,
+.ac-grilla-tarjetas .mud-table-root .ac-solo-tableta {
+    display: none;
+}
+
+@media (min-width: 768px) and (max-width: 1439px) {
+    .ac-grilla-tarjetas .mud-table-root .ac-col-escritorio {
+        display: none;
+    }
+
+    .ac-grilla-tarjetas .mud-table-root .ac-detalle-tableta,
+    .ac-grilla-tarjetas .mud-table-root .ac-solo-tableta {
+        display: block;
+    }
+
+    /* Con 6 columnas y el relleno de 16px de Mud, la tabla no cabe en 768px:
+       celdas más compactas y los dos botones de acción uno sobre otro. */
+    .ac-grilla-tarjetas .mud-table-root .mud-table-cell {
+        padding: 12px 8px;
+    }
+
+    /* Grillas con Dense="true" (Calendario de alquileres, Usuarios): Mud les
+       pone 16px y 24px a los lados con la misma especificidad que la regla de
+       arriba, y como su hoja carga después de app.css, ganaba. El "html" extra
+       le gana; arriba y abajo se respeta el alto compacto de Dense. */
+    html .ac-grilla-tarjetas.mud-table-dense .mud-table-root .mud-table-cell {
+        padding: 6px 8px;
+    }
+
+    /* Celda del botón para desplegar (HierarchyColumn de la Bitácora): el botón
+       trae un margen de -12px (ma-n3, con !important) pensado para los 16px de
+       relleno de Mud; con los 8px de arriba se salía 4px de la celda y quedaba
+       pegado al borde de la tabla. HierarchyColumn no acepta CellClass: la celda
+       se reconoce por tener un botón de icono como hijo directo. */
+    html .ac-grilla-tarjetas.mud-table-dense .mud-table-root .mud-table-body .mud-table-cell:has(> .mud-icon-button) {
+        padding: 6px 8px 6px 16px;
+    }
+
+    /* Datos largos (correos): parten la línea en vez de ensanchar la tabla. El
+       ancho mínimo evita que, con tantas columnas, la tabla le deje al correo
+       solo 6 o 7 letras por línea. */
+    .ac-grilla-tarjetas .mud-table-root .ac-celda-larga {
+        min-width: 9rem;
+        overflow-wrap: anywhere;
+    }
+
+    .ac-grilla-tarjetas .ac-acciones-tabla {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+    }
+
+    .ac-grilla-tarjetas .ac-acciones-tabla .mud-button-root {
+        margin: 0;
+    }
+}
+
+/* Detalle desplegable (tableta y tarjeta de móvil): el resumen es un control
+   de 48px de alto. */
+.ac-grilla-tarjetas summary {
+    display: flex;
+    align-items: center;
+    min-height: 48px;
+    color: var(--ac-coral-700);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.ac-detalle-datos {
+    display: grid;
+    /* minmax(0, 1fr) y no 1fr: un valor largo sin espacios (un correo, un
+       detalle) no ensancha la columna más allá de la tarjeta. */
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 4px 16px;
+    margin: 0 0 8px;
+}
+
+.ac-detalle-datos dt {
+    color: var(--ac-ink-suave);
+}
+
+.ac-detalle-datos dd {
+    margin: 0;
+    overflow-wrap: break-word;
+}
+
+/* En la celda del nombre (tableta) no hay ancho para dos columnas: etiqueta
+   arriba y valor debajo. */
+.ac-detalle-tableta .ac-detalle-datos {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+}
+
+.ac-detalle-tableta .ac-detalle-datos dd {
+    margin-bottom: 8px;
+}
+
+@media (max-width: 767px) {
+    /* La grilla deja de ser un marco con tabla: las tarjetas son el marco. */
+    html .ac-grilla-tarjetas.mud-data-grid,
+    html .ac-grilla-tarjetas .mud-table-container {
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        overflow: visible;
+    }
+
+    /* Paginador en una sola línea: sin el selector de filas por página (en un
+       teléfono sobra), con "1-20 de 45" a la izquierda y las flechas, de 48px,
+       a la derecha. */
+    .ac-grilla-tarjetas .mud-table-pagination {
+        border: 0;
+        background: transparent;
+    }
+
+    /* Mud fija una altura de 100px (dos filas) para su paginador en pantallas
+       angostas: de ahí el "html" extra para pisarla. */
+    html .ac-grilla-tarjetas .mud-table-pagination .mud-table-pagination-toolbar {
+        flex-wrap: nowrap;
+        justify-content: space-between;
+        min-height: 56px;
+        padding: 0;
+    }
+
+    .ac-grilla-tarjetas .mud-table-pagination-toolbar > .mud-table-pagination-spacer,
+    .ac-grilla-tarjetas .mud-table-pagination-toolbar > .mud-select,
+    .ac-grilla-tarjetas .mud-table-pagination-toolbar > p.mud-table-pagination-caption:first-of-type {
+        display: none;
+    }
+
+    .ac-grilla-tarjetas .mud-table-pagination-toolbar > p.mud-table-pagination-caption {
+        margin: 0;
+        padding: 0 8px;
+        font-size: 1rem;
+    }
+
+    /* Mud, bajo 417px, les pone margin-inline "auto -14px" (con 4 selectores de
+       clase): hay que igualarlo y ponerlo en forma lógica también. */
+    html .mud-table.ac-grilla-tarjetas .mud-table-pagination .mud-table-pagination-toolbar .mud-table-pagination-actions {
+        flex: none;
+        margin: 0;
+        margin-inline: 0;
+    }
+
+    /* Mud declara estas mismas propiedades con la misma especificidad y carga su
+       hoja después de app.css: el ".mud-table-root" extra es para ganarle. */
+    .ac-grilla-tarjetas .mud-table-root,
+    .ac-grilla-tarjetas .mud-table-root .mud-table-body,
+    .ac-grilla-tarjetas .mud-table-root .mud-table-row,
+    .ac-grilla-tarjetas .mud-table-root .mud-table-cell {
+        display: block;
+    }
+
+    .ac-grilla-tarjetas .mud-table-root .mud-table-head {
+        display: none;
+    }
+
+    .ac-grilla-tarjetas .mud-table-root .ac-col-clasica {
+        display: none;
+    }
+
+    /* Fila desplegable (HierarchyColumn, en la Bitácora): en la tarjeta el
+       detalle va en su "Ver más", así que se ocultan la celda del botón para
+       desplegar (sin CellClass propio: es la única con un botón de icono como
+       hijo directo) y la fila hija, por si quedó abierta al achicar la ventana
+       desde tableta; si no, quedaría como una tarjeta suelta. */
+    .ac-grilla-tarjetas .mud-table-root .mud-table-body .mud-table-cell:has(> .mud-icon-button),
+    .ac-grilla-tarjetas .mud-table-root .mud-table-body .mud-table-row:has(> .mud-table-child-content) {
+        display: none;
+    }
+
+    .ac-grilla-tarjetas .mud-table-root .mud-table-body .mud-table-row {
+        margin-bottom: 12px;
+        border: 1px solid var(--ac-borde-suave);
+        border-radius: 10px;
+        background: var(--ac-superficie);
+        box-shadow: 0 1px 2px rgba(var(--ac-sombra-rgb), 0.06);
+    }
+
+    .ac-grilla-tarjetas .mud-table-root .ac-col-tarjeta {
+        display: block;
+        padding: 16px;
+        border: 0;
+        white-space: normal;
+    }
+
+    /* Mismo choque con Dense="true": sin el "html" extra, la tarjeta quedaba
+       con 6px arriba y abajo en vez de 16px. */
+    html .ac-grilla-tarjetas.mud-table-dense .mud-table-root .ac-col-tarjeta {
+        padding: 16px;
+    }
+
+    .ac-tarjeta-cabecera {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .ac-tarjeta-titulo {
+        min-width: 0;
+        font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
+        font-size: 1.125rem;
+        font-weight: 600;
+        line-height: 1.3;
+        overflow-wrap: anywhere;
+        color: var(--ac-ink);
+    }
+
+    .ac-tarjeta-dato {
+        margin: 4px 0 0;
+        font-size: 1rem;
+        color: var(--ac-ink-suave);
+        overflow-wrap: anywhere;
+    }
+
+    /* Teléfono o correo (EnlaceContacto): una línea por enlace, de 48px de alto. */
+    .ac-tarjeta-enlace {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 48px;
+        font-size: 1rem;
+        font-variant-numeric: tabular-nums;
+        overflow-wrap: anywhere;
+    }
+
+    /* Un enlace de contacto dentro del "Ver más" (el teléfono del arrendatario
+       en el Calendario de alquileres) mide 48px de alto: su etiqueta se centra
+       con él en vez de quedar pegada arriba. */
+    .ac-detalle-datos dt:has(+ dd > .ac-tarjeta-enlace) {
+        align-self: center;
+    }
+
+    .ac-tarjeta-mas {
+        margin-top: 4px;
+        border-top: 1px solid var(--ac-borde-suave);
+    }
+
+    /* Acciones al pie, lado a lado y de 48px. Sin ningún botón (acciones sin
+       permiso o que no aplican al estado de la fila) no se pinta ni la raya. */
+    .ac-tarjeta-acciones {
+        display: flex;
+        gap: 8px;
+        padding-top: 8px;
+        border-top: 1px solid var(--ac-borde-suave);
+    }
+
+    .ac-tarjeta-acciones:not(:has(*)) {
+        display: none;
+    }
+
+    /* Un menú (MudMenu) como única acción: ocupa todo el ancho. */
+    .ac-tarjeta-acciones .mud-menu {
+        flex: 1 1 0;
+        display: flex;
+    }
+
+    /* Dentro del menú, junto al botón va el contenedor (vacío) de su popover:
+       solo el botón se estira. */
+    .ac-tarjeta-acciones .mud-menu > .mud-popover-cascading-value {
+        flex: none;
+        width: 0;
+    }
+
+    .ac-tarjeta-acciones .mud-menu > .mud-button-root {
+        flex: 1 1 auto;
+        width: 100%;
+    }
+
+    /* Cifra destacada de la tarjeta (un monto, por ejemplo). */
+    .ac-tarjeta-total {
+        margin: 4px 0 0;
+        font-family: 'Outfit', 'DM Sans', system-ui, sans-serif;
+        font-size: 1.25rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        color: var(--ac-ink);
+    }
+
+    /* Etiqueta de texto (como un estado sin color propio) junto al título. */
+    .ac-tarjeta-etiqueta {
+        flex: none;
+        padding: 2px 10px;
+        border: 1px solid var(--ac-borde);
+        border-radius: 999px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--ac-ink);
+    }
+
+    .ac-tarjeta-acciones .mud-button-root {
+        flex: 1 1 0;
+        min-height: 48px;
+        margin: 0;
+    }
+
+    /* Tarjetas de página con "pa-4": con el relleno propio de MudCardContent
+       sumaban 32px por lado y el contenido quedaba angosto en un teléfono. */
+    .sigac-main .mud-card.pa-4 {
+        padding: 4px !important;
+    }
+}
+
+/* --- Reportes (MudCard con Class="pa-4 ac-reporte") ---
+   Los reportes siguen siendo tablas en todos los tamaños (se consultan, se
+   exportan y se imprimen): nada de tarjetas. Si la tabla no cabe, se desliza
+   dentro de su propio marco (.mud-table-container, que Mud ya deja con
+   overflow automático), nunca la página. Cubre las MudDataGrid y las MudTable
+   del reporte de gastos sin marcar columna por columna. */
+
+/* Sombra en el borde por donde quedan columnas ocultas, solo si la tabla de
+   verdad se desliza: las dos primeras capas son "tapas" del color de la tabla
+   que viajan con el contenido (local) y esconden la sombra al llegar a cada
+   extremo; las otras dos son la sombra fija del marco. El tono sale de
+   --ac-ink para que en oscuro sea un brillo claro y no una sombra negra que
+   no se ve. */
+html .ac-reporte .mud-table-container {
+    background-image:
+        linear-gradient(to right, var(--mud-palette-surface) 30%, transparent),
+        linear-gradient(to left, var(--mud-palette-surface) 30%, transparent),
+        radial-gradient(farthest-side at 0 50%, color-mix(in srgb, var(--ac-ink) 22%, transparent), transparent),
+        radial-gradient(farthest-side at 100% 50%, color-mix(in srgb, var(--ac-ink) 22%, transparent), transparent);
+    background-position: left center, right center, left center, right center;
+    background-repeat: no-repeat;
+    background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
+    background-attachment: local, local, scroll, scroll;
+}
+
+/* Una fila, una línea: fechas, montos, cantidades y nombres no se parten.
+   Las columnas de texto libre (.ac-celda-texto: descripción, sectores,
+   origen/destino) sí bajan de línea, con un ancho mínimo para no quedar de
+   una palabra por renglón cuando la tabla se desliza. */
+html .ac-reporte .mud-table-root .mud-table-body .mud-table-cell {
+    white-space: nowrap;
+}
+
+html .ac-reporte .mud-table-root .mud-table-body .mud-table-cell.ac-celda-texto {
+    min-width: 12rem;
+    white-space: normal;
+}
+
+/* Primera columna (nombre o fecha) fija a la izquierda al deslizar, para no
+   perder de qué fila es cada cifra; la raya de la derecha hace de borde. En
+   el cuerpo lleva fondo opaco (el encabezado ya lo tiene) y puede partir un
+   nombre largo, con 8rem de mínimo para dejar sitio a las demás columnas en
+   un teléfono. La fila "No hay ..." de Mud (th.mud-table-empty-row, sin
+   .mud-table-cell) no entra. */
+html .ac-reporte .mud-table-root tr > .mud-table-cell:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    box-shadow: inset -1px 0 0 var(--ac-borde-suave);
+}
+
+html .ac-reporte .mud-table-root .mud-table-body tr > .mud-table-cell:first-child {
+    min-width: 8rem;
+    white-space: normal;
+    overflow-wrap: break-word;
+    background-color: var(--mud-palette-surface);
+}
+
+/* Sin filas: el encabezado de 6 a 8 columnas ensanchaba la tabla y el aviso
+   "No hay ... con estos filtros" quedaba centrado fuera de la vista en un
+   teléfono. Sin encabezado ocupa el ancho del marco (igual que el reporte de
+   gastos, que sin grupos no dibuja tabla). */
+html .ac-reporte .mud-table-root:has(.mud-table-empty-row) .mud-table-head {
+    display: none;
+}
+
+@media (max-width: 767px) {
+    /* Celdas a 16px (pauta de móvil) y relleno lateral de 12px en vez de los
+       16/24px de Dense. Con "html" y .mud-table-root para ganarle a Mud, que
+       carga su hoja después de app.css. */
+    html .ac-reporte .mud-table .mud-table-root .mud-table-cell {
+        padding: 8px 12px;
+        padding-inline: 12px;
+    }
+
+    html .ac-reporte .mud-table .mud-table-root .mud-table-body .mud-table-cell {
+        font-size: 1rem;
+    }
+
+    /* "Generar reporte" a todo el ancho, como el botón principal de un
+       formulario. */
+    .ac-reporte .mud-card-content > .mud-button-root {
+        width: 100%;
+    }
+
+    /* Exportar PDF / Excel / Imprimir: uno por fila y a todo el ancho (el
+       MudStack ya envuelve con Wrap.Wrap); en una fila no cabían en un
+       teléfono y empujaban la página hacia el costado. */
+    .ac-acciones-reporte > .mud-button-root {
+        flex: 1 1 100%;
+    }
+
+    /* Paginador en una línea: "1-20 de 45" a la izquierda y anterior/siguiente
+       a la derecha. Sin "Filas por página" ni primera/última página, que no
+       cabían. Sirve para el de MudDataGrid (rótulo en <p>) y el de MudTable
+       (bloque .mud-table-pagination-display). Mud fija 100px de alto bajo
+       417px y corre las flechas -14px: de ahí el "html" extra. */
+    html .ac-reporte .mud-table-pagination .mud-table-pagination-toolbar {
+        flex-wrap: nowrap;
+        justify-content: space-between;
+        min-height: 56px;
+        padding: 0 4px 0 12px;
+        padding-inline: 12px 4px;
+    }
+
+    .ac-reporte .mud-table-pagination-toolbar > .mud-table-pagination-spacer,
+    .ac-reporte .mud-table-pagination-toolbar > .mud-table-pagination-display,
+    .ac-reporte .mud-table-pagination-toolbar > .mud-select,
+    .ac-reporte .mud-table-pagination-toolbar > p.mud-table-pagination-caption:first-of-type,
+    .ac-reporte .mud-table-pagination-actions > .mud-icon-button:first-child,
+    .ac-reporte .mud-table-pagination-actions > .mud-icon-button:last-child {
+        display: none;
+    }
+
+    .ac-reporte .mud-table-pagination-toolbar > .mud-table-pagination-caption {
+        margin: 0;
+        padding: 0;
+        font-size: 1rem;
+    }
+
+    html .ac-reporte .mud-table .mud-table-pagination .mud-table-pagination-toolbar .mud-table-pagination-actions {
+        flex: none;
+        margin: 0;
+        margin-inline: 0;
+    }
+
+    /* Gráficas de los panoramas (<div role="img" class="ac-grafica">): la
+       leyenda es HTML bajo el dibujo y baja de línea sola; a 16px como el
+       resto del texto. */
+    .ac-grafica .mud-chart-legend .mud-typography-body2 {
+        font-size: 1rem;
+    }
+}
+
+/* Impresión: el botón Imprimir de los reportes manda el PDF del servidor, no
+   la pantalla. Esto es solo para quien use Ctrl+P sobre la página: sin la
+   sombra ni la columna fija, que en papel no significan nada. */
+@media print {
+    html .ac-reporte .mud-table-container {
+        background: none;
+        overflow: visible;
+    }
+
+    html .ac-reporte .mud-table-root tr > .mud-table-cell:first-child {
+        position: static;
+        box-shadow: none;
+    }
 }
 
 /* --- Portada (Home.razor): hero + tarjetas de módulos --- */

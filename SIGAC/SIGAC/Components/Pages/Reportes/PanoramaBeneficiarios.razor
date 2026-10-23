@@ -76,10 +76,12 @@
             {
                 <MudText Typo="Typo.h6" HtmlTag="h2" Class="mb-3">@grafica.Titulo</MudText>
                 @* role="img" con el resumen de las cifras: el SVG de la gráfica no dice nada
-                   a un lector de pantalla (F-07). *@
-                <div role="img" aria-label="@TextoAlternativoGrafica.De(grafica.Titulo, grafica.Etiquetas, grafica.Series)">
+                   a un lector de pantalla (F-07). MatchBoundsToSize: se dibuja al ancho
+                   real del contenedor; sin esto el SVG de 700px se encogía como una
+                   imagen y en un teléfono los textos de los ejes quedaban de unos 5px. *@
+                <div role="img" class="ac-grafica" aria-label="@TextoAlternativoGrafica.De(grafica.Titulo, grafica.Etiquetas, grafica.Series)">
                     <MudChart T="double" ChartType="grafica.Tipo" ChartSeries="grafica.Series"
-                              ChartLabels="grafica.Etiquetas" ChartOptions="grafica.Opciones" Width="100%" Height="350px" />
+                              ChartLabels="grafica.Etiquetas" ChartOptions="grafica.Opciones" Width="100%" Height="350px" MatchBoundsToSize="true" />
                 </div>
             }
         }
@@ -194,7 +196,7 @@
                 etiquetasMeses,
                 // El eje de conteo va en pasos chicos: con el paso por defecto (20) los
                 // valores de 1 a 5 quedaban aplastados abajo del eje 0-20.
-                new BarChartOptions { YAxisTicks = OpcionesGrafica.PasoDeConteo(altasPorMes.Max()) }),
+                new BarChartOptions { YAxisTicks = OpcionesGrafica.PasoDeConteo(altasPorMes.Max()), XAxisLabelRotation = OpcionesGrafica.RotacionEtiquetasMes }),
 
             [Estadistica.PorTiempoComida] = new(
                 "Comidas servidas por tiempo de comida",
@@ -208,14 +210,14 @@
                 ChartType.Line,
                 new() { new() { Name = "Comidas servidas", Data = comidasPorMes } },
                 etiquetasMeses,
-                new LineChartOptions { YAxisTicks = OpcionesGrafica.PasoDeConteo(comidasPorMes.Max()) }),
+                new LineChartOptions { YAxisTicks = OpcionesGrafica.PasoDeConteo(comidasPorMes.Max()), XAxisLabelRotation = OpcionesGrafica.RotacionEtiquetasMes }),
 
             [Estadistica.PersonasPorMes] = new(
                 "Personas distintas atendidas por mes",
                 ChartType.Line,
                 new() { new() { Name = "Personas atendidas", Data = personasPorMes } },
                 etiquetasMeses,
-                new LineChartOptions { YAxisTicks = OpcionesGrafica.PasoDeConteo(personasPorMes.Max()) })
+                new LineChartOptions { YAxisTicks = OpcionesGrafica.PasoDeConteo(personasPorMes.Max()), XAxisLabelRotation = OpcionesGrafica.RotacionEtiquetasMes })
         };
     }
 

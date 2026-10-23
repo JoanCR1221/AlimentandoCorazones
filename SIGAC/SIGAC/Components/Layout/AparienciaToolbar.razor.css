@@ -301,3 +301,36 @@
         transition: none;
     }
 }
+
+/* --- Móvil y tableta ---
+   Móvil (< 768px): el interruptor no cabe en la barra junto al menú, la marca y
+   la cuenta, así que se oculta y el modo oscuro se elige desde el panel de
+   lectura (.apariencia-solo-movil). Desde 768px es al revés. */
+.apariencia-solo-movil {
+    display: block;
+}
+
+.switch {
+    display: none;
+}
+
+@media (min-width: 768px) {
+    .apariencia-solo-movil {
+        display: none;
+    }
+
+    .switch {
+        display: inline-block;
+    }
+}
+
+/* Pantalla táctil: el carril mide 34px de alto; una capa invisible del propio
+   <label> lleva la zona de toque a 48px sin cambiar el dibujo (tocar la capa
+   es tocar el label, que alterna el checkbox). */
+@media (pointer: coarse) {
+    .switch::after {
+        content: "";
+        position: absolute;
+        inset: -7px -4px;
+    }
+}
