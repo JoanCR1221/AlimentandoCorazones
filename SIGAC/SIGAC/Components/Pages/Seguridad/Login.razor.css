@@ -33,6 +33,13 @@
     color: var(--ac-coral);
 }
 
+/* Teléfonos: 32px hacían que "SIGAC" ocupara casi todo el ancho de la tarjeta. */
+@media (max-width: 479px) {
+    .login-titulo {
+        font-size: 1.625rem;
+    }
+}
+
 .login-subtitulo {
     margin: 0.25rem 0 0;
     color: var(--ac-ink-suave);

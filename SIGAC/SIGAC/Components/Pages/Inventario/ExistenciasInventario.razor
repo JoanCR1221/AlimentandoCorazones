@@ -40,8 +40,8 @@
            nada tiene que mostrar igual los artículos con poco stock, que es el
            caso de uso (entrar a reponer). Ordena de menor a mayor stock mientras
            está activo, para que lo más urgente aparezca primero. *@
-        <MudSwitch T="bool" Value="filtroSoloStockBajo" ValueChanged="OnFiltroSoloStockBajoCambiadoAsync"
-                   Color="Color.Error" Class="mb-4">
+        <MudSwitch Size="Size.Large" T="bool" Value="filtroSoloStockBajo" ValueChanged="OnFiltroSoloStockBajoCambiadoAsync"
+                   Color="Color.Error" Class="mb-4 ac-switch">
             Solo artículos con stock bajo
         </MudSwitch>
         @* ServerData y no Items: la consulta ya pagina en SQL, pero la pantalla pedía solo la

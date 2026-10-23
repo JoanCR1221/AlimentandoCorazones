@@ -23,7 +23,7 @@
                       MaxLength="ReglasGastoOperativo.LongitudMaximaCuentaContable"
                       HelperText="Se precarga en el formulario de gasto al elegir este tipo." />
 
-        <MudSwitch T="bool" @bind-Value="Modelo.GeneraInventario" Color="Color.Primary" Class="mt-4"
+        <MudSwitch Size="Size.Large" T="bool" @bind-Value="Modelo.GeneraInventario" Color="Color.Primary" Class="mt-4 ac-switch"
                    Label="Genera inventario" />
         <MudText Typo="Typo.caption" Class="mud-text-secondary">
             Los gastos de este tipo son compras que ingresan al inventario: al registrarlos se ofrece cargar la entrada, y aparecen en el selector de gastos de Registrar entrada.

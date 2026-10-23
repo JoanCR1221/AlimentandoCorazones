@@ -30,14 +30,14 @@
                de antemano, así que su fecha de inicio normalmente ES futura. Es el
                mismo caso que la fecha de una entrega de donación
                (RegistrarDonacionEntregada.razor). *@
-            <MudDatePicker @bind-Date="fechaInicio" @bind-Date:after="OnFechaInicioCambiada"
+            <MudDatePicker Culture="CulturaSigac.EsCr" @bind-Date="fechaInicio" @bind-Date:after="OnFechaInicioCambiada"
                            Label="Fecha de inicio" Variant="Variant.Outlined" Class="mt-4" />
 
             @* MinDate atado a la fecha de inicio: ProyectoValidator.ValidarFechas
                rechaza un fin anterior al inicio, así que el calendario no ofrece lo
                que el servidor va a rechazar. La validación real sigue estando del
                lado del servicio: esto solo evita el viaje. *@
-            <MudDatePicker @bind-Date="fechaEstimadaFin"
+            <MudDatePicker Culture="CulturaSigac.EsCr" @bind-Date="fechaEstimadaFin"
                            Label="Fecha estimada de finalización" Variant="Variant.Outlined" Class="mt-4"
                            MinDate="fechaInicio"
                            HelperText="No puede ser anterior a la fecha de inicio." />

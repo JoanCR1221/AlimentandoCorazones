@@ -36,10 +36,10 @@ else
 
                 @* Sin MaxDate, igual que en el alta: un proyecto puede replanificarse
                    hacia adelante. *@
-                <MudDatePicker @bind-Date="fechaInicio" @bind-Date:after="OnFechaInicioCambiada"
+                <MudDatePicker Culture="CulturaSigac.EsCr" @bind-Date="fechaInicio" @bind-Date:after="OnFechaInicioCambiada"
                                Label="Fecha de inicio" Variant="Variant.Outlined" Class="mt-4" />
 
-                <MudDatePicker @bind-Date="fechaEstimadaFin"
+                <MudDatePicker Culture="CulturaSigac.EsCr" @bind-Date="fechaEstimadaFin"
                                Label="Fecha estimada de finalización" Variant="Variant.Outlined" Class="mt-4"
                                MinDate="fechaInicio"
                                HelperText="No puede ser anterior a la fecha de inicio." />

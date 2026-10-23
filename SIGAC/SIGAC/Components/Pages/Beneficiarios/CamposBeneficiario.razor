@@ -18,7 +18,7 @@
               MaxLength="ReglasBeneficiario.LongitudMaximaApellido" />
 <MudTextField @bind-Value="Modelo.SegundoApellido" Label="Segundo apellido (opcional)" Variant="Variant.Outlined" Class="mt-4"
               MaxLength="ReglasBeneficiario.LongitudMaximaApellido" />
-<MudDatePicker @bind-Date="FechaNacimiento" Label="Fecha de nacimiento" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
+<MudDatePicker Culture="CulturaSigac.EsCr" @bind-Date="FechaNacimiento" Label="Fecha de nacimiento" Variant="Variant.Outlined" Class="mt-4" MaxDate="DateTime.Today" />
 
 @* La categoría no se elige: se deriva de la fecha de nacimiento. *@
 @if (Modelo.FechaNacimiento != default)

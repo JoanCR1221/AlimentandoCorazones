@@ -335,14 +335,15 @@ html[data-alto-contraste="true"] :focus-visible {
     margin-right: 0;
 }
 
-/* --- Interruptores del panel de lectura (MudSwitch con Class="ac-switch") ---
+/* --- Interruptores (MudSwitch con Class="ac-switch"): todos los de la app ---
    El de Mud por defecto es un carril gris al 48% de opacidad con la perilla del
    mismo gris: apenas se distingue encendido de apagado. Acá el carril es
-   sólido (gris del borde apagado, color primario del tema encendido), la
-   perilla toma el color de la superficie con un aro, y encendido lleva además
-   una marca ✓ para que el estado no dependa solo del color. Todo sale de los
-   tokens --ac-* y de la paleta de Mud, así que sirve en claro, oscuro y alto
-   contraste. El "html" extra le gana a las reglas de Mud, que carga después. */
+   sólido (gris del borde apagado; encendido, el color del propio interruptor:
+   primario, verde o rojo), la perilla toma el color de la superficie con un
+   aro, y encendido lleva además una marca ✓ para que el estado no dependa solo
+   del color. Todo sale de los tokens --ac-* y de la paleta de Mud, así que
+   sirve en claro, oscuro y alto contraste, y en cualquier tamaño. El "html"
+   extra le gana a las reglas de Mud, que carga su hoja después de app.css. */
 html .ac-switch .mud-switch-span .mud-switch-track {
     opacity: 1;
     background-color: var(--ac-borde);
@@ -353,20 +354,29 @@ html .ac-switch .mud-switch-base.mud-checked + .mud-switch-track {
     background-color: var(--mud-palette-primary);
 }
 
-html .ac-switch .mud-switch-button .mud-switch-thumb-large {
+html .ac-switch .mud-switch-base.mud-checked + .mud-switch-track.mud-success {
+    background-color: var(--mud-palette-success);
+}
+
+html .ac-switch .mud-switch-base.mud-checked + .mud-switch-track.mud-error {
+    background-color: var(--mud-palette-error);
+}
+
+html .ac-switch .mud-switch-button [class*="mud-switch-thumb-"] {
     background-color: var(--ac-superficie);
     box-shadow: 0 0 0 2px var(--ac-borde);
-    color: var(--mud-palette-primary);
     font-size: 16px;
     font-weight: 700;
     line-height: 1;
 }
 
-html .ac-switch .mud-switch-base.mud-checked .mud-switch-thumb-large {
-    box-shadow: 0 0 0 2px var(--mud-palette-primary);
+/* Encendido: aro y marca del color del interruptor (el botón de Mud ya trae ese
+   color como currentColor). */
+html .ac-switch .mud-switch-base.mud-checked [class*="mud-switch-thumb-"] {
+    box-shadow: 0 0 0 2px currentColor;
 }
 
-html .ac-switch .mud-switch-base.mud-checked .mud-switch-thumb-large::after {
+html .ac-switch .mud-switch-base.mud-checked [class*="mud-switch-thumb-"]::after {
     content: "\2713";
 }
 
@@ -1331,6 +1341,105 @@ html .ac-reporte .mud-table-root:has(.mud-table-empty-row) .mud-table-head {
     margin-left: 4px;
     font-weight: 400;
     color: var(--ac-ink-suave);
+}
+
+/* --- Selectores de fecha y de hora (MudDatePicker, MudDateRangePicker, MudTimePicker) ---
+   1) Pantallas táctiles: MudBlazor fija en 216px la altura de la cuadrícula de
+      cada mes (seis semanas de 36px), pero la regla táctil de 48px agranda los
+      días: el mes (~336px) se desbordaba y se montaba sobre el siguiente, o la
+      última semana quedaba cortada. Se le da la altura real. El "html" extra le
+      gana a Mud, que carga su hoja después de app.css.
+   2) Móvil (< 768px): el calendario salía anclado bajo el campo, se cortaba
+      contra la barra del navegador y el rango mostraba dos meses apilados. Pasa a
+      ser una ventana centrada, del ancho de la pantalla (máx. 360px), que se
+      desplaza si hace falta, y el rango muestra un mes a la vez (se cambia de mes
+      con las flechas, el rango se conserva). */
+@media (pointer: coarse) {
+    html .mud-picker-calendar-transition {
+        height: 336px;
+    }
+}
+
+@media (max-width: 767px) {
+    html .mud-popover:has(.mud-picker-content) {
+        position: fixed !important;
+        top: 50% !important;
+        left: 50% !important;
+        right: auto !important;
+        bottom: auto !important;
+        transform: translate(-50%, -50%) !important;
+        width: min(360px, calc(100vw - 32px)) !important;
+        max-height: calc(100dvh - 32px) !important;
+        overflow-y: auto;
+    }
+
+    html .mud-popover:has(.mud-picker-content) .mud-picker-content {
+        min-width: 0;
+    }
+
+    html .mud-popover:has(.mud-picker-content) .mud-picker-calendar-container {
+        width: 100%;
+    }
+
+    html .mud-picker-calendar-content-2 {
+        grid-template-columns: 1fr;
+    }
+
+    html .mud-picker-calendar-content-2 > .mud-picker-calendar-container:nth-child(n+2) {
+        display: none;
+    }
+}
+
+/* --- Tamaños de letra en móvil (< 768px) ---
+   En un teléfono los títulos y las cifras destacadas ocupaban demasiado: los
+   títulos de pantalla pasan de 26px a 22px, los subtítulos de 20px a 18px, la
+   cifra de las tarjetas de resumen de 30px a 24px y el título de la portada a
+   22px. El texto de lectura y el de los campos se queda en 16px (el navegador
+   hace zoom si un campo trae menos) y la etiqueta de un campo vacío baja a 15px
+   para que las largas ("Características solicitadas (opcional)") quepan junto a
+   la flecha o el ícono del campo; la etiqueta flotante no cambia. Solo móvil:
+   tableta y escritorio quedan como estaban. */
+@media (max-width: 767px) {
+    .sigac-main .mud-typography-h4 {
+        font-size: 1.375rem;
+    }
+
+    .sigac-main .mud-typography-h6 {
+        font-size: 1.125rem;
+    }
+
+    .ac-kpi-valor {
+        font-size: 1.5rem;
+    }
+
+    html .ac-hero-titulo {
+        font-size: 1.375rem;
+    }
+
+    html .mud-input:not(.mud-shrink) ~ .mud-input-label-outlined {
+        font-size: 0.9375rem;
+    }
+
+    /* Campos con flecha o ícono al final (desplegables, fecha, hora): la
+       etiqueta no pasa por debajo del adorno; si no cabe, corta con "…". */
+    html .mud-input.mud-input-adorned-end:not(.mud-shrink) ~ .mud-input-label-outlined {
+        font-size: 0.875rem;
+        max-width: calc(100% - 64px);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+/* Dos campos lado a lado (las horas de inicio y de fin, la apertura y el cierre)
+   en un teléfono: cada uno queda de ~143px y la etiqueta se pisa con el ícono
+   del reloj. Bajo 480px van uno debajo del otro. */
+@media (max-width: 479px) {
+    /* MudStack pinta sus clases utilitarias (flex-row) con !important. */
+    html .ac-campos-par {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
 }
 
 /* --- Portada (Home.razor): hero + tarjetas de módulos --- */

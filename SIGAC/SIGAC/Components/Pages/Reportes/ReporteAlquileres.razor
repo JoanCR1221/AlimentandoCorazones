@@ -31,7 +31,7 @@
             <MudItem xs="12" sm="6" lg="4">
                 @* Sin fecha máxima, a diferencia de los otros reportes: un alquiler se
                    reserva con anticipación y el reporte tiene que poder incluirlos. *@
-                <MudDateRangePicker DateRange="rangoFechas" DateRangeChanged="@(v => rangoFechas = v)"
+                <MudDateRangePicker Culture="CulturaSigac.EsCr" DateRange="rangoFechas" DateRangeChanged="@(v => rangoFechas = v)"
                                     Label="Rango de fechas" Variant="Variant.Outlined"
                                     DateFormat="dd/MM/yyyy" Clearable="true" />
             </MudItem>

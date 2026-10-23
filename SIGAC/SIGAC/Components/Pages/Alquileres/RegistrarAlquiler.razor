@@ -39,7 +39,7 @@
 
                     @* Sin MaxDate: se reserva a futuro. MinDate hoy, igual que la regla
                        ReglasAlquiler.EsFechaValidaParaReservar que aplica el servidor. *@
-                    <MudDatePicker @bind-Date="fecha" @bind-Date:after="CargarOcupacionAsync"
+                    <MudDatePicker Culture="CulturaSigac.EsCr" @bind-Date="fecha" @bind-Date:after="CargarOcupacionAsync"
                                    Label="Fecha" Variant="Variant.Outlined" Class="mt-4"
                                    MinDate="DateTime.Today" />
 
@@ -69,10 +69,10 @@
                     @* Reloj de 12 horas con selector a. m./p. m.: es como se habla de
                        las horas al reservar ("de 2 a 5 de la tarde"). La hora se sigue
                        guardando en 24 horas. *@
-                    <MudStack Row="true" Spacing="3" Class="mt-4">
-                        <MudTimePicker @bind-Time="modelo.HoraInicio" Label="Hora de inicio" Variant="Variant.Outlined"
+                    <MudStack Row="true" Spacing="3" Class="mt-4 ac-campos-par">
+                        <MudTimePicker Culture="CulturaSigac.EsCr" @bind-Time="modelo.HoraInicio" Label="Hora de inicio" Variant="Variant.Outlined"
                                        AmPm="true" TimeFormat="h:mm tt" MinuteSelectionStep="15" />
-                        <MudTimePicker @bind-Time="modelo.HoraFin" Label="Hora de fin" Variant="Variant.Outlined"
+                        <MudTimePicker Culture="CulturaSigac.EsCr" @bind-Time="modelo.HoraFin" Label="Hora de fin" Variant="Variant.Outlined"
                                        AmPm="true" TimeFormat="h:mm tt" MinuteSelectionStep="15" />
                     </MudStack>
 

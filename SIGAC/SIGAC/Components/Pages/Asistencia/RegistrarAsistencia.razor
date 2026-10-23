@@ -31,7 +31,7 @@
             @* La ventana de fechas sale de ReglasAsistencia, la misma fuente que
                valida AsistenciaService: el calendario no puede ofrecer un día que
                el servidor después rechace. *@
-            <MudDatePicker @bind-Date="fecha" @bind-Date:after="VerificarDuplicadoAsync" Label="Fecha" Variant="Variant.Outlined" Class="mt-4"
+            <MudDatePicker Culture="CulturaSigac.EsCr" @bind-Date="fecha" @bind-Date:after="VerificarDuplicadoAsync" Label="Fecha" Variant="Variant.Outlined" Class="mt-4"
                            MinDate="ReglasAsistencia.FechaMinimaRegistro()"
                            MaxDate="ReglasAsistencia.Hoy"
                            HelperText="@AyudaFecha" />

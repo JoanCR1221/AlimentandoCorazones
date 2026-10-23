@@ -31,19 +31,19 @@
             <MudGrid Spacing="3">
                 <MudItem xs="12" md="6">
                     <MudText Typo="Typo.subtitle2" Class="mb-2">Lunes a viernes</MudText>
-                    <MudStack Row="true" Spacing="3">
-                        <MudTimePicker @bind-Time="horario.AperturaEntreSemana" Label="Apertura" Variant="Variant.Outlined"
+                    <MudStack Row="true" Spacing="3" Class="ac-campos-par">
+                        <MudTimePicker Culture="CulturaSigac.EsCr" @bind-Time="horario.AperturaEntreSemana" Label="Apertura" Variant="Variant.Outlined"
                                        AmPm="true" TimeFormat="h:mm tt" MinuteSelectionStep="15" />
-                        <MudTimePicker @bind-Time="horario.CierreEntreSemana" Label="Cierre" Variant="Variant.Outlined"
+                        <MudTimePicker Culture="CulturaSigac.EsCr" @bind-Time="horario.CierreEntreSemana" Label="Cierre" Variant="Variant.Outlined"
                                        AmPm="true" TimeFormat="h:mm tt" MinuteSelectionStep="15" />
                     </MudStack>
                 </MudItem>
                 <MudItem xs="12" md="6">
                     <MudText Typo="Typo.subtitle2" Class="mb-2">Sábado y domingo</MudText>
-                    <MudStack Row="true" Spacing="3">
-                        <MudTimePicker @bind-Time="horario.AperturaFinDeSemana" Label="Apertura" Variant="Variant.Outlined"
+                    <MudStack Row="true" Spacing="3" Class="ac-campos-par">
+                        <MudTimePicker Culture="CulturaSigac.EsCr" @bind-Time="horario.AperturaFinDeSemana" Label="Apertura" Variant="Variant.Outlined"
                                        AmPm="true" TimeFormat="h:mm tt" MinuteSelectionStep="15" />
-                        <MudTimePicker @bind-Time="horario.CierreFinDeSemana" Label="Cierre" Variant="Variant.Outlined"
+                        <MudTimePicker Culture="CulturaSigac.EsCr" @bind-Time="horario.CierreFinDeSemana" Label="Cierre" Variant="Variant.Outlined"
                                        AmPm="true" TimeFormat="h:mm tt" MinuteSelectionStep="15" />
                     </MudStack>
                 </MudItem>
@@ -91,7 +91,7 @@
                                                      aria-label="@($"Capacidad de {espacio.Nombre}")" />
                                 </td>
                                 <td>
-                                    <MudSwitch T="bool" Value="espacio.Estado" ValueChanged="@(v => CambiarEstadoEspacioAsync(espacio, v))"
+                                    <MudSwitch Size="Size.Large" Class="ac-switch" T="bool" Value="espacio.Estado" ValueChanged="@(v => CambiarEstadoEspacioAsync(espacio, v))"
                                                Color="Color.Primary" aria-label="@($"{espacio.Nombre} activo")" />
                                 </td>
                                 <td>
@@ -142,7 +142,7 @@
                             <tr>
                                 <td>@caracteristica.Nombre</td>
                                 <td>
-                                    <MudSwitch T="bool" Value="caracteristica.Estado" ValueChanged="@(v => CambiarEstadoCaracteristicaAsync(caracteristica, v))"
+                                    <MudSwitch Size="Size.Large" Class="ac-switch" T="bool" Value="caracteristica.Estado" ValueChanged="@(v => CambiarEstadoCaracteristicaAsync(caracteristica, v))"
                                                Color="Color.Primary" aria-label="@($"{caracteristica.Nombre} activa")" />
                                 </td>
                                 <td>
