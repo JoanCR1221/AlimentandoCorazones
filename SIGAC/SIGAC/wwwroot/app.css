@@ -335,6 +335,41 @@ html[data-alto-contraste="true"] :focus-visible {
     margin-right: 0;
 }
 
+/* --- Interruptores del panel de lectura (MudSwitch con Class="ac-switch") ---
+   El de Mud por defecto es un carril gris al 48% de opacidad con la perilla del
+   mismo gris: apenas se distingue encendido de apagado. Acá el carril es
+   sólido (gris del borde apagado, color primario del tema encendido), la
+   perilla toma el color de la superficie con un aro, y encendido lleva además
+   una marca ✓ para que el estado no dependa solo del color. Todo sale de los
+   tokens --ac-* y de la paleta de Mud, así que sirve en claro, oscuro y alto
+   contraste. El "html" extra le gana a las reglas de Mud, que carga después. */
+html .ac-switch .mud-switch-span .mud-switch-track {
+    opacity: 1;
+    background-color: var(--ac-borde);
+}
+
+html .ac-switch .mud-switch-base.mud-checked + .mud-switch-track {
+    opacity: 1;
+    background-color: var(--mud-palette-primary);
+}
+
+html .ac-switch .mud-switch-button .mud-switch-thumb-large {
+    background-color: var(--ac-superficie);
+    box-shadow: 0 0 0 2px var(--ac-borde);
+    color: var(--mud-palette-primary);
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+html .ac-switch .mud-switch-base.mud-checked .mud-switch-thumb-large {
+    box-shadow: 0 0 0 2px var(--mud-palette-primary);
+}
+
+html .ac-switch .mud-switch-base.mud-checked .mud-switch-thumb-large::after {
+    content: "\2713";
+}
+
 /* 8px entre el botón de la cuenta y los controles de apariencia, para no
    tocar uno por el otro. */
 .apariencia-toolbar {
@@ -1236,6 +1271,66 @@ html .ac-reporte .mud-table-root:has(.mud-table-empty-row) .mud-table-head {
         position: static;
         box-shadow: none;
     }
+}
+
+/* --- Leyenda de las gráficas de círculo (LeyendaCirculo) ---
+   Color, nombre y cantidad de cada porción, siempre a la vista bajo la gráfica
+   (MudChart solo los muestra al pasar el cursor o tocar). Texto de 16px. */
+.ac-leyenda {
+    display: grid;
+    gap: 0;
+    margin: 8px auto 0;
+    padding: 0;
+    max-width: 32rem;
+    list-style: none;
+}
+
+.ac-leyenda-fila {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--ac-borde-suave);
+    font-size: 1rem;
+}
+
+.ac-leyenda-fila:last-child {
+    border-bottom: 0;
+}
+
+.ac-leyenda-color {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid var(--ac-borde);
+}
+
+.ac-leyenda-nombre {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: var(--ac-ink);
+}
+
+.ac-leyenda-valor {
+    flex: none;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--ac-ink);
+}
+
+/* La gráfica de círculo trae una leyenda propia de Mud (solo color y nombre):
+   con esta lista a continuación sería repetirla. */
+.ac-grafica:has(+ .ac-leyenda) .mud-chart-legend {
+    display: none;
+}
+
+.ac-leyenda-porcentaje {
+    margin-left: 4px;
+    font-weight: 400;
+    color: var(--ac-ink-suave);
 }
 
 /* --- Portada (Home.razor): hero + tarjetas de módulos --- */

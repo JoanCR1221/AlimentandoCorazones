@@ -1,3 +1,6 @@
+using MudBlazor;
+using MudBlazor.Charts;
+
 namespace SIGAC.Components.Shared
 {
     // Ajustes comunes de las gráficas de los panoramas.
@@ -21,5 +24,19 @@ namespace SIGAC.Components.Shared
         // (MatchBoundsToSize): en un teléfono quedan unos 20px por mes y las doce
         // etiquetas derechas se montaban unas sobre otras.
         public const int RotacionEtiquetasMes = 45;
+
+        // Las gráficas de círculo no llevan el mensaje flotante de MudChart ("En
+        // dinero - 1") al pasar el cursor o tocar una porción: su nombre, cantidad
+        // y porcentaje ya están siempre a la vista en LeyendaCirculo. Las de
+        // barras y líneas lo conservan, porque ahí sí da el valor exacto de un punto.
+        public static IChartOptions? Para(ChartType tipo, IChartOptions? opciones)
+        {
+            if (tipo is not (ChartType.Donut or ChartType.Pie))
+                return opciones;
+
+            var propias = opciones ?? new ChartOptions();
+            propias.ShowToolTips = false;
+            return propias;
+        }
     }
 }

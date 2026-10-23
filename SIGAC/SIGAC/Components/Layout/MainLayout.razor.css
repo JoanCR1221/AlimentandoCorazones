@@ -37,6 +37,15 @@
     letter-spacing: 0.04em;
 }
 
+/* Teléfonos angostos (< 400px): con el interruptor día/noche de vuelta en la
+   barra, el nombre junto al logo ya no cabe y empujaba el botón de lectura fuera
+   de la pantalla. El logo sigue siendo el enlace al inicio (aria-label). */
+@media (max-width: 399px) {
+    .sigac-brand-texto {
+        display: none;
+    }
+}
+
 .sigac-brand-lema {
     font-size: 0.7rem;
     letter-spacing: 0.06em;

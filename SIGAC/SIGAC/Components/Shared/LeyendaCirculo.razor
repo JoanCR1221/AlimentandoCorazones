@@ -1,0 +1,57 @@
+@* Leyenda de una gráfica de círculo (dona) de los panoramas: color, nombre,
+   cantidad y porcentaje de cada porción, siempre a la vista. MudChart solo dice
+   el nombre y la cantidad al pasar el cursor o tocar la porción, y en un teléfono
+   eso obliga a ir tocando porción por porción. Va FUERA del <div role="img"> de la
+   gráfica: el resumen en texto para el lector de pantalla ya lo cubre su
+   aria-label, y esta lista sí es contenido que se puede leer.
+   Los colores salen de la misma paleta que usa la gráfica. *@
+@if (Etiquetas.Length > 0)
+{
+    <ul class="ac-leyenda" aria-label="Detalle de la gráfica">
+        @for (var i = 0; i < Etiquetas.Length; i++)
+        {
+            var indice = i;
+            <li class="ac-leyenda-fila">
+                <span class="ac-leyenda-color" style="@($"background-color: {ColorDe(indice)}")" aria-hidden="true"></span>
+                <span class="ac-leyenda-nombre">@Etiquetas[indice]</span>
+                <span class="ac-leyenda-valor">
+                    @TextoValor(indice)
+                    @if (Total > 0)
+                    {
+                        <span class="ac-leyenda-porcentaje">(@((ValorDe(indice) / Total).ToString("P0")))</span>
+                    }
+                </span>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public string[] Etiquetas { get; set; } = Array.Empty<string>();
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<double> Valores { get; set; } = Array.Empty<double>();
+
+    // La paleta de la gráfica (ChartOptions.ChartPalette); los colores se repiten
+    // en orden si hay más porciones que colores, como hace MudChart.
+    [Parameter]
+    public string[] Paleta { get; set; } = Array.Empty<string>();
+
+    // Montos en colones (Gastos por tipo, por forma de pago): se muestran con el
+    // símbolo de la moneda y dos decimales; el resto son conteos o unidades.
+    [Parameter]
+    public bool EnColones { get; set; }
+
+    private double Total => Valores.Sum();
+
+    private double ValorDe(int indice) => indice < Valores.Count ? Valores[indice] : 0;
+
+    private string ColorDe(int indice) =>
+        Paleta.Length == 0 ? "currentColor" : Paleta[indice % Paleta.Length];
+
+    private string TextoValor(int indice) =>
+        EnColones
+            ? $"{TiposMoneda.Simbolo(TiposMoneda.Colones)} {ValorDe(indice):N2}"
+            : ValorDe(indice).ToString("N0");
+}

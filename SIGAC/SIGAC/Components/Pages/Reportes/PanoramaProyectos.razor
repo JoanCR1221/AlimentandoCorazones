@@ -63,8 +63,15 @@
                    imagen y en un teléfono los textos de los ejes quedaban de unos 5px. *@
                 <div role="img" class="ac-grafica" aria-label="@TextoAlternativoGrafica.De(grafica.Titulo, grafica.Etiquetas, grafica.Series)">
                     <MudChart T="double" ChartType="grafica.Tipo" ChartSeries="grafica.Series"
-                              ChartLabels="grafica.Etiquetas" ChartOptions="grafica.Opciones" Width="100%" Height="350px" MatchBoundsToSize="true" />
+                              ChartLabels="grafica.Etiquetas" ChartOptions="OpcionesGrafica.Para(grafica.Tipo, grafica.Opciones)" Width="100%" Height="350px" MatchBoundsToSize="true" />
                 </div>
+                @* Las gráficas de círculo no dicen nombre y cantidad hasta que se pasa el
+                   cursor o se toca la porción: la leyenda lo deja siempre a la vista. *@
+                @if (grafica.Tipo is ChartType.Donut or ChartType.Pie)
+                {
+                    <LeyendaCirculo Etiquetas="grafica.Etiquetas" Valores="grafica.Series[0].Data.Values"
+                                    Paleta="(grafica.Opciones ?? new ChartOptions()).ChartPalette" />
+                }
             }
         }
     </MudCardContent>
