@@ -44,6 +44,9 @@ namespace SIGAC.Application.Services
                     CodigoPaisTelefono = datos.CodigoPaisTelefono,
                     Telefono = datos.Telefono,
                     Correo = datos.Correo,
+                    TipoDocumento = datos.TipoDocumento,
+                    TipoDocumentoOtro = datos.TipoDocumentoOtro,
+                    Identificacion = datos.Identificacion,
                     Estado = true,
                     FechaRegistro = DateTime.Now
                 };
@@ -73,7 +76,10 @@ namespace SIGAC.Application.Services
                     TipoPersona = donante.TipoPersona,
                     CodigoPaisTelefono = donante.CodigoPaisTelefono,
                     Telefono = donante.Telefono,
-                    Correo = donante.Correo
+                    Correo = donante.Correo,
+                    TipoDocumento = donante.TipoDocumento,
+                    TipoDocumentoOtro = donante.TipoDocumentoOtro,
+                    Identificacion = donante.Identificacion
                 };
             }
             catch (Exception ex)
@@ -96,6 +102,9 @@ namespace SIGAC.Application.Services
                 donante.CodigoPaisTelefono = datos.CodigoPaisTelefono;
                 donante.Telefono = datos.Telefono;
                 donante.Correo = datos.Correo;
+                donante.TipoDocumento = datos.TipoDocumento;
+                donante.TipoDocumentoOtro = datos.TipoDocumentoOtro;
+                donante.Identificacion = datos.Identificacion;
 
                 // Estado y FechaRegistro no se tocan: el primero se mueve por
                 // Activar/Desactivar y el segundo es histórico. El repositorio

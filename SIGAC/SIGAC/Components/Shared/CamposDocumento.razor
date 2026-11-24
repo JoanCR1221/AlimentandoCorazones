@@ -1,0 +1,227 @@
+@using SIGAC.Application.Interfaces
+@using SIGAC.Domain
+@implements IDisposable
+@inject IConsultaContribuyentes ConsultaContribuyentes
+@* Tipo de documento, "¿cómo se llama?" (solo "Otro"), número de identidad y la
+   consulta a Hacienda. Lo comparten los formularios de beneficiarios, donantes y
+   arrendatarios para que los tres pidan y validen el documento igual.
+
+   Va PRIMERO en el formulario, antes del nombre: con "Cédula nacional" (9 dígitos) o
+   "Cédula jurídica" (10) completos se consulta Hacienda y se rellena el nombre. Los
+   demás tipos (DIMEX, pasaporte, otro, sin documento) no se consultan: sirven para
+   personas y empresas extranjeras, que no están en ese servicio.
+
+   Lo que pasa con el número al cambiar el tipo lo decide cada pantalla (al registrar
+   se limpia siempre, al editar se conserva si sigue siendo válido): por eso el
+   cambio de tipo sube a AlCambiarTipoDocumento, que tiene que asignar el valor.
+
+   Qué hacer con el nombre de Hacienda también depende del formulario: el de
+   beneficiarios lo reparte en cuatro campos (AplicarNombre) y los demás tienen un
+   solo campo de nombre (Nombre / NombreChanged). *@
+
+@* Lista cerrada: la fuente es SIGAC.Domain.TiposDocumento, no la pantalla. *@
+<MudSelect T="string" Value="TipoDocumento" ValueChanged="OnTipoDocumentoCambiado" Label="Tipo de documento" Variant="Variant.Outlined">
+    @foreach (var tipo in Tipos)
+    {
+        <MudSelectItem T="string" Value="@tipo">@tipo</MudSelectItem>
+    }
+</MudSelect>
+
+@* "Otro" pide además cómo se llama el documento. *@
+@if (TiposDocumento.RequiereNombreDelDocumento(TipoDocumento))
+{
+    <MudTextField T="string" Value="TipoDocumentoOtro" ValueChanged="TipoDocumentoOtroChanged"
+                  Label="¿Cómo se llama el documento?" Variant="Variant.Outlined" Class="mt-4"
+                  MaxLength="ReglasBeneficiario.LongitudMaximaTipoDocumentoOtro" />
+}
+
+@* "Sin documento" no pide número: el campo se oculta.
+   MaxLength, teclado y ayuda salen de ReglasBeneficiario según el tipo
+   elegido, que es la misma fuente que usa el validador. Sin atributo
+   pattern: el navegador bloqueaba el envío con su propio globo, y el
+   filtro de OnNumIdentidadCambiado ya descarta lo que no corresponde. *@
+@if (TiposDocumento.RequiereNumIdentidad(TipoDocumento))
+{
+    <MudTextField T="string" Value="NumIdentidad" ValueChanged="OnNumIdentidadCambiado" Immediate="true"
+                  Label="Número de identidad" Variant="Variant.Outlined" Class="mt-4"
+                  MaxLength="ReglasBeneficiario.LongitudMaximaNumIdentidadPara(TipoDocumento)"
+                  InputMode="@ModoEntradaNumIdentidad"
+                  HelperText="@ReglasBeneficiario.DescribirNumIdentidad(TipoDocumento)" />
+}
+
+@* Resultado de la consulta a Hacienda. El contenedor existe siempre y solo cambia
+   su texto: así el lector de pantalla anuncia el aviso cuando aparece. *@
+<div role="status" aria-live="polite">
+    @if (consultando)
+    {
+        <MudText Typo="Typo.caption" Class="mx-3 mt-1 d-block">Consultando en Hacienda…</MudText>
+    }
+    else if (estadoConsulta is not null)
+    {
+        <MudText Typo="Typo.caption" Class="mx-3 mt-1 d-block">@estadoConsulta</MudText>
+    }
+</div>
+
+@code {
+    // Qué tipos se ofrecen: TiposDocumento.Todos (beneficiarios) o
+    // TiposDocumento.TodosParaOrganizaciones (donantes y arrendatarios).
+    [Parameter, EditorRequired]
+    public IReadOnlyList<string> Tipos { get; set; } = default!;
+
+    [Parameter]
+    public string? TipoDocumento { get; set; }
+
+    // La pantalla decide qué pasa con el número y el nombre del documento al
+    // cambiar el tipo; tiene que asignar el tipo nuevo.
+    [Parameter, EditorRequired]
+    public EventCallback<string?> AlCambiarTipoDocumento { get; set; }
+
+    [Parameter]
+    public string? TipoDocumentoOtro { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> TipoDocumentoOtroChanged { get; set; }
+
+    [Parameter]
+    public string? NumIdentidad { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> NumIdentidadChanged { get; set; }
+
+    // Formularios con un solo campo de nombre (donantes, arrendatarios): el nombre
+    // de Hacienda se escribe ahí solo si está vacío.
+    [Parameter]
+    public string? Nombre { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> NombreChanged { get; set; }
+
+    // Formularios que reparten el nombre de otra forma (beneficiarios): recibe el
+    // nombre de Hacienda y el tipo de documento, aplica lo que corresponda y
+    // devuelve el aviso para la persona. Tiene prioridad sobre Nombre.
+    [Parameter]
+    public Func<string, string, string>? AplicarNombre { get; set; }
+
+    // El objeto que se está editando. Si cambia (tras guardar se limpia el
+    // formulario, o termina de cargar el registro a editar), lo pendiente de la
+    // consulta anterior ya no aplica.
+    [Parameter]
+    public object? Origen { get; set; }
+
+    private CancellationTokenSource? consultaActual;
+    private bool consultando;
+    private string? estadoConsulta;
+    private object? origenVisto;
+
+    // Teclado numérico en móvil para los tipos que solo admiten dígitos.
+    private InputMode ModoEntradaNumIdentidad =>
+        ReglasBeneficiario.NumIdentidadEsSoloDigitos(TipoDocumento) ? InputMode.numeric : InputMode.text;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(origenVisto, Origen))
+            return;
+
+        origenVisto = Origen;
+        ReiniciarConsulta();
+    }
+
+    private void ReiniciarConsulta()
+    {
+        consultaActual?.Cancel();
+        consultaActual?.Dispose();
+        consultaActual = null;
+        consultando = false;
+        estadoConsulta = null;
+    }
+
+    private async Task OnTipoDocumentoCambiado(string? valor)
+    {
+        // Lo consultado era para el documento anterior.
+        ReiniciarConsulta();
+        await AlCambiarTipoDocumento.InvokeAsync(valor);
+    }
+
+    // Descarta lo que no corresponde al tipo mientras se escribe. Es comodidad: el
+    // validador del servidor vuelve a comprobar el valor completo igual que antes.
+    private async Task OnNumIdentidadCambiado(string? valor)
+    {
+        var tipo = TipoDocumento;
+        var filtrado = ReglasBeneficiario.FiltrarNumIdentidad(tipo, valor);
+        await NumIdentidadChanged.InvokeAsync(filtrado.Length == 0 ? null : filtrado);
+
+        // Cada cambio descarta la consulta anterior: su respuesta ya no es de este número.
+        ReiniciarConsulta();
+
+        // Solo cédula nacional y jurídica, y solo con todos los dígitos: el resto de
+        // los documentos no están en este servicio de Hacienda.
+        if (TiposDocumento.SeConsultaEnHacienda(tipo)
+            && ReglasBeneficiario.TieneFormatoNumIdentidad(tipo, filtrado))
+        {
+            await CompletarDesdeHaciendaAsync(tipo!, filtrado);
+        }
+    }
+
+    private async Task CompletarDesdeHaciendaAsync(string tipo, string cedula)
+    {
+        var origen = consultaActual = new CancellationTokenSource();
+        consultando = true;
+
+        ResultadoConsultaContribuyente resultado;
+
+        try
+        {
+            resultado = await ConsultaContribuyentes.ConsultarCedulaAsync(cedula, origen.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        // Si cambió el número o el tipo mientras tanto, esta respuesta llegó tarde.
+        if (!ReferenceEquals(origen, consultaActual))
+            return;
+
+        consultaActual = null;
+        origen.Dispose();
+        consultando = false;
+
+        estadoConsulta = resultado.Estado switch
+        {
+            EstadoConsultaContribuyente.Encontrado => await AplicarAsync(resultado.NombreCompleto!, tipo),
+            EstadoConsultaContribuyente.NoEncontrado =>
+                "Hacienda no tiene datos de esta cédula. Escriba el nombre a mano.",
+            _ => "No se pudo consultar Hacienda en este momento. Escriba el nombre a mano."
+        };
+    }
+
+    private async Task<string> AplicarAsync(string nombreHacienda, string tipo)
+    {
+        if (AplicarNombre is not null)
+            return AplicarNombre(nombreHacienda, tipo);
+
+        // Un solo campo de nombre. Solo se rellena si está vacío: lo que la persona ya
+        // escribió no se le pisa; se le muestra lo que dice Hacienda y decide ella.
+        if (!NombreChanged.HasDelegate)
+            return $"Hacienda registra esta cédula a nombre de {nombreHacienda}.";
+
+        if (!string.IsNullOrWhiteSpace(Nombre))
+            return $"Hacienda registra esta cédula a nombre de {nombreHacienda}. No se cambió el nombre que ya escribió.";
+
+        // La razón social de una jurídica ("S.A.") se deja como la entrega Hacienda;
+        // el nombre de una persona, en mayúsculas, se pasa a "Ana Rojas Mora".
+        var nombre = tipo == TiposDocumento.CedulaJuridica
+            ? nombreHacienda
+            : DivisorNombreCompleto.FormatearNombre(nombreHacienda);
+
+        await NombreChanged.InvokeAsync(nombre);
+
+        return $"Nombre completado con los datos de Hacienda ({nombreHacienda}). Verifíquelo antes de guardar.";
+    }
+
+    public void Dispose()
+    {
+        consultaActual?.Cancel();
+        consultaActual?.Dispose();
+    }
+}

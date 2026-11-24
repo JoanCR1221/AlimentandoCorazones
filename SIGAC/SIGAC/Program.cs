@@ -8,6 +8,7 @@ using SIGAC.Application.Interfaces;
 using SIGAC.Application.Services;
 using SIGAC.Domain;
 using SIGAC.Infrastructure.Data;
+using SIGAC.Infrastructure.Hacienda;
 using SIGAC.Infrastructure.Identity;
 using SIGAC.Infrastructure.Reportes;
 using SIGAC.Infrastructure.Repositories;
@@ -132,6 +133,20 @@ builder.Services.AddAuthorization(options =>
 // Servicios del módulo de Beneficiarios y Asistencia
 builder.Services.AddScoped<IBeneficiariosService, BeneficiariosService>();
 builder.Services.AddScoped<IAsistenciaService, AsistenciaService>();
+
+// Consulta del nombre por cédula nacional en el servicio público de Hacienda
+// (formulario de beneficiarios). Es solo una ayuda: si no responde, se escribe a
+// mano. Tiempo máximo corto para que la pantalla no quede esperando.
+builder.Services.AddHttpClient<IConsultaContribuyentes, ConsultaContribuyentesHacienda>(cliente =>
+{
+    cliente.BaseAddress = new Uri("https://api.hacienda.go.cr/");
+    cliente.Timeout = TimeSpan.FromSeconds(8);
+})
+.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+{
+    // Hacienda responde comprimido aunque no se le pida.
+    AutomaticDecompression = System.Net.DecompressionMethods.All
+});
 
 // Servicio del módulo de Control de Inventario
 builder.Services.AddScoped<IInventarioService, InventarioService>();

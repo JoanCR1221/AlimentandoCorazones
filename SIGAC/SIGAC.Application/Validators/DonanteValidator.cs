@@ -12,7 +12,10 @@ namespace SIGAC.Application.Validators
         string TipoPersona,
         string? CodigoPaisTelefono,
         string? Telefono,
-        string? Correo);
+        string? Correo,
+        string TipoDocumento,
+        string? TipoDocumentoOtro,
+        string? Identificacion);
 
     // Toda la normalización y validación de entrada del donante, centralizada por
     // el mismo motivo que ArticuloValidator: el nombre se compara contra los
@@ -40,19 +43,23 @@ namespace SIGAC.Application.Validators
         public const int LongitudMaximaCorreo = 150;
 
         public static DonanteValidado Validar(DonanteCrearDto dto) =>
-            Validar(dto.Nombre, dto.TipoPersona, dto.CodigoPaisTelefono, dto.Telefono, dto.Correo);
+            Validar(dto.Nombre, dto.TipoPersona, dto.CodigoPaisTelefono, dto.Telefono, dto.Correo,
+                dto.TipoDocumento, dto.TipoDocumentoOtro, dto.Identificacion);
 
         public static DonanteValidado Validar(DonanteEditarDto dto) =>
-            Validar(dto.Nombre, dto.TipoPersona, dto.CodigoPaisTelefono, dto.Telefono, dto.Correo);
+            Validar(dto.Nombre, dto.TipoPersona, dto.CodigoPaisTelefono, dto.Telefono, dto.Correo,
+                dto.TipoDocumento, dto.TipoDocumentoOtro, dto.Identificacion);
 
         // Sobrecarga para el donante que se registra sin salir del formulario de
         // donación: son los mismos campos y la misma regla, así que se valida con
-        // el mismo código y no con una copia paralela que pueda divergir.
+        // el mismo código y no con una copia paralela que pueda divergir. Sin
+        // documento: ese formulario no lo pide, y el donante queda "Sin documento".
         public static DonanteValidado Validar(NuevoDonanteDto dto) =>
             Validar(dto.Nombre, dto.TipoPersona, dto.CodigoPaisTelefono, dto.Telefono, dto.Correo);
 
         public static DonanteValidado Validar(
-            string? nombre, string? tipoPersona, string? codigoPaisTelefono, string? telefono, string? correo)
+            string? nombre, string? tipoPersona, string? codigoPaisTelefono, string? telefono, string? correo,
+            string? tipoDocumento = null, string? tipoDocumentoOtro = null, string? identificacion = null)
         {
             var nombreValidado = ValidarNombre(nombre);
             var tipoPersonaValidado = ValidarTipoPersona(tipoPersona);
@@ -61,12 +68,18 @@ namespace SIGAC.Application.Validators
             // Opcional: sin número se guardan los dos campos en NULL.
             var telefonoValidado = TelefonoValidator.Validar(codigoPaisTelefono, telefono);
 
+            // Opcional: sin tipo ni número queda "Sin documento".
+            var documento = DocumentoOrganizacionValidator.Validar(tipoDocumento, tipoDocumentoOtro, identificacion);
+
             return new(
                 nombreValidado,
                 tipoPersonaValidado,
                 telefonoValidado.CodigoPais,
                 telefonoValidado.Numero,
-                ValidarCorreo(correo));
+                ValidarCorreo(correo),
+                documento.TipoDocumento,
+                documento.TipoDocumentoOtro,
+                documento.Identificacion);
         }
 
         // Devuelve el nombre tal como se guarda: sin espacios en los extremos ni

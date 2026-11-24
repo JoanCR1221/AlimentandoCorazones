@@ -17,7 +17,16 @@
 
     <MudCard Class="pa-4">
         <MudCardContent>
-            <MudTextField @bind-Value="modelo.Nombre" For="@(() => modelo.Nombre)" Label="Nombre" Variant="Variant.Outlined"
+            @* El documento va primero: con cédula nacional o jurídica completa se
+               consulta Hacienda y se rellena el nombre. Opcional ("Sin documento"):
+               hay donaciones anónimas y donantes extranjeros (pasaporte, DIMEX u otro). *@
+            <CamposDocumento Tipos="TiposDocumento.TodosParaOrganizaciones" Origen="modelo"
+                             TipoDocumento="@modelo.TipoDocumento" AlCambiarTipoDocumento="OnTipoDocumentoCambiado"
+                             @bind-TipoDocumentoOtro="modelo.TipoDocumentoOtro"
+                             @bind-NumIdentidad="modelo.Identificacion"
+                             @bind-Nombre="modelo.Nombre" />
+
+            <MudTextField @bind-Value="modelo.Nombre" For="@(() => modelo.Nombre)" Label="Nombre" Variant="Variant.Outlined" Class="mt-4"
                           HelperText="Persona física o razón social." />
 
             @* Lista cerrada: la fuente es SIGAC.Domain.TiposPersonaDonante, no la pantalla. *@
@@ -46,6 +55,25 @@
     private bool guardando;
 
     private DonanteCrearDto modelo = new();
+
+    private void OnTipoDocumentoCambiado(string? valor)
+    {
+        modelo.TipoDocumento = valor ?? TiposDocumento.SinDocumento;
+
+        // El tipo de persona sale del documento (cédula jurídica = Jurídica, el resto
+        // de los documentos de personas = Física); con "Otro" o "Sin documento" queda
+        // lo que ya estaba. Sigue siendo editable.
+        var persona = TiposDocumento.TipoPersonaSugerido(valor);
+        if (persona is not null)
+            modelo.TipoPersona = persona;
+
+        // Al registrar el número se limpia SIEMPRE al cambiar de tipo (mismo criterio
+        // que RegistrarBeneficiario); en la edición la regla es la contraria.
+        modelo.Identificacion = null;
+
+        if (!TiposDocumento.RequiereNombreDelDocumento(valor))
+            modelo.TipoDocumentoOtro = null;
+    }
 
     private async Task Guardar()
     {

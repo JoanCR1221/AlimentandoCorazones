@@ -25,6 +25,15 @@ namespace SIGAC.Domain.Entities
         // entre sí, igual que NumIdentidad en Beneficiario.
         public string? Identificacion { get; set; }
 
+        // Qué documento es la Identificacion. Valor de
+        // TiposDocumento.TodosParaOrganizaciones; "Sin documento" cuando no hay
+        // identificación. Los arrendatarios anteriores a este campo se completaron al
+        // migrar según el largo de su número.
+        public string TipoDocumento { get; set; } = TiposDocumento.SinDocumento;
+
+        // Solo con TipoDocumento "Otro": cómo se llama el documento.
+        public string? TipoDocumentoOtro { get; set; }
+
         // Teléfono obligatorio, a diferencia de Donante: para confirmar, mover o
         // cancelar una reserva hay que poder ubicar al arrendatario. El correo sigue
         // siendo opcional. Código de país en columna aparte (ver ReglasTelefono).

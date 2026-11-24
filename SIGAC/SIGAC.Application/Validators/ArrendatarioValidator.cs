@@ -10,6 +10,8 @@ namespace SIGAC.Application.Validators
     public sealed record ArrendatarioValidado(
         string Nombre,
         string TipoPersona,
+        string TipoDocumento,
+        string? TipoDocumentoOtro,
         string? Identificacion,
         string CodigoPaisTelefono,
         string Telefono,
@@ -31,7 +33,11 @@ namespace SIGAC.Application.Validators
         {
             var nombre = ValidarNombre(dto.Nombre);
             var tipoPersona = DonanteValidator.ValidarTipoPersona(dto.TipoPersona);
-            var identificacion = NormalizarIdentificacion(dto.Identificacion);
+
+            // El documento es opcional ("Sin documento"); si se da, se valida según su
+            // tipo. Mismo validador que Donantes (DocumentoOrganizacionValidator).
+            var documento = DocumentoOrganizacionValidator.Validar(
+                dto.TipoDocumento, dto.TipoDocumentoOtro, dto.Identificacion);
 
             // Misma regla de formato que Beneficiario y Donante, pero obligatorio: sin
             // número, TelefonoValidator devuelve los dos campos en null.
@@ -43,7 +49,9 @@ namespace SIGAC.Application.Validators
             return new ArrendatarioValidado(
                 nombre,
                 tipoPersona,
-                identificacion,
+                documento.TipoDocumento,
+                documento.TipoDocumentoOtro,
+                documento.Identificacion,
                 telefono.CodigoPais!,
                 telefono.Numero,
                 DonanteValidator.ValidarCorreo(dto.Correo));

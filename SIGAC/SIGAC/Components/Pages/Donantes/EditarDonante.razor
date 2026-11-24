@@ -18,7 +18,15 @@
 
     <MudCard Class="pa-4">
         <MudCardContent>
-            <MudTextField @bind-Value="modelo.Nombre" For="@(() => modelo.Nombre)" Label="Nombre" Variant="Variant.Outlined" />
+            @* Mismo bloque que al registrar: el documento va primero y, con cédula
+               nacional o jurídica completa, consulta Hacienda. *@
+            <CamposDocumento Tipos="TiposDocumento.TodosParaOrganizaciones" Origen="modelo"
+                             TipoDocumento="@modelo.TipoDocumento" AlCambiarTipoDocumento="OnTipoDocumentoCambiado"
+                             @bind-TipoDocumentoOtro="modelo.TipoDocumentoOtro"
+                             @bind-NumIdentidad="modelo.Identificacion"
+                             @bind-Nombre="modelo.Nombre" />
+
+            <MudTextField @bind-Value="modelo.Nombre" For="@(() => modelo.Nombre)" Label="Nombre" Variant="Variant.Outlined" Class="mt-4" />
 
             <MudSelect @bind-Value="modelo.TipoPersona" For="@(() => modelo.TipoPersona)" Label="Tipo de persona" Variant="Variant.Outlined" Class="mt-4">
                 @foreach (var tipo in TiposPersonaDonante.Todos)
@@ -49,6 +57,55 @@
 
     private DonanteEditarDto modelo = new();
 
+    // Documento con el que se abrió la pantalla. Sirve para devolver el número y el
+    // nombre del documento si el usuario pasa por otro tipo y vuelve al original.
+    private string? tipoDocumentoOriginal;
+    private string? identificacionOriginal;
+    private string? tipoDocumentoOtroOriginal;
+
+    private void OnTipoDocumentoCambiado(string? valor)
+    {
+        modelo.TipoDocumento = valor ?? TiposDocumento.SinDocumento;
+
+        // El tipo de persona sale del documento (cédula jurídica = Jurídica, el resto
+        // de los documentos de personas = Física); con "Otro" o "Sin documento" queda
+        // lo que ya estaba. Sigue siendo editable. Solo se mueve cuando la persona
+        // cambia el tipo, no al abrir la pantalla con un donante ya guardado.
+        var persona = TiposDocumento.TipoPersonaSugerido(valor);
+        if (persona is not null)
+            modelo.TipoPersona = persona;
+
+        // Al editar el número se conserva mientras siga siendo válido: acá hay un dato
+        // real cargado y un clic accidental en el desplegable no debe hacérselo perder
+        // (mismo criterio que EditarBeneficiario).
+        if (!TiposDocumento.RequiereNumIdentidad(valor))
+        {
+            modelo.Identificacion = null;
+        }
+        else if (string.IsNullOrEmpty(modelo.Identificacion) && valor == tipoDocumentoOriginal)
+        {
+            // Se volvió al tipo con el que se abrió y el número estaba limpio: se
+            // recupera el que ya estaba guardado.
+            modelo.Identificacion = identificacionOriginal;
+        }
+        else if (!string.IsNullOrEmpty(modelo.Identificacion) &&
+                 !ReglasBeneficiario.TieneFormatoNumIdentidad(valor, modelo.Identificacion))
+        {
+            // Lo escrito no sirve para el tipo nuevo (una cédula de 9 dígitos al pasar a
+            // jurídica): se limpia en vez de dejar un valor inválido.
+            modelo.Identificacion = null;
+        }
+
+        if (!TiposDocumento.RequiereNombreDelDocumento(valor))
+        {
+            modelo.TipoDocumentoOtro = null;
+        }
+        else if (string.IsNullOrWhiteSpace(modelo.TipoDocumentoOtro) && valor == tipoDocumentoOriginal)
+        {
+            modelo.TipoDocumentoOtro = tipoDocumentoOtroOriginal;
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         var datos = await DonantesService.ObtenerParaEditarAsync(Id);
@@ -59,6 +116,9 @@
         }
 
         modelo = datos;
+        tipoDocumentoOriginal = datos.TipoDocumento;
+        identificacionOriginal = datos.Identificacion;
+        tipoDocumentoOtroOriginal = datos.TipoDocumentoOtro;
     }
 
     private async Task Guardar()

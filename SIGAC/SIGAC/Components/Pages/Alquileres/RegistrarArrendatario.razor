@@ -19,7 +19,17 @@
 
     <MudCard Class="pa-4">
         <MudCardContent>
-            <MudTextField @bind-Value="modelo.Nombre" For="@(() => modelo.Nombre)" Label="Nombre" Variant="Variant.Outlined"
+            @* El documento va primero: con cédula nacional o jurídica completa se
+               consulta Hacienda y se rellena el nombre. Opcional ("Sin documento"); si
+               se indica, no puede repetirse. Admite documentos extranjeros
+               (pasaporte, DIMEX u otro). *@
+            <CamposDocumento Tipos="TiposDocumento.TodosParaOrganizaciones" Origen="modelo"
+                             TipoDocumento="@modelo.TipoDocumento" AlCambiarTipoDocumento="OnTipoDocumentoCambiado"
+                             @bind-TipoDocumentoOtro="modelo.TipoDocumentoOtro"
+                             @bind-NumIdentidad="modelo.Identificacion"
+                             @bind-Nombre="modelo.Nombre" />
+
+            <MudTextField @bind-Value="modelo.Nombre" For="@(() => modelo.Nombre)" Label="Nombre" Variant="Variant.Outlined" Class="mt-4"
                           MaxLength="ArrendatarioValidator.LongitudMaximaNombre"
                           HelperText="Persona física, razón social o nombre del grupo." />
 
@@ -30,10 +40,6 @@
                     <MudSelectItem T="string" Value="@tipo">@tipo</MudSelectItem>
                 }
             </MudSelect>
-
-            <MudTextField @bind-Value="modelo.Identificacion" For="@(() => modelo.Identificacion)" Label="Identificación (opcional)" Variant="Variant.Outlined" Class="mt-4"
-                          MaxLength="ArrendatarioValidator.LongitudMaximaIdentificacion"
-                          HelperText="Cédula física o jurídica. Si se indica, no puede repetirse. Los guiones y espacios se ignoran." />
 
             <PhoneInput @bind-Value="modelo.Telefono" @bind-CodigoPais="modelo.CodigoPaisTelefono" Label="Teléfono" Class="mt-4" />
             <MudTextField @bind-Value="modelo.Correo" For="@(() => modelo.Correo)" Label="Correo (opcional)" Variant="Variant.Outlined" Class="mt-4" />
@@ -53,6 +59,26 @@
     private bool guardando;
 
     private ArrendatarioCrearDto modelo = new();
+
+    private void OnTipoDocumentoCambiado(string? valor)
+    {
+        modelo.TipoDocumento = valor ?? TiposDocumento.SinDocumento;
+
+        // El tipo de persona sale del documento (cédula jurídica = Jurídica, el resto
+        // de los documentos de personas = Física); con "Otro" o "Sin documento" queda
+        // lo que ya estaba. Sigue siendo editable.
+        var persona = TiposDocumento.TipoPersonaSugerido(valor);
+        if (persona is not null)
+            modelo.TipoPersona = persona;
+
+        // Al registrar el número se limpia SIEMPRE al cambiar de tipo: nadie tiene el
+        // mismo número en dos documentos distintos, y conservarlo solo invita a
+        // guardarlo bajo el tipo equivocado (mismo criterio que RegistrarBeneficiario).
+        modelo.Identificacion = null;
+
+        if (!TiposDocumento.RequiereNombreDelDocumento(valor))
+            modelo.TipoDocumentoOtro = null;
+    }
 
     private async Task Guardar()
     {

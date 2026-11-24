@@ -46,6 +46,9 @@ namespace SIGAC.Tests.Domain
         [InlineData(TiposDocumento.CedulaNacional, "123456789", true)]
         [InlineData(TiposDocumento.CedulaNacional, "12345678", false)]
         [InlineData(TiposDocumento.CedulaNacional, "1-2345-6789", false)]
+        [InlineData(TiposDocumento.CedulaJuridica, "3101123456", true)]
+        [InlineData(TiposDocumento.CedulaJuridica, "310112345", false)]   // 9 dígitos es de persona física
+        [InlineData(TiposDocumento.CedulaJuridica, "3-101-123456", false)]
         [InlineData(TiposDocumento.Dimex, "12345678901", true)]
         [InlineData(TiposDocumento.Dimex, "123456789012", true)]
         [InlineData(TiposDocumento.Dimex, "1234567890", false)]
@@ -64,6 +67,7 @@ namespace SIGAC.Tests.Domain
 
         [Theory]
         [InlineData(TiposDocumento.CedulaNacional, "1-2345-6789-0", "123456789")]
+        [InlineData(TiposDocumento.CedulaJuridica, "3-101-123456-7", "3101123456")]
         [InlineData(TiposDocumento.Pasaporte, "AB-12 #3", "AB-123")]
         [InlineData(TiposDocumento.Otro, "", "")]
         public void Filtrar_num_identidad(string tipo, string valor, string esperado)

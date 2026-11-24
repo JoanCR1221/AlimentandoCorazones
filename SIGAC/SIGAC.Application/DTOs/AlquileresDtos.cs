@@ -14,6 +14,12 @@ namespace SIGAC.Application.DTOs.Alquileres
     // quedar con topes distintos.
     public class ArrendatarioCrearDto
     {
+        // Qué documento es la Identificacion. "Sin documento" cuando no la da.
+        public string TipoDocumento { get; set; } = TiposDocumento.SinDocumento;
+
+        [StringLength(ReglasBeneficiario.LongitudMaximaTipoDocumentoOtro, ErrorMessage = "El nombre del documento no puede superar los {1} caracteres.")]
+        public string? TipoDocumentoOtro { get; set; }
+
         [Required(ErrorMessage = "El nombre es obligatorio.")]
         [StringLength(ArrendatarioValidator.LongitudMaximaNombre, ErrorMessage = "El nombre no puede superar los {1} caracteres.")]
         public string Nombre { get; set; } = string.Empty;
@@ -21,7 +27,8 @@ namespace SIGAC.Application.DTOs.Alquileres
         [Required(ErrorMessage = "El tipo de persona es obligatorio.")]
         public string TipoPersona { get; set; } = string.Empty;
 
-        // Opcional; si viene, no puede repetirse (UX_Arrendatarios_Identificacion).
+        // Opcional ("Sin documento"); si viene, no puede repetirse
+        // (UX_Arrendatarios_Identificacion).
         [StringLength(ArrendatarioValidator.LongitudMaximaIdentificacion, ErrorMessage = "La identificación no puede superar los {1} caracteres.")]
         public string? Identificacion { get; set; }
 

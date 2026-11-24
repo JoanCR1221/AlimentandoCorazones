@@ -15,6 +15,7 @@ namespace SIGAC.Domain
         // Documentos de identidad. La cédula nacional y el DIMEX son puramente
         // numéricos y de longitud fija; el pasaporte y "Otro" son alfanuméricos.
         public const int DigitosCedulaNacional = 9;
+        public const int DigitosCedulaJuridica = 10;
         public const int DigitosMinimosDimex = 11;
         public const int DigitosMaximosDimex = 12;
         public const int LongitudMaximaNumIdentidad = 30;
@@ -66,6 +67,11 @@ namespace SIGAC.Domain
         public static bool TieneFormatoCedulaNacional(string? valor) =>
             TieneSoloDigitos(valor) && valor!.Length == DigitosCedulaNacional;
 
+        // Solo la usan donantes y arrendatarios (los beneficiarios no tienen cédula
+        // jurídica), pero vive acá con el resto de las reglas del número.
+        public static bool TieneFormatoCedulaJuridica(string? valor) =>
+            TieneSoloDigitos(valor) && valor!.Length == DigitosCedulaJuridica;
+
         public static bool TieneFormatoDimex(string? valor) =>
             TieneSoloDigitos(valor)
             && valor!.Length >= DigitosMinimosDimex
@@ -83,13 +89,14 @@ namespace SIGAC.Domain
         public static int LongitudMaximaNumIdentidadPara(string? tipoDocumento) => tipoDocumento switch
         {
             TiposDocumento.CedulaNacional => DigitosCedulaNacional,
+            TiposDocumento.CedulaJuridica => DigitosCedulaJuridica,
             TiposDocumento.Dimex => DigitosMaximosDimex,
             _ => LongitudMaximaNumIdentidad
         };
 
         // Cédula y DIMEX son puramente numéricos; pasaporte y "Otro", alfanuméricos.
         public static bool NumIdentidadEsSoloDigitos(string? tipoDocumento) =>
-            tipoDocumento is TiposDocumento.CedulaNacional or TiposDocumento.Dimex;
+            tipoDocumento is TiposDocumento.CedulaNacional or TiposDocumento.CedulaJuridica or TiposDocumento.Dimex;
 
         // Qué se espera del número. Lo muestra la pantalla como ayuda y lo usa el
         // validador en el mensaje de error: un solo texto para las dos cosas.
@@ -97,6 +104,8 @@ namespace SIGAC.Domain
         {
             TiposDocumento.CedulaNacional =>
                 $"{DigitosCedulaNacional} dígitos numéricos, sin guiones ni otros símbolos.",
+            TiposDocumento.CedulaJuridica =>
+                $"{DigitosCedulaJuridica} dígitos numéricos, sin guiones ni otros símbolos.",
             TiposDocumento.Dimex =>
                 $"{DigitosMinimosDimex} o {DigitosMaximosDimex} dígitos numéricos, sin guiones ni otros símbolos.",
             TiposDocumento.Pasaporte =>
@@ -112,6 +121,7 @@ namespace SIGAC.Domain
         public static bool TieneFormatoNumIdentidad(string? tipoDocumento, string? numero) => tipoDocumento switch
         {
             TiposDocumento.CedulaNacional => TieneFormatoCedulaNacional(numero),
+            TiposDocumento.CedulaJuridica => TieneFormatoCedulaJuridica(numero),
             TiposDocumento.Dimex => TieneFormatoDimex(numero),
             // El pasaporte es de longitud variable según el país emisor, pero con
             // los mismos caracteres que "Otro": es lo que filtra la pantalla y lo

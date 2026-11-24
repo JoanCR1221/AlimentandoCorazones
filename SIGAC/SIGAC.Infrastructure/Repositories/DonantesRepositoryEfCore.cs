@@ -71,6 +71,9 @@ namespace SIGAC.Infrastructure.Repositories
             existente.CodigoPaisTelefono = donante.CodigoPaisTelefono;
             existente.Telefono = donante.Telefono;
             existente.Correo = donante.Correo;
+            existente.TipoDocumento = donante.TipoDocumento;
+            existente.TipoDocumentoOtro = donante.TipoDocumentoOtro;
+            existente.Identificacion = donante.Identificacion;
 
             await context.SaveChangesAsync();
         }

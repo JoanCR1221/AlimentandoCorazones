@@ -720,6 +720,23 @@ namespace SIGAC.Infrastructure.Data
                     .IsUnicode(false)
                     .HasMaxLength(150);
 
+                // Documento opcional. DEFAULT 'Sin documento': los donantes de antes de
+                // este campo y los que se crean sin documento (donación anónima).
+                // Mismas longitudes que Beneficiario. Sin índice único: ver Donante.
+                entity.Property(d => d.TipoDocumento)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(50)
+                    .HasDefaultValue(TiposDocumento.SinDocumento);
+
+                entity.Property(d => d.TipoDocumentoOtro)
+                    .IsUnicode(false)
+                    .HasMaxLength(ReglasBeneficiario.LongitudMaximaTipoDocumentoOtro);
+
+                entity.Property(d => d.Identificacion)
+                    .IsUnicode(false)
+                    .HasMaxLength(ReglasBeneficiario.LongitudMaximaNumIdentidad);
+
                 entity.Property(d => d.Estado)
                     .IsRequired();
 
@@ -1387,6 +1404,18 @@ namespace SIGAC.Infrastructure.Data
                 entity.Property(a => a.Identificacion)
                     .IsUnicode(false)
                     .HasMaxLength(30);
+
+                // Qué documento es la Identificacion. DEFAULT 'Sin documento'; los
+                // arrendatarios anteriores a esta columna se completaron al migrar.
+                entity.Property(a => a.TipoDocumento)
+                    .IsRequired()
+                    .IsUnicode(false)
+                    .HasMaxLength(50)
+                    .HasDefaultValue(TiposDocumento.SinDocumento);
+
+                entity.Property(a => a.TipoDocumentoOtro)
+                    .IsUnicode(false)
+                    .HasMaxLength(ReglasBeneficiario.LongitudMaximaTipoDocumentoOtro);
 
                 // Obligatorios, a diferencia de Donantes (ver Arrendatario).
                 entity.Property(a => a.CodigoPaisTelefono)

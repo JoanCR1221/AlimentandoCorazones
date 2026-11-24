@@ -46,6 +46,8 @@ namespace SIGAC.Application.Services
                 {
                     Nombre = datos.Nombre,
                     TipoPersona = datos.TipoPersona,
+                    TipoDocumento = datos.TipoDocumento,
+                    TipoDocumentoOtro = datos.TipoDocumentoOtro,
                     Identificacion = datos.Identificacion,
                     CodigoPaisTelefono = datos.CodigoPaisTelefono,
                     Telefono = datos.Telefono,

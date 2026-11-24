@@ -24,6 +24,23 @@ namespace SIGAC.Domain.Entities
         public string? Telefono { get; set; }
         public string? Correo { get; set; }
 
+        // Documento del donante, opcional como el resto de los datos de contacto:
+        // las donaciones anónimas o de paso no lo tienen ("Sin documento", que es lo
+        // que quedó en los donantes anteriores a este campo). Valor de
+        // TiposDocumento.TodosParaOrganizaciones; un donante puede ser una empresa,
+        // por eso incluye la cédula jurídica.
+        //
+        // NO es único, a diferencia de Arrendatario.Identificacion: la regla de que
+        // dos donantes homónimos son dos donantes (ver IX_Donantes_Nombre) no se
+        // cambió, y bloquear por documento es una decisión aparte.
+        public string TipoDocumento { get; set; } = TiposDocumento.SinDocumento;
+
+        // Solo con TipoDocumento "Otro": cómo se llama el documento.
+        public string? TipoDocumentoOtro { get; set; }
+
+        // Número sin espacios ni guiones y en mayúsculas; NULL si no tiene documento.
+        public string? Identificacion { get; set; }
+
         // Baja lógica, mismo patrón que Beneficiario: un donante inactivo deja de
         // aparecer en los desplegables, pero sus donaciones históricas siguen
         // apuntando a él y el historial no se rompe.

@@ -492,6 +492,9 @@ namespace SIGAC.Application.Services
                     CodigoPaisTelefono = datos.CodigoPaisTelefono,
                     Telefono = datos.Telefono,
                     Correo = datos.Correo,
+                    TipoDocumento = datos.TipoDocumento,
+                    TipoDocumentoOtro = datos.TipoDocumentoOtro,
+                    Identificacion = datos.Identificacion,
                     Estado = true,
                     FechaRegistro = DateTime.Now
                 });

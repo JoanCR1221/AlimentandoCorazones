@@ -8,9 +8,20 @@
    Lo único que cambia entre las dos es qué pasa con el número al cambiar el
    tipo de documento (al registrar se limpia siempre, al editar se conserva si
    sigue siendo válido): por eso ese cambio lo resuelve la pantalla, vía
-   AlCambiarTipoDocumento. *@
+   AlCambiarTipoDocumento.
 
-<MudTextField @bind-Value="Modelo.PrimerNombre" For="@(() => Modelo.PrimerNombre)" Label="Primer nombre" Variant="Variant.Outlined"
+   El documento va PRIMERO, antes de los nombres: con "Cédula nacional" y los 9
+   dígitos completos se consulta Hacienda y se rellenan los nombres y apellidos,
+   así que el número tiene que estar antes de lo que completa. Todo eso vive en
+   CamposDocumento, que comparten también donantes y arrendatarios. *@
+
+<CamposDocumento Tipos="TiposDocumento.Todos" Origen="Modelo"
+                 TipoDocumento="@Modelo.TipoDocumento" AlCambiarTipoDocumento="AlCambiarTipoDocumento"
+                 @bind-TipoDocumentoOtro="Modelo.TipoDocumentoOtro"
+                 @bind-NumIdentidad="Modelo.NumIdentidad"
+                 AplicarNombre="AplicarNombre" />
+
+<MudTextField @bind-Value="Modelo.PrimerNombre" For="@(() => Modelo.PrimerNombre)" Label="Primer nombre" Variant="Variant.Outlined" Class="mt-4"
               MaxLength="ReglasBeneficiario.LongitudMaximaNombre" />
 <MudTextField @bind-Value="Modelo.SegundoNombre" Label="Segundo nombre (opcional)" Variant="Variant.Outlined" Class="mt-4"
               MaxLength="ReglasBeneficiario.LongitudMaximaNombre" />
@@ -34,35 +45,6 @@
               MaxLength="ReglasBeneficiario.LongitudMaximaDireccion" Lines="2"
               HelperText="@($"Máximo {ReglasBeneficiario.LongitudMaximaDireccion} caracteres. Ej: Del parque 150 metros suroeste, casa verde.")" />
 
-@* Lista cerrada: la fuente es SIGAC.Domain.TiposDocumento, no la pantalla. *@
-<MudSelect T="string" Value="Modelo.TipoDocumento" ValueChanged="AlCambiarTipoDocumento" Label="Tipo de documento" Variant="Variant.Outlined" Class="mt-4">
-    @foreach (var tipo in TiposDocumento.Todos)
-    {
-        <MudSelectItem T="string" Value="@tipo">@tipo</MudSelectItem>
-    }
-</MudSelect>
-
-@* "Otro" pide además cómo se llama el documento. *@
-@if (TiposDocumento.RequiereNombreDelDocumento(Modelo.TipoDocumento))
-{
-    <MudTextField @bind-Value="Modelo.TipoDocumentoOtro" Label="¿Cómo se llama el documento?" Variant="Variant.Outlined" Class="mt-4"
-                  MaxLength="ReglasBeneficiario.LongitudMaximaTipoDocumentoOtro" />
-}
-
-@* "Sin documento" no pide número: el campo se oculta.
-   MaxLength, teclado y ayuda salen de ReglasBeneficiario según el tipo
-   elegido, que es la misma fuente que usa el validador. Sin atributo
-   pattern: el navegador bloqueaba el envío con su propio globo, y el
-   filtro de OnNumIdentidadCambiado ya descarta lo que no corresponde. *@
-@if (TiposDocumento.RequiereNumIdentidad(Modelo.TipoDocumento))
-{
-    <MudTextField T="string" Value="Modelo.NumIdentidad" ValueChanged="OnNumIdentidadCambiado" Immediate="true"
-                  Label="Número de identidad" Variant="Variant.Outlined" Class="mt-4"
-                  MaxLength="ReglasBeneficiario.LongitudMaximaNumIdentidadPara(Modelo.TipoDocumento)"
-                  InputMode="@ModoEntradaNumIdentidad"
-                  HelperText="@ReglasBeneficiario.DescribirNumIdentidad(Modelo.TipoDocumento)" />
-}
-
 @code {
     [Parameter, EditorRequired]
     public IDatosBeneficiario Modelo { get; set; } = default!;
@@ -78,15 +60,32 @@
         set => Modelo.FechaNacimiento = value ?? default;
     }
 
-    // Teclado numérico en móvil para los tipos que solo admiten dígitos.
-    private InputMode ModoEntradaNumIdentidad =>
-        ReglasBeneficiario.NumIdentidadEsSoloDigitos(Modelo.TipoDocumento) ? InputMode.numeric : InputMode.text;
-
-    // Descarta lo que no corresponde al tipo mientras se escribe. Es comodidad: el
-    // validador del servidor vuelve a comprobar el valor completo igual que antes.
-    private void OnNumIdentidadCambiado(string? valor)
+    // Rellena los cuatro campos solo si están vacíos: si la persona ya escribió algo,
+    // no se le pisa; se le muestra lo que dice Hacienda y decide ella.
+    private string AplicarNombre(string nombreHacienda, string tipoDocumento)
     {
-        var filtrado = ReglasBeneficiario.FiltrarNumIdentidad(Modelo.TipoDocumento, valor);
-        Modelo.NumIdentidad = filtrado.Length == 0 ? null : filtrado;
+        var hayNombresEscritos = !string.IsNullOrWhiteSpace(Modelo.PrimerNombre)
+            || !string.IsNullOrWhiteSpace(Modelo.SegundoNombre)
+            || !string.IsNullOrWhiteSpace(Modelo.PrimerApellido)
+            || !string.IsNullOrWhiteSpace(Modelo.SegundoApellido);
+
+        if (hayNombresEscritos)
+            return $"Hacienda registra esta cédula a nombre de {nombreHacienda}. No se cambió lo que ya escribió.";
+
+        var partes = DivisorNombreCompleto.Dividir(nombreHacienda);
+        if (partes is null)
+            return $"Hacienda registra esta cédula a nombre de {nombreHacienda}. Escriba los nombres y apellidos a mano.";
+
+        Modelo.PrimerNombre = partes.Value.PrimerNombre;
+        Modelo.SegundoNombre = partes.Value.SegundoNombre ?? string.Empty;
+        Modelo.PrimerApellido = partes.Value.PrimerApellido;
+        Modelo.SegundoApellido = partes.Value.SegundoApellido ?? string.Empty;
+
+        // Esto corre desde CamposDocumento (el hijo), que solo se redibuja a sí mismo:
+        // sin avisar acá, los campos de nombre de esta pantalla quedarían mostrando
+        // los valores viejos aunque el modelo ya cambió.
+        StateHasChanged();
+
+        return $"Nombre completado con los datos de Hacienda ({nombreHacienda}). Verifíquelo antes de guardar.";
     }
 }

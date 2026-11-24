@@ -34,6 +34,17 @@ namespace SIGAC.Application.DTOs.Donaciones
 
     public class DonanteCrearDto
     {
+        // Documento, opcional: "Sin documento" cuando el donante no lo da (ver
+        // Donante.TipoDocumento). Un donante puede ser una empresa: ver
+        // TiposDocumento.TodosParaOrganizaciones.
+        public string TipoDocumento { get; set; } = TiposDocumento.SinDocumento;
+
+        [StringLength(ReglasBeneficiario.LongitudMaximaTipoDocumentoOtro, ErrorMessage = "El nombre del documento no puede superar los {1} caracteres.")]
+        public string? TipoDocumentoOtro { get; set; }
+
+        [StringLength(ReglasBeneficiario.LongitudMaximaNumIdentidad, ErrorMessage = "El número de identidad no puede superar los {1} caracteres.")]
+        public string? Identificacion { get; set; }
+
         [Required(ErrorMessage = "El nombre es obligatorio.")]
         [StringLength(LongitudesDonaciones.Nombre, ErrorMessage = "El nombre no puede superar los {1} caracteres.")]
         public string Nombre { get; set; } = string.Empty;
@@ -64,6 +75,17 @@ namespace SIGAC.Application.DTOs.Donaciones
     // arrastre al otro.
     public class DonanteEditarDto
     {
+        // Documento, opcional: "Sin documento" cuando el donante no lo da (ver
+        // Donante.TipoDocumento). Un donante puede ser una empresa: ver
+        // TiposDocumento.TodosParaOrganizaciones.
+        public string TipoDocumento { get; set; } = TiposDocumento.SinDocumento;
+
+        [StringLength(ReglasBeneficiario.LongitudMaximaTipoDocumentoOtro, ErrorMessage = "El nombre del documento no puede superar los {1} caracteres.")]
+        public string? TipoDocumentoOtro { get; set; }
+
+        [StringLength(ReglasBeneficiario.LongitudMaximaNumIdentidad, ErrorMessage = "El número de identidad no puede superar los {1} caracteres.")]
+        public string? Identificacion { get; set; }
+
         [Required(ErrorMessage = "El nombre es obligatorio.")]
         [StringLength(LongitudesDonaciones.Nombre, ErrorMessage = "El nombre no puede superar los {1} caracteres.")]
         public string Nombre { get; set; } = string.Empty;
